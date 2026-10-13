@@ -1167,14 +1167,65 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-ctools .wxg-note {
     flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* ⚠️ 真机截图暴露：排序下拉被 flex 撑满整行 */
+.wanxiangge .wxg-ctools select {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 12em;
 }
 
 /* 宽了才铺成表；窄栏（设置区那 340px）自动退回卡片，⛔ 不硬挤成七列 */
 .wanxiangge .wxg-ctable {
-    width: 100%;
+    /* ⚠️ 真机截图暴露的问题：7 列挤在 1400 里 ⇒ 名字被「明细」压住。
+       改成"给每列定宽 + 装不下就横向滚"，⛔ 不再用 table-layout:fixed 硬挤。 */
+    min-width: 100%;
     border-collapse: collapse;
     font-size: 0.94em;
-    table-layout: fixed;
+}
+
+/* 列宽：名字最宽（要放名字＋徽章＋明细），正在经历第二宽 */
+.wanxiangge .wxg-ctable th:nth-child(1),
+.wanxiangge .wxg-ctable td:nth-child(1) {
+    min-width: 210px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(2),
+.wanxiangge .wxg-ctable td:nth-child(2) {
+    width: 70px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(3),
+.wanxiangge .wxg-ctable td:nth-child(3) {
+    width: 130px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(4),
+.wanxiangge .wxg-ctable td:nth-child(4) {
+    width: 120px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(5),
+.wanxiangge .wxg-ctable td:nth-child(5) {
+    width: 96px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(6),
+.wanxiangge .wxg-ctable td:nth-child(6) {
+    width: 170px;
+}
+
+.wanxiangge .wxg-ctable th:nth-child(7),
+.wanxiangge .wxg-ctable td:nth-child(7) {
+    min-width: 240px;
+}
+
+/* 装不下就横向滚（⛔ 不硬挤成一团） */
+.wanxiangge .wxg-ctablewrap {
+    overflow-x: auto;
+    padding-bottom: 2px;
 }
 
 .wanxiangge .wxg-ctable th {
@@ -1215,6 +1266,19 @@ body.wxg-dragging {
 .wanxiangge .wxg-cname {
     font-weight: 700;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 名字这一格：名字 ＋ 徽章换行排，明细按钮自己占一行右对齐（⛔ 不再压住名字） */
+.wanxiangge .wxg-cname-cell {
+    align-content: flex-start;
+}
+
+.wanxiangge .wxg-cname-cell [data-action='toggle-cdetail'] {
+    margin-left: auto;
+    flex: 0 0 auto;
 }
 
 .wanxiangge .wxg-cur-cell textarea {

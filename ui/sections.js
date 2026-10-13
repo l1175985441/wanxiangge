@@ -399,10 +399,8 @@ function secWorld(host) {
  */
 function secCharacters(host) {
     const state = loadState();
-    const box = section('角色状态',
-        '一行一个人：**名字／年龄／身份／所在势力／好感／时间・地点／正在经历**各就各位，格子里直接改字；'
-        + '改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。点「明细」看过去经历、日程与任务。',
-        { open: true });
+    // ⚠️ 真机截图暴露：段说明挤在搜索框上面、把工具条压下去了 ⇒ 说明挪到表格**下面**（读的时候不挡事）
+    const box = section('角色状态', null, { open: true });
 
     if (!state.characters.length) {
         box.appendChild(el('div', 'wxg-empty', '名册还是空的：下面「人物名册」里加人，或点「一键盘入预设名册」。'));
@@ -641,8 +639,14 @@ function secCharacters(host) {
     }
 
     table.appendChild(tbody);
-    box.appendChild(table);
-    box.appendChild(el('div', 'wxg-note', '搜索只筛显示，⛔ 不动数据；「明细」里是过去经历、日程与任务。'));
+    // 7 列装不下时横向滚，⛔ 不硬挤成一团
+    const twrap = el('div', 'wxg-ctablewrap');
+    twrap.appendChild(table);
+    box.appendChild(twrap);
+    box.appendChild(el('div', 'wxg-note',
+        '一行一个人：名字／年龄／身份／所在势力／好感／时间・地点／正在经历，格子里直接改字；'
+        + '改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。点「明细」看过去经历、日程与任务。'
+        + '搜索只筛显示，⛔ 不动数据。'));
     host.appendChild(box);
 
     // 按当前的搜索词先筛一遍
