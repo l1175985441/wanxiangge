@@ -184,8 +184,24 @@ function boot() {
         ensureWandEntry(30000);
 
         // ② 扩展设置区那一块
+        // ⭐ 留个痕迹给真机诊断看（只读、无害）：能看到这两步到底走没走到
+        try {
+            const mark = globalThis.__WXG_DIAG__ = globalThis.__WXG_DIAG__ || {};
+            mark.booted = true;
+            mark.version = VERSION;
+            mark.hasContainer = !!document.getElementById('extensions_settings2')
+                || !!document.getElementById('extensions_settings');
+        } catch (e) {
+            // 诊断痕迹写不了不影响功能
+        }
+
         mountPanel(VERSION).then(() => {
             renderPanel();
+            try {
+                globalThis.__WXG_DIAG__.mounted = !!document.getElementById('wanxiangge-root');
+            } catch (e) {
+                // 同上
+            }
         }).catch((e) => {
             console.warn('[万象阁] 设置区面板挂载出错：', e);
         });
