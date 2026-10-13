@@ -1681,7 +1681,6 @@ body.wxg-dragging {
 
 .wxg-ws .wanxiangge .wxg-card::before {
     background: var(--wxg-accent, var(--wxg-line));
-    opacity: 0.85;
 }
 
 /* 段标题（"世界状态"这种）再大一点：它是这一页的主标题 */
@@ -1705,7 +1704,7 @@ body.wxg-dragging {
     border-radius: var(--r);
     background: var(--wxg-card-bg, var(--wxg-fill));
     padding: var(--s3);
-    padding-left: calc(var(--s3) + 3px);
+    padding-left: calc(var(--s3) + 5px);
     margin: 0 0 var(--s3);
     box-shadow: 0 1px 2px var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.06));
 }
@@ -1717,7 +1716,7 @@ body.wxg-dragging {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 3px;
+    width: 4px;
     border-radius: var(--r) 0 0 var(--r);
     background: var(--wxg-accent-soft-strong, var(--wxg-accent-line, var(--wxg-line)));
 }

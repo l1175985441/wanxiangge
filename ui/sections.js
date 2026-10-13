@@ -282,46 +282,54 @@ function foldable(summaryText, open) {
 
 function secStatus(host) {
     const box = section('账本状态', null, { open: true });
+    // ⭐ 装盒：现在怎么样 一块、动作 一块（体检第一条）
+    const cNow = card('现在怎么样');
     const report = storageReport();
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
-    box.appendChild(line);
-    box.appendChild(el('div', 'wxg-ledger', '上次更新：' + ledgerText()));
+    cNow.appendChild(line);
+    cNow.appendChild(el('div', 'wxg-ledger', '上次更新：' + ledgerText()));
     const world = describeWorld();
-    box.appendChild(el('div', 'wxg-note',
+    cNow.appendChild(el('div', 'wxg-note',
         '世界钟：' + world.clock
         + (world.place ? ' · ' + world.place : '')
         + ' ｜ 局势 ' + String(world.situations)
         + ' ｜ 暗线 ' + String(world.hidden) + '（在走 ' + String(world.advancing) + '）'
         + ' ｜ 编年 ' + String(world.chronological)
         + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版'));
-    row(box, button('立刻更新', 'update-now'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
-    row(box, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
+    box.appendChild(cNow);
+
+    const cAct = card('动作');
+    row(cAct, button('立刻更新', 'update-now'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
+    row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
+    box.appendChild(cAct);
 
     const p = loadState().pipeline || {};
     if (p.status && p.status !== 'idle') {
+        const cRun = card('更新流水');
         const tone = p.status === 'failed' ? 'bad' : (p.status === 'running' ? 'idle' : 'ok');
-        const msg = el('div', 'wxg-store', '更新流水：' + (p.text || p.status)
+        const msg = el('div', 'wxg-store', (p.text || p.status)
             + (p.error ? '（' + p.error + '）' : '')
             + (p.tries ? ' · 已试 ' + String(p.tries) + ' 次' : '')
             + (p.cursor ? ' · 进度 ' + String(p.cursor) : ''));
         msg.setAttribute('data-tone', tone);
-        box.appendChild(msg);
+        cRun.appendChild(msg);
 
         // ⭐ 与"她手改过的版本"冲突时，把那几条**具体写出来**（自审修正·条 16）
         //    原来只报"有 N 处冲突"，她看不到到底哪儿冲突、引擎保留了哪个版本。
         if (Array.isArray(p.conflicts) && p.conflicts.length) {
             const warn = el('div', 'wxg-store', '与你的手改冲突（引擎**按你的版本保留**，内容没被冲掉）：');
             warn.setAttribute('data-tone', 'bad');
-            box.appendChild(warn);
+            cRun.appendChild(warn);
             for (const c of p.conflicts) {
-                box.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
+                cRun.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
             }
         }
-        row(box,
+        row(cRun,
             p.status === 'running' ? button('取消这次更新', 'cancel-update') : null,
             p.status === 'failed' ? button('重试（有上限）', 'update-now') : null);
+        box.appendChild(cRun);
     }
     host.appendChild(box);
 }
@@ -955,6 +963,8 @@ function secChronicle(host) {
         host.appendChild(box);
         return;
     }
+    // ⭐ 装盒：编年列表一块（体检第一条）
+    const cChron = card('按时间排（最近 ' + String(Math.min(list.length, 120)) + ' 条）');
     const wrap = el('div', 'wxg-report-list');
     const recent = list.slice(-120).reverse();
     for (const c of recent) {
@@ -973,7 +983,8 @@ function secChronicle(host) {
         line.appendChild(el('div', 'wxg-fact', c.text));
         wrap.appendChild(line);
     }
-    box.appendChild(wrap);
+    cChron.appendChild(wrap);
+    box.appendChild(cChron);
     box.appendChild(el('div', 'wxg-note', '共 ' + String(list.length) + ' 条，这里显示最近 120 条（更早的仍在账本与世界书归档里）'));
     host.appendChild(box);
 }
@@ -1332,6 +1343,8 @@ function secReport(host) {
         host.appendChild(box);
         return;
     }
+    // ⭐ 装盒：报告列表一块（体检第一条）
+    const cRep = card('每轮记录（从新到旧）');
     for (const rec of list) {
         const shownChars = countChars(rec.injectedText);
         const statusText = rec.injectStatus === 'ok'
@@ -1409,13 +1422,16 @@ function secReport(host) {
             body.appendChild(el('div', 'wxg-notes', '触发方式：' + trimText(rec.injectType)));
         }
         det.appendChild(body);
-        box.appendChild(det);
+        cRep.appendChild(det);
     }
+    box.appendChild(cRep);
     host.appendChild(box);
 }
 
 function secSteps(host) {
+    // ⭐ 装盒（体检第一条）：进度清单也装进一块（它原来直接躺在页面上）
     const box = section('现在的进度', null, { open: true });
+    const cStep = card('做到哪儿了');
     const ul = el('ul', 'wxg-steps');
     const items = [
         '① 骨架 · 扩展能装、界面是中文',
@@ -1429,7 +1445,8 @@ function secSteps(host) {
     for (const label of items) {
         ul.appendChild(el('li', 'wxg-ok', label));
     }
-    box.appendChild(ul);
+    cStep.appendChild(ul);
+    box.appendChild(cStep);
     host.appendChild(box);
 }
 
