@@ -1667,7 +1667,19 @@ body.wxg-dragging {
     /* 卡片底色：抬一档（文字色 5% 罩色）——深浅两套主题都成立 */
     --wxg-card-bg: rgba(128, 128, 128, 0.09);
     --wxg-accent-soft-strong: rgba(128, 128, 128, 0.35);
-    --wxg-accent: var(--SmartThemeUnderlineColor, rgb(120, 200, 150));
+}
+
+/*
+ * 默认主色：只给**没有自己配色的宿主**兜底（浮层面板／设置区）。
+ *
+ * ⚠️⚠️ 工作台那条路必须**排除**：那边的主色是 theme.js 的 `applyAppearance`
+ *    以**内联样式**写在 `.wxg-ws` 根上的（她选的调色板：墨／松／青／朱砂／纸白）。
+ *    如果这里在 `.wanxiangge`（＝内容宿主）上再声明一次，就会**盖掉**继承来的调色板主色，
+ *    真机上量到的后果：主色变成酒馆主题的浅绿 rgb(188,231,207)，
+ *    她换成「朱砂」主按钮也不变红。⇒ `:not(.wxg-ws-main)` 把它排除掉。
+ */
+.wanxiangge:not(.wxg-ws-main) {
+    --wxg-accent: var(--SmartThemeUnderlineColor, #5fbf9b);
 }
 
 /*
