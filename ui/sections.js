@@ -1126,9 +1126,10 @@ function secExtract(host) {
 
     /* ---- 世界书：点选（⛔ 不立刻存，攒到段底一起存） ---- */
     box.appendChild(el('div', 'wxg-report-h', '提取世界书（读哪些）'));
-    row(box, field('', textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short')));
+    // ⚠️ 原来套了个空标签 field('') ⇒ 输入框被往里推一截、跟上面的标签框对不齐
+    row(box, textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short'));
     box.appendChild(el('div', 'wxg-report-h', '排除世界书（哪些不读）'));
-    row(box, field('', textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short')));
+    row(box, textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short'));
 
     const pick = el('div', 'wxg-pickwrap');
     pick.id = 'wxg-bookpick';

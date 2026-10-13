@@ -1638,3 +1638,10 @@ body.wxg-dragging {
     width: 7em;
     min-width: 5em;
 }
+
+/* ---- 一行只有一个输入框时（例：两个世界书名单）：给个合适宽度、跟上面的框左对齐 ---- */
+.wanxiangge .wxg-row > input.text_pole:only-child {
+    flex: 0 0 auto;
+    width: 26em;
+    max-width: 100%;
+}
