@@ -45,65 +45,19 @@ function el(tag, cls, text) {
  * 为什么这么改：原来 12 段 <h4> 全平铺，一打开就是 200 多个控件的墙
  * ⇒ 用酒馆自己的抽屉写法：她看着眼熟，窄栏里还能收起来。
  *
- * ⚠️ 关键设计（这里踩过大坑，写下来免得再犯）：
- *   DOM 里一个节点**只能有一个父亲**——正文层一旦被"挪"到别处，就会自动从壳里抽走
- *   （我原来把正文层返回出去，调用方一 appendChild 到中转站，壳里的正文就没了，
- *    最后画出来只剩 12 个标题、内容全空）。
- *   ⇒ 所以返回的不是 DOM 节点，而是**内容盒**：
- *       · 各节照旧 `box.appendChild(...)` 往盒里放；
- *       · 挂载时把盒里的东西**一次性倒进壳里的正文层**，再整壳挂上去。
- *     正文层全程待在壳里没动过 ⇒ ⛔ 不会出现"标题丢"或"内容丢"。
+ * ⚠️ 挂载口径（这里连踩两次坑，写清楚）：
+ *   返回的是**正文层**（内容都加在它上面，各处一行都不用改）。
+ *   壳（标题＋小摘要＋箭头）挂在正文层自己的 `__wxgDrawer` 属性上 —— 一个直接属性引用，
+ *   ⛔ 不用 WeakMap、不用临时中转对象（那些要么认不出、要么容易出岔子）。
+ *   挂载时 `hangUp` 取出壳、把正文层放回壳里、整壳挂到宿主。
  */
-/** 盒 → {壳, 正文层}（挂载时才用） */
-const SECTION_BOX = new WeakMap();
-
-/** 内容盒：对外像元素（appendChild／querySelector／setAttribute／children…），
- *  实际内容先攒在自己怀里，挂载时倒进正文层 */
-function makeBox() {
-    const inner = el('div', 'wxg-box-inner');
-    return {
-        __wxgBox: true,
-        inner,
-        appendChild(node) {
-            inner.appendChild(node);
-            return node;
-        },
-        append(...nodes) {
-            for (const n of nodes) {
-                if (n) {
-                    inner.appendChild(typeof n === 'string' ? el('span', null, n) : n);
-                }
-            }
-        },
-        querySelector(sel) {
-            return inner.querySelector(sel);
-        },
-        querySelectorAll(sel) {
-            return inner.querySelectorAll(sel);
-        },
-        setAttribute(k, v) {
-            inner.setAttribute(k, v);
-        },
-        getAttribute(k) {
-            return inner.getAttribute(k);
-        },
-        addEventListener(...args) {
-            return inner.addEventListener(...args);
-        },
-        get children() {
-            return inner.children;
-        },
-    };
-}
-
 function section(title, hint, opts) {
     const o = opts || {};
     const drawer = el('div', 'wxg-sec inline-drawer');
     const head = el('div', 'wxg-sec-head inline-drawer-toggle inline-drawer-header');
     const titleWrap = el('div', 'wxg-sec-titlewrap');
     titleWrap.appendChild(el('b', 'wxg-sec-title', title));
-    const sum = el('span', 'wxg-sec-sum', o.summary ? asText(o.summary) : '');
-    titleWrap.appendChild(sum);
+    titleWrap.appendChild(el('span', 'wxg-sec-sum', o.summary ? asText(o.summary) : ''));
     head.appendChild(titleWrap);
     head.appendChild(el('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
     drawer.appendChild(head);
@@ -116,15 +70,15 @@ function section(title, hint, opts) {
     if (o.open) {
         drawer.setAttribute('data-wxg-open', '1');
     }
-    const box = makeBox();
-    SECTION_BOX.set(box, { drawer, body });
-    return box;
+    // 壳记在正文层自己的属性上（直接引用，零魔法）
+    body.__wxgDrawer = drawer;
+    return body;
 }
 
 /** 改一段标题旁的小摘要（⛔ 不放正文里占地方） */
 export function setSectionSummary(box, text) {
-    const info = box ? SECTION_BOX.get(box) : null;
-    const sum = info ? info.drawer.querySelector('.wxg-sec-sum') : null;
+    const drawer = box ? box.__wxgDrawer : null;
+    const sum = drawer ? drawer.querySelector('.wxg-sec-sum') : null;
     if (sum) {
         sum.textContent = asText(text);
     }
@@ -836,35 +790,66 @@ export function renderSections(host, opts) {
      *    ⛔ 只挂正文 = 标题全丢；只挂壳 = 内容全丢（这两种错我都犯过，别再来一次）。
      */
     const staging = el('div', 'wxg-stage');
-    secStatus(staging);
-    secWorld(staging);
-    secCharacters(staging);
-    secChronicle(staging);
-    secReport(staging);
-    secRoster(staging);
-    secGeneral(staging);
-    secRecall(staging);
-    secExtract(staging);
-    secApi(staging);
-    secPrompts(staging);
-    secSteps(staging);
+    try {
+        secStatus(staging);
+        secWorld(staging);
+        secCharacters(staging);
+        secChronicle(staging);
+        secReport(staging);
+        secRoster(staging);
+        secGeneral(staging);
+        secRecall(staging);
+        secExtract(staging);
+        secApi(staging);
+        secPrompts(staging);
+        secSteps(staging);
+    } catch (e) {
+        console.warn('[万象阁] 画面板出错：', e);
+        drawFailure(host, e);
+        return;
+    }
+
+    // 自检：一段都没画出来（或壳里没有正文层）⇒ 也要说出来，⛔ 不留白板
+    const before = (host.children || []).length;
     hangUp(host, staging);
+    const added = (host.children || []).length - before;
+    if (!added) {
+        drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
+    }
 }
 
 /** 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非正文层的东西原样搬 */
 function hangUp(host, staging) {
     for (const node of (staging.children || []).slice()) {
-        const info = SECTION_BOX.get(node);
-        if (info) {
-            // 盒里的东西一次性倒进壳里的正文层（正文层全程待在壳里，没被挪过）
-            const inner = node.inner;
-            for (const kid of (inner.children || []).slice()) {
-                info.body.appendChild(kid);
+        const drawer = node && node.__wxgDrawer;
+        if (drawer) {
+            // 正文层放回壳里（它本来就在壳里，这里是幂等的），再整壳挂上去
+            if (!drawer.children.includes(node)) {
+                drawer.appendChild(node);
             }
-            host.appendChild(info.drawer);
+            host.appendChild(drawer);
         } else {
             host.appendChild(node);
         }
+    }
+}
+
+/**
+ * 兜底：万一哪一段画不出来，⛔ 绝不让面板变成一块白板——把原因写在面板上。
+ * （实图里出现过"面板全空"，没有这句话就只能靠猜。）
+ */
+function drawFailure(host, err) {
+    try {
+        const box = el('div', 'wxg-store');
+        box.setAttribute('data-tone', 'bad');
+        box.appendChild(el('b', null, '界面有一段没画出来（原因照抄反馈即可）：'));
+        box.appendChild(el('div', 'wxg-fact', String((err && err.message) || err)));
+        if (err && err.stack) {
+            box.appendChild(el('div', 'wxg-fact', String(err.stack).split('\n').slice(0, 4).join(' ← ')));
+        }
+        host.appendChild(box);
+    } catch (e) {
+        // 连兜底都画不出来就只能认了
     }
 }
 
