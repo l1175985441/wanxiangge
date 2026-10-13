@@ -31,7 +31,9 @@ export function squeeze(v) {
  */
 export function asArray(list) {
     if (Array.isArray(list)) {
-        return list;
+        // ⚠️ 数组里也可能有空槽位（重画／拼接时会出现 undefined）
+        //    ⇒ 滤掉，别把 undefined 递给上层代码去读属性（踩过：读 undefined 的 classList 直接抛）
+        return list.filter((x) => x !== undefined && x !== null);
     }
     const out = [];
     if (!list) {
@@ -42,7 +44,10 @@ export function asArray(list) {
         return out;
     }
     for (let i = 0; i < n; i += 1) {
-        out.push(list[i]);
+        const one = list[i];
+        if (one !== undefined && one !== null) {
+            out.push(one);
+        }
     }
     return out;
 }

@@ -227,7 +227,11 @@ export function showIndex(i, scroll) {
     activeIndex = Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
     const items = asArray(sideEl.children);
     items.forEach((b, k) => {
-        if (b.classList) {
+        /*
+         * ⚠️ `b` 本身可能是空的（重画时左栏会有空槽位 ⇒ 读 undefined 的 classList 会抛）。
+         *    这一抛会让**整个工作台重画中断**，看着就是"点了没反应"。
+         */
+        if (b && b.classList) {
             b.classList.toggle('is-on', k === activeIndex);
         }
     });
