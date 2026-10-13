@@ -1577,3 +1577,25 @@ body.wxg-dragging {
     width: 108px;
     min-width: 88px;
 }
+
+/* ---- 文案里的粗体（`**这样**` 渲染成真粗体，⛔ 不再露出星号） ---- */
+.wanxiangge .wxg-note strong,
+.wanxiangge .wxg-hint strong,
+.wanxiangge .wxg-empty strong,
+.wanxiangge .wxg-fact strong {
+    font-weight: 700;
+    opacity: 1;
+}
+
+/* ---- 空态：别让整屏空着像坏了（给个像样的空态块） ---- */
+.wxg-ws-main .wxg-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 18px;
+    border: 1px dashed var(--wxg-border, rgba(128, 128, 128, 0.35));
+    border-radius: 10px;
+    opacity: 0.7;
+    text-align: center;
+}

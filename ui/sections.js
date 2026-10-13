@@ -33,13 +33,46 @@ import { toast } from './toast.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
+/**
+ * 文案里的 `**这样**` → 真·粗体。
+ *
+ * 为什么：她的界面文案一直写着 `**整套**` 这种标记（我从注释一路带进正文了），
+ * 真机上就**露出两个星号**，看着像没做完。
+ * ⚠️ 用 createTextNode／strong 拼，⛔ 绝不用 innerHTML（文案里有她填的内容，不能当 HTML 解析）。
+ */
+const FMT_SPLIT = /\*\*([^*]+)\*\*/g;
+
+function fillText(node, text) {
+    const s = asText(text);
+    if (s.indexOf('**') < 0) {
+        node.textContent = s;
+        return;
+    }
+    let last = 0;
+    let m = FMT_SPLIT.exec(s);
+    while (m) {
+        if (m.index > last) {
+            node.appendChild(document.createTextNode(s.slice(last, m.index)));
+        }
+        const strong = document.createElement('strong');
+        strong.textContent = m[1];
+        node.appendChild(strong);
+        last = m.index + m[0].length;
+        m = FMT_SPLIT.exec(s);
+    }
+    if (last < s.length) {
+        node.appendChild(document.createTextNode(s.slice(last)));
+    }
+    FMT_SPLIT.lastIndex = 0;
+}
+
 function el(tag, cls, text) {
     const node = document.createElement(tag);
     if (cls) {
         node.className = cls;
     }
     if (text !== undefined && text !== null) {
-        node.textContent = asText(text);
+        fillText(node, text);
     }
     return node;
 }
