@@ -2819,3 +2819,75 @@ body.wxg-dragging {
     font-weight: 600;
     color: var(--wxg-text-strong, inherit);
 }
+
+/* ---------------------------------------------------------------------------
+   ③ 角色状态表：列表只读、点行进详情才能改
+   （复核方："名册也很奇怪？总感觉说不出来少了什么"）
+   诊断：七列全是一模一样的空输入框 ⇒ 像没填完的表单；「明细」按钮悬在名字底下也突兀。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-ctable tr.wxg-crow.is-click {
+    cursor: pointer;
+}
+
+.wanxiangge .wxg-ctable tr.wxg-crow.is-click:hover > td {
+    background: rgba(128, 128, 128, 0.08);
+}
+
+/* 名字一行、状态章一行（参照观棋那张：名字底下挂章） */
+.wanxiangge .wxg-cname-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wanxiangge .wxg-cname-line .wxg-r-caret {
+    margin-left: auto;
+}
+
+.wanxiangge .wxg-cchips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 3px;
+}
+
+/* 只读的格子：就是文字，⏐ 不再是一个个空框 */
+.wanxiangge .wxg-cellv {
+    display: block;
+    padding: 2px 0;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.wanxiangge .wxg-cur-cell .wxg-cellv {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 详情里的编辑格 */
+.wanxiangge .wxg-cedit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--s2) var(--s3);
+}
+
+.wanxiangge .wxg-cedit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.wanxiangge .wxg-cedit-item.is-wide {
+    grid-column: 1 / -1;
+    margin-top: var(--s2);
+}
+
+.wanxiangge .wxg-cedit-k {
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+}

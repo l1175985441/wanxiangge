@@ -639,23 +639,30 @@ function secCharacters(host) {
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
 
-    /** 表格里的一个可改格子 */
-    const cell = (c, key, placeholder, isArea) => {
+    /*
+     * ⭐ 表格里的一个格子：**只读文字**（复核方："不点是只读，改不了免得弄错"）。
+     *    改在哪儿？⏐ 在明细行里（点行才出来）—— 跟她自家「记忆图鉴」一个路子。
+     *    ⏐ 不能再把输入框摆在格子里：七列全是一模一样的空框 ⇒ 看着像没填完的表单。
+     */
+    const cell = (c, key, fallback) => {
         const td = document.createElement('td');
         if (key === 'current') {
             td.className = 'wxg-cur-cell';
         }
-        const input = isArea
-            ? textarea('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field', 2)
-            : textInput('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field');
-        input.setAttribute('data-id', c.id);
-        input.setAttribute('data-key', key);
-        td.appendChild(input);
+        const v = trimText(c[key]);
+        td.appendChild(el('span', v ? 'wxg-cellv' : 'wxg-cellv wxg-none', v || (fallback || '暂无')));
         return td;
     };
 
     for (const c of rows) {
         const tr = document.createElement('tr');
+        /*
+         * ⭐ 整行可点 ⇒ 展开明细（那儿才能改）。
+         *    ⏐ 不在行里摆编辑框：表格一眼扫过去要能读，不是一堆空框。
+         */
+        tr.setAttribute('data-action', 'toggle-cdetail');
+        tr.className = 'wxg-crow is-click';
+        tr.setAttribute('data-id', c.id);
         // 搜索用的"底稿"（搜的时候只切 class，⛔ 不重画页面，才不会打断她打字）
         tr.setAttribute('data-search', asText([
             c.name, (c.aliases || []).join(' '), c.identity, c.faction, c.timePlace, c.current, c.affinity,
@@ -663,42 +670,50 @@ function secCharacters(host) {
         ].join(' ')).toLowerCase());
         tr.setAttribute('data-id', c.id);
 
-        /* 名字这一格：名字 ＋ 徽章 ＋ 明细开关 */
+        /*
+         * 名字这一格：**名字一行、状态章一行**（参照观棋「角色与势力」：名字底下挂章）。
+         *    ⏐ 原来名字、四五个章、一颗「明细」按钮全挤在一行 ⇒ 挤成一团。
+         */
         const nameTd = document.createElement('td');
         const nameCell = el('div', 'wxg-cname-cell');
-        nameCell.appendChild(el('span', 'wxg-cname', trimText(c.name) || '（没名字）'));
+        const nameLine = el('div', 'wxg-cname-line');
+        nameLine.appendChild(el('span', 'wxg-cname', trimText(c.name) || '（没名字）'));
+        nameLine.appendChild(el('span', 'wxg-r-caret', '›'));
+        nameCell.appendChild(nameLine);
+        const chipLine = el('div', 'wxg-cchips');
         if (c.isPlayer) {
-            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '玩家棋子'));
+            chipLine.appendChild(el('span', 'wxg-badge is-ok', '玩家棋子'));
         }
         if (c.inScene) {
-            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '在现场'));
+            chipLine.appendChild(el('span', 'wxg-badge is-info', '在现场'));
         }
         if (c.isNew) {
-            nameCell.appendChild(el('span', 'wxg-badge', '新认的人'));
+            chipLine.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }
         if (c.manual) {
-            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
+            chipLine.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
         }
         if (c.currentSuspect) {
-            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-warn', '⚠ 不可靠'));
+            chipLine.appendChild(el('span', 'wxg-badge is-warn', '⚠ 不可靠'));
         }
         if (c.ignored) {
-            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已忽略'));
+            chipLine.appendChild(el('span', 'wxg-badge is-off', '已忽略'));
         }
-        const more = button('明细', 'toggle-cdetail', 'wxg-btn-sm', c.id);
-        nameCell.appendChild(more);
+        if (chipLine.childNodes && chipLine.childNodes.length) {
+            nameCell.appendChild(chipLine);
+        }
         nameTd.appendChild(nameCell);
         tr.appendChild(nameTd);
 
-        tr.appendChild(cell(c, 'age', '几岁'));
-        tr.appendChild(cell(c, 'identity', '是什么'));
-        tr.appendChild(cell(c, 'faction', '所属'));
-        const affTd = cell(c, 'affinity', '未接入就留空');
+        tr.appendChild(cell(c, 'age'));
+        tr.appendChild(cell(c, 'identity'));
+        tr.appendChild(cell(c, 'faction'));
+        const affTd = cell(c, 'affinity');
         // 好感只能"读"——接入数据源时提示她这是读来的
         affTd.title = trimText(c.affinitySource) ? ('读自：' + trimText(c.affinitySource)) : '没接数据源（引擎不自己编）';
         tr.appendChild(affTd);
-        tr.appendChild(cell(c, 'timePlace', '例：第二天 上午 · 学校'));
-        tr.appendChild(cell(c, 'current', '本回合正在发生的事（只写这一步、只写他自己）', true));
+        tr.appendChild(cell(c, 'timePlace'));
+        tr.appendChild(cell(c, 'current', '（本回合没写他）'));
         tbody.appendChild(tr);
 
         /* ---- 明细行（默认收起） ---- */
@@ -712,6 +727,43 @@ function secCharacters(host) {
         if (detail.style) {
             detail.style.display = 'none';
         }
+
+        /*
+         * ⭐ 可改的五个字段在**这儿**（点开这一行才出来）。
+         *    主行那七格已经改成只读文字：表格一眼扫过去要能读。
+         *    ⏐ 这里的 id / data-action / data-key 跟以前一模一样（用例和事件都不用改）。
+         */
+        const editBox = el('div', 'wxg-field');
+        editBox.appendChild(el('label', null, '改他的状态（改完自动存）'));
+        const editGrid = el('div', 'wxg-cedit');
+        const mkEdit = (key, placeholder, isArea) => {
+            const wrap = el('div', 'wxg-cedit-item');
+            wrap.appendChild(el('span', 'wxg-cedit-k', key === 'timePlace' ? '时间・地点' : ({
+                age: '年龄', identity: '身份', faction: '所在势力', current: '正在经历',
+            }[key] || key)));
+            const inp = isArea
+                ? textarea('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field', 2)
+                : textInput('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field');
+            inp.setAttribute('data-id', c.id);
+            inp.setAttribute('data-key', key);
+            wrap.appendChild(inp);
+            return wrap;
+        };
+        editGrid.appendChild(mkEdit('age', '几岁'));
+        editGrid.appendChild(mkEdit('identity', '是什么'));
+        editGrid.appendChild(mkEdit('faction', '所属'));
+        editGrid.appendChild(mkEdit('timePlace', '例：第二天 上午 · 学校'));
+        editBox.appendChild(editGrid);
+        const curWrap = el('div', 'wxg-cedit-item is-wide');
+        curWrap.appendChild(el('span', 'wxg-cedit-k', '正在经历'));
+        // ⚠️ 别用 `mkEdit(...).lastChild`（假 DOM 的 shim 不保证有 lastChild）——直接建
+        const curArea = textarea('wxg-c-current-' + c.id, c.current,
+            '本回合正在发生的事（只写这一步、只写他自己）', 'set-char-field', 2);
+        curArea.setAttribute('data-id', c.id);
+        curArea.setAttribute('data-key', 'current');
+        curWrap.appendChild(curArea);
+        editBox.appendChild(curWrap);
+        detail.appendChild(editBox);
 
         if (c.currentSuspect) {
             const warn = el('div', 'wxg-store', '⚠ 这条「正在经历」引擎判定**不可靠**：'
