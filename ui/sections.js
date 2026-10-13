@@ -30,6 +30,8 @@ import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
 import { toast } from './toast.js';
+// ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
+import { mountMini, closeMini } from './mini.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
@@ -395,6 +397,15 @@ function secGeneral(host) {
     box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
     box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
     box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
+    /*
+     * ⭐「把悬浮小框叫回来」——补一个**早就该有**的开关：
+     *    小框上那颗 ✕ 的提示一直写着"藏起来（「总控」里能再叫出来）"，
+     *    但总控里根本没这个控件 ⇒ 藏了就再也回不来，
+     *    连带"手动更新"也失去了唯一的就近入口（复核方问的正是这个）。
+     * ⚠️ 它不在 saveBar 那一批里：勾了要**立刻挂载/收起**，⛔ 不等"保存这一段"。
+     */
+    box.appendChild(checkbox('wxg-ball-show', '显示悬浮小框（聊天时常驻，点一下进工作台；手动更新也在它上面）',
+        (s.mini && s.mini.show) === true, 'toggle-mini-show'));
     box.appendChild(saveBar('general'));
     host.appendChild(box);
 }
@@ -2997,6 +3008,22 @@ export function bindSectionEvents(host, refresh) {
                     break;
 
                 /* ---- 动作 ---- */
+                case 'toggle-mini-show': {
+                    /*
+                     * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存这一段"）——
+                     *    她是看着球在不在来判断勾没勾上的，要等保存才生效会以为没反应。
+                     */
+                    const on = target.checked === true;
+                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { show: on }) });
+                    if (on) {
+                        mountMini();
+                    } else {
+                        closeMini();
+                    }
+                    toast.ok(on ? '悬浮小框已叫出来' : '悬浮小框已收起（随时能在这儿再叫出来）');
+                    rerender();
+                    break;
+                }
                 case 'update-now':
                     runUpdate({ manual: true });
                     toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
