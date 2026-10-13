@@ -20,6 +20,8 @@ import { trimText, asArray } from '../core/utils.js';
 let wsEl = null;
 let sideEl = null;
 let hostEl = null;
+/** 页级大标题那两个节点（在 hostEl 外面，⛔ 不参与 renderSections 的清空） */
+let pageHeadEl = null;
 let activeIndex = 0;
 
 /** 工作台开着吗 */
@@ -101,10 +103,31 @@ export function openWorkspace() {
     sideEl = document.createElement('nav');
     sideEl.className = 'wxg-ws-side';
     body.appendChild(sideEl);
+
+    /*
+     * ⭐ 页级大标题 ＋ 一行副题（参照 Anima「API 连接配置」、观棋「世界参数」）。
+     * ⚠️ 它必须在 `hostEl` **外面**：`renderSections` 会 `replaceChildren` 清空 hostEl，
+     *    放里面会被一起清掉（这一条我写之前就想清楚了，别搬进去）。
+     */
+    const page = document.createElement('div');
+    page.className = 'wxg-ws-page';
+    pageHeadEl = document.createElement('header');
+    pageHeadEl.className = 'wxg-ws-pagehead';
+    const h1 = document.createElement('h2');
+    h1.className = 'wxg-ws-h1';
+    h1.id = 'wxg-ws-h1';
+    const h1sub = document.createElement('p');
+    h1sub.className = 'wxg-ws-h1sub';
+    h1sub.id = 'wxg-ws-h1sub';
+    pageHeadEl.appendChild(h1);
+    pageHeadEl.appendChild(h1sub);
+    page.appendChild(pageHeadEl);
+
     hostEl = document.createElement('main');
     hostEl.className = 'wxg-ws-main wanxiangge';
     hostEl.setAttribute('data-wxg-mode', 'workspace');
-    body.appendChild(hostEl);
+    page.appendChild(hostEl);
+    body.appendChild(page);
     root.appendChild(body);
 
     // 点左栏、点顶栏按钮、点 Esc
@@ -168,8 +191,12 @@ function buildSidebar() {
         btn.className = 'wxg-ws-side-item';
         btn.setAttribute('data-ws-go', String(i));
         const ico = document.createElement('span');
-        ico.className = 'wxg-ws-side-ico';
-        ico.textContent = SIDEBAR_ICONS[i] || '•';
+        /*
+         * ⚠️ 图标走 **fontawesome 单色线条**（⛔ 不再塞 emoji）：
+         *    emoji 彩色、风格杂、基线不齐；线条图标只有一个色、跟着主色走。
+         */
+        ico.className = 'wxg-ws-side-ico fa-solid ' + (SIDEBAR_ICONS[i] || 'fa-circle');
+        ico.setAttribute('aria-hidden', 'true');
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';
         txt.textContent = name;
@@ -248,6 +275,19 @@ export function showIndex(i, scroll) {
             }
         }
     });
+    /* ⭐ 页级大标题：跟着当前段走（标题在 hostEl 外面，所以每切一次都要自己更新） */
+    const cur = secs[activeIndex];
+    if (pageHeadEl) {
+        const h1 = pageHeadEl.querySelector('#wxg-ws-h1');
+        const h1sub = pageHeadEl.querySelector('#wxg-ws-h1sub');
+        const t = cur && cur.querySelector('.wxg-sec-title');
+        if (h1) {
+            h1.textContent = trimText(t && t.textContent) || '';
+        }
+        if (h1sub) {
+            h1sub.textContent = trimText(cur && cur.getAttribute('data-wxg-sub')) || '';
+        }
+    }
     // 顶部跳转条在工作台里不需要（左栏就是导航）
     const nav = hostEl.querySelector('.wxg-nav');
     if (nav) {

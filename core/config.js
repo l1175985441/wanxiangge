@@ -20,10 +20,30 @@ export const WORKSPACE_ID = 'wanxiangge-workspace';
 export const MINI_ID = 'wanxiangge-mini';
 
 /**
- * 工作台左栏的图标（按段落顺序：账本／进度／世界／角色／过程报告／编年／名册／总控／召回／读取／API／提示词）。
- * ⛔ 用字符而不是字体图标：不依赖任何图标库，也不会因为版本变动变空白。
+ * 左栏图标：**单色线条图标**（fontawesome 6，酒馆自带），⛔ 不再用 emoji。
+ *
+ * 为什么换：emoji 是彩色的、各家字体风格不一、基线也不齐——一列看下来很杂
+ * （复核方的原话："彩色、风格杂、基线不齐"）。线条图标只有一个色，跟着主色／灰度走。
+ *
+ * ⚠️ 名字必须是**酒馆那份 fontawesome.min.css 里真有的**——我拿那份文件逐个验过。
+ *    ⛔ 别随手写一个"看着像"的名字（缺了就是一个空白方块，而且很难一眼发现）。
+ * 顺序＝段落顺序：账本／进度／世界／角色／过程报告／编年／名册／总控／外观／召回／读取／API／提示词。
  */
-export const SIDEBAR_ICONS = ['📒', '🧭', '🌍', '👤', '📋', '📜', '👥', '⚙️', '🎯', '🧹', '🔌', '✍️'];
+export const SIDEBAR_ICONS = [
+    'fa-book',
+    'fa-list-check',
+    'fa-earth-asia',
+    'fa-user',
+    'fa-clipboard-list',
+    'fa-scroll',
+    'fa-address-book',
+    'fa-sliders',
+    'fa-palette',
+    'fa-filter',
+    'fa-scissors',
+    'fa-plug',
+    'fa-pen-nib',
+];
 
 /** 卡片挂载用的消息标记属性 */
 export const CARD_ATTR = 'data-wxg-card';

@@ -121,6 +121,11 @@ function section(title, hint, opts) {
     }
     // 壳记在正文层自己的属性上（直接引用，零魔法）
     body.__wxgDrawer = drawer;
+    /*
+     * ⭐ 副题给"页级大标题"用（工作台把这段当一页，标题＋副题挂在内容区顶上）。
+     *    挂在壳上、而不是塞进正文——工作台里壳的标题行会被隐藏，副题由页头统一显示。
+     */
+    drawer.setAttribute('data-wxg-sub', trimText(hint));
     // ⚠️ 这两个标记只给**离线预览页**用（它没有酒馆那套 JS，得照标记判断哪几段是展开的）：
     //    ⛔ 不参与任何逻辑判断；我上一版把标记弄丢过，结果预览把每段正文都跳过了（只剩标题连成一坨）。
     body.setAttribute('data-wxg-sec', title);
