@@ -1664,25 +1664,43 @@ function lockable(cardEl, key) {
     if (head.appendChild) {
         head.appendChild(b);
     }
-    // JS 这边也要真锁住（⛔ 不能只靠样式——样式挡不住键盘）
-    const fields = asArray(cardEl.querySelectorAll('input, textarea, select'));
-    for (const f of fields) {
-        if (!f || !f.setAttribute) {
-            continue;
-        }
-        if (f.type === 'color' || f.type === 'checkbox') {
-            continue;   // 颜色和开关属于「控制项」，不锁
-        }
-        if (open) {
-            if (f.removeAttribute) {
-                f.removeAttribute('readonly');
+    cardEl.setAttribute('data-lock-key', key);
+    /*
+     * ⚠️ 真锁（readonly）不能在这儿做：调 `lockable(card(…), …)` 的时候
+     *    **卡里还是空的**（输入框是后面 row()/textInput() 才加进去的）
+     *    ⇒ 扫不到任何字段、一个 readonly 都上不去。真踩过。
+     *    统一放到整页建完之后的 `applyLocks()` 里做。
+     */
+    return cardEl;
+}
+
+/**
+ * 把「锁着的卡」里的字段真正设成只读（在整页 DOM 建完之后调）。
+ * ⏐ 不能只靠 CSS：样式挡不住键盘输入和脚本赋值。
+ * ⏐ 也不锁控制项（开关／颜色）——那些本来就是拿来点的。
+ */
+export function applyLocks(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') {
+        return;
+    }
+    for (const cardEl of asArray(root.querySelectorAll('.wxg-card[data-lock-key]'))) {
+        const locked = cardEl.classList && cardEl.classList.contains('is-locked');
+        for (const f of asArray(cardEl.querySelectorAll('input, textarea, select'))) {
+            if (!f || !f.setAttribute) {
+                continue;
             }
-        } else {
-            f.setAttribute('readonly', 'readonly');
-            f.setAttribute('tabindex', '-1');
+            if (f.type === 'color' || f.type === 'checkbox') {
+                continue;
+            }
+            if (locked) {
+                f.setAttribute('readonly', 'readonly');
+                f.setAttribute('tabindex', '-1');
+            } else {
+                f.removeAttribute('readonly');
+                f.removeAttribute('tabindex');
+            }
         }
     }
-    return cardEl;
 }
 
 /** 从 URL 里取主机名，只用于显示（⛔ 不泄露整条密钥） */
@@ -1962,6 +1980,16 @@ export function renderSections(host, opts) {
             drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
         }
         buildJumpNav(host);
+        /*
+         * ⭐ 只读卡的"真锁"在这儿上（整页 DOM 已建完）：
+         *    `lockable()` 是在 `card()` 刚 new 出来、**里面还空着**的时候调的，
+         *    那一刻扫不到任何字段——真踩过（readonly 一个都没上）。
+         */
+        try {
+            applyLocks(host);
+        } catch (e) {
+            console.warn('[万象阁] 上只读锁出错：', e);
+        }
         // ⭐ 读取控制：刚才在挑某本书的条目 ⇒ 重画之后把它摆回来
         //    （⛔ 不然点一条之后列表就没了，没法接着点第二条）
         try {
