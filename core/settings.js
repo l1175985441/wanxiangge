@@ -158,6 +158,7 @@ export function patchSettings(patch) {
         recentTurns: [1, 10, DEFAULT_SETTINGS.recentTurns],
         maxChars: [1, 8, DEFAULT_SETTINGS.maxChars],
         maxEvents: [0, 20, DEFAULT_SETTINGS.maxEvents],
+        pastFloorCut: [0, 50, DEFAULT_SETTINGS.pastFloorCut],
         updateEvery: [1, 10, DEFAULT_SETTINGS.updateEvery],
         maxParallelChars: [0, 12, DEFAULT_SETTINGS.maxParallelChars],
         capEvents: [10, 300, DEFAULT_SETTINGS.capEvents],

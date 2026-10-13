@@ -118,8 +118,58 @@ function recentContext(chat, leadFloor, turns) {
 }
 
 /** 一个人的状态块（给主模型看的那份） */
-function personBlock(item) {
+/**
+ * 任务的注入块（主体／支线）。
+ *
+ * 口径（她与阿砚拍的）：
+ *   · 任务＝**目标层**（在追什么），⛔ 不是"下一步动作"；
+ *   · **不在场**的角色：带全（主线＋支线＋子项）——正文里没有，这是他"还活着"的证据；
+ *   · **现场**的角色：只带主线与"在进行中的子项"（正文正在演，别重复占篇幅）；
+ *   · 完成／搁置的只在**主线**里留个痕，支线不占篇幅。
+ *
+ * @param {object} c 角色
+ * @param {boolean} inScene 是否在正文现场
+ * @returns {string[]} 要追加的行（没有任务就返回空数组）
+ */
+function questBlock(c, inScene) {
+    const list = Array.isArray(c.quests) ? c.quests : [];
+    if (!list.length) {
+        return [];
+    }
+    const kindText = (k) => (trimText(k) === 'main' ? '主线' : '支线');
+    const picked = inScene
+        ? list.filter((q) => trimText(q.kind) === 'main' && trimText(q.status) !== '搁置')
+        : list.filter((q) => trimText(q.status) !== '搁置' || trimText(q.kind) === 'main');
+    if (!picked.length) {
+        return [];
+    }
+    const out = ['  任务：'];
+    for (const q of picked) {
+        const bits = [kindText(q.kind) + '·' + trimText(q.title)];
+        if (trimText(q.status)) {
+            bits.push(trimText(q.status));
+        }
+        if (!inScene && trimText(q.note)) {
+            bits.push(trimText(q.note));
+        }
+        const items = Array.isArray(q.items) ? q.items : [];
+        const shown = inScene ? items.filter((i) => i && !i.done) : items;
+        if (shown.length) {
+            bits.push(shown.map((i) => (i.done ? '☑' : '▶') + trimText(i.text)).join(' '));
+        }
+        out.push('    ' + bits.join(' ｜ '));
+    }
+    return out;
+}
+
+/**
+ * 一个角色的注入块。
+ * @param {object} item { character, reason, inScene, protected }
+ * @param {object} [opts] { anchorFloor } —— 本回合锚点楼（"楼层裁"要有它才算得出距离）
+ */
+function personBlock(item, opts) {
     const c = item.character;
+    const anchorFloor = Number(opts && opts.anchorFloor);
     const lines = ['· ' + c.name];
 
     if (trimText(c.affinity)) {
@@ -148,14 +198,42 @@ function personBlock(item) {
 
     const past = Array.isArray(c.past) ? c.past : [];
     const fresh = past.filter((p) => p && p.text && !p.injected);
-    if (fresh.length) {
-        lines.push('  过去经历（由近到远）：' + fresh.map((p) => p.text).join('；'));
-    } else if (past.length && trimText(past[0].text)) {
+    /*
+     * ⭐ 楼层裁（她拍的）：来源在最近 N 楼之内的**不端**——主模型上下文里已经有那一楼了，
+     *    再端一遍等于白占篇幅、还容易让人觉得"重合"；只端更老的（上下文看不到的）。
+     *   · N 从设置读（面板可改），0＝不裁（全端）；
+     *   · ⚠️ 老数据没有来源楼层 ⇒ 当"很老"处理，**照端**（⛔ 绝不因为缺字段就丢内容）；
+     *   · 端过与否（fresh）的逻辑保留不动。
+     */
+    const cut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
+    const keepByFloor = (p) => {
+        if (!cut || !Number.isFinite(anchorFloor)) {
+            return true;
+        }
+        const from = Number(p && p.fromFloor);
+        if (!Number.isFinite(from)) {
+            return true;   // 老数据：当很老
+        }
+        return (anchorFloor - from) >= cut;
+    };
+    const freshByFloor = fresh.filter(keepByFloor);
+    if (freshByFloor.length) {
+        lines.push('  过去经历（由近到远）：' + freshByFloor.map((p) => p.text).join('；'));
+    } else if (fresh.length && freshByFloor.length !== fresh.length) {
+        // 全都被"楼层裁"挡下了 ⇒ 如实说明（⛔ 不静默，也不拿近处的凑数）
+        lines.push('  过去经历：（最近 ' + String(cut) + ' 楼内的已在你的上下文里，不再重复；更老的暂时没有）');
+    } else if (past.length && trimText(past[0].text) && keepByFloor(past[0])) {
         lines.push('  过去经历（最近一条）：' + trimText(past[0].text));
     }
 
     if (trimText(c.infer)) {
         lines.push('  推断（⛔ 不是事实）：' + trimText(c.infer));
+    }
+    // ⭐ 任务（主线／支线）：目标层。后台（不在场）的带全——这是他"活着"的证据；
+    //    现场角色的正文里已经在演，按篇幅少带（只带主线和进行中的子项）。
+    const questLines = questBlock(c, item.inScene);
+    if (questLines.length) {
+        lines.push(...questLines);
     }
     if (c.schedule && c.schedule.length) {
         const todo = c.schedule.filter((s) => !s.done);
@@ -234,13 +312,17 @@ function pickEvents(leadText, ctxText, events, cap) {
     return { picked: merged.map((x) => x.ev), dropped: Math.max(0, events.length - merged.length) };
 }
 
-/** 把召回的条目拼成给主模型的注入块 */
-export function assembleInjectText(items, events, headerText) {
+/**
+ * 把召回的条目拼成给主模型的注入块。
+ * @param {object} [opts] { anchorFloor } —— 本回合锚点楼（"楼层裁"用；不传就不裁）
+ */
+export function assembleInjectText(items, events, headerText, opts) {
     const header = trimText(headerText) || effectivePrompt('header');
+    const anchorFloor = opts && Number.isFinite(Number(opts.anchorFloor)) ? Number(opts.anchorFloor) : NaN;
     const blocks = [];
     for (const item of Array.isArray(items) ? items : []) {
         if (item && item.character) {
-            blocks.push(personBlock(item));
+            blocks.push(personBlock(item, { anchorFloor }));
         }
     }
     const evBlocks = (Array.isArray(events) ? events : []).map(eventBlock).filter(Boolean);

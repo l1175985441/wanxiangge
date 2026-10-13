@@ -15,6 +15,7 @@ import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     applyRosterPreset, describeRoster, describeWorld, recentRecallRecords, getChronicle,
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
+    updateQuest, removeQuest, addChronicle,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
@@ -439,6 +440,42 @@ function secCharacters(host) {
             body.appendChild(sch);
         }
 
+        // ⭐ 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
+        if (Array.isArray(c.quests) && c.quests.length) {
+            const qBox = el('div', 'wxg-list');
+            qBox.appendChild(el('div', 'wxg-report-h', '任务（在追的目标 · ⛔ 不是"下一步做什么"）'));
+            for (const q of c.quests) {
+                const row = el('div', 'wxg-rowitem');
+                const head = el('div', 'wxg-rowname');
+                head.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(q.kind) === 'main' ? '主线' : '支线'));
+                head.appendChild(el('span', 'wxg-name', trimText(q.title)));
+                // 状态可手改（活跃／完成／搁置）
+                const st = select('wxg-q-' + c.id + '-' + trimText(q.title), [
+                    { value: '活跃', label: '活跃' },
+                    { value: '完成', label: '完成' },
+                    { value: '搁置', label: '搁置' },
+                ], trimText(q.status), 'set-quest-status', c.id);
+                st.setAttribute('data-title', trimText(q.title));
+                st.className = 'text_pole wxg-mini';
+                head.appendChild(st);
+                if (q.manual) {
+                    head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
+                }
+                const del = button('删', 'del-quest', 'wxg-mini', c.id);
+                del.setAttribute('data-title', trimText(q.title));
+                head.appendChild(del);
+                row.appendChild(head);
+                if (trimText(q.note)) {
+                    row.appendChild(el('div', 'wxg-fact', trimText(q.note)));
+                }
+                if (Array.isArray(q.items) && q.items.length) {
+                    row.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
+                }
+                qBox.appendChild(row);
+            }
+            body.appendChild(qBox);
+        }
+
         const badges = el('div', 'wxg-row');
         if (c.manual) {
             badges.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已手动修改'));
@@ -590,6 +627,10 @@ function secRecall(host) {
             { value: 'related', label: '按相关度（先说到的排前面）' },
             { value: 'name', label: '按名册顺序' },
         ], s.sortMode, 'set-sort-mode'));
+    row(box,
+        el('span', 'wxg-note', '过去经历只端'),
+        numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'set-past-floor-cut'),
+        el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
     row(box,
         el('span', 'wxg-note', '一轮最多推演'),
         numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'set-max-parallel'),
@@ -1226,6 +1267,27 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
                 case 'set-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
                 case 'set-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
+                case 'set-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
+                /* ---- 任务（主线／支线）：她也能改 ---- */
+                case 'set-quest-status': {
+                    if (!isChange) {
+                        break;
+                    }
+                    const title = target.getAttribute('data-title') || '';
+                    updateQuest(id, title, { status: trimText(target.value) });
+                    toast.ok('任务状态改成「' + trimText(target.value) + '」了');
+                    rerender();
+                    break;
+                }
+                case 'del-quest': {
+                    const title = target.getAttribute('data-title') || '';
+                    if (removeQuest(id, title)) {
+                        addChronicle({ floor: -1, kind: '任务·手动删除', who: '', text: title });
+                        toast.ok('任务删掉了（已在编年里留痕）');
+                    }
+                    rerender();
+                    break;
+                }
                 case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
                 case 'set-max-parallel': if (isChange) { patchSettings({ maxParallelChars: target.value }); rerender(); } break;
 

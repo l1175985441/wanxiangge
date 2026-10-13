@@ -35,6 +35,8 @@ export function normalizeCharacter(raw) {
             injected: (p && p.injected) === true,
             at: Number((p && p.at) || 0),
             manual: (p && p.manual) === true,
+            // ⭐ 来源楼层（"楼层裁"用）：老数据没有就是 undefined ⇒ 当很老、照端
+            fromFloor: Number.isFinite(Number(p && p.fromFloor)) ? Number(p.fromFloor) : undefined,
         })).filter((p) => p.text) : [],
         current: trimText(c.current),
         timePlace: trimText(c.timePlace),
@@ -44,6 +46,20 @@ export function normalizeCharacter(raw) {
             due: trimText(s && s.due),
             done: (s && s.done) === true,
         })).filter((s) => s.what) : [],
+        // ⭐ 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
+        quests: Array.isArray(c.quests) ? c.quests.filter(Boolean).map((q) => ({
+            kind: trimText(q && q.kind) === 'main' ? 'main' : 'side',
+            title: trimText(q && q.title),
+            status: ['活跃', '完成', '搁置'].includes(trimText(q && q.status)) ? trimText(q && q.status) : '活跃',
+            note: trimText(q && q.note),
+            items: Array.isArray(q && q.items) ? q.items.filter(Boolean).map((i) => ({
+                text: trimText(i && i.text),
+                done: (i && i.done) === true,
+            })).filter((i) => i.text) : [],
+            at: Number((q && q.at) || 0),
+            updatedAt: Number((q && q.updatedAt) || 0),
+            manual: (q && q.manual) === true,
+        })).filter((q) => q.title) : [],
         inScene: c.inScene === true,
         isPlayer: c.isPlayer === true,
         isNew: c.isNew === true,
@@ -290,16 +306,147 @@ export function pushStep(characterId, text, floor) {
     return true;
 }
 
-/** 过去经历：新的放最前，旧的由近到远自然淡化（软处理，⛔ 不物理删） */
-export function pushPast(characterId, text, cap) {
+/**
+ * 往"过去经历"里推一条（最新的在最前面）。
+ * 旧的由近到远自然淡化（软处理，⛔ 不物理删——淡出的落进编年留档）。
+ *
+ * @param {string} characterId 角色 id
+ * @param {string} text 经历正文
+ * @param {number} cap 最多留几条
+ * @param {number} [fromFloor] ⭐ 这条经历的**来源楼层**（第几楼推出来的）
+ *   —— 注入时按它做"楼层裁"：最近 N 楼之内的不端（主模型上下文里已经有了），只端 N 楼之外的。
+ *   ⚠️ 老数据没有来源楼层 ⇒ 当"很老"处理（照端，⛔ 不丢）。
+ */
+/**
+ * 任务（主线／支线）：按"角色 + 标题"合并——同名更新状态／子项，不同名就是新任务。
+ *
+ * 口径（她与阿砚拍的）：任务＝**目标层**（他在追什么），⛔ 不是"下一步动作"。
+ * 子项里写"下一步／明天去…"这类会被退化检查挡下来（⛔ 不静默）。
+ *
+ * @returns {object|null} 落进去的那条任务
+ */
+export function upsertQuest(characterId, quest) {
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === characterId);
+    const title = trimText(quest && quest.title);
+    if (!c || !title) {
+        return null;
+    }
+    const kind = trimText(quest.kind) === 'main' ? 'main' : 'side';
+    const status = ['活跃', '完成', '搁置'].includes(trimText(quest.status)) ? trimText(quest.status) : '活跃';
+    const note = trimText(quest.note);
+    const items = Array.isArray(quest.items) ? quest.items.filter(Boolean).map((i) => ({
+        text: trimText(i && i.text),
+        done: (i && i.done) === true,
+    })).filter((i) => i.text) : [];
+
+    c.quests = Array.isArray(c.quests) ? c.quests : [];
+    const existing = c.quests.find((q) => q.title === title);
+    if (existing) {
+        // 她手改过的：⛔ 引擎不覆盖（和别处一个规矩）
+        if (existing.manual === true) {
+            return existing;
+        }
+        existing.kind = kind;
+        existing.status = status;
+        existing.note = note || existing.note;
+        // 子项合并：同名保留原状态，新出现的追加
+        const merged = [];
+        for (const it of existing.items || []) {
+            const hit = items.find((n) => n.text === it.text);
+            merged.push(hit || it);
+        }
+        for (const it of items) {
+            if (!merged.some((m) => m.text === it.text)) {
+                merged.push(it);
+            }
+        }
+        existing.items = merged;
+        existing.updatedAt = now();
+        saveState();
+        return existing;
+    }
+    const fresh = {
+        kind,
+        title,
+        status,
+        note,
+        items,
+        at: now(),
+        updatedAt: now(),
+        manual: quest.manual === true,
+    };
+    c.quests.push(fresh);
+    // 容量锁：一个角色最多 12 条（先丢"搁置／完成"里最早的那条）
+    if (c.quests.length > 12) {
+        const dropFirst = c.quests.findIndex((q) => q.status !== '活跃');
+        c.quests.splice(dropFirst >= 0 ? dropFirst : 0, 1);
+    }
+    saveState();
+    return fresh;
+}
+
+/** 她手动改一条任务（改完打 manual，引擎不再覆盖） */
+export function updateQuest(characterId, title, patch) {
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === characterId);
+    if (!c || !Array.isArray(c.quests)) {
+        return null;
+    }
+    const q = c.quests.find((x) => x.title === trimText(title));
+    if (!q) {
+        return null;
+    }
+    Object.assign(q, patch || {}, { manual: true, updatedAt: now() });
+    saveState();
+    return q;
+}
+
+/** 删一条任务 */
+export function removeQuest(characterId, title) {
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === characterId);
+    if (!c || !Array.isArray(c.quests)) {
+        return false;
+    }
+    const before = c.quests.length;
+    c.quests = c.quests.filter((q) => q.title !== trimText(title));
+    if (c.quests.length !== before) {
+        saveState();
+        return true;
+    }
+    return false;
+}
+
+/**
+ * 往"过去经历"里推一条（最新的在最前面）；旧的由近到远自然淡化（⛔ 不物理删，淡出的落编年）。
+ *
+ * @param {string} characterId 角色 id
+ * @param {string} text 经历正文
+ * @param {number} cap 最多留几条
+ * @param {number} [fromFloor] ⭐ 来源楼层（第几楼推出来的）——"楼层裁"按它算距离：
+ *   最近 N 楼之内的不端（主模型上下文里已有），只端更老的。
+ *   ⚠️ 老数据没有来源楼层 ⇒ 当"很老"、照端（⛔ 不丢）。
+ */
+export function pushPast(characterId, text, cap, fromFloor) {
     const state = loadState();
     const c = state.characters.find((x) => x.id === characterId);
     const body = trimText(text);
     if (!c || !body) {
         return false;
     }
+    const floor = Number(fromFloor);
+    const entry = {
+        text: body,
+        injected: false,
+        at: now(),
+        manual: false,
+    };
+    if (Number.isFinite(floor) && floor >= 0) {
+        entry.fromFloor = Math.trunc(floor);
+    }
     c.past = c.past.filter((p) => p.text !== body);
-    c.past.unshift({ text: body, injected: false, at: now(), manual: false });
+    c.past.unshift(entry);
     const limit = Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 5;
     if (c.past.length > limit) {
         const faded = c.past.slice(limit);
@@ -308,7 +455,7 @@ export function pushPast(characterId, text, cap) {
         for (const f of faded) {
             state.chronicle.push({
                 at: f.at || now(),
-                floor: c.lastSeenFloor,
+                floor: Number.isFinite(Number(f.fromFloor)) ? Number(f.fromFloor) : c.lastSeenFloor,
                 kind: '过去经历·淡化',
                 who: c.name,
                 text: f.text,

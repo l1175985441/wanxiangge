@@ -54,8 +54,9 @@ export function planRecall(options) {
 
         const recall = buildRecall({ chat, leadFloor: floor, leadText });
         // ⚠️ 送进去的和记下来的必须是**同一串**（免得字数对不上）
+        // ⭐ anchorFloor：本回合锚点楼 —— 过去经历的"楼层裁"按它算距离
         const text = settings.enabled
-            ? trimText(assembleInjectText(recall.items, recall.events, effectivePrompt('header')))
+            ? trimText(assembleInjectText(recall.items, recall.events, effectivePrompt('header'), { anchorFloor: floor }))
             : '';
 
         const rec = putRecallRecord({

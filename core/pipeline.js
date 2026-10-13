@@ -17,7 +17,7 @@ import { getChat } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
 import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
-    updateWorld,
+    updateWorld, upsertQuest,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
@@ -329,9 +329,10 @@ function applyCharacter(raw, material, conflicts) {
     // 过去经历（第一人称，由近到远）
     // ⚠️ 模型给的是"由近到远"；而 pushPast 是往**队首**插的
     //    ⇒ 必须**倒着**推，否则顺序会被反过来（自审修正·条 10）
+    // ⭐ 带上来源楼层：注入时按"楼层裁"过滤（最近 N 楼之内的不端）
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
     for (const p of past.slice(0, 5).reverse()) {
-        pushPast(c.id, p, 5);
+        pushPast(c.id, p, 5, material.floor);
     }
 
     // 日程：约好的事要记下、到点跟上
@@ -361,7 +362,10 @@ function applyCharacter(raw, material, conflicts) {
         }
     }
 
-    return { name: c.name, isNew };
+    // ⭐ 任务（主线／支线）：模型在 chars 里随行给的 quests（按角色名归位；也认顶层 quests）
+    const quests = collectQuests(raw, c);
+
+    return { name: c.name, isNew, quests };
 }
 
 async function stepCharacters(material) {
@@ -446,6 +450,7 @@ async function stepCharacters(material) {
     const conflicts = [];
     let written = 0;
     let newPeople = 0;
+    let questCount = 0;
     for (const raw of rows) {
         const row = Object.assign({}, raw);
         // 现场标记由我们决定（⛔ 不让模型自己选，免得它把在场的人当不在场去推演）
@@ -456,6 +461,16 @@ async function stepCharacters(material) {
             written += 1;
             if (done.isNew) {
                 newPeople += 1;
+            }
+            // ⭐ 任务落账（主线／支线）：模型给了才写，⛔ 没给不留空壳
+            if (Array.isArray(done.quests) && done.quests.length) {
+                const who = loadState().characters.find((x) => x.name === done.name);
+                if (who) {
+                    for (const q of done.quests) {
+                        upsertQuest(who.id, q);
+                        questCount += 1;
+                    }
+                }
             }
         }
     }
@@ -476,10 +491,29 @@ async function stepCharacters(material) {
     const summary = '角色状态＋平行事件已更新：写了 ' + String(written) + ' 人'
         + '（现场 ' + String(onStage.length) + ' 人、轮转 ' + String(pickedBench.length) + ' 人）'
         + (newPeople ? '，其中新认 ' + String(newPeople) + ' 人' : '')
+        + (questCount ? '，任务 ' + String(questCount) + ' 条' : '')
         + (conflicts.length ? '；有 ' + String(conflicts.length) + ' 处与她手改的版本冲突，已按她的版本保留' : '')
         + (meHits ? '；有 ' + String(meHits) + ' 处写到"我"，请看一眼' : '');
 
     return { ok: true, summary, written, conflicts };
+}
+
+/**
+ * 从模型回包里把这个角色的任务挑出来。
+ * 两种写法都认：① 跟在角色行里（`chars[i].quests`）；② 顶层 `quests` 数组里按 `name` 归位。
+ * ⛔ 没料就返回空数组（不留空壳）。
+ */
+function collectQuests(raw, c) {
+    const mine = Array.isArray(raw && raw.quests) ? raw.quests.filter(Boolean) : [];
+    const top = Array.isArray(raw && raw.allQuests) ? raw.allQuests.filter(Boolean) : [];
+    const out = mine.slice();
+    for (const q of top) {
+        const who = trimText(q && (q.name || q.character));
+        if (who && who === c.name) {
+            out.push(q);
+        }
+    }
+    return out.filter((q) => trimText(q && q.title));
 }
 
 /**
@@ -520,6 +554,19 @@ export function checkActingAsMe(rows, floor) {
                 pieces.push({ f: 'schedule', text: joined });
             }
         }
+        // ⭐ 任务也算"模型写下的字"：子项里要是写了"下一步／明天去…"这种，
+        //    跟"只写这一步"的规矩是同一个禁区 ⇒ 一样要拦住、要出声（⛔ 不静默）
+        if (Array.isArray(raw && raw.quests)) {
+            const joined = raw.quests.filter(Boolean).map((q) => {
+                const items = Array.isArray(q && q.items)
+                    ? q.items.map((i) => trimText(i && i.text)).filter(Boolean).join('、')
+                    : '';
+                return [trimText(q && q.title), items, trimText(q && q.note)].filter(Boolean).join(' ｜ ');
+            }).filter(Boolean).join('；');
+            if (joined) {
+                pieces.push({ f: '任务', text: joined });
+            }
+        }
 
         for (const piece of pieces) {
             const text = piece.text;
@@ -535,6 +582,10 @@ export function checkActingAsMe(rows, floor) {
             // ② 预判"我"
             if (/我(接下来|之后|下一步|等会儿|一会儿)/.test(text)) {
                 reasons.push('预判"我"接下来会怎样');
+            }
+            // ②b 任务里写"下一步动作／后续预测"（⛔ 跟"只写这一步"同一个禁区）
+            if (/下一步|接下来(去|要|会)|后续预测|准备(去|要)|即将(去|要|前)去?/.test(text)) {
+                reasons.push('写了"下一步动作／后续预测"（任务是目标层，⛔ 不写下一步）');
             }
             // ③ 改"我"处境的被动句（⛔ 侧面豁免不适用这类）
             const passive = text.match(/(被|给|让|叫)([^，。；！？]{0,8})我(带|拉|推|抱|赶|送|打|抓|拽|扔|丢|抬|背)/)
