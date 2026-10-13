@@ -720,12 +720,15 @@
     opacity: 1;
 }
 
+/* ⚠️ 真机上说明文字被右边裁掉 ⇒ 一律允许折行、允许在长串里断开 */
 .wanxiangge .wxg-note {
     display: block;
     opacity: 0.72;
     font-size: 0.88em;
     line-height: 1.6;
     margin: 3px 0 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .wanxiangge .wxg-hint {
@@ -1427,10 +1430,14 @@ body.wxg-dragging {
     border-top: 1px dashed var(--wxg-line);
 }
 
+/* ⚠️ 真机上量出来：`flex: 1 1 auto` 的说明段独吞了 1309px，把「保存这一段」压成 31px 宽
+   ⇒ 四个字被迫竖排成一条。改成按内容占位，剩下的空白留给它也不抢。 */
 .wanxiangge .wxg-savebar-note {
     font-size: 0.86em;
     color: var(--wxg-dim);
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 /* 有未保存的改动：把这一段"点亮"，她一眼看出哪儿还没存 */
@@ -1440,6 +1447,13 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-savebar.has-changes {
     border-top-color: var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+/* 保存条里的按钮：⛔ 不许收缩、⛔ 不许把字拆成竖排 */
+.wanxiangge .wxg-savebar > .menu_button,
+.wanxiangge .wxg-savebar > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 /* 排除名单里的小块：灰一点、带删除线，跟"提取"分开看 */
