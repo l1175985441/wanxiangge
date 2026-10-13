@@ -12,7 +12,7 @@
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
-import { renderSections } from './sections.js';
+import { renderSections, bindSectionEvents } from './sections.js';
 import { applyAppearance } from './theme.js';
 import { loadState } from '../core/state.js';
 import { trimText, asArray } from '../core/utils.js';
@@ -135,6 +135,14 @@ export function refreshWorkspace() {
     applyAppearance(wsEl, getSettings().appearance || {});
     const scroll = hostEl.scrollTop;
     renderSections(hostEl, { mode: 'workspace' });
+    /*
+     * ⚠️⚠️ 致命遗漏（真机与自审一起抓到的）：工作台**从来没绑过事件**！
+     *    `renderSections` 只画 DOM；点击／改动的处理在 `bindSectionEvents` 里，
+     *    而这里一直没调它 ⇒ **工作台里的按钮和输入框全都点了没反应**
+     *    （自审里"加一个人"加了 0 个、勾选存不住，全是这个原因）。
+     *    `bindSectionEvents` 自带 `__wxgBound` 防重复，所以在这儿调是安全的。
+     */
+    bindSectionEvents(hostEl, refreshWorkspace);
     buildSidebar();
     renderChips();
     // 默认停在上次看的那一段

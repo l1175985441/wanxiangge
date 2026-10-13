@@ -7,7 +7,7 @@
  */
 
 import {
-    TIERS, ROSTER_PRESET, STAGES_CONFLICT, STAGES_PROGRESS, DEFAULT_JAILBREAK,
+    STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
 import { storageReport, formatStamp } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
