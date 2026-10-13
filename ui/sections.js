@@ -762,7 +762,9 @@ function secCharacters(host) {
         curArea.setAttribute('data-id', c.id);
         curArea.setAttribute('data-key', 'current');
         curWrap.appendChild(curArea);
-        editBox.appendChild(curWrap);
+        // ⚠️ 必须挂进 editGrid（网格）——挂到 editBox 上的话它成了 flex 项，
+        //    会并排飘在右边，`grid-column: 1/-1` 根本不生效（真机截图里看出来的）
+        editGrid.appendChild(curWrap);
         detail.appendChild(editBox);
 
         if (c.currentSuspect) {
