@@ -1193,7 +1193,7 @@ body.wxg-dragging {
 /* 列宽：名字最宽（要放名字＋徽章＋明细），正在经历第二宽 */
 .wanxiangge .wxg-ctable th:nth-child(1),
 .wanxiangge .wxg-ctable td:nth-child(1) {
-    min-width: 210px;
+    min-width: 264px;
 }
 
 .wanxiangge .wxg-ctable th:nth-child(2),
@@ -1280,9 +1280,12 @@ body.wxg-dragging {
     align-content: flex-start;
 }
 
+/* ⚠️ 真机第 2 轮：`margin-left:auto` 把按钮推进了年龄那一列、还被挤成竖排两个字
+   ⇒ 紧挨着名字排，文字不换行 */
 .wanxiangge .wxg-cname-cell [data-action='toggle-cdetail'] {
-    margin-left: auto;
     flex: 0 0 auto;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
 }
 
 .wanxiangge .wxg-cur-cell textarea {
