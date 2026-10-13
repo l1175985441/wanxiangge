@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 万象阁 · 世界书落点（数据要能在世界书里看到、搜到、备份）
  *
  * ⛔ 绝不写她自己的世界书——只读。引擎的数据写进**自己那本**：
@@ -18,7 +18,7 @@
 import { WORLD_BOOK_NAME, BOOK_ENTRY_PREFIX } from './config.js';
 import { getCtx } from './adapter.js';
 import { loadState } from './state.js';
-import { trimText, asText } from './utils.js';
+import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
 
 /** 条目名 */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 万象阁 · 世界钟 与 阶段推进
  *
  * ⭐ 铁律（需求书）：暗线**挂世界内时间／条件**，⛔ 不挂"回合数"。
@@ -10,7 +10,7 @@
  */
 
 import { STAGES_CONFLICT, STAGES_PROGRESS } from './config.js';
-import { trimText, asText } from './utils.js';
+import { trimText } from './utils.js';
 
 /** 一天里的时段（按中文词判；判不出来就返回空） */
 const PERIODS = [

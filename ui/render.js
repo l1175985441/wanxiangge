@@ -252,14 +252,16 @@ function sweepOrphanCards() {
     }
 }
 
-/** 按账本把卡片挂回去（刷新后消息是分几拍画出来的，所以要能重试） */
+/** 按账本把卡片挂回去（刷新后消息是分几拍画出来的，所以默认再补一轮） */
 export function mountAllCards(tries, delay) {
     if (!hasDom()) {
         return;
     }
     const list = getChat();
     const chat = Array.isArray(list) ? list : [];
-    const rounds = Number.isFinite(tries) ? Math.max(0, Math.trunc(tries)) : 0;
+    // 不给参数时也补一轮：⛔ 别因为"画得慢"漏挂卡片
+    const rounds = tries === undefined || tries === null ? 1 : Math.max(0, Math.trunc(Number(tries) || 0));
+    const wait = Number.isFinite(Number(delay)) ? Number(delay) : 1200;
 
     if (chat.length) {
         for (let floor = 0; floor < chat.length; floor += 1) {
@@ -273,7 +275,6 @@ export function mountAllCards(tries, delay) {
     }
 
     if (rounds > 0) {
-        const wait = Number.isFinite(delay) ? delay : 1200;
         setTimeout(() => mountAllCards(rounds - 1, wait), wait);
     }
 }

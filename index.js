@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 万象阁 · 入口
  *
  * 世界在后台自己活着：记录、跟踪、呈现——正文一个字都不多。
@@ -28,7 +28,7 @@ import { getSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {

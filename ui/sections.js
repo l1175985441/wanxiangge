@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 万象阁 · 面板内容（一份内容，两处使用）
  *
  * 同一套分节既渲染进**独立面板**（ui/shell.js 开的窗口），也渲染进**扩展设置区**里那一块。
@@ -7,7 +7,7 @@
  */
 
 import {
-    TIERS, ROSTER_PRESET, STAGES_CONFLICT, STAGES_PROGRESS, DEFAULT_JAILBREAK,
+    ROSTER_PRESET, STAGES_CONFLICT, STAGES_PROGRESS, DEFAULT_JAILBREAK,
 } from '../core/config.js';
 import { storageReport, formatStamp } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';

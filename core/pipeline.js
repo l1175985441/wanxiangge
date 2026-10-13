@@ -17,13 +17,13 @@ import { getChat } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
 import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
-    updateWorld, updateCharacter, getRoster,
+    updateWorld,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
-import { parseClock, isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
+import { isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
 import { markBookDirty } from './book.js';
-import { trimText, asText, countChars, toList, uniqueBy, clampNumber } from './utils.js';
+import { trimText, asText, clampNumber, uniqueBy } from './utils.js';
 
 let running = false;
 let cancelRequested = false;
@@ -312,7 +312,6 @@ function applyCharacter(raw, material, conflicts) {
 
     Object.assign(c, patch);
     c.updatedAt = Date.now();
-
     // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
     const cur = trimText(raw && raw.current);
     if (cur) {
@@ -451,6 +450,9 @@ async function stepCharacters(material) {
         }
     }
 
+    // 退化要出声：万一模型替"我"写了动作，记一条给她看（⛔ 不静默）
+    const meHits = checkActingAsMe(rows, material.floor);
+
     // 世界钟那一步可能带回来更新过的钟，这里再补读一次
     const clockNow = trimText(v.clock);
     if (clockNow && clockNow !== '未知' && !clockWentBackwards(loadState().world.clock, clockNow)) {
@@ -464,9 +466,48 @@ async function stepCharacters(material) {
     const summary = '角色状态＋平行事件已更新：写了 ' + String(written) + ' 人'
         + '（现场 ' + String(onStage.length) + ' 人、轮转 ' + String(pickedBench.length) + ' 人）'
         + (newPeople ? '，其中新认 ' + String(newPeople) + ' 人' : '')
-        + (conflicts.length ? '；有 ' + String(conflicts.length) + ' 处与她手改的版本冲突，已按她的版本保留' : '');
+        + (conflicts.length ? '；有 ' + String(conflicts.length) + ' 处与她手改的版本冲突，已按她的版本保留' : '')
+        + (meHits ? '；有 ' + String(meHits) + ' 处写到"我"，请看一眼' : '');
 
     return { ok: true, summary, written, conflicts };
+}
+
+/**
+ * 退化要出声：模型万一写了"我"（替玩家写行动／台词／决定），
+ * 内容留着（不擅自改它的字），但**记一条说明**让她看得见（⛔ 不许静默退化）。
+ */
+export function checkActingAsMe(rows, floor) {
+    const hits = [];
+    for (const raw of Array.isArray(rows) ? rows : []) {
+        const name = trimText(raw && raw.name);
+        const fields = ['current', 'timePlace', 'infer'];
+        for (const f of fields) {
+            const text = trimText(raw && raw[f]);
+            if (!text) {
+                continue;
+            }
+            // 逮三种：替"我"做事／"我"当主语＋动作／预判"我"
+            const hit = /(我)(会|要|打算|准备|决定|走向|走进|拿起|转身|站起|坐下|离开|回到|赶往|说出|喊道)/.test(text)
+                || /(对|向|跟|和|把|给|被)我(说|看|递|带|拉|推|抱|赶|送|叫|问|打)/.test(text)
+                || /我(接下来|之后|下一步)/.test(text);
+            if (hit) {
+                hits.push(name + ' 的「' + f + '」里出现了"我"的动作／处境：' + text.slice(0, 40));
+            }
+        }
+    }
+    if (hits.length) {
+        setPipeline({
+            conflicts: hits.slice(0, 5),
+            text: '注意：这一轮推演里有 ' + String(hits.length) + ' 处写到"我"（该由你自己决定的事）——内容留着没动，但请看一眼',
+        });
+        addChronicle({
+            floor,
+            kind: '退化提醒·写到"我"',
+            who: '',
+            text: hits.join('；'),
+        });
+    }
+    return hits.length;
 }
 
 /* ------------------------------ 主流程 ------------------------------ */
