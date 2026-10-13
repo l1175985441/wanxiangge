@@ -2581,3 +2581,79 @@ body.wxg-dragging {
     font-weight: 500;
     color: var(--wxg-dim);
 }
+
+/* ---------------------------------------------------------------------------
+   ⑨ 行内小按钮（`.wxg-btn-xs`，24px）＋ 行再紧一点
+   ⚠️ 行高是被按钮撑住的：30px 的 `wxg-btn-sm` 让每条至少 74px ⇒ 一屏少看 3-4 条。
+      "行化"要真的换来密度，按钮就得跟着小一档。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-btn-xs {
+    height: 24px;
+    padding: 0 9px;
+    font-size: 0.82em;
+    border-radius: 6px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* 行里有小按钮时，行本身也不用留那么高 */
+.wanxiangge .wxg-r:has(.wxg-btn-xs) {
+    padding: 4px 2px;
+}
+
+.wanxiangge .wxg-r-act .wxg-btn-xs + .wxg-btn-xs {
+    margin-left: 4px;
+}
+
+/* 行里的下拉（暗线改阶段）也别太高 */
+.wanxiangge .wxg-r-act select.text_pole {
+    height: 28px;
+    min-height: 28px;
+    font-size: var(--fs-note);
+}
+
+/* ---------------------------------------------------------------------------
+   ⑩ 翻页条（`‹ 上一页 ｜ 第 1-20 条 · 共 54 条 ｜ 下一页 ›` ＋ 页码）
+   ⚠️ 名册灌到 54 个人之后必须翻页：一长条滚到底**找不着人**。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-pager {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: var(--s3) 0 var(--s1);
+    margin-top: var(--s1);
+    border-top: 1px solid var(--wxg-line);
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+}
+
+.wanxiangge .wxg-pager-info {
+    flex: 1 1 auto;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.wanxiangge .wxg-pager-nums {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* 页码里"当前这一页"＝实心主色（跟筛选胶囊一个语言） */
+.wanxiangge .wxg-pager .wxg-btn-xs.is-on {
+    background: var(--wxg-accent, #5fbf9b);
+    border-color: var(--wxg-accent, #5fbf9b);
+    color: var(--wxg-accent-ink, #10201a);
+    font-weight: 700;
+}
+
+/* 翻到头/到尾那颗：禁用了就别再招手（⛔ 也不许点） */
+.wanxiangge .wxg-pager .wxg-btn-xs[disabled] {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}

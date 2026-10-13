@@ -455,10 +455,10 @@ function secWorld(host) {
             r.appendChild(main);
 
             const act = el('div', 'wxg-r-act');
-            const editBtn = button('改', 'edit-situation', 'wxg-btn-sm');
+            const editBtn = button('改', 'edit-situation', 'wxg-btn-xs');
             editBtn.setAttribute('data-index', String(idx));
             act.appendChild(editBtn);
-            const del = button('删', 'del-situation', 'wxg-btn-sm');
+            const del = button('删', 'del-situation', 'wxg-btn-xs');
             del.setAttribute('data-index', String(idx));
             act.appendChild(del);
             r.appendChild(act);
@@ -525,7 +525,7 @@ function secWorld(host) {
             act.appendChild(select('hid-stage-' + h.id,
                 (h.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
                 h.stage, 'set-hidden-stage', h.id));
-            act.appendChild(button('删', 'del-hidden', 'wxg-btn-sm', h.id));
+            act.appendChild(button('删', 'del-hidden', 'wxg-btn-xs', h.id));
             r.appendChild(act);
             hid.appendChild(r);
         }
@@ -1065,6 +1065,64 @@ let rosterFilter = 'all';
 /** 名册里哪一个人正展开着编辑（''＝都没展开） */
 let openChar = '';
 
+/** 名册/编年的翻页（第几页从 1 数；⛔ 不落设置，只是看的姿势） */
+let rosterPage = 1;
+let chronPage = 1;
+
+/** 每页几条（名册 20＝差不多一屏；编年 30＝够看一段） */
+const PER_PAGE = { roster: 20, chron: 30 };
+
+/**
+ * ⭐ 翻页条（对照观棋那张：`‹ 上一页 ｜ 第 1-20 条 · 共 54 条 ｜ 下一页 ›`）。
+ *
+ * 为什么需要：名册灌到 54 个人之后，一长条滚到底**根本找不着人**——
+ * 分页＋筛选＋搜索才是台账该有的用法。编年同理（越攒越多）。
+ */
+function pager(action, page, per, total) {
+    const pages = Math.max(1, Math.ceil(total / per));
+    const cur = Math.min(Math.max(1, Math.round(page) || 1), pages);
+    const bar = el('div', 'wxg-pager');
+
+    const prev = button('‹ 上一页', action, 'wxg-btn-xs', String(cur - 1));
+    if (cur <= 1) {
+        prev.disabled = true;
+    }
+    bar.appendChild(prev);
+
+    const from = total ? (cur - 1) * per + 1 : 0;
+    const to = Math.min(total, cur * per);
+    bar.appendChild(el('span', 'wxg-pager-info',
+        total ? ('第 ' + String(from) + '–' + String(to) + ' 条 · 共 ' + String(total) + ' 条')
+            : '一条都没有'));
+
+    const next = button('下一页 ›', action, 'wxg-btn-xs', String(cur + 1));
+    if (cur >= pages) {
+        next.disabled = true;
+    }
+    bar.appendChild(next);
+
+    // 页数不多时直接给页码（点着比一页页翻快）
+    if (pages > 1 && pages <= 12) {
+        const nums = el('div', 'wxg-pager-nums');
+        for (let i = 1; i <= pages; i += 1) {
+            const b = button(String(i), action, 'wxg-btn-xs' + (i === cur ? ' is-on' : ''), String(i));
+            nums.appendChild(b);
+        }
+        bar.appendChild(nums);
+    }
+    return bar;
+}
+
+/**
+ * 把"目标页"夹到合法范围。
+ * ⚠️ 夹在这里、不在处理器里（处理器只管存）：免得出现 page=0 或超出最后一页的空屏。
+ */
+function clampPage(target, total, per) {
+    const pages = Math.max(1, Math.ceil((Number(total) || 0) / per));
+    const n = Number(target);
+    return Math.min(Math.max(1, Number.isFinite(n) ? Math.round(n) : 1), pages);
+}
+
 /**
  * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
  *   推演＝中性分类章 ｜ 暗线＝要注意 ｜ 警戒／越界＝警告 ｜ 其它＝中性
@@ -1115,7 +1173,10 @@ function secChronicle(host) {
     const KINDS = ['推演', '暗线', '警戒', '越界'];
     const countOf = (k) => list.filter((c) => String(c.kind || '推演') === k).length;
     const all = list.slice(-120).reverse();
-    const shown = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演') === chronFilter);
+    const matched = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演') === chronFilter);
+    // ⭐ 翻页：只画当前页（编年是越攒越多的，一长条滚不到头）
+    chronPage = clampPage(chronPage, matched.length, PER_PAGE.chron);
+    const shown = matched.slice((chronPage - 1) * PER_PAGE.chron, chronPage * PER_PAGE.chron);
 
     // ① 筛选胶囊（带计数）——做法学参照，字用我们自己的
     const bar = el('div', 'wxg-filters');
@@ -1142,8 +1203,8 @@ function secChronicle(host) {
 
     // ② 一行小结：有几条、什么顺序
     const hit = el('div', 'wxg-hitbar');
-    hit.appendChild(el('span', null, '这里 ' + String(shown.length) + ' 条'
-        + (shown.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
+    hit.appendChild(el('span', null, '这一筛 ' + String(matched.length) + ' 条'
+        + (matched.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
     hit.appendChild(el('span', null, '新的在上面 · 按楼层分组'));
     box.appendChild(hit);
 
@@ -1190,6 +1251,9 @@ function secChronicle(host) {
         }
     }
     box.appendChild(cChron);
+    if (matched.length > PER_PAGE.chron) {
+        box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
+    }
     box.appendChild(el('div', 'wxg-note', '共 ' + String(list.length) + ' 条，这里显示最近 120 条（更早的仍在账本与世界书归档里）'));
     host.appendChild(box);
 }
@@ -1259,8 +1323,12 @@ function secRoster(host) {
     rf.appendChild(mkR('manual', '我改过的', roster.filter((c) => c.manual).length));
     cList.appendChild(rf);
 
+    // ⚠️ 按**筛完的数量**夹页（换筛选后可能只剩几条，别停在一个空页上）
+    rosterPage = clampPage(rosterPage, shownRoster.length, PER_PAGE.roster);
+    const pageList = shownRoster.slice((rosterPage - 1) * PER_PAGE.roster,
+        rosterPage * PER_PAGE.roster);
     const list = el('div', 'wxg-roster');
-    for (const c of shownRoster) {
+    for (const c of pageList) {
         const r = el('div', 'wxg-r');
         // 骨架列：玩家棋子给个记号（其余留空，保持列对齐）
         r.appendChild(el('span', 'wxg-r-k', c.isPlayer ? '★ 玩家' : ''));
@@ -1282,9 +1350,9 @@ function secRoster(host) {
         r.appendChild(main);
 
         const act = el('div', 'wxg-r-act');
-        const editBtn = button('改', 'edit-char', 'wxg-btn-sm', c.id);
+        const editBtn = button('改', 'edit-char', 'wxg-btn-xs', c.id);
         act.appendChild(editBtn);
-        act.appendChild(button('删', 'del-char', 'wxg-btn-sm', c.id));
+        act.appendChild(button('删', 'del-char', 'wxg-btn-xs', c.id));
         r.appendChild(act);
 
         // 「改」展开：别名／好感／玩家棋子
@@ -1312,6 +1380,10 @@ function secRoster(host) {
         list.appendChild(r);
     }
     cList.appendChild(list);
+    // ⭐ 翻页（人一多就必须有：54 个人滚到底找不着人）
+    if (shownRoster.length > PER_PAGE.roster) {
+        cList.appendChild(pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length));
+    }
     box.appendChild(cList);
     host.appendChild(box);
 }
@@ -2254,6 +2326,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'chron-filter': {
                     // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
                     chronFilter = trimText(id) || 'all';
+                    chronPage = 1; // ⚠️ 换了筛选要回第一页（不然可能停在一个空页上）
                     rerender();
                     break;
                 }
@@ -2266,6 +2339,18 @@ export function bindSectionEvents(host, refresh) {
                 case 'roster-filter': {
                     // 名册的筛选胶囊（同上）
                     rosterFilter = trimText(id) || 'all';
+                    rosterPage = 1; // 同上
+                    rerender();
+                    break;
+                }
+                case 'roster-page': {
+                    // 翻页：这里只存目标页；**夹取在渲染时按筛完的数量做**（见 secRoster）
+                    rosterPage = Math.max(1, Math.round(Number(id) || 1));
+                    rerender();
+                    break;
+                }
+                case 'chron-page': {
+                    chronPage = Math.max(1, Math.round(Number(id) || 1));
                     rerender();
                     break;
                 }

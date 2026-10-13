@@ -9,10 +9,11 @@
  * 文字色默认**按底面亮度自动算**（浅底给深字、深底给浅字）⇒ 她选了任何颜色都不会看不清。
  */
 
-export const PALETTE_KEYS = ['ink', 'pine', 'azure', 'cinnabar', 'paper', 'custom'];
+export const PALETTE_KEYS = ['ink', 'amber', 'pine', 'azure', 'cinnabar', 'paper', 'custom'];
 
 export const PALETTE_NAMES = {
     ink: '砚墨（深灰＋青绿）',
+    amber: '暖灯（奶咖＋琥珀）',
     pine: '松烟（墨绿＋米白）',
     azure: '靛青（藏蓝＋天青）',
     cinnabar: '朱砂（暖褐＋朱红）',
@@ -23,6 +24,12 @@ export const PALETTE_NAMES = {
 /** 预设色板（只给四个槽位） */
 export const PALETTES = {
     ink: { accent: '#5fbf9b', surface: '#1d1f23', bg: '#141619', border: '#3a3f46' },
+    /*
+     * ⭐ 暖灯（对照 SP 数据库新版那套：奶米黄底＋琥珀重点）。
+     * 为什么加：复核方说"暖色可上"——工具型页面不一定非得冷灰；
+     * 深色底用暖褐，重点色用琥珀，比青绿更像"灯下看账本"。
+     */
+    amber: { accent: '#e0a83c', surface: '#26201a', bg: '#1a1512', border: '#4a3d2e' },
     pine: { accent: '#8fbf6a', surface: '#1b2019', bg: '#12160f', border: '#3b4634' },
     azure: { accent: '#6aa9e0', surface: '#1a1f28', bg: '#11151b', border: '#334255' },
     cinnabar: { accent: '#e0654f', surface: '#241d1a', bg: '#181210', border: '#4a352e' },
