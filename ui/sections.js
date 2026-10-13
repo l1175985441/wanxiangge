@@ -1279,18 +1279,30 @@ function secRoster(host) {
         row(box, button('一键收下这些新认的人', 'accept-new-all'));
     }
 
-    // ⭐ 装盒：录入 一块、名册 一块（体检第一条）
+    /*
+     * ⭐ 装盒：录入 一块、名册 一块（体检第一条）
+     * ⭐ 一屏一个焦点：**名册里已经有人了 ⇒ 录入默认收起**。
+     *    68 个人的时候它还占着半屏上半部分，名单要往下滚才看得见——
+     *    她天天要看的是名单，录入一个月用一次。⛔ 不删，点一下就展开。
+     */
+    const hasPeople = roster.length > 0;
     const cIn = card('录入');
-    row(cIn, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
-    row(cIn, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
-    row(cIn,
+    // 有人的时候：整块录入收进一个折叠条（点一下展开）；空名册时才直接摊开
+    let inTarget = cIn;
+    if (hasPeople) {
+        inTarget = foldable('展开录入（加人／导入／从世界书读人）', false);
+        cIn.appendChild(inTarget);
+    }
+    row(inTarget, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
+    row(inTarget, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
+    row(inTarget,
         textInput('wxg-book-name', '', '从世界书读人：填世界书名（留空＝角色卡绑定那本）', 'noop', 'wxg-short'),
         button('从世界书读人', 'read-book'),
         button('列出世界书', 'list-books'));
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
-    cIn.appendChild(bookList);
-    row(cIn, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
+    inTarget.appendChild(bookList);
+    row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
     box.appendChild(cIn);
 
     const cList = card('名册');
