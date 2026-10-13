@@ -1,0 +1,10 @@
+﻿# 本机/临时文件，不进仓库
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# 编辑器
+.vscode/
+.idea/
+*.swp

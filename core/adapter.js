@@ -115,7 +115,7 @@ export function readLedger() {
     return null;
 }
 
-/** 存账本：写回当前聊天的元数据，同时在设置区留一份底 */
+/** 存账本：写回当前聊天的元数据（真的存服务端）＋立刻在设置区留一份底 */
 export function writeLedger(state) {
     if (!state || typeof state !== 'object') {
         return;
@@ -123,18 +123,32 @@ export function writeLedger(state) {
     state.chatKey = currentChatKey();   // 盖个章：这本账属于哪个聊天
     const md = getChatMetadata();
     md[LEDGER_KEY] = state;
-    if (ctx && ctx.chatMetadata === md && typeof ctx.saveMetadata === 'function') {
-        try {
-            const p = ctx.saveMetadata();
-            if (p && typeof p.catch === 'function') {
-                p.catch((e) => console.warn('[万象阁] 账本保存失败：', e));
+
+    // 存服务端：saveMetadata 是标准路子；老版本没有就走 saveChatConditional
+    if (ctx && ctx.chatMetadata === md) {
+        const save = typeof ctx.saveMetadata === 'function'
+            ? ctx.saveMetadata.bind(ctx)
+            : (typeof ctx.saveChatConditional === 'function' ? ctx.saveChatConditional.bind(ctx) : null);
+        if (save) {
+            try {
+                const p = save();
+                if (p && typeof p.catch === 'function') {
+                    p.catch((e) => console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e));
+                }
+            } catch (e) {
+                console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
             }
-        } catch (e) {
-            console.warn('[万象阁] 账本保存失败：', e);
+        } else if (!warnedNoSave) {
+            warnedNoSave = true;
+            console.warn('[万象阁] 这个酒馆版本没给出存盘接口（saveMetadata／saveChatConditional），账本会只在本次会话内有效——请把这条告诉我。');
         }
     }
+
+    // ⭐ 底稿：立刻写、不攒着（刷新页面后就是靠它把账捞回来）
     mirrorLedger(state);
 }
+
+let warnedNoSave = false;
 
 /** 这本账盖的章（属于哪个聊天） */
 function keyOf(state) {
@@ -218,7 +232,8 @@ function mirrorLedger(state) {
     if (!hasContent(state)) {
         return; // 空账不值得留底
     }
-    stashToMirror(currentChatKey(), state);
+    // ⚠️ 一律立刻落盘：攒着不写＝刷新就丢（之前每 2 秒攒一次，实测就丢了）
+    stashToMirror(currentChatKey(), state, true);
 }
 
 /** 放进待写底稿（key 为空则按账本自己盖的章算；immediate＝立刻落盘） */

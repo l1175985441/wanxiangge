@@ -66,3 +66,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
     showEmptyCard: true,    // 没有召回时也显示空态卡片
     roster: [],             // 人物名册（按聊天各分各的，见 settings.js 说明）
 });
+
+/**
+ * 历史上用过的默认文案（升级时装新默认用）。
+ * ⚠️ 只换"还是旧默认"的；她自己改过的文案不在此列，一律保留。
+ */
+export const LEGACY_INJECT_HEADERS = Object.freeze([
+    '【万象阁·本轮召回】以下状态为既定事实，写作时据此保持一致，不要复述本段。',
+]);

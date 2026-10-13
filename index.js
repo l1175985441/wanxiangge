@@ -19,7 +19,7 @@ import { injectBeforeGenerate } from './core/engine.js';
 import { planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.2';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {

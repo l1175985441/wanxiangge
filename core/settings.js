@@ -6,7 +6,7 @@
  *   ② 人物名册 ＝按聊天各分各的（新聊天＝新世界），存在当前聊天的账本里。
  */
 
-import { DEFAULT_SETTINGS, SETTINGS_KEY, SETTINGS_VERSION } from './config.js';
+import { DEFAULT_SETTINGS, SETTINGS_KEY, SETTINGS_VERSION, LEGACY_INJECT_HEADERS } from './config.js';
 import { getExtensionSettings, persistSettings } from './adapter.js';
 import { clampNumber, toList, trimText } from './utils.js';
 
@@ -47,6 +47,16 @@ function loadSettings() {
     merged.protectedBypass = merged.protectedBypass !== false;
     merged.showEmptyCard = merged.showEmptyCard !== false;
     merged.injectHeader = trimText(merged.injectHeader) || DEFAULT_SETTINGS.injectHeader;
+
+    // ⭐ 升级过来的旧设置：如果那句话还是"旧的默认文案"，就换成新的默认；
+    //    她**自己改过**的（不等于任何旧默认）一律原样保留，⛔ 不动她的字。
+    for (const legacy of LEGACY_INJECT_HEADERS) {
+        if (merged.injectHeader === legacy) {
+            merged.injectHeader = DEFAULT_SETTINGS.injectHeader;
+            break;
+        }
+    }
+
     merged.version = SETTINGS_VERSION;
     merged.roster = []; // 名册另存，见 state.js
 

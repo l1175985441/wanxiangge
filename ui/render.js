@@ -16,7 +16,7 @@ import {
     removeCharacter, updateCharacter, describeRoster, getRecallRecord, recentRecallRecords,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
-import { toList, trimText, asText } from '../core/utils.js';
+import { toList, trimText, asText, countChars } from '../core/utils.js';
 import { replanCurrentFloor } from '../core/actions.js';
 
 /** 造元素的小助手 */
@@ -158,7 +158,7 @@ function buildCard(rec) {
     return card;
 }
 
-/** 有卡片就刷、没有就挂（同一楼只有一张） */
+/** 有卡片就刷、没有就挂（同一楼只留一张；顺手清掉重复和挂错楼的） */
 export function refreshCardOnFloor(floor) {
     if (!hasDom()) {
         return;
@@ -168,19 +168,19 @@ export function refreshCardOnFloor(floor) {
     if (!node) {
         return;
     }
-    const rec = getRecallRecord(floor);
-    const existing = node.querySelector(':scope > .' + CARD_CLASS);
 
+    // ⚠️ 先把这一楼里所有自家卡片摘干净（含嵌套、含重复挂的）——
+    //    之前只找直接子元素，重复挂的时候会越挂越多（实测同一楼挂了 3 张）
+    const stale = Array.from(node.querySelectorAll('.' + CARD_CLASS));
+    for (const old of stale) {
+        old.remove();
+    }
+
+    const rec = getRecallRecord(floor);
     if (!settings.cardEnabled || !rec) {
-        if (existing) {
-            existing.remove();
-        }
         return;
     }
     if (!settings.showEmptyCard && rec.injectStatus === 'empty') {
-        if (existing) {
-            existing.remove();
-        }
         return;
     }
 
@@ -191,10 +191,34 @@ export function refreshCardOnFloor(floor) {
             d.open = true;
         }
     }
-    if (existing) {
-        existing.replaceWith(fresh);
-    } else {
-        node.appendChild(fresh);
+    node.appendChild(fresh);
+}
+
+/** 把挂错地方的自家卡片清掉（对应的那一楼已经没有账了） */
+function sweepOrphanCards() {
+    if (!hasDom()) {
+        return;
+    }
+    const chat = getChat();
+    const state = loadState();
+    const floors = new Set(
+        (Array.isArray(state.recallRecords) ? state.recallRecords : [])
+            .filter((r) => r && Number.isFinite(r.floor))
+            .map((r) => Number(r.floor)),
+    );
+    const cards = document.querySelectorAll('.' + CARD_CLASS);
+    for (const card of cards) {
+        const raw = card.getAttribute(CARD_ATTR);
+        const floor = raw === null ? -1 : Number(raw);
+        const msg = chat[floor];
+        const isValid = floor >= 0
+            && floors.has(floor)
+            && msg
+            && msg.is_user === true
+            && !msg.is_system;
+        if (!isValid) {
+            card.remove();
+        }
     }
 }
 
@@ -214,6 +238,7 @@ export function mountAllCards() {
         }
         refreshCardOnFloor(floor);
     }
+    sweepOrphanCards();
 }
 
 /* ------------------------------- 面板 ------------------------------- */
@@ -234,8 +259,10 @@ function renderProcessReport(container) {
         box.className = 'wxg-report';
 
         const summary = document.createElement('summary');
+        // 字数与回执用**同一个来源**（都现数存下来的那段内容），免得两个数对不上
+        const shownChars = countChars(rec.injectedText);
         const statusText = rec.injectStatus === 'ok'
-            ? '已注入 ' + String(rec.injectedChars || 0) + ' 字'
+            ? '已注入 ' + String(shownChars) + ' 字'
             : (rec.injectStatus === 'empty' ? '未注入' : (rec.injectStatus === 'error' ? '注入失败' : '待送'));
         summary.appendChild(el('span', 'wxg-report-time', formatStamp(rec.at)));
         summary.appendChild(el('span', 'wxg-report-floor', '第 ' + String((rec.floor || 0) + 1) + ' 楼'));
