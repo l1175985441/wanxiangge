@@ -1670,9 +1670,16 @@ body.wxg-dragging {
     --wxg-accent: var(--SmartThemeUnderlineColor, rgb(120, 200, 150));
 }
 
-.wxg-ws .wanxiangge {
-    --wxg-accent: var(--wxg-accent, #5fbf9b);
-}
+/*
+ * ⚠️⚠️ 这里原来有一句 `.wxg-ws .wanxiangge { --wxg-accent: var(--wxg-accent, #5fbf9b); }`
+ *    ——**自引用**：同一个元素上拿自己去定义自己 ⇒ 这个自定义属性当场变成"无效值"，
+ *    于是所有 `var(--wxg-accent, …)` 都掉进兜底：
+ *      · 卡片标题掉回灰色（本该是主色）
+ *      · **主按钮写死成默认绿**——她换「朱砂／松绿／纸白」配色时按钮不会跟着变
+ *    真机上就是这么表现的（截图里卡片标题是灰的）。
+ *    ⛔ 别再写自引用。想在某个子树里改主色，得从**外层**传进来（theme.js 的 applyAppearance
+ *    就是把 --wxg-accent 写在根上的，子孙直接继承，什么都不用再声明）。
+ */
 
 /* 工作台里：卡片比页面底亮一档（用文字色罩色，深浅都成立），竖条用我们自己的强调色 */
 .wxg-ws .wanxiangge .wxg-card {
