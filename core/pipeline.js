@@ -23,7 +23,7 @@ import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
 import { markBookDirty } from './book.js';
-import { trimText, asText, clampNumber, uniqueBy } from './utils.js';
+import { trimText, asText, clampNumber, uniqueBy, floorLabel } from './utils.js';
 
 let running = false;
 let cancelRequested = false;
@@ -595,7 +595,7 @@ export async function runUpdate(opts) {
     const floor = Number.isFinite(o.floor) && o.floor >= 0 ? o.floor : chat.length - 1;
 
     // 留一版快照（撤回用）
-    takeSnapshot('更新前（第 ' + String(floor + 1) + ' 楼）');
+    takeSnapshot('更新前（' + floorLabel(floor) + '）');
 
     setPipeline({
         kind: 'update',
@@ -605,7 +605,7 @@ export async function runUpdate(opts) {
         endedAt: 0,
         tries: 0,
         error: '',
-        text: '开始更新（第 ' + String(floor + 1) + ' 楼）',
+        text: '开始更新（' + floorLabel(floor) + '）',
         cursor: 0,
         atFloor: floor,
         cancelRequested: false,
@@ -626,7 +626,7 @@ export async function runUpdate(opts) {
         running = false;
         return { ok: false, reason: '这一楼附近没有可读的正文' };
     }
-    setPipeline({ step: '读世界状态', text: '正在算世界状态（第 ' + String(floor + 1) + ' 楼）' });
+    setPipeline({ step: '读世界状态', text: '正在算世界状态（' + floorLabel(floor) + '）' });
 
     let lastError = '';
     let worldRes = { ok: false, reason: '没跑' };
@@ -787,12 +787,12 @@ export async function runBackfill(opts) {
         if (cancelRequested) {
             break;
         }
-        setPipeline({ text: '补推中：第 ' + String(floor + 1) + ' 楼（' + String(done + 1) + '/' + String(todo.length) + '）', cursor: done });
+        setPipeline({ text: '补推中：' + floorLabel(floor) + '（' + String(done + 1) + '/' + String(todo.length) + '）', cursor: done });
         // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
         // eslint-disable-next-line no-await-in-loop
         const res = await runUpdate({ manual: true, floor });
         if (!res.ok) {
-            failedAt = '第 ' + String(floor + 1) + ' 楼：' + (res.reason || '失败');
+            failedAt = floorLabel(floor) + '：' + (res.reason || '失败');
             break;
         }
         done += 1;

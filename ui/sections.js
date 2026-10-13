@@ -12,12 +12,12 @@ import {
 import { storageReport, formatStamp } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
 import {
-    getRoster, loadState, addCharacter, addCharacters, removeCharacter, updateCharacter,
+    getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     applyRosterPreset, describeRoster, describeWorld, recentRecallRecords, getChronicle,
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
-import { toList, trimText, asText, countChars } from '../core/utils.js';
+import { toList, trimText, asText, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, collectPeopleFromBook } from '../core/worldbook.js';
 import { clockWentBackwards } from '../core/clock.js';
@@ -305,7 +305,13 @@ function secWorld(host) {
 
     row(box,
         textInput('wxg-new-hidden', '', '新暗线名字', 'noop', 'wxg-short'),
-        textInput('wxg-new-hidden-trigger', '', '挂在什么时间／条件（例：晚上）', 'noop', 'wxg-short'),
+        textInput('wxg-new-hidden-trigger', '', '挂在什么时间／条件（例：晚上／三天后）', 'noop', 'wxg-short'),
+        // ⭐ 火候与族类**给她选**（原来写死"几天内／冲突型"）——近的快推、远的慢炖，是她自己的节奏
+        select('wxg-new-hidden-tier', TIERS.map((x) => ({ value: x, label: x })), '几天内', 'noop'),
+        select('wxg-new-hidden-kind', [
+            { value: 'conflict', label: '冲突型（萌芽→发酵→逼近→爆发→消散）' },
+            { value: 'progress', label: '推进型（筹备→执行→关键→完成）' },
+        ], 'conflict', 'noop'),
         button('加一条暗线', 'add-hidden'));
     host.appendChild(box);
 }
@@ -425,7 +431,7 @@ function secChronicle(host) {
         const line = el('div', 'wxg-chron');
         line.appendChild(el('span', 'wxg-report-time', formatStamp(c.at)));
         if (Number.isFinite(c.floor) && c.floor >= 0) {
-            line.appendChild(el('span', 'wxg-report-floor', '第 ' + String(c.floor + 1) + ' 楼'));
+            line.appendChild(el('span', 'wxg-report-floor', floorLabel(c.floor)));
         }
         line.appendChild(el('span', 'wxg-badge wxg-badge-soft', c.kind || '推演'));
         if (trimText(c.who)) {
@@ -447,9 +453,20 @@ function secRoster(host) {
     const box = section('人物名册',
         '名册按聊天各分各的（开新档＝新世界，数据不串）。别名表由你自己维护——正文里叫昵称也能召回上。');
     const d = describeRoster();
+    const state = loadState();
+    const fresh = Array.isArray(state.newPeople) ? state.newPeople.filter(Boolean) : [];
     box.appendChild(el('div', 'wxg-note', d.total
         ? '现有 ' + String(d.total) + ' 人' + (d.players ? '（其中玩家棋子 ' + String(d.players) + ' 人）' : '')
         : '还没有人物。'));
+    // ⭐「新认的人」接上显示（条 12：这个数组原来只写不读）。
+    //    她最需要知道的恰恰是"引擎自己认了谁"——认错了要能一眼看见并处理。
+    if (fresh.length) {
+        const line = el('div', 'wxg-store', '引擎新认了 ' + String(fresh.length) + ' 个人：' + fresh.join('、')
+            + '（名字对不对？不对就点「按这条合并…」并进老记录，或「忽略这条」）');
+        line.setAttribute('data-tone', 'bad');
+        box.appendChild(line);
+        row(box, button('一键收下这些新认的人', 'accept-new-all'));
+    }
 
     row(box, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
     row(box, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
@@ -593,7 +610,8 @@ function secPrompts(host) {
 function secReport(host) {
     const list = recentRecallRecords(20);
     const box = section('过程报告 · 每轮到底注入了什么',
-        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）③ 回执（成没成、多少字、什么身份、为什么没注入）。');
+        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）③ 回执（成没成、多少字、什么身份、为什么没注入）。'
+        + '（' + FLOOR_NOTE + '）');
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
         host.appendChild(box);
@@ -604,7 +622,7 @@ function secReport(host) {
         const statusText = rec.injectStatus === 'ok'
             ? '已注入 ' + String(shownChars) + ' 字'
             : (rec.injectStatus === 'empty' ? '未注入' : (rec.injectStatus === 'error' ? '注入失败' : '待送'));
-        const det = foldable(formatStamp(rec.at) + ' · 第 ' + String((rec.floor || 0) + 1) + ' 楼 · ' + statusText
+        const det = foldable(formatStamp(rec.at) + ' · ' + floorLabel(rec.floor) + ' · ' + statusText
             + ' · ' + (rec.chars && rec.chars.length ? rec.chars.join('、') : '—'), false);
         const body = el('div', 'wxg-report-body');
 
@@ -953,8 +971,20 @@ export function bindSectionEvents(host, refresh) {
                         toast.warn('先写个暗线名字');
                         break;
                     }
-                    addHiddenManually({ name, trigger: textOf(host, 'wxg-new-hidden-trigger'), stage: '萌芽', kind: 'conflict', tier: '几天内' });
-                    toast.ok('暗线加上了');
+                    const tierSel = byId(host, 'wxg-new-hidden-tier');
+                    const kindSel = byId(host, 'wxg-new-hidden-kind');
+                    const tier = trimText(tierSel && tierSel.value) || '几天内';
+                    const kind = trimText(kindSel && kindSel.value) || 'conflict';
+                    const line = addHiddenManually({
+                        name: trimText(name),
+                        trigger: textOf(host, 'wxg-new-hidden-trigger'),
+                        stage: kind === 'progress' ? '筹备' : '萌芽',
+                        kind,
+                        tier,
+                    });
+                    if (line) {
+                        toast.ok('暗线加上了（' + tier + ' · ' + (kind === 'progress' ? '推进型' : '冲突型') + '）');
+                    }
                     rerender();
                     break;
                 }
@@ -982,6 +1012,23 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-player': updateCharacter(id, { isPlayer: target.checked, manual: true }); rerender(); break;
                 case 'del-char': removeCharacter(id); rerender(); break;
                 case 'accept-new': updateCharacter(id, { isNew: false }); toast.ok('收下了'); rerender(); break;
+                case 'accept-new-all': {
+                    const st = loadState();
+                    const names = Array.isArray(st.newPeople) ? st.newPeople.slice() : [];
+                    let n = 0;
+                    for (const nm of names) {
+                        const c = findCharacterByName(nm);
+                        if (c && c.isNew) {
+                            updateCharacter(c.id, { isNew: false });
+                            n += 1;
+                        }
+                    }
+                    st.newPeople = [];
+                    saveState();
+                    toast.ok(n ? ('收下了 ' + String(n) + ' 个新认的人') : '没有待处理的新认的人');
+                    rerender();
+                    break;
+                }
                 case 'ignore-char': updateCharacter(id, { ignored: true }); rerender(); break;
                 case 'merge-into': {
                     const name = window.prompt('把哪一条合并进这一条？（写要并掉的那个名字）');
@@ -1074,9 +1121,18 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
                 case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
-                case 'set-strip-paired': patchSettings({ stripPairedBlocks: target.checked }); break;
-                case 'set-strip-comments': patchSettings({ stripHtmlComments: target.checked }); break;
-                case 'set-only-enabled': patchSettings({ onlyEnabledEntries: target.checked }); break;
+                case 'set-strip-paired':
+                    patchSettings({ stripPairedBlocks: target.checked });
+                    toast.ok(target.checked ? '会按结构剥掉成对的机器块' : '不再按结构剥（只用你点名的排除标签）');
+                    break;
+                case 'set-strip-comments':
+                    patchSettings({ stripHtmlComments: target.checked });
+                    toast.ok(target.checked ? '会剥掉 HTML 注释' : '不再剥 HTML 注释');
+                    break;
+                case 'set-only-enabled':
+                    patchSettings({ onlyEnabledEntries: target.checked });
+                    toast.ok(target.checked ? '只读开启着的条目' : '连关掉的条目也一起读');
+                    break;
 
                 /* ---- API ---- */
                 case 'set-api-mode': if (isChange) { patchApi({ mode: target.value }); rerender(); } break;

@@ -8,7 +8,7 @@
 
 import { formatStamp, formatClock, now } from './adapter.js';
 import { loadState, saveState } from './state.js';
-import { trimText, countChars } from './utils.js';
+import { trimText, countChars, floorLabel } from './utils.js';
 
 /** 把一批"已推送"的经历标记掉（只有真进了主模型眼前的才算推过） */
 export function markCarried(items) {
@@ -80,7 +80,7 @@ export function commitLedger(justNow) {
         status: latest.injectStatus === 'ok'
             ? 'ok'
             : (latest.injectStatus === 'empty' ? 'idle' : (latest.injectStatus === 'error' ? 'failed' : 'pending')),
-        note: '第 ' + String(latest.floor + 1) + ' 楼：' + statusText + (who.length ? '（' + who.join('；') + '）' : ''),
+        note: floorLabel(latest.floor) + '：' + statusText + (who.length ? '（' + who.join('；') + '）' : ''),
     };
 
     if (latest.injectStatus === 'ok') {

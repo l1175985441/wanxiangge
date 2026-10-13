@@ -4,8 +4,13 @@
  * ⭐ 口径：召回是一个动作、两个面——发消息那一刻算一次，这里把**同一份内容**
  *    作为临时消息送进请求，位置就在她这条消息前面 ⇒ 主模型读到她这条回复时，等于"附在她的消息里"。
  *
- * ⚠️ 已核实（酒馆官方源码）：拦截器拿到的 chat 数组是活引用，直接改会写进真实聊天记录；
- *    所以这里一律用克隆/临时消息，正文一个字都不多。
+ * ⚠️ 关于"改数组会不会污染聊天记录"（条 8 校订过的说法·含实测源码）：
+ *   · 酒馆在 `Generate()` 里先 `let coreChat = chat.filter(...)` —— **它自己做的就是一份副本**，
+ *     然后把这份副本交给拦截器（`runGenerationInterceptors(coreChat, …)`），
+ *     拦截器**必须原地改它**才生效（酒馆不再接收返回值）。
+ *   · ⇒ 结论：**原地 splice 是唯一正确的做法**，⛔ 不能改成"拷贝一份再改"（那样注入直接失效）。
+ *   · 同时我们也**绝不改任何原有消息对象**（只 splice 自己新造的那一条），
+ *     并且清场时只摘"自己上一轮留下的那条注记"⇒ 真实聊天记录一个字都不多（有断言把关）。
  *
  * ⭐ 身份：打上 narrator 标记 ⇒ 请求里是正牌 **system** 消息（不做成 assistant，免得被当角色发言）。
  */
@@ -110,7 +115,12 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
         return;
     }
 
-    const list = Array.isArray(chat) ? chat : getChat();
+    // ⚠️ 条 8 的结论（实测源码后）：酒馆传进来的 `coreChat` **就是它自己 filter 出来的副本**，
+    //    而且它**只认原地改动**（不接收返回值）⇒ 这里必须**原地 splice**，
+    //    ⛔ 绝不能"拷贝一份再改"（那样注入等于没插，模型根本看不到）。
+    //    我们只 splice 自己新造的那一条，⛔ 不动任何原有消息对象。
+    const fromTavern = Array.isArray(chat);
+    const list = fromTavern ? chat : getChat().slice();
     if (!Array.isArray(list) || !list.length) {
         return;
     }

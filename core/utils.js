@@ -82,3 +82,20 @@ export function uniqueBy(list, keyFn) {
     }
     return out;
 }
+
+/**
+ * 楼层号的**统一口径**（条 23）。
+ *
+ * 全库内部用的是**从 0 起的索引**，而酒馆界面上那条消息自己显示的编号（`.mesIDDisplay`）
+ * 也是同一个值 ⇒ 直接写 `#N`，跟她看得见的编号**一一对上**，⛔ 不再各处 +1 各说各话。
+ */
+export function floorLabel(floor) {
+    const n = Number(floor);
+    if (!Number.isFinite(n) || n < 0) {
+        return '未定位';
+    }
+    return '#' + String(n);
+}
+
+/** 楼层号的说明（面板上写一次，免得她对着 #4 发懵） */
+export const FLOOR_NOTE = '楼层号 #N 与酒馆消息头上的编号一致（从 0 起）。';

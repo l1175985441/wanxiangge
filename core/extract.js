@@ -9,7 +9,7 @@
  */
 
 import { getSettings } from './settings.js';
-import { toList, trimText, asText } from './utils.js';
+import { toList, trimText, asText, floorLabel } from './utils.js';
 
 /** 在一段文本里找"一起匹配的"第 k 组（同一对标记、同一层） */
 function findPair(text, re, k) {
@@ -210,7 +210,7 @@ export function cleanMessages(messages) {
         }
         const body = trimText(cleaned.text);
         if (body) {
-            parts.push('【第 ' + String((Number(item.floor) || 0) + 1) + ' 楼】\n' + body);
+            parts.push('【' + floorLabel(item.floor) + '】\n' + body);
         }
     }
     return { text: parts.join('\n\n'), fellBack };

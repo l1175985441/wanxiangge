@@ -10,7 +10,7 @@
  */
 
 import {
-    LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT,
+    LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
 } from './config.js';
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars } from './utils.js';
@@ -349,8 +349,16 @@ export function upsertHidden(line) {
     const existing = state.world.hidden.find((h) => h.name === name);
     if (existing) {
         const before = existing.stage;
+        const newStage = trimText(line.stage) || existing.stage;
+        // ⭐ 族类不许被"没给"冲掉（条 1 的连带）：给了就用给的，没给就沿用原来的，
+        //    再没有才按阶段名推断——否则推进型的阶段表会被悄悄换成冲突型。
+        const kindGiven = trimText(line.kind);
+        const inferredKind = STAGES_PROGRESS.includes(newStage) ? 'progress'
+            : (STAGES_CONFLICT.includes(newStage) ? 'conflict' : '');
+        const newKind = kindGiven || trimText(existing.kind) || inferredKind || 'conflict';
         Object.assign(existing, {
-            stage: trimText(line.stage) || existing.stage,
+            stage: newStage,
+            kind: newKind,
             trigger: trimText(line.trigger) || existing.trigger,
             tier: trimText(line.tier) || existing.tier,
             note: trimText(line.note) || existing.note,
@@ -370,11 +378,14 @@ export function upsertHidden(line) {
         saveState();
         return existing;
     }
+    const stageNow = trimText(line.stage) || '萌芽';
+    // 没给族类就按阶段名推断（"执行／关键"属于推进型，⛔ 别一律当成冲突型）
+    const inferred = STAGES_PROGRESS.includes(stageNow) ? 'progress' : 'conflict';
     const fresh = {
         id: makeId('line'),
         name,
-        stage: trimText(line.stage) || '萌芽',
-        kind: trimText(line.kind) || (STAGES_CONFLICT.includes(trimText(line.stage)) ? 'conflict' : 'progress'),
+        stage: stageNow,
+        kind: trimText(line.kind) || inferred,
         trigger: trimText(line.trigger),
         tier: trimText(line.tier) || '几天内',
         note: trimText(line.note),
