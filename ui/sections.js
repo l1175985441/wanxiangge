@@ -760,23 +760,41 @@ function secCharacters(host) {
  *   · 段底**一个**「保存这一段」把它整段提交；旁边显示"改了几处"；
  *   · 想退回 ⇒「撤销这一段」把草稿丢掉（回到已存的）。
  */
-const staging = {};
+/*
+ * ⚠️ 草稿**按宿主各存一份**（'workspace' / 'panel' / 'settings'）。
+ *    原来是全局共用一个 staging ⇒ 工作台和浮层面板**互相冲**：
+ *    在工作台填好地址、却点了面板那份「保存这一段」⇒ 面板那份草稿是空的，
+ *    提交下去就把刚填的**冲成空值**（真机上量到过 api.url 变 ""）。
+ */
+const stagingByMode = {};
+
+/** 当前正在画／正在处理的是哪一个宿主（⛔ 只用来分草稿，不参与别的判断） */
+let stagingMode = 'settings';
+
+function stagingOf(mode) {
+    const m = asText(mode) || 'settings';
+    if (!stagingByMode[m]) {
+        stagingByMode[m] = {};
+    }
+    return stagingByMode[m];
+}
 
 /** 记一笔草稿（⛔ 不落设置）；同一段同一键只留最后一次 */
 function stage(secId, key, value) {
-    const box = staging[secId] || (staging[secId] = {});
+    const store = stagingOf(stagingMode);
+    const box = store[secId] || (store[secId] = {});
     box[key] = value;
 }
 
 /** 这一段草稿里有几处改动 */
 function stagedCount(secId) {
-    const box = staging[secId];
+    const box = stagingOf(stagingMode)[secId];
     return box ? Object.keys(box).length : 0;
 }
 
 /** 这一段某个键的"当前显示值"（草稿优先，其次已存） */
 function stagedValue(secId, key, fallback) {
-    const box = staging[secId];
+    const box = stagingOf(stagingMode)[secId];
     return box && Object.prototype.hasOwnProperty.call(box, key) ? box[key] : fallback;
 }
 
@@ -801,7 +819,7 @@ function saveBar(secId, label) {
 
 /** 把这一段的草稿落进设置 */
 function commitSection(secId) {
-    const box = staging[secId];
+    const box = stagingOf(stagingMode)[secId];
     if (!box || !Object.keys(box).length) {
         return 0;
     }
@@ -823,7 +841,7 @@ function commitSection(secId) {
     // ⚠️ 顺序：**先把草稿摘掉，再落盘**。
     //    patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
     //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
-    delete staging[secId];
+    delete stagingOf(stagingMode)[secId];
     patchSettings(patch);
     return Object.keys(box).length;
 }
@@ -1500,28 +1518,30 @@ export function renderSections(host, opts) {
      *    并且 `children` 是 **HTMLCollection**（真 DOM），⛔ 没有 .slice()/.includes()，
      *    一律 `Array.from(...)` 转成数组再用（假环境把它做成数组，所以自审没抓住，已修 shim）。
      */
-    const staging = el('div', 'wxg-stage');
+    // ⭐ 草稿按宿主分开（见 stagingOf）：这一段画的是哪个宿主，就只碰那个宿主的草稿
+    stagingMode = mode;
+    const stageEl = el('div', 'wxg-stage');
     try {
         // ① 看板：现在怎么样
-        secStatus(staging);
-        secSteps(staging);
+        secStatus(stageEl);
+        secSteps(stageEl);
         // ② 世界与人
-        secWorld(staging);
-        secCharacters(staging);
-        secReport(staging);
-        secChronicle(staging);
-        secRoster(staging);
+        secWorld(stageEl);
+        secCharacters(stageEl);
+        secReport(stageEl);
+        secChronicle(stageEl);
+        secRoster(stageEl);
         // ③ 配置：设一次就不动
-        secGeneral(staging);
-        secAppearance(staging);
-        secRecall(staging);
-        secExtract(staging);
-        secApi(staging);
-        secPrompts(staging);
+        secGeneral(stageEl);
+        secAppearance(stageEl);
+        secRecall(stageEl);
+        secExtract(stageEl);
+        secApi(stageEl);
+        secPrompts(stageEl);
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
-        hangUp(host, staging);
+        hangUp(host, stageEl);
         const added = asArray(host.children || []).length - before;
         if (!added) {
             drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
@@ -1535,7 +1555,13 @@ export function renderSections(host, opts) {
             console.warn('[万象阁] 摆回条目列表出错：', e);
         }
     } catch (e) {
+        /*
+         * ⚠️ 兜底要**出声**（光 console.warn 不够：真机／自审里都可能没人看控制台，
+         *    表现就变成"界面莫名其妙空了一半"，查都没法查）。
+         *    这里同时打控制台；界面上的那句话由 drawFailure 写。
+         */
         console.warn('[万象阁] 画面板出错：', e);
+        console.error('[万象阁] 画面板出错（照抄这句反馈即可）：' + String((e && e.message) || e));
         drawFailure(host, e);
     }
 }
@@ -2224,7 +2250,7 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'discard-section': {
-                    delete staging[id];
+                    delete stagingOf(stagingMode)[id];
                     toast.info('这一段没保存的改动丢掉了（回到已存的）');
                     rerender();
                     break;
@@ -2451,7 +2477,7 @@ export function bindSectionEvents(host, refresh) {
                     // ⚠️ 顺序要紧：**先**把 one 和 list 算好、**再** commitSection ——
                     //    commitSection 会把草稿删掉，反过来写就只能拿到空的（这个坑真踩过）。
                     const live = getSettings().api || {};
-                    const draft = staging.api || {};
+                    const draft = stagingOf(stagingMode).api || {};
                     // ⚠️ 草稿里的 profiles 是**打开面板那一刻的旧值**（甚至空的）
                     //    ⇒ 合并时不许认它，否则会把刚存的书签冲掉。书签只认设置里那一份。
                     const cur = Object.assign({}, live, draft);
