@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 万象阁 · 面板内容（一份内容，两处使用）
  *
  * 同一套分节既渲染进**独立面板**（ui/shell.js 开的窗口），也渲染进**扩展设置区**里那一块。
@@ -699,6 +699,10 @@ function patchApi(patch) {
 async function readFromBook(book) {
     try {
         const res = await collectPeopleFromBook(book, { onlyEnabled: getSettings().onlyEnabledEntries !== false });
+        if (res.blocked) {
+            toast.warn('这本书在你「排除世界书」名单里，引擎不读它');
+            return { added: 0, skipped: 0 };
+        }
         const added = addCharacters(res.people.map((p) => p.name));
         return { added, skipped: res.skipped };
     } catch (e) {

@@ -1,10 +1,10 @@
-﻿{
+{
     "display_name": "万象阁",
     "loading_order": 60,
     "js": "index.js",
     "css": "wanxiangge.css",
     "author": "万象阁",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "homePage": "",
     "auto_update": false,
     "minimum_client_version": "1.12.0",

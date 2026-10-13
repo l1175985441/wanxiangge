@@ -158,14 +158,20 @@ export async function refreshAffinity() {
         }
     }
 
-    // 书名候选：她填的源名 + 提取世界书 + 角色卡绑定
+    // 书名候选：她填的源名 + 提取世界书 + 角色卡绑定（⛔ 排除名单里的书一律不读）
+    const excluded = toList(settings.excludeBooks);
+    const isExcluded = (name) => excluded.some((b) => matchKey(b) === matchKey(name));
     const books = new Set();
-    books.add(source);
+    if (!isExcluded(source)) {
+        books.add(source);
+    }
     for (const b of toList(settings.extractBooks)) {
-        books.add(b);
+        if (!isExcluded(b)) {
+            books.add(b);
+        }
     }
     const bound = trimText(ctx.chatMetadata && ctx.chatMetadata.world_info);
-    if (bound) {
+    if (bound && !isExcluded(bound)) {
         books.add(bound);
     }
 
@@ -291,13 +297,22 @@ export async function getEntries(bookName) {
 
 /**
  * 从一本世界书里认人。
- * 返回 { people: [{name, comment, enabled}], skipped: number }
+ * 返回 { people: [{name, comment, enabled}], skipped: number, blocked: boolean }
  * ⚠️ 只是"读"：不新增、不修改她的任何条目。
  */
 export async function collectPeopleFromBook(bookName, options) {
     const opts = options || {};
+    const settings = getSettings();
+    const name = trimText(bookName);
+
+    // 她在「排除世界书」里点过名的书：⛔ 不读、不参与
+    const blocked = toList(settings.excludeBooks).some((b) => matchKey(b) === matchKey(name));
+    if (blocked) {
+        return { people: [], skipped: 0, blocked: true };
+    }
+
     const onlyEnabled = opts.onlyEnabled !== false;
-    const entries = await getEntries(bookName);
+    const entries = await getEntries(name);
     const people = [];
     const seen = new Set();
     let skipped = 0;
@@ -310,22 +325,22 @@ export async function collectPeopleFromBook(bookName, options) {
             continue;
         }
         const title = trimText(entry.comment) || trimText(entry.key) || trimText(entry.keys);
-        const name = extractNameFromTitle(title);
-        if (!name) {
+        const person = extractNameFromTitle(title);
+        if (!person) {
             skipped += 1;
             continue;
         }
-        const key = matchKey(name);
+        const key = matchKey(person);
         if (seen.has(key)) {
             continue;
         }
         seen.add(key);
         people.push({
-            name,
+            name: person,
             comment: trimText(entry.comment),
             enabled: entry.disable !== true,
         });
     }
 
-    return { people, skipped };
+    return { people, skipped, blocked: false };
 }
