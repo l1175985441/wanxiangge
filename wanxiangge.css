@@ -919,14 +919,20 @@
     align-items: center;
 }
 
+/* ⚠️ 名册这一行：别名＝要宽（能填好几个昵称），好感＝要窄（就一个数）
+   ⛔ 别被后面那些通用 `input.text_pole{width:20em}` 顶掉
+   （真机踩过：好感框被撑成 20em ⇒ 右边被裁、「删除」被挤成竖排两个字）。 */
 .wanxiangge .wxg-char-fields .wxg-alias {
-    flex: 1 1 160px;
-    min-width: 0;
+    flex: 1 1 200px;
+    min-width: 8em;
+    width: auto;
+    max-width: 100%;
 }
 
 .wanxiangge .wxg-char-fields .wxg-affinity {
-    flex: 0 0 72px;
-    width: 72px;
+    flex: 0 0 96px;
+    width: 96px;
+    box-sizing: border-box;
 }
 
 .wanxiangge .wxg-char-actions {
