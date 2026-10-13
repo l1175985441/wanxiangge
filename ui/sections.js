@@ -913,6 +913,9 @@ function secChronicle(host) {
         '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。',
         { open: true }
         + '⭐ 编年**只给你看**：不注入、不喂模型。');
+    box.appendChild(el('div', 'wxg-note',
+        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
+        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录（更新几轮就有了）'));
         host.appendChild(box);
