@@ -324,7 +324,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--wxg-gap);
-    flex: 1 1 200px;
+    /* ⚠️ 真机上看出来的：`flex: 1 1 200px` 会让"标签＋输入框"整组撑满一整行，
+       标签被挤到上一行、输入框横跨全宽 ⇒ 改成按内容摆（放不下才换行）。 */
+    flex: 0 1 auto;
     min-width: 0;
     margin: 3px 0;
     cursor: pointer;
