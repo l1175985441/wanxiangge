@@ -922,16 +922,21 @@
 /* ⚠️ 名册这一行：别名＝要宽（能填好几个昵称），好感＝要窄（就一个数）
    ⛔ 别被后面那些通用 `input.text_pole{width:20em}` 顶掉
    （真机踩过：好感框被撑成 20em ⇒ 右边被裁、「删除」被挤成竖排两个字）。 */
+/* 名册一行：别名能吃满（要填好几个昵称），好感固定够宽（文案"未接入先空着"不能被裁） */
+.wanxiangge .wxg-char-fields {
+    max-width: 620px;
+}
+
 .wanxiangge .wxg-char-fields .wxg-alias {
-    flex: 1 1 200px;
-    min-width: 8em;
+    flex: 1 1 240px;
+    min-width: 10em;
     width: auto;
     max-width: 100%;
 }
 
 .wanxiangge .wxg-char-fields .wxg-affinity {
-    flex: 0 0 96px;
-    width: 96px;
+    flex: 0 0 150px;
+    width: 150px;
     box-sizing: border-box;
 }
 
