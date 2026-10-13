@@ -85,7 +85,7 @@ export function normalizeCharacter(raw) {
  *   `loadState()` → `normalizeState()` → `normalizeCharacter()` 是**白名单构造**，
  *   白名单里已经没有 `infer` ⇒ 读进来那一刻就洗掉了，而且 `loadState()` 末尾会**立刻回写盘**
  *   ⇒ 等这个循环去读 `c.infer` 时早没了（＝"白名单洗掉 ＋ load 回写"的**双料静默丢**）。
- *   （阿砚在试验田全链实证过：`moved=0`、编年 0 条、盘上 infer 也没了。）
+ *   （复核方在试验田全链实证过：`moved=0`、编年 0 条、盘上 infer 也没了。）
  *
  * @returns {number} 搬走了几条
  */
