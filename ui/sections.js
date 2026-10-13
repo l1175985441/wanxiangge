@@ -1116,30 +1116,37 @@ function secRecall(host) {
     const box = section('召回',
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false });
-    row(box,
+    // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
+    const cPick = card('每一轮怎么挑');
+    row(cPick,
         el('span', 'wxg-note', '线索回溯'),
         numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns'),
         el('span', 'wxg-note', '楼 ｜ 人物封顶'),
         numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars'),
         el('span', 'wxg-note', '｜ 事件封顶'),
         numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'));
-    row(box,
+    row(cPick,
         el('span', 'wxg-note', '排序'),
         select('wxg-sort-mode', [
             { value: 'related', label: '按相关度（先说到的排前面）' },
             { value: 'name', label: '按名册顺序' },
         ], s.sortMode, 'stage-sort-mode'));
-    row(box,
+    box.appendChild(cPick);
+    row(cPick,
         el('span', 'wxg-note', '过去经历只端'),
         numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
         el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
-    row(box,
+    row(cPick,
         el('span', 'wxg-note', '一轮最多推演'),
         numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
         el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
+    box.appendChild(cPick);
+
     // 卡片那两个开关归这儿（它们是"召回之后怎么显示"的事，⛔ 不是总闸）
-    box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'stage-card'));
-    box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'stage-show-empty'));
+    const cCard = card('召回卡片');
+    cCard.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'stage-card'));
+    cCard.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'stage-show-empty'));
+    box.appendChild(cCard);
     box.appendChild(saveBar('recall'));
     host.appendChild(box);
 }
