@@ -80,23 +80,41 @@ export function normalizeCharacter(raw) {
  * 老数据迁移：以前存过"推断（infer）"这一格 —— 按需求书这一格**不该存在**
  * （她定的角色字段只有七格：年龄／身份／过去经历／正在经历／所在势力／好感值／时间・地点）。
  * ⛔ 不静默丢：把它搬进**编年**留档（标注来源），再从角色身上摘掉。
+ *
+ * ⚠️⚠️ 这里必须走**原始账本**（`readLedger`），⛔ **不能走 `loadState()`**：
+ *   `loadState()` → `normalizeState()` → `normalizeCharacter()` 是**白名单构造**，
+ *   白名单里已经没有 `infer` ⇒ 读进来那一刻就洗掉了，而且 `loadState()` 末尾会**立刻回写盘**
+ *   ⇒ 等这个循环去读 `c.infer` 时早没了（＝"白名单洗掉 ＋ load 回写"的**双料静默丢**）。
+ *   （阿砚在试验田全链实证过：`moved=0`、编年 0 条、盘上 infer 也没了。）
+ *
  * @returns {number} 搬走了几条
  */
 export function migrateInferToChronicle() {
-    const state = loadState();
+    let raw = null;
+    try {
+        raw = readLedger();
+    } catch (e) {
+        return 0;
+    }
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.characters)) {
+        return 0;
+    }
+    if (!Array.isArray(raw.chronicle)) {
+        raw.chronicle = [];   // 保底建数组
+    }
     let moved = 0;
-    for (const c of state.characters || []) {
-        if (!c) {
+    for (const c of raw.characters) {
+        if (!c || typeof c !== 'object') {
             continue;
         }
         const text = trimText(c.infer);
         if (!text) {
             if (Object.hasOwn(c, 'infer')) {
-                delete c.infer;
+                delete c.infer;   // 空值顺手摘掉（不算"搬走一条"）
             }
             continue;
         }
-        state.chronicle.push({
+        raw.chronicle.push({
             at: now(),
             floor: Number.isFinite(Number(c.lastSeenFloor)) ? Number(c.lastSeenFloor) : -1,
             kind: '推断·已归入编年',
@@ -107,7 +125,10 @@ export function migrateInferToChronicle() {
         moved += 1;
     }
     if (moved) {
-        saveState();
+        // 写回**同一本源**（可能是底稿那本更全的账——照它改、写回去，⛔ 不换源）
+        writeLedger(raw);
+        // 内存里可能已经建过缓存（还是老账）⇒ 掀掉，下次读会重新从盘上取
+        resetCache();
     }
     return moved;
 }
@@ -644,15 +665,20 @@ export function addChronicle(entry) {
         return null;   // 同一句话不重复记
     }
     state.chronicle.push(row);
-    if (state.chronicle.length > CHRONICLE_LIMIT) {
+    // ⚠️ 上限要取**她配的那个数**（`LIMITS.capChronicle`，界面上能改），
+    //    ⛔ 不是写死的常量——以前用的是 `CHRONICLE_LIMIT`，她改设置根本不起作用。
+    const chronCap = Number(LIMITS.capChronicle || CHRONICLE_LIMIT);
+    if (state.chronicle.length > chronCap) {
         // ⭐ 容量锁（需求书：到上限用归并／淡出，⛔ 不物理删除；⛔ 不许无限膨胀）
-        //    "旧的要能捞回来"已由**世界书归档**兜底（book.js 把编年全量分页写进世界书）
-        //    ⇒ 本地数组**真截断**，不然它会只增不减、越跑越肿。
-        const over = state.chronicle.length - CHRONICLE_LIMIT;
-        for (let i = 0; i < over; i += 1) {
-            state.chronicle[i].faded = true;   // 留个痕：这些已经归档走了
+        //    "旧的要能捞回来"由**世界书归档**兜底（book.js 把编年全量分页写进世界书）。
+        // ⚠️ 标记要打在**活下来的那几条最老的**身上——
+        //    以前是给"马上要被 slice 掉的那批"标 ⇒ **标记全打在即将删除的元素上，等于白标**，
+        //    她永远看不到"哪些已经归档走了"。
+        state.chronicle = state.chronicle.slice(-chronCap);
+        const marker = state.chronicle[0];
+        if (marker && marker.faded !== true) {
+            marker.faded = true;   // 留个痕：这条前面的都已经归档进世界书了
         }
-        state.chronicle = state.chronicle.slice(-CHRONICLE_LIMIT);
     }
     saveState();
     return row;
