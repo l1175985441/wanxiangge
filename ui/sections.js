@@ -687,8 +687,26 @@ export function renderSections(host, opts) {
     secSteps(host);
 }
 
-function textOf(id) {
-    const node = document.getElementById(id);
+/**
+ * 在"这个宿主里"查一个 id（⛔ 不用 document.getElementById）。
+ *
+ * ⚠️ 为什么要这样（条 4·最重）：同一套分节会**同时**渲染在**两个地方**——
+ *    扩展设置区那一块 ＋ 魔法棒打开的独立面板。两处的 id 一模一样，
+ *    `document.getElementById` 永远只返回**文档里第一个**（＝设置区那份）
+ *    ⇒ 面板里的"加人／加暗线／读世界书"会读到设置区的空输入框（症状："疯狂提示先写个名字"），
+ *      而"写回"（世界书列表、破镜词预览、复制用的隐藏块）也会写到设置区去。
+ *    ⇒ 一切读／写都改成**相对当前宿主**查。
+ */
+function byId(host, id) {
+    if (!host || !id) {
+        return null;
+    }
+    return host.querySelector('#' + id) || null;
+}
+
+/** 读一个输入框的值（⛔ 只读**当前这个面板**里的那个，别串到另一个面板去） */
+function textOf(host, id) {
+    const node = byId(host, id);
     return node ? asText(node.value) : '';
 }
 
@@ -851,12 +869,12 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'del-hidden': removeHidden(id); rerender(); break;
                 case 'add-hidden': {
-                    const name = textOf('wxg-new-hidden');
+                    const name = textOf(host, 'wxg-new-hidden');
                     if (!trimText(name)) {
                         toast.warn('先写个暗线名字');
                         break;
                     }
-                    addHiddenManually({ name, trigger: textOf('wxg-new-hidden-trigger'), stage: '萌芽', kind: 'conflict', tier: '几天内' });
+                    addHiddenManually({ name, trigger: textOf(host, 'wxg-new-hidden-trigger'), stage: '萌芽', kind: 'conflict', tier: '几天内' });
                     toast.ok('暗线加上了');
                     rerender();
                     break;
@@ -903,7 +921,7 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 名册 ---- */
                 case 'add-char': {
-                    const name = trimText(textOf('wxg-new-name'));
+                    const name = trimText(textOf(host, 'wxg-new-name'));
                     if (!name) {
                         toast.warn('先写个名字');
                         break;
@@ -919,13 +937,13 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'import-roster': {
-                    const added = addCharacters(textOf('wxg-import-roster'), { manual: true });
+                    const added = addCharacters(textOf(host, 'wxg-import-roster'), { manual: true });
                     toast.ok(added ? '导入 ' + String(added) + ' 人' : '这些名字名册里已经有了');
                     rerender();
                     break;
                 }
                 case 'read-book': {
-                    const res = await readFromBook(trimText(textOf('wxg-book-name')));
+                    const res = await readFromBook(trimText(textOf(host, 'wxg-book-name')));
                     if (res) {
                         toast.ok('从世界书认出 ' + String(res.added) + ' 人（跳过 ' + String(res.skipped) + ' 条不认的）');
                     }
@@ -934,7 +952,7 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'list-books': {
                     const names = await listWorldbookNames();
-                    const box = document.getElementById('wxg-book-list');
+                    const box = byId(host, 'wxg-book-list');
                     if (box) {
                         box.textContent = names.length
                             ? '现有世界书：' + names.join(' ｜ ')
@@ -944,7 +962,7 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'detect-dupes': {
                     const dupes = autoDetectDuplicates();
-                    const box = document.getElementById('wxg-book-list');
+                    const box = byId(host, 'wxg-book-list');
                     if (!dupes.length) {
                         toast.ok('没发现疑似重复的记录');
                         if (box) {
@@ -1011,7 +1029,7 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 case 'show-jailbreak': {
-                    const box = document.getElementById('wxg-jailbreak-view');
+                    const box = byId(host, 'wxg-jailbreak-view');
                     if (box) {
                         box.style.display = box.style.display === 'none' ? 'block' : 'none';
                     }
@@ -1068,7 +1086,7 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'copy-text': {
                     const holderId = target.getAttribute('data-id');
-                    const holder = holderId ? document.getElementById('wxg-text-' + holderId) : null;
+                    const holder = holderId ? byId(host, 'wxg-text-' + holderId) : null;
                     if (holder) {
                         copyToClipboard(holder.textContent, target);
                     }

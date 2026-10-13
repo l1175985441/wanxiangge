@@ -767,21 +767,34 @@ export function runReconcile() {
     }
 
     const before = state.recallRecords.length;
+    // ⭐ 对账要按 **mesId 重新定位**（自审修正）：光过滤不重排的话，
+    //    中间删一楼会让其后所有记录的 floor 全部错位，下一次对账把它们**误删**（雪崩）。
+    const byMesId = new Map();
+    chat.forEach((m, idx) => {
+        const id = trimText(m && m.mesId);
+        if (id && m && m.is_user && !m.is_system) {
+            byMesId.set(id, idx);
+        }
+    });
+
     state.recallRecords = state.recallRecords.filter((r) => {
         if (!r) {
             return false;
         }
+        const mesId = trimText(r.mesId);
+        if (mesId) {
+            const at = byMesId.get(mesId);
+            if (at === undefined) {
+                return false;   // 这条记录对应的那条发言真的没了
+            }
+            if (r.floor !== at) {
+                r.floor = at;   // 位置变了 ⇒ 跟着对（⛔ 不许错位）
+            }
+            return true;
+        }
+        // 没有身份证的老记录：只能按楼层号核对
         const m = chat[r.floor];
-        if (!m) {
-            return false;   // 楼没了
-        }
-        if (!m.is_user || m.is_system) {
-            return false;   // 这楼已经不是她的发言了（重跑／重排）
-        }
-        if (trimText(r.mesId) && trimText(m.mesId) && trimText(r.mesId) !== trimText(m.mesId)) {
-            return false;   // 同一楼换了内容 ⇒ 账对不上
-        }
-        return true;
+        return !!(m && m.is_user && !m.is_system);
     });
     const removed = before - state.recallRecords.length;
 

@@ -105,8 +105,9 @@ export function extractNameFromTitle(title) {
     }
 
     // ⑦ 校验：不能是分类词本身／分类标题、不能含垃圾字符、长度合理
+    //    ⭐ 单字名要认（"晓""Q"是她的角色名）——只挡长度上限与分类词/标题
     const key = matchKey(t);
-    if (!key || key.length < 2 || key.length > 12) {
+    if (!key || key.length > 12) {
         return '';
     }
     if (CATEGORY_WORDS.has(key)) {

@@ -16,7 +16,7 @@ import { getSettings } from './settings.js';
 import { getCtx } from './adapter.js';
 import { trimText, asText } from './utils.js';
 
-/** 从模型输出里抠出 JSON（容错：```json 包裹、前后废话、截断收尾） */
+/** 从模型输出里抠出 JSON（容错：```json 包裹、前后废话、尾随文字、截断收尾） */
 export function extractJson(text) {
     const raw = asText(text);
     if (!raw.trim()) {
@@ -26,12 +26,15 @@ export function extractJson(text) {
     const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
     const body = fence ? fence[1] : raw;
 
-    // ② 找第一个 { 或 [ 到最后一个 } 或 ]
+    // ② 从第一个 { 或 [ 开始（⛔ 到结尾是不够的：模型爱在 JSON 后面加一句"祝您游戏愉快"）
     const firstBrace = body.search(/[[{]/);
     if (firstBrace < 0) {
         return { ok: false, reason: '模型输出里没有 JSON', value: null, text: raw };
     }
-    const candidate = body.slice(firstBrace);
+    // ⭐ 再找**最后一个** } 或 ] 收尾：中间的废话与尾随文字都切掉
+    const lastBrace = Math.max(body.lastIndexOf('}'), body.lastIndexOf(']'));
+    const candidate = lastBrace > firstBrace ? body.slice(firstBrace, lastBrace + 1) : body.slice(firstBrace);
+
     try {
         return { ok: true, value: JSON.parse(candidate), text: raw };
     } catch (e) {
@@ -40,7 +43,13 @@ export function extractJson(text) {
         try {
             return { ok: true, value: JSON.parse(repaired), text: raw, repaired: true };
         } catch (e2) {
-            return { ok: false, reason: 'JSON 解析不了（' + (e2 && e2.message ? e2.message : '格式不对') + '）', value: null, text: raw };
+            // ④ 最后再试一次"从第一个 { 到最后一个 }"的极端兜底
+            const loose = repairJson(String(body.slice(firstBrace)).trim());
+            try {
+                return { ok: true, value: JSON.parse(loose), text: raw, repaired: true };
+            } catch (e3) {
+                return { ok: false, reason: 'JSON 解析不了（' + (e2 && e2.message ? e2.message : '格式不对') + '）', value: null, text: raw };
+            }
         }
     }
 }

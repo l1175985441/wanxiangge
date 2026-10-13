@@ -38,11 +38,24 @@ function cnToNum(text) {
     if (s === '十') {
         return 10;
     }
+    // ⭐ "二十一"～"九十九"必须认（不认的话第 21-29 天的世界钟直接瘫痪、暗线时间表全停）
+    if (/^[一二三四五六七八九]十[一二三四五六七八九]$/.test(s)) {
+        return CN_NUM[s[0]] * 10 + CN_NUM[s[2]];
+    }
     if (/^十[一二三四五六七八九]$/.test(s)) {
         return 10 + CN_NUM[s[1]];
     }
     if (/^[一二三四五六七八九]十$/.test(s)) {
         return CN_NUM[s[0]] * 10;
+    }
+    // "两十"这类怪写法不认（认了反而容易误判），交给上面几条
+    if (/^[两]?[零一二三四五六七八九]{2,}$/.test(s)) {
+        // 例："二一"（口语里偶见）＝21；仅在两位且都认识时才拼
+        const a = CN_NUM[s[0]];
+        const b = CN_NUM[s[1]];
+        if (Number.isFinite(a) && Number.isFinite(b) && s.length === 2) {
+            return a * 10 + b;
+        }
     }
     if (Object.hasOwn(CN_NUM, s)) {
         return CN_NUM[s];
@@ -154,6 +167,15 @@ export function clockDistance(fromText, toText) {
     return absB - absA;
 }
 
+/** 世界钟的绝对分钟（第 N 天 × 1440 ＋ 当天分钟）；读不出来返回 null */
+function absoluteMinutes(clock) {
+    if (!clock || !clock.has) {
+        return null;
+    }
+    const day = clock.day === null ? 1 : clock.day;
+    return day * 1440 + (clock.minutesOfDay || 0);
+}
+
 /**
  * 这条暗线"到点了吗"——只看世界钟与它挂的条件，⛔ 不看回合数。
  * @returns {{due:boolean, why:string}}
@@ -168,10 +190,20 @@ export function isLineDue(line, clockText) {
             return { due: clock.has, why: clock.has ? '身边即时：钟在走就推' : '钟读不出来，先不推' };
         }
         if (tier === '长线大势') {
+            // ⭐ 慢炖：按"世界钟走了多久"算，⛔ 不是数回合；起点记在建线那一刻
             const need = 3 * 1440;   // 大约三天
-            const seen = Number(line && line.sinceMinutes) || 0;
-            const passed = clock.has ? seen : 0;
-            return { due: passed >= need, why: '长线大势：慢炖，还没到时候' };
+            const since = Number(line && line.sinceMinutes);
+            const nowAbs = absoluteMinutes(clock);
+            if (!clock.has || !Number.isFinite(since) || !Number.isFinite(nowAbs)) {
+                return { due: false, why: '长线大势：世界钟或起点读不出来，先不推（⛔ 不猜）' };
+            }
+            const passed = Math.max(0, nowAbs - since);
+            return {
+                due: passed >= need,
+                why: passed >= need
+                    ? ('长线大势：钟走了 ' + String(Math.round(passed / 1440 * 10) / 10) + ' 天，到点了')
+                    : ('长线大势：才走了 ' + String(Math.round(passed / 1440 * 10) / 10) + ' 天，慢炖中'),
+            };
         }
         return { due: clock.has, why: clock.has ? '几天内：钟在走就推' : '钟读不出来，先不推' };
     }
@@ -183,14 +215,23 @@ export function isLineDue(line, clockText) {
     }
 
     // "N 天后"类（也认"第三天""第五天"这种写法）
+    // ⭐ 口径：sinceDay＝**建线那天**；"3 天后"＝从建线那天再走 3 天（不是 2 天）
     const days = t.match(/(?:第)?([0-9]+|[零一二两三四五六七八九十]+)\s*[天日](?:后|之后|以后)?/);
     if (days && !/(放学|下课|天亮)/.test(t)) {
         const need = cnToNum(days[1]) || 1;
-        const since = Number(line && line.sinceDay) || 1;
+        const since = Number(line && line.sinceDay);
         const nowDay = clock.day === null ? 1 : clock.day;
+        if (!Number.isFinite(since)) {
+            return { due: false, why: '这条线没记下"从哪天起算"，⛔ 不猜（重建一次就会记上）' };
+        }
         const passed = Math.max(0, nowDay - since);
-        const ok = passed >= need - 1;
-        return { due: ok, why: ok ? ('已经是第 ' + String(nowDay) + ' 天，到点了') : ('才第 ' + String(nowDay) + ' 天，还要等') };
+        const ok = passed >= need;
+        return {
+            due: ok,
+            why: ok
+                ? ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，到点了')
+                : ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，还要等 ' + String(need - passed) + ' 天'),
+        };
     }
 
     // 时段类：条件的时段与现在的时段对上才算到点
@@ -213,10 +254,13 @@ export function isLineDue(line, clockText) {
         return { due: ok, why: ok ? '到夜里了' : '还没到夜里' };
     }
     if (/(明天|次日)/.test(t)) {
-        const since = Number(line && line.sinceDay) || 1;
+        const since = Number(line && line.sinceDay);
         const nowDay = clock.day === null ? 1 : clock.day;
+        if (!Number.isFinite(since)) {
+            return { due: false, why: '这条线没记下"从哪天起算"，⛔ 不猜' };
+        }
         const ok = nowDay > since;
-        return { due: ok, why: ok ? '到第二天了' : '还没到第二天' };
+        return { due: ok, why: ok ? ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，到第二天了') : '还没到第二天' };
     }
 
     // 认不出来的条件：不推（⛔ 宁可不推，也不提前冒头）
@@ -239,7 +283,12 @@ export function isLineDone(stage) {
     return s === '消散' || s === '完成';
 }
 
-/** 世界钟"往回走"了吗（防倒退：新钟比旧钟早太多就判可疑） */
+/**
+ * 世界钟"往回走"了吗（防倒退：新钟比旧钟早太多就判可疑）
+ *
+ * ⭐ 跨日口径（自审修正）：两边**都没写第几天**时，钟变小＝**跨了一天**（晚上 20:00 → 早上 08:00），
+ *    ⛔ 不是倒退。只有新钟**明确写了同一天**却比旧钟早，才算倒退。
+ */
 export function clockWentBackwards(oldText, newText) {
     const a = parseClock(oldText);
     const b = parseClock(newText);
@@ -249,6 +298,12 @@ export function clockWentBackwards(oldText, newText) {
     const dayA = a.day === null ? 1 : a.day;
     const dayB = b.day === null ? dayA : b.day;
     const absA = dayA * 1440 + (a.minutesOfDay || 0);
-    const absB = dayB * 1440 + (b.minutesOfDay || 0);
-    return absB < absA - 5;   // 少超过 5 分钟就算倒退（可能是模型瞎写）
+    let absB = dayB * 1440 + (b.minutesOfDay || 0);
+
+    // 新钟没写第几天、但时刻变小 ⇒ 当作跨了一天往前放
+    if (b.day === null && absB < absA) {
+        absB += 1440;
+    }
+
+    return absB < absA - 5;   // 少超过 5 分钟才算倒退（可能是模型瞎写）
 }

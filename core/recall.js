@@ -49,21 +49,35 @@ export function getMessageText(chat, floor) {
     return m ? trimText(m.mes) : '';
 }
 
-/** 按名字与别名造索引 */
+/**
+ * 按名字与别名造索引。
+ *
+ * ⭐ 口径（自审修正）：**精确全名不限长度**（"晓""Q"这种单字名是她的角色名，⛔ 不许因为
+ *    "怕误撞"就把人整个丢掉）；只有**别名**（容易撞车的昵称）才要求 2 个字以上。
+ */
 export function buildNameIndex(roster) {
-    const index = new Map();
+    const index = new Map();   // key → { character, exact }
+    const put = (key, c, exact) => {
+        if (!key) {
+            return;
+        }
+        const old = index.get(key);
+        if (!old || (exact && !old.exact)) {
+            index.set(key, { character: c, exact });
+        }
+    };
     for (const c of Array.isArray(roster) ? roster : []) {
         if (!c || c.ignored) {
             continue;
         }
-        const forms = [c.name].concat(Array.isArray(c.aliases) ? c.aliases : []);
-        for (const form of forms) {
-            const key = matchKey(form);
-            if (key.length < 2) {
-                continue;   // 单字太容易误撞
-            }
-            if (!index.has(key)) {
-                index.set(key, c);
+        const full = matchKey(c.name);
+        if (full) {
+            put(full, c, true);          // 全名：多长都收（含单字）
+        }
+        for (const alias of Array.isArray(c.aliases) ? c.aliases : []) {
+            const key = matchKey(alias);
+            if (key.length >= 2) {
+                put(key, c, false);      // 别名：2 字以上才收（防误撞）
             }
         }
     }
@@ -78,9 +92,11 @@ export function findMentions(text, index) {
     }
     const hits = [];
     for (const pair of index.entries()) {
-        const pos = hay.indexOf(pair[0]);
+        const key = pair[0];
+        const entry = pair[1];
+        const pos = hay.indexOf(key);
         if (pos >= 0) {
-            hits.push({ character: pair[1], pos });
+            hits.push({ character: entry.character, pos, exact: entry.exact !== false });
         }
     }
     hits.sort((a, b) => a.pos - b.pos);
@@ -259,8 +275,11 @@ export function assembleInjectText(items, events, headerText) {
 
     if (countChars(text) > INJECT_CHAR_CAP) {
         // 超了就砍尾巴，并如实说明砍了多少条
-        let kept = '';
-        let keptChars = 0;
+        // ⭐【世界】那一段（世界钟／地点／总览）**必须保住**：它是防"时间瞎"的底，
+        //    ⛔ 不能因为篇幅先从它身上砍（自审修正：原来重组时把它整个弄丢了）。
+        const worldBlock = worldLines.length ? '【世界】' + worldLines.join(' ｜ ') + '\n' : '';
+        let kept = worldBlock;
+        let keptChars = countChars(header) + countChars(worldBlock) + 8;
         let keptPeople = 0;
         let keptEvents = 0;
         for (const b of blocks) {
@@ -281,7 +300,7 @@ export function assembleInjectText(items, events, headerText) {
         }
         const droppedP = blocks.length - keptPeople;
         const droppedE = evBlocks.length - keptEvents;
-        if (!keptChars) {
+        if (!keptPeople && !keptEvents && !worldBlock) {
             return '';
         }
         text = header + '\n' + kept;

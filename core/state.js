@@ -14,6 +14,7 @@ import {
 } from './config.js';
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars } from './utils.js';
+import { parseClock } from './clock.js';
 
 /* ------------------------------ 人物 ------------------------------ */
 
@@ -339,6 +340,12 @@ export function upsertHidden(line) {
     if (!name) {
         return null;
     }
+    // ⭐ 建线时把"起算点"记下来（⛔ 不然"N 天后""长线大势"永远不会到点）：
+    //    sinceDay＝建线时世界钟的第几天；sinceMinutes＝建线时世界钟的绝对分钟。
+    const clockNow = parseClock(state.world.clock);
+    const sinceDayNow = clockNow.has ? (clockNow.day === null ? 1 : clockNow.day) : null;
+    const sinceMinutesNow = clockNow.has ? ((clockNow.day === null ? 1 : clockNow.day) * 1440 + (clockNow.minutesOfDay || 0)) : null;
+
     const existing = state.world.hidden.find((h) => h.name === name);
     if (existing) {
         const before = existing.stage;
@@ -349,6 +356,13 @@ export function upsertHidden(line) {
             note: trimText(line.note) || existing.note,
             updatedAt: now(),
         });
+        // 补齐起算点（老数据没有的话补上，⛔ 已有的不覆盖——覆盖等于把时间表往后推）
+        if (!Number.isFinite(Number(existing.sinceDay)) && Number.isFinite(sinceDayNow)) {
+            existing.sinceDay = sinceDayNow;
+        }
+        if (!Number.isFinite(Number(existing.sinceMinutes)) && Number.isFinite(sinceMinutesNow)) {
+            existing.sinceMinutes = sinceMinutesNow;
+        }
         if (before !== existing.stage) {
             existing.log = Array.isArray(existing.log) ? existing.log : [];
             existing.log.push({ at: now(), stage: existing.stage, note: existing.note });
@@ -364,6 +378,8 @@ export function upsertHidden(line) {
         trigger: trimText(line.trigger),
         tier: trimText(line.tier) || '几天内',
         note: trimText(line.note),
+        sinceDay: Number.isFinite(sinceDayNow) ? sinceDayNow : null,
+        sinceMinutes: Number.isFinite(sinceMinutesNow) ? sinceMinutesNow : null,
         log: [],
         manual: line.manual === true,
         updatedAt: now(),
@@ -436,11 +452,14 @@ export function addChronicle(entry) {
     }
     state.chronicle.push(row);
     if (state.chronicle.length > CHRONICLE_LIMIT) {
-        // 软处理：超出的不物理删，改成标记淡出（真正留底靠世界书归档）
+        // ⭐ 容量锁（需求书：到上限用归并／淡出，⛔ 不物理删除；⛔ 不许无限膨胀）
+        //    "旧的要能捞回来"已由**世界书归档**兜底（book.js 把编年全量分页写进世界书）
+        //    ⇒ 本地数组**真截断**，不然它会只增不减、越跑越肿。
         const over = state.chronicle.length - CHRONICLE_LIMIT;
         for (let i = 0; i < over; i += 1) {
-            state.chronicle[i].faded = true;
+            state.chronicle[i].faded = true;   // 留个痕：这些已经归档走了
         }
+        state.chronicle = state.chronicle.slice(-CHRONICLE_LIMIT);
     }
     saveState();
     return row;
