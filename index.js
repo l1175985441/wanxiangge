@@ -24,11 +24,11 @@ import {
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen } from './ui/shell.js';
 import { ensureWandEntry, syncEntryState } from './ui/wand.js';
-import { getSettings } from './core/settings.js';
+import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.2';
+const VERSION = '0.2.3';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {
@@ -171,6 +171,13 @@ function boot() {
             return;
         }
         setContext(ctx);
+        // ⭐ 拿到酒馆上下文之后，立刻把设置跟"酒馆设置区"对一次：
+        //    ⛔ 免得用的是启动早期读到的内置默认（那样设置永远落不了盘）
+        try {
+            reloadSettings();
+        } catch (e) {
+            console.warn('[万象阁] 设置对齐出错（会用内置默认继续跑）：', e);
+        }
         bindEvents(ctx);
 
         // ① 魔法棒入口（容器可能晚出现，它会自己等）

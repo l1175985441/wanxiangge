@@ -117,7 +117,8 @@ async function stepWorld(material) {
 
     const res = await callModelJson({
         prompt,
-        system: settings.jailbreak || undefined,
+        // ⛔ 破限词必须**真的发出去**：留空时要用内置那份（原来只读了原始设置 ⇒ 留空就等于没发）
+        system: effectivePrompt('jailbreak'),
         maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
     });
 
@@ -420,7 +421,8 @@ async function stepCharacters(material) {
 
     const res = await callModelJson({
         prompt,
-        system: settings.jailbreak || undefined,
+        // ⛔ 破限词必须**真的发出去**：留空时用内置那份
+        system: effectivePrompt('jailbreak'),
         maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
     });
     if (!res.ok) {

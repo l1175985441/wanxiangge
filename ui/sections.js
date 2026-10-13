@@ -20,6 +20,7 @@ import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, countChars } from '../core/utils.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, collectPeopleFromBook } from '../core/worldbook.js';
+import { clockWentBackwards } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
@@ -818,7 +819,20 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-update-every': if (isChange) { patchSettings({ updateEvery: target.value }); } break;
 
                 /* ---- 世界状态 ---- */
-                case 'set-world-clock': if (isChange) { updateWorld({ clock: target.value }, { manual: true }); toast.ok('保存了'); } break;
+                case 'set-world-clock': {
+                    if (isChange) {
+                        const before = loadState().world.clock;
+                        const typed = trimText(target.value);
+                        updateWorld({ clock: typed }, { manual: true });
+                        // 她手填的钟咱照用（她的字最大），但**要出声**：万一填倒退了呢
+                        if (typed && clockWentBackwards(before, typed)) {
+                            toast.warn('这个钟比原来的早（' + (before || '未知') + ' → ' + typed + '）——已按你填的存下；如果不想让它倒退，改回来就行');
+                        } else {
+                            toast.ok('保存了');
+                        }
+                    }
+                    break;
+                }
                 case 'set-world-place': if (isChange) { updateWorld({ place: target.value }, { manual: true }); toast.ok('保存了'); } break;
                 case 'set-world-big': if (isChange) { updateWorld({ bigPicture: target.value }, { manual: true }); toast.ok('保存了'); } break;
                 case 'set-hidden-stage': {

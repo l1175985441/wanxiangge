@@ -12,6 +12,7 @@ import { matchKey, trimText, asText, toList } from './utils.js';
 import { getCtx } from './adapter.js';
 import { loadState, saveState } from './state.js';
 import { getSettings } from './settings.js';
+import { WORLD_BOOK_NAME } from './config.js';
 
 /** 包裹用的括号对（成对剥壳用） */
 const BRACKETS = [
@@ -76,7 +77,7 @@ export function extractNameFromTitle(title) {
         }
     }
 
-    // ③ 去掉"分类前缀·名字"这种写法（仅当点号前面确实是分类词，别误伤"雷欧·阿斯特拉"）
+    // ③ 去掉"分类前缀·名字"这种写法（仅当点号前面确实是分类词，别误伤"某某·某某"）
     const dot = t.match(/^(.{1,6})[·・丨](.+)$/);
     if (dot && CATEGORY_WORDS.has(matchKey(dot[1]))) {
         t = trimText(dot[2]);
@@ -89,7 +90,7 @@ export function extractNameFromTitle(title) {
     }
 
     // ⑤ 剥掉尾巴上的补充说明：名字（备注）／名字【备注】／名字 - 备注
-    //    注意不能碰名字本身带的中圆点（雷欧·阿斯特拉）
+    //    注意不能碰名字本身带的中圆点（某某·某某）
     const tail = t.match(/^(.+?)[（(【\[].*$/) || t.match(/^(.+?)\s+[-–—]\s*.+$/);
     if (tail && trimText(tail[1]).length >= 2) {
         t = trimText(tail[1]);
@@ -146,43 +147,60 @@ export async function refreshAffinity() {
     if (!ctx || typeof ctx.getLorebookEntries !== 'function') {
         return { ok: false, reason: '这个世界书版本没给出读条目的接口' };
     }
-    if (typeof ctx.getWorldbookNames === 'function') {
-        try {
-            const names = await ctx.getWorldbookNames();
-            const list = Array.isArray(names) ? names : [];
-            if (list.length && !list.some((n) => trimText(n) === source)) {
-                return { ok: false, reason: '没找到叫《' + source + '》的世界书（现有：' + list.join('、') + '）' };
-            }
-        } catch (e) {
-            // 读不到列表就继续试读条目
-        }
-    }
 
-    // 书名候选：她填的源名 + 提取世界书 + 角色卡绑定（⛔ 排除名单里的书一律不读）
+    // ⭐ 她填的那个词，可能是**书名**，也可能是**条目关键词/条目名**（她那边叫「手机」）。
+    //    两种都得认：先看书名里有没有；没有就当成关键词，去候选书里找条目。
+    let books = [];
+    try {
+        const names = typeof ctx.getWorldbookNames === 'function' ? await ctx.getWorldbookNames() : [];
+        books = (Array.isArray(names) ? names : []).map((n) => trimText(n)).filter(Boolean);
+    } catch (e) {
+        books = [];
+    }
+    const sourceIsBook = books.some((b) => b === source);
+
+    // 一个条目算不算"跟好感有关"
+    const isAffinityEntry = (title, body) => {
+        if (sourceIsBook) {
+            return true;                       // 她直接点了整本书当源
+        }
+        return matchKey(title).includes(matchKey(source))
+            || matchKey(source).includes(matchKey(title) || '###')
+            || /好感|亲密度|好感度/.test(body);
+    };
+
     const excluded = toList(settings.excludeBooks);
     const isExcluded = (name) => excluded.some((b) => matchKey(b) === matchKey(name));
-    const books = new Set();
-    if (!isExcluded(source)) {
-        books.add(source);
-    }
-    for (const b of toList(settings.extractBooks)) {
-        if (!isExcluded(b)) {
-            books.add(b);
+
+    // 候选书：她是书名就只读那本；是关键词就把"提取世界书＋角色卡绑定"都翻一遍
+    const candidates = new Set();
+    if (sourceIsBook) {
+        if (!isExcluded(source)) {
+            candidates.add(source);
         }
-    }
-    const bound = trimText(ctx.chatMetadata && ctx.chatMetadata.world_info);
-    if (bound && !isExcluded(bound)) {
-        books.add(bound);
+    } else {
+        for (const b of toList(settings.extractBooks)) {
+            if (b && !isExcluded(b)) {
+                candidates.add(b);
+            }
+        }
+        const bound = trimText(ctx.chatMetadata && ctx.chatMetadata.world_info);
+        if (bound && !isExcluded(bound)) {
+            candidates.add(bound);
+        }
+        for (const b of books) {
+            if (!isExcluded(b) && b !== ourOwnBookName()) {
+                candidates.add(b);
+            }
+        }
     }
 
     let updated = 0;
     let scanned = 0;
     let readAny = false;
+    const seenBooks = [];
 
-    for (const book of books) {
-        if (!book) {
-            continue;
-        }
+    for (const book of candidates) {
         let entries = null;
         try {
             // eslint-disable-next-line no-await-in-loop
@@ -194,31 +212,25 @@ export async function refreshAffinity() {
             continue;
         }
         readAny = true;
+        seenBooks.push(book);
         for (const entry of entries) {
             if (!entry || typeof entry !== 'object') {
                 continue;
             }
             const title = trimText(entry.comment) || trimText(entry.key);
             const body = asText(entry.content);
-            if (!body) {
-                continue;
-            }
-            // 只读"跟好感有关"的条目（她配的关键词，或书名本身就对上了）
-            const relevant = book === source || matchKey(title).includes(matchKey(source)) || /好感|亲密度|好感度/.test(body);
-            if (!relevant) {
+            if (!body || !isAffinityEntry(title, body)) {
                 continue;
             }
             scanned += 1;
-            const lines = body.split(/\n+/);
-            for (const rawLine of lines) {
+            for (const rawLine of body.split(/\n+/)) {
                 const line = trimText(rawLine);
                 if (!line) {
                     continue;
                 }
                 for (const c of roster) {
                     const forms = [c.name].concat(c.aliases || []).filter(Boolean);
-                    const hitName = forms.find((f) => line.includes(f));
-                    if (!hitName) {
+                    if (!forms.some((f) => line.includes(f))) {
                         continue;
                     }
                     const num = line.match(/-?\d+(\.\d+)?/);
@@ -226,9 +238,10 @@ export async function refreshAffinity() {
                         continue;
                     }
                     const value = num[0];
-                    if (trimText(c.affinity) !== value || trimText(c.affinitySource) !== book) {
+                    const from = sourceIsBook ? book : (book + ' · ' + (title || '条目'));
+                    if (trimText(c.affinity) !== value || trimText(c.affinitySource) !== from) {
                         c.affinity = value;
-                        c.affinitySource = book;
+                        c.affinitySource = from;
                         c.updatedAt = Date.now();
                         updated += 1;
                     }
@@ -237,13 +250,23 @@ export async function refreshAffinity() {
         }
     }
 
-    if (!readAny) {
-        return { ok: false, reason: '读不到那本世界书（书名对不对？）：' + source };
+    if (!scanned) {
+        return {
+            ok: false,
+            reason: readAny
+                ? ('在这些书里没找到跟《' + source + '》有关的条目（翻了：' + seenBooks.join('、') + '）')
+                : ('读不到可能相关的那几本世界书（她填的源：' + source + '）'),
+        };
     }
     if (updated) {
         saveState();
     }
-    return { ok: true, updated, scanned };
+    return { ok: true, updated, scanned, books: seenBooks };
+}
+
+/** 引擎自己那本书的名字（⛔ 读好感时要跳过它，免得读自己写的东西） */
+function ourOwnBookName() {
+    return WORLD_BOOK_NAME;
 }
 
 /** 列出现有世界书名字（读不到就返回空数组，机器不崩） */

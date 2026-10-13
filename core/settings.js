@@ -17,12 +17,56 @@ import { clampNumber, toList, trimText, asText } from './utils.js';
 import { setLimits } from './state.js';
 
 let settings = null;
+let loadedWithStore = false;
+
+/**
+ * 还没拿到"酒馆设置区"时改过的设置，先攒在这里。
+ * ⚠️ 没有这一手会真丢：启动早期（拿到设置区之前）调 patchSettings，
+ *    写进去的是一个没人要的对象；等设置区到齐、重新对齐时就会被覆盖掉。
+ *    ⇒ 攒起来，等设置区到齐再补写一遍。
+ */
+let pendingPatch = null;
 
 export function getSettings() {
     if (!settings) {
         settings = loadSettings();
+    } else if (!loadedWithStore) {
+        // 之前那次是在"还没拿到酒馆设置区"的时候读的（拿到的是内置默认，没落盘）
+        const store = getExtensionSettings();
+        if (store) {
+            settings = loadSettings();
+            flushPending();
+        }
     }
     return settings;
+}
+
+/**
+ * 入口在 setContext 之后叫一次：确保设置是跟**酒馆设置区**对过的，
+ * ⛔ 不是"启动早期读到的内置默认"。
+ */
+export function reloadSettings() {
+    settings = null;
+    loadedWithStore = false;
+    const s = getSettings();
+    flushPending();
+    return s;
+}
+
+/** 把"设置区到齐之前改过的"补写进去 */
+function flushPending() {
+    if (!pendingPatch) {
+        return;
+    }
+    const store = getExtensionSettings();
+    if (!store) {
+        return;
+    }
+    const patch = pendingPatch;
+    pendingPatch = null;
+    Object.assign(settings, patch);
+    store[SETTINGS_KEY] = settings;
+    persistSettings();
 }
 
 function loadSettings() {
@@ -85,6 +129,7 @@ function loadSettings() {
 
     if (store) {
         store[SETTINGS_KEY] = merged;
+        loadedWithStore = true;
     }
     persistSettings();
     applyLimits(merged);
@@ -101,14 +146,53 @@ function applyLimits(s) {
     });
 }
 
+/**
+ * 改一处设置并立刻存盘。
+ * ⚠️ 面板上填进来的数字是**字符串**（input.value 就是字符串）——这里统一夹取成数字，
+ *    免得比较／推算时变成 "3" + 1 = "31" 这种坑（自审里真踩到过）。
+ */
 export function patchSettings(patch) {
     const s = getSettings();
-    Object.assign(s, patch || {});
+    const clean = Object.assign({}, patch || {});
+    const NUM = {
+        recentTurns: [1, 10, DEFAULT_SETTINGS.recentTurns],
+        maxChars: [1, 8, DEFAULT_SETTINGS.maxChars],
+        maxEvents: [0, 20, DEFAULT_SETTINGS.maxEvents],
+        updateEvery: [1, 10, DEFAULT_SETTINGS.updateEvery],
+        maxParallelChars: [0, 12, DEFAULT_SETTINGS.maxParallelChars],
+        capEvents: [10, 300, DEFAULT_SETTINGS.capEvents],
+        capChronicle: [100, 5000, DEFAULT_SETTINGS.capChronicle],
+        capHidden: [5, 200, DEFAULT_SETTINGS.capHidden],
+        capPast: [2, 20, DEFAULT_SETTINGS.capPast],
+    };
+    for (const key of Object.keys(NUM)) {
+        if (Object.hasOwn(clean, key)) {
+            clean[key] = clampNumber(clean[key], NUM[key][0], NUM[key][1], NUM[key][2]);
+        }
+    }
+    if (clean.api && typeof clean.api === 'object') {
+        const api = Object.assign({}, clean.api);
+        if (Object.hasOwn(api, 'temperature')) {
+            api.temperature = Math.min(2, Math.max(0, Number(api.temperature) || DEFAULT_SETTINGS.api.temperature));
+        }
+        if (Object.hasOwn(api, 'maxTokens')) {
+            api.maxTokens = clampNumber(api.maxTokens, 200, 8000, DEFAULT_SETTINGS.api.maxTokens);
+        }
+        if (Object.hasOwn(api, 'mode')) {
+            api.mode = api.mode === 'direct' ? 'direct' : 'proxy';
+        }
+        clean.api = api;
+    }
+
+    Object.assign(s, clean);
     const store = getExtensionSettings();
     if (store) {
         store[SETTINGS_KEY] = s;
+        persistSettings();
+    } else {
+        // ⚠️ 设置区还没到齐：先攒着，等它到齐再补写（否则这次改动会丢）
+        pendingPatch = Object.assign(pendingPatch || {}, clean);
     }
-    persistSettings();
     applyLimits(s);
     return s;
 }
