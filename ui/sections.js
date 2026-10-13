@@ -1070,7 +1070,7 @@ let rosterPage = 1;
 let chronPage = 1;
 
 /** 每页几条（名册 20＝差不多一屏；编年 30＝够看一段） */
-const PER_PAGE = { roster: 20, chron: 30 };
+const PER_PAGE = { roster: 15, chron: 20 };
 
 /**
  * ⭐ 翻页条（对照观棋那张：`‹ 上一页 ｜ 第 1-20 条 · 共 54 条 ｜ 下一页 ›`）。
@@ -1207,6 +1207,9 @@ function secChronicle(host) {
         + (matched.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
     hit.appendChild(el('span', null, '新的在上面 · 按楼层分组'));
     box.appendChild(hit);
+    if (matched.length > PER_PAGE.chron) {
+        box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
+    }
 
     // ③ 按楼层分组，一组一个"行列表"
     const cChron = card(chronFilter === 'all' ? '按回合攒的' : ('只看「' + chronFilter + '」'));
@@ -1251,9 +1254,6 @@ function secChronicle(host) {
         }
     }
     box.appendChild(cChron);
-    if (matched.length > PER_PAGE.chron) {
-        box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
-    }
     box.appendChild(el('div', 'wxg-note', '共 ' + String(list.length) + ' 条，这里显示最近 120 条（更早的仍在账本与世界书归档里）'));
     host.appendChild(box);
 }
@@ -1327,6 +1327,10 @@ function secRoster(host) {
     rosterPage = clampPage(rosterPage, shownRoster.length, PER_PAGE.roster);
     const pageList = shownRoster.slice((rosterPage - 1) * PER_PAGE.roster,
         rosterPage * PER_PAGE.roster);
+    // ⭐ 翻页条放**列表上方**（参照就是这么放的）：20 行之后再放一颗，等于没有
+    if (shownRoster.length > PER_PAGE.roster) {
+        cList.appendChild(pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length));
+    }
     const list = el('div', 'wxg-roster');
     for (const c of pageList) {
         const r = el('div', 'wxg-r');
@@ -1380,10 +1384,6 @@ function secRoster(host) {
         list.appendChild(r);
     }
     cList.appendChild(list);
-    // ⭐ 翻页（人一多就必须有：54 个人滚到底找不着人）
-    if (shownRoster.length > PER_PAGE.roster) {
-        cList.appendChild(pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length));
-    }
     box.appendChild(cList);
     host.appendChild(box);
 }
