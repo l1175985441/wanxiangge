@@ -91,6 +91,17 @@ function el(tag, cls, text) {
  */
 function section(title, hint, opts) {
     const o = opts || {};
+    /*
+     * ⚠️ 护栏：hint 必须是字符串（或空）。
+     *    这里出过一次真事故：编年那段写成 `section('编年', '…', { open: true } + '⭐ …')`
+     *    —— **对象拼字符串** ⇒ 拼出 "[object Object]⭐…"，于是
+     *    ① hint 从来没显示过 ② `open` 也没传进去、"默认展开"从没生效。
+     *    现在万一再写错，控制台立刻点名，⛔ 不再悄悄坏掉。
+     */
+    if (hint !== undefined && hint !== null && typeof hint !== 'string') {
+        console.warn('[万象阁] 段「' + String(title) + '」的说明传的不是字符串（多半是把 { open: … } 拼进去了）：'
+            + typeof hint);
+    }
     const drawer = el('div', 'wxg-sec inline-drawer');
     const head = el('div', 'wxg-sec-head inline-drawer-toggle inline-drawer-header');
     const titleWrap = el('div', 'wxg-sec-titlewrap');
@@ -101,7 +112,7 @@ function section(title, hint, opts) {
     drawer.appendChild(head);
 
     const body = el('div', 'wxg-sec-body inline-drawer-content');
-    if (hint) {
+    if (hint && typeof hint === 'string') {
         body.appendChild(el('div', 'wxg-note', hint));
     }
     drawer.appendChild(body);
@@ -909,13 +920,16 @@ export function applyCharSearch(root, query) {
 
 function secChronicle(host) {
     const list = getChronicle();
+    /*
+     * ⚠️ 这里原来是 `{ open: true } + '⭐ …'` —— **对象拼字符串**，两个后果：
+     *    · 拼出来的是 "[object Object]⭐ …" ⇒ hint 从来没显示过；
+     *    · `open` 也没传进去 ⇒ "默认展开"从来没生效（编年一直是收起的）。
+     *    ⇒ 改成独立传参（阿砚复核指出）。
+     */
     const box = section('编年',
-        '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。',
-        { open: true }
-        + '⭐ 编年**只给你看**：不注入、不喂模型。');
-    box.appendChild(el('div', 'wxg-note',
-        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
-        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
+        '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。'
+        + '⭐ 编年**只给你看**：不注入、不喂模型。',
+        { open: true });
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录（更新几轮就有了）'));
         host.appendChild(box);
