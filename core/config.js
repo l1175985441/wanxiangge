@@ -231,7 +231,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
     pastFloorCut: 3,
 
     /* 更新 */
-    updateEvery: 1,         // 每 N 回合更新一次
+    /*
+     * ⭐ 默认 **2＝停在上一轮**（复核方问："自动的情况不让他保留一层吗？"——对，该保留）。
+     *    为什么：`updateEvery = 1` 会在新楼一出现就算它，可那时你还能改、能重 roll、能撤回，
+     *    引擎先算一遍是**白烧额度**，算出来的状态还可能对应一版不存在的正文。
+     *    = 2 的语义见 `pipeline.shouldUpdateNow`：`floor - 上次算过的楼 >= 2` 才动，
+     *    也就是"只算已经落定的那些楼"。
+     */
+    updateEvery: 2,         // 每 N 回合更新一次（2＝停在上一轮，推荐）
     protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
     maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
     autoUpdate: true,       // 新楼生成后自动更新

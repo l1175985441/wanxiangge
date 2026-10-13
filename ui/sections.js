@@ -394,6 +394,19 @@ function secGeneral(host) {
     line(box, '更新频率',
         numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every'),
         el('span', 'wxg-note', '回合更新一次（1＝每回合都在动；2＝两格停在上一轮）'));
+    /*
+     * ⭐ 自动 + 频率 1 ⇒ 明确提示"建议停在上一轮"（复核方问的就是这个）。
+     *    为什么建议：新楼一出现就算它，可那时你还能改／能重 roll／能撤回，
+     *    引擎先算一遍是**白烧额度**，算出来的状态还可能对应一版不存在的正文。
+     *    ⛔ 不偷偷改她存的值——把话说明白＋给一颗一键改的按钮，改不改她定。
+     */
+    if (s.autoUpdate && Number(s.updateEvery) <= 1) {
+        const tip = el('div', 'wxg-note wxg-advice');
+        tip.appendChild(el('span', null, '⚠ 自动更新 + 频率 1 ⇒ 你刚发出去那楼会被**立刻**算一遍；'
+            + '但那时你还能改、能重 roll、能撤回，引擎这一趟会白烧额度。建议改成 2（停在上一轮，只算落定的楼）。'));
+        tip.appendChild(button('改成 2（推荐）', 'use-hold-one', 'wxg-btn-xs'));
+        box.appendChild(tip);
+    }
     box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
     box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
     box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
@@ -3258,7 +3271,14 @@ export function bindSectionEvents(host, refresh) {
                     break;
 
                 /* ---- 动作 ---- */
-                                case 'toggle-lock': {
+                                case 'use-hold-one': {
+                    // 「改成 2（推荐）」：只改频率这一个值，⛔ 不碰别的设置
+                    patchSettings({ updateEvery: 2 });
+                    toast.ok('已改成「停在上一轮」：只算落定的楼，省额度');
+                    rerender();
+                    break;
+                }
+                case 'toggle-lock': {
                     // 数据卡的「编辑／收起」：只切「正在编辑」这个状态，⏐ 不动数据
                     const k = trimText(id);
                     if (unlockedCards.has(k)) {
