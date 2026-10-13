@@ -788,6 +788,10 @@ export function renderSections(host, opts) {
      * ⭐ 挂载口径：各节函数返回的是**正文层**（内容都在它里面），
      *    这里把"壳 ＋ 正文"合起来，**整壳**挂进宿主。
      *    ⛔ 只挂正文 = 标题全丢；只挂壳 = 内容全丢（这两种错我都犯过，别再来一次）。
+     *
+     * ⚠️ 加固（真机崩过一次）：**挂载这一步也在 try 里**——它要是抛，兜底才真的兜得住。
+     *    并且 `children` 是 **HTMLCollection**（真 DOM），⛔ 没有 .slice()/.includes()，
+     *    一律 `Array.from(...)` 转成数组再用（假环境把它做成数组，所以自审没抓住，已修 shim）。
      */
     const staging = el('div', 'wxg-stage');
     try {
@@ -803,28 +807,28 @@ export function renderSections(host, opts) {
         secApi(staging);
         secPrompts(staging);
         secSteps(staging);
+
+        // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
+        const before = Array.from(host.children || []).length;
+        hangUp(host, staging);
+        const added = Array.from(host.children || []).length - before;
+        if (!added) {
+            drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
+        }
     } catch (e) {
         console.warn('[万象阁] 画面板出错：', e);
         drawFailure(host, e);
-        return;
-    }
-
-    // 自检：一段都没画出来（或壳里没有正文层）⇒ 也要说出来，⛔ 不留白板
-    const before = (host.children || []).length;
-    hangUp(host, staging);
-    const added = (host.children || []).length - before;
-    if (!added) {
-        drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
     }
 }
 
 /** 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非正文层的东西原样搬 */
 function hangUp(host, staging) {
-    for (const node of (staging.children || []).slice()) {
+    // ⚠️ children 是 HTMLCollection：先转数组再遍历／查找（真机就栽在这里）
+    for (const node of Array.from(staging.children || [])) {
         const drawer = node && node.__wxgDrawer;
         if (drawer) {
             // 正文层放回壳里（它本来就在壳里，这里是幂等的），再整壳挂上去
-            if (!drawer.children.includes(node)) {
+            if (!Array.from(drawer.children || []).includes(node)) {
                 drawer.appendChild(node);
             }
             host.appendChild(drawer);
