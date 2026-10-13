@@ -951,8 +951,9 @@
    ⛔ 别被后面那些通用 `input.text_pole{width:20em}` 顶掉
    （真机踩过：好感框被撑成 20em ⇒ 右边被裁、「删除」被挤成竖排两个字）。 */
 /* 名册一行：别名能吃满（要填好几个昵称），好感固定够宽（文案"未接入先空着"不能被裁） */
+/* 展开区的宽度：别夹着好感框（占位字被截一截看着像没做完） */
 .wanxiangge .wxg-char-fields {
-    max-width: 620px;
+    max-width: 760px;
 }
 
 .wanxiangge .wxg-char-fields .wxg-alias {
