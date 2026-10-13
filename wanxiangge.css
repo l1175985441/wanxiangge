@@ -2186,35 +2186,59 @@ body.wxg-dragging {
 }
 
 /* ---------------------------------------------------------------------------
-   ⑤ 空态当作品做：居中、图标＋一句话＋（可选）一个主按钮、大片留白
+   ⑤ 空态当作品做——但**分两档**（⛔ 别一律都做成大空态）：
+
+      · 列表空（默认）＝一行、紧凑：段里只是某个列表还没东西，⛔ 不该占掉一屏。
+      · 整页空（.is-hero）＝大、居中、图标＋一句话＋一个主按钮、大片留白：
+        参照构画的「还没有点 ＋ 生成点」——那是**整页**只有这一件事的时候。
    --------------------------------------------------------------------------- */
 
 .wanxiangge .wxg-empty {
+    display: block;
+    min-height: 0;
+    padding: 10px 14px;
+    border: 1px dashed var(--wxg-line);
+    border-radius: var(--r-ctl);
+    background: transparent;
+    color: var(--wxg-dim);
+    font-size: var(--fs-label);
+    line-height: 1.7;
+    text-align: center;
+}
+
+/* 整页空：这才是"当作品做"的那一档 */
+.wanxiangge .wxg-empty.is-hero {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--s3);
-    min-height: 168px;
-    padding: var(--s6) var(--s4);
-    text-align: center;
-    border: 1px dashed var(--wxg-line);
+    min-height: 280px;
+    padding: var(--s6) var(--s5);
     border-radius: var(--r-card);
-    background: transparent;
-    color: var(--wxg-dim);
-    font-size: 0.98em;
-    line-height: 1.8;
+    font-size: 1.02em;
+    line-height: 1.9;
 }
 
-.wanxiangge .wxg-empty::before {
-    content: '\f0c8';
-    /* ⚠️ 实心图标家族的字重必须是 **900**（写成 400 会回退成别的字体，
-       页面上就出现一个彩色怪字——真机上截图看到过）。 */
+.wanxiangge .wxg-empty.is-hero::before {
+    content: '\f49e'; /* fa-box-open：一个空盒子 */
     font-family: 'Font Awesome 6 Free', 'FontAwesome';
-    font-weight: 900;
-    font-size: 1.7em;
-    opacity: 0.4;
+    font-weight: 900; /* ⚠️ 实心图标必须 900，写 400 会回退成别的字体（出过彩色怪字） */
+    font-size: 2.1em;
+    opacity: 0.28;
+    margin-bottom: var(--s1);
 }
+
+/* 整页空态里那个主按钮：再大一点、字重再加一点（它是**唯一**该点的东西） */
+.wanxiangge .wxg-empty.is-hero .menu_button {
+    height: 40px;
+    padding: 0 22px;
+    font-size: 1em;
+    margin-top: var(--s2);
+}
+
+/* ⚠️ 旧的那条"给所有空态都加方块图标"的规矩**删掉**了：
+   图标只该出现在**整页空**那一档（.is-hero），列表空态是一行字，⛔ 不要图标。 */
 
 /* 空态里若带按钮，它就是"这一个主按钮"（参照构画「生成点」） */
 .wanxiangge .wxg-empty .menu_button,

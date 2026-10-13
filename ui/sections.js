@@ -336,7 +336,7 @@ function secStatus(host) {
     box.appendChild(cNow);
 
     const cAct = card('动作');
-    row(cAct, button('立刻更新', 'update-now'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
+    row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
     row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
     box.appendChild(cAct);
@@ -512,7 +512,7 @@ function secCharacters(host) {
     const box = section('角色状态', null, { open: true });
 
     if (!state.characters.length) {
-        box.appendChild(el('div', 'wxg-empty', '名册还是空的：下面「人物名册」里加人，或点「一键盘入预设名册」。'));
+        box.appendChild(el('div', 'wxg-empty is-hero', '名册还是空的：下面「人物名册」里加人，或点「一键盘入预设名册」。'));
         host.appendChild(box);
         return;
     }
@@ -824,7 +824,7 @@ function saveBar(secId, label) {
     if (n) {
         bar.appendChild(button('撤销这一段', 'discard-section', 'wxg-btn-sm', secId));
     }
-    bar.appendChild(button(label || '保存这一段', 'save-section', n ? '' : 'wxg-btn-sm', secId));
+    bar.appendChild(button(label || '保存这一段', 'save-section', (n ? '' : 'wxg-btn-sm ') + 'wxg-primary', secId));
     return bar;
 }
 
@@ -1012,7 +1012,7 @@ function secChronicle(host) {
         + '⭐ 编年**只给你看**：不注入、不喂模型。',
         { open: true });
     if (!list.length) {
-        box.appendChild(el('div', 'wxg-empty', '还没有记录（更新几轮就有了）'));
+        box.appendChild(el('div', 'wxg-empty is-hero', '还没有记录（更新几轮就有了）'));
         host.appendChild(box);
         return;
     }
@@ -1393,7 +1393,7 @@ function secReport(host) {
         '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
         + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
     if (!list.length) {
-        box.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
+        box.appendChild(el('div', 'wxg-empty is-hero', '还没有记录：发一条消息、正文生成之后就会有了。'));
         host.appendChild(box);
         return;
     }
