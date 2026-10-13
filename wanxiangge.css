@@ -897,6 +897,8 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+    /* 名册人再多也别把每个卡片拉得特别宽（不然一行信息要横着扫很久） */
+    max-width: 900px;
 }
 
 .wanxiangge .wxg-char-main {
@@ -937,11 +939,20 @@
    （`position: fixed`）⇒ 类名撞车：面板里的"明细／删／合并"按钮**全变成了 fixed 定位**，
    真机截图上它就直接压在名字上（量出来 position:fixed、宽 30px）。
    ⇒ 小按钮专用 `wxg-btn-sm`，⛔ 不再借悬浮球的类名。 */
+/* ⚠️ "删"被挤成竖排两个字就是这个原因：flex 允许收缩 + 没有 nowrap。 */
 .wanxiangge .wxg-btn-sm {
     flex: 0 0 auto;
     padding: 1px 8px;
     font-size: 0.86em;
     min-width: 0;
+    white-space: nowrap;
+}
+
+.wanxiangge .wxg-char-actions > .menu_button,
+.wanxiangge .wxg-char-actions > button,
+.wanxiangge .wxg-char-actions > label {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 
