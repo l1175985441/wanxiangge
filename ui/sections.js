@@ -1243,10 +1243,12 @@ function secPrompts(host) {
 
 function secReport(host) {
     const list = recentRecallRecords(20);
-    const box = section('过程报告 · 每轮到底注入了什么',
-        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
-        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）',
+    // 摘要只留一句（标题行是 nowrap 的，太长会被裁）；完整口径放正文
+    const box = section('过程报告 · 每轮到底注入了什么', '每轮注入了什么，可回看',
         { open: false });
+    box.appendChild(el('div', 'wxg-note',
+        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
+        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
         host.appendChild(box);
