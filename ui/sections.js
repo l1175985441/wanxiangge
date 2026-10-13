@@ -358,12 +358,15 @@ function secWorld(host) {
         '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（⛔ 不按回合数推，世界钟没到点不许提前冒头）。',
         { open: true, summary: trimText(w.clock) || '世界钟未知' });
 
-    row(box,
+    // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
+    const cWorld = card('世界钟・地点');
+    row(cWorld,
         field('世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short')),
         field('地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short')));
-    box.appendChild(textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
+    cWorld.appendChild(textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
+    box.appendChild(cWorld);
 
-    box.appendChild(el('div', 'wxg-report-h', '局势（势力的碰撞）'));
+    const cSit = card('局势（势力的碰撞）');
     const sit = el('div', 'wxg-list');
     if (!w.situations.length) {
         sit.appendChild(el('div', 'wxg-empty', '还没有局势记录（点「立刻更新」让引擎算一次）'));
@@ -400,12 +403,13 @@ function secWorld(host) {
             sit.appendChild(r);
         });
     }
-    box.appendChild(sit);
-    row(box,
+    cSit.appendChild(sit);
+    row(cSit,
         textInput('wxg-new-situation', '', '自己加一条局势（例：商会与教会在争港口税）', 'noop', 'wxg-short'),
         button('加一条局势', 'add-situation'));
+    box.appendChild(cSit);
 
-    box.appendChild(el('div', 'wxg-report-h', '暗线（自己有时间表，到点才动）'));
+    const cHid = card('暗线（自己有时间表，到点才动）');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
         hid.appendChild(el('div', 'wxg-empty', '还没有暗线（引擎会在更新时排出来）'));
@@ -435,9 +439,9 @@ function secWorld(host) {
             hid.appendChild(r);
         }
     }
-    box.appendChild(hid);
+    cHid.appendChild(hid);
 
-    row(box,
+    row(cHid,
         textInput('wxg-new-hidden', '', '新暗线名字', 'noop', 'wxg-short'),
         textInput('wxg-new-hidden-trigger', '', '挂在什么时间／条件（例：晚上／三天后）', 'noop', 'wxg-short'),
         // ⭐ 火候与族类**给她选**（原来写死"几天内／冲突型"）——近的快推、远的慢炖，是她自己的节奏
@@ -447,6 +451,7 @@ function secWorld(host) {
             { value: 'progress', label: '推进型（筹备→执行→关键→完成）' },
         ], 'conflict', 'noop'),
         button('加一条暗线', 'add-hidden'));
+    box.appendChild(cHid);
     host.appendChild(box);
 }
 
