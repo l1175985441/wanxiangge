@@ -2714,3 +2714,58 @@ body.wxg-dragging {
 .wanxiangge .wxg-r > .wxg-char-actions > .checkbox_label {
     font-size: var(--fs-note);
 }
+
+/* ---------------------------------------------------------------------------
+   ① 只读默认（复核方第四条：不点是只读，改不了，免得弄错）
+   锁着的时候：边框、底色、内距全摊平 ⇒ **看着就是文字**；
+   悬停不变色、不招手（⏐ 不能让它看起来像能点）。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-card.is-locked .wxg-card-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+}
+
+.wanxiangge .wxg-card.is-locked input.text_pole,
+.wanxiangge .wxg-card.is-locked textarea.text_pole,
+.wanxiangge .wxg-card.is-locked select.text_pole {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    padding-left: 0;
+    cursor: default;
+    color: var(--wxg-text-strong, inherit);
+}
+
+/* 下拉没有 readonly 属性 ⇒ 只能用指针封住（不能点开） */
+.wanxiangge .wxg-card.is-locked select.text_pole {
+    pointer-events: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* 空值：锁着的时候占位符那些「例：…」不该像正在等她填 */
+.wanxiangge .wxg-card.is-locked ::placeholder {
+    color: var(--wxg-dim);
+    opacity: 0.55;
+}
+
+/* 「编辑」那颗按钮：平时不抢眼，悬停才亮（卡头上不需要一个一直在叫的按钮） */
+.wanxiangge .wxg-lock-btn {
+    margin-left: auto;
+    opacity: 0.75;
+    flex: 0 0 auto;
+}
+
+.wanxiangge .wxg-card:hover .wxg-lock-btn,
+.wanxiangge .wxg-card.is-locked .wxg-lock-btn:focus {
+    opacity: 1;
+}
+
+/* 正在编辑的卡：左侧一条主色细线（「这张卡现在可以改」一眼就知道） */
+.wanxiangge .wxg-card:not(.is-locked) > .wxg-lock-btn,
+.wanxiangge .wxg-card.is-editing {
+    box-shadow: inset 2px 0 0 var(--wxg-accent, var(--wxg-line));
+}

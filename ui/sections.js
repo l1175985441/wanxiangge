@@ -436,14 +436,15 @@ function secWorld(host) {
         { open: true, summary: trimText(w.clock) || '世界钟未知' });
 
     // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
-    const cWorld = card('世界钟・地点');
+    // ⭐ 数据卡：默认只读（复核方第四条）——点「编辑」才能改
+    const cWorld = lockable(card('世界钟・地点'), 'world-clock');
     line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'));
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
     line(cWorld, '这个世界现在什么样',
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     box.appendChild(cWorld);
 
-    const cSit = card('局势（势力的碰撞）');
+    const cSit = lockable(card('局势（势力的碰撞）'), 'world-situations');
     const sit = el('div', 'wxg-list');
     if (!w.situations.length) {
         sit.appendChild(el('div', 'wxg-empty', '还没有局势记录（点「立刻更新」让引擎算一次）'));
@@ -502,7 +503,7 @@ function secWorld(host) {
         button('加一条局势', 'add-situation'));
     box.appendChild(cSit);
 
-    const cHid = card('暗线（自己有时间表，到点才动）');
+    const cHid = lockable(card('暗线（自己有时间表，到点才动）'), 'world-hidden');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
         hid.appendChild(el('div', 'wxg-empty', '还没有暗线（引擎会在更新时排出来）'));
@@ -1632,6 +1633,56 @@ function secApi(host) {
     box.appendChild(cProf);
     box.appendChild(saveBar('api'));
     host.appendChild(box);
+}
+
+/* ---------------------------------------------------------------------------
+   ⭐ 只读默认 ＋ 「编辑」（复核方第四条：不点是只读，改不了，免得弄错）
+   --------------------------------------------------------------------------- */
+
+/** 现在开着编辑的数据卡（键是卡名；⛔ 不落设置——「正在编辑」不是一种设置） */
+const unlockedCards = new Set();
+
+/**
+ * 把一张数据卡做成「只读默认」：锁着的时候看着就是文字，不是一堆空框。
+ *
+ * @param {Element} cardEl 卡（就是 card() 返回的那个）
+ * @param {string} key 卡名（同一页里唯一即可）
+ */
+function lockable(cardEl, key) {
+    if (!cardEl || !cardEl.classList) {
+        return cardEl;
+    }
+    const open = unlockedCards.has(key);
+    cardEl.classList.toggle('is-locked', !open);
+    // 卡头右侧那颗「编辑／收起」（先把旧的拿掉，免得重画后堆两颗）
+    const oldBtn = cardEl.querySelector('.wxg-lock-btn');
+    if (oldBtn && oldBtn.parentNode) {
+        oldBtn.parentNode.removeChild(oldBtn);
+    }
+    const head = cardEl.querySelector('.wxg-card-h') || cardEl;
+    const b = button(open ? '收起' : '编辑', 'toggle-lock', 'wxg-btn-xs wxg-lock-btn', key);
+    if (head.appendChild) {
+        head.appendChild(b);
+    }
+    // JS 这边也要真锁住（⛔ 不能只靠样式——样式挡不住键盘）
+    const fields = asArray(cardEl.querySelectorAll('input, textarea, select'));
+    for (const f of fields) {
+        if (!f || !f.setAttribute) {
+            continue;
+        }
+        if (f.type === 'color' || f.type === 'checkbox') {
+            continue;   // 颜色和开关属于「控制项」，不锁
+        }
+        if (open) {
+            if (f.removeAttribute) {
+                f.removeAttribute('readonly');
+            }
+        } else {
+            f.setAttribute('readonly', 'readonly');
+            f.setAttribute('tabindex', '-1');
+        }
+    }
+    return cardEl;
 }
 
 /** 从 URL 里取主机名，只用于显示（⛔ 不泄露整条密钥） */
@@ -3008,6 +3059,17 @@ export function bindSectionEvents(host, refresh) {
                     break;
 
                 /* ---- 动作 ---- */
+                                case 'toggle-lock': {
+                    // 数据卡的「编辑／收起」：只切「正在编辑」这个状态，⏐ 不动数据
+                    const k = trimText(id);
+                    if (unlockedCards.has(k)) {
+                        unlockedCards.delete(k);
+                    } else {
+                        unlockedCards.add(k);
+                    }
+                    rerender();
+                    break;
+                }
                 case 'toggle-mini-show': {
                     /*
                      * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存这一段"）——
