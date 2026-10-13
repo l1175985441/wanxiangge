@@ -45,7 +45,11 @@ export function planRecall(options) {
         const leadText = trimText(opts.leadText) || trimText(chat[floor] && chat[floor].mes);
 
         const recall = buildRecall({ chat, leadFloor: floor, leadText });
-        const text = settings.enabled ? assembleInjectText(recall.items, settings.injectHeader) : '';
+        // ⚠️ 送进去的和记下来的必须是**同一串**：这里先去掉首尾空白，
+        //    记录、字数、回执、过程报告全用这一串（免得出现 106 vs 105 这种 1 字差）
+        const text = settings.enabled
+            ? trimText(assembleInjectText(recall.items, settings.injectHeader))
+            : '';
 
         const rec = putRecallRecord({
             floor,

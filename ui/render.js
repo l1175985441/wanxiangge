@@ -9,7 +9,7 @@
  */
 
 import { APP_NAME, CARD_ATTR, CARD_CLASS, ROOT_ID, ROSTER_PRESET } from '../core/config.js';
-import { getChat, getCtx, formatClock, formatStamp } from '../core/adapter.js';
+import { getChat, getCtx, formatClock, formatStamp, storageReport } from '../core/adapter.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import {
     addCharacter, applyRosterPreset, getRoster, loadState,
@@ -452,6 +452,14 @@ export function renderPanel() {
     const ledgerLine = root.querySelector('#wxg-ledger-line');
     if (ledgerLine) {
         ledgerLine.textContent = '上次更新：' + ledgerText();
+    }
+
+    // 存盘情况如实报（"刷新丢账"就是栽在这里，所以摊开给她看）
+    const storeLine = root.querySelector('#wxg-store-line');
+    if (storeLine) {
+        const report = storageReport();
+        storeLine.textContent = '账本状态：' + report.text;
+        storeLine.setAttribute('data-tone', report.tone);
     }
 
     const enabled = root.querySelector('#wxg-enabled');

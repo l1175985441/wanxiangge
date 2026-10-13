@@ -83,11 +83,12 @@ let fallbackMetadata = null;
 
 /**
  * 取账本：
- *   ① 当前聊天元数据这一格是不是**这个聊天**的账？是 ⇒ 把它跟底稿比一比，取更全的那份用；
- *      （如果盖的章是别的聊天（换聊天时残留），先把它收进底稿，别冲掉别人的账）
+ *   ① 元数据这一格是不是**这个聊天**的账？是 ⇒ 用它；
+ *      （如果盖的章是**这个聊天自己以前的名字**（新聊天刚存盘改名），也认 ⇒ 换个章继续用，⛔ 不许当垃圾清掉）
+ *      （只有确认是**别的聊天**的账时，才收进底稿、腾出这一格）
  *   ② 再看底稿里有没有这个聊天的账 ⇒ 有就捞回来当主存；
  *   ③ 都没有 ⇒ 返回空（由上层建一本新的）。
- * ⭐ 一条底线：任何时候都**不许把账换成更空的那份**（宁可用旧的，也不许丢）。
+ * ⭐ 一条底线：任何时候都**不许把账换成更空／更旧的那份**。
  */
 export function readLedger() {
     const key = currentChatKey();
@@ -98,14 +99,26 @@ export function readLedger() {
 
     const direct = md[LEDGER_KEY];
     if (looksLikeLedger(direct, key)) {
+        syncKey(direct, key);
         if (looksLikeLedger(mirror, key) && richer(direct, mirror) === mirror) {
-            md[LEDGER_KEY] = mirror;   // 底稿更全 ⇒ 用它（别把账换小了）
+            md[LEDGER_KEY] = mirror;   // 底稿更全 ⇒ 用它
             return mirror;
         }
         return direct;
     }
+
+    // 章不符：先分清是"同一个聊天改了名"还是"换了聊天"
     if (direct && typeof direct === 'object' && hasContent(direct)) {
-        stashToMirror(null, direct, true);   // 别丢：按它自己的章收进底稿
+        if (isOwnPastKey(keyOf(direct))) {
+            // 同一个聊天：新聊天存档时 file_name 才出现（此前叫 default-chat）⇒ 换个章继续用
+            adoptLedger(key, direct);
+            if (looksLikeLedger(mirror, key) && richer(direct, mirror) === mirror) {
+                md[LEDGER_KEY] = mirror;
+                return mirror;
+            }
+            return direct;
+        }
+        stashToMirror(null, direct, true);   // 真是别的聊天 ⇒ 按它自己的章收进底稿，别丢
         md[LEDGER_KEY] = null;
     }
 
@@ -113,6 +126,42 @@ export function readLedger() {
         return mirror;
     }
     return null;
+}
+
+/**
+ * 这本账是**这个聊天自己以前的名字**吗？
+ * 判据：内存里正握着的那本账，它的章就是 owner（＝同一个聊天刚刚改名）。
+ * ⚠️ 换聊天时入口会先 resetCache()，那时 liveKey 为空 ⇒ 不会误认（这正是这条判据安全的原因）。
+ */
+function isOwnPastKey(owner) {
+    if (!owner) {
+        return true;   // 没盖章的账，当自己的
+    }
+    const liveKey = cacheChatKey();
+    if (!liveKey) {
+        return false;  // 手里没有别的账可对（刚换过聊天）⇒ 不认
+    }
+    return liveKey === owner;
+}
+
+/** 内存里正握着的那本账属于哪个聊天（由状态仓库提供） */
+function cacheChatKey() {
+    const live = currentLive();
+    return live ? keyOf(live) : '';
+}
+
+/** 收养一本"自己以前名字"的账：换个章、落个底，继续用 */
+function adoptLedger(key, ledger) {
+    ledger.chatKey = key;
+    writeLedger(ledger);
+    return ledger;
+}
+
+/** 把账本的章对齐到当前聊天（读到时顺手校正） */
+function syncKey(ledger, key) {
+    if (ledger && typeof ledger === 'object' && keyOf(ledger) !== key) {
+        ledger.chatKey = key;
+    }
 }
 
 /** 存账本：写回当前聊天的元数据（真的存服务端）＋立刻在设置区留一份底 */
@@ -132,10 +181,16 @@ export function writeLedger(state) {
         if (save) {
             try {
                 const p = save();
-                if (p && typeof p.catch === 'function') {
-                    p.catch((e) => console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e));
+                if (p && typeof p.then === 'function') {
+                    p.then(() => { lastSaveOk = true; }).catch((e) => {
+                        lastSaveOk = false;
+                        console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
+                    });
+                } else {
+                    lastSaveOk = true;
                 }
             } catch (e) {
+                lastSaveOk = false;
                 console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
             }
         } else if (!warnedNoSave) {
@@ -149,6 +204,36 @@ export function writeLedger(state) {
 }
 
 let warnedNoSave = false;
+let lastSaveOk = null;
+
+/** 存盘情况（面板上如实报给她看：主存／底稿／只在内存） */
+export function storageReport() {
+    const live = currentLive();
+    const score = live ? liveScore(live) : -1;
+    if (score < 0) {
+        return { tone: 'idle', text: '还没有账（发一条消息就有了）' };
+    }
+    if (lastSaveOk === false) {
+        return { tone: 'bad', text: '存盘失败——账只在这次会话里（刷新会丢）；底稿还留着上一份' };
+    }
+    if (lastSaveOk === true) {
+        return { tone: 'ok', text: '已存进聊天档 ✓（设置区里另有一份底稿，刷新／重开都能捞回来）' };
+    }
+    return { tone: 'idle', text: '已经记下，正在存盘' };
+}
+
+/** 账本里有多少东西（只看有没有，不碰内容） */
+function liveScore(s) {
+    if (!s || typeof s !== 'object') {
+        return -1;
+    }
+    const recs = Array.isArray(s.recallRecords) ? s.recallRecords.length : 0;
+    const chars = Array.isArray(s.characters) ? s.characters.length : 0;
+    if (!recs && !chars) {
+        return -1;
+    }
+    return recs + chars;
+}
 
 /** 这本账盖的章（属于哪个聊天） */
 function keyOf(state) {
@@ -289,8 +374,8 @@ function flushMirror() {
         // ⭐ 按账本自己盖的章归位（⛔ 别写错门牌）
         const owner = keyOf(snapshot) || key;
         const current = box[owner];
-        if (current && richer(current, snapshot) === current) {
-            continue; // 已经有一份更全的，留住它
+        if (current && pickFresher(current, snapshot) === current) {
+            continue; // 已经有一份更全（或同样全但更新）的，留住它
         }
         try {
             box[owner] = snapshot;
@@ -309,17 +394,54 @@ function flushMirror() {
     persistSettings();
 }
 
-/** 两份账哪份更全（记账条数、人物数、召回过没有；一样全就取新的那份） */
-function richer(a, b) {
-    const score = (s) => {
-        if (!s || typeof s !== 'object') {
-            return -1;
+/** 两份账哪份更全（记账条数、人物数、召回过没有） */
+function score(s) {
+    if (!s || typeof s !== 'object') {
+        return -1;
+    }
+    return (Array.isArray(s.recallRecords) ? s.recallRecords.length * 100 : 0)
+        + (Array.isArray(s.characters) ? s.characters.length * 10 : 0)
+        + (Number((s.stat || {}).recalled || 0) > 0 ? 1 : 0);
+}
+
+/** 账本有多新（取里面最新的时刻） */
+function freshness(s) {
+    if (!s || typeof s !== 'object') {
+        return 0;
+    }
+    let latest = Number((s.lastUpdate || {}).at || 0);
+    if (Array.isArray(s.recallRecords)) {
+        for (const r of s.recallRecords) {
+            const at = Number((r && r.at) || 0);
+            if (at > latest) {
+                latest = at;
+            }
         }
-        return (Array.isArray(s.recallRecords) ? s.recallRecords.length * 100 : 0)
-            + (Array.isArray(s.characters) ? s.characters.length * 10 : 0)
-            + (Number((s.stat || {}).recalled || 0) > 0 ? 1 : 0);
-    };
-    return score(b) > score(a) ? b : a;
+    }
+    return latest;
+}
+
+/**
+ * 两份账留哪份：**先比谁更全，一样全就比谁更新**。
+ * ⚠️ 平手时必须取新的——旧的那条已经推出过、留着它等于把新写的账丢掉（实测踩过这个坑）。
+ */
+function pickFresher(a, b) {
+    const sa = score(a);
+    const sb = score(b);
+    if (sa !== sb) {
+        return sb > sa ? b : a;
+    }
+    const fa = freshness(a);
+    const fb = freshness(b);
+    if (fa !== fb) {
+        return fb > fa ? b : a;
+    }
+    return b;   // 完全一样就取新的
+}
+
+/** 兼容旧名字（内部还有别处在用 richer 的语义） */
+function richer(a, b) {
+    return pickFresher(a, b);
 }
 
 /** 看一眼底稿现状（只在电脑上做自测时用，聊天里用不到） */
