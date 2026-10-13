@@ -1926,6 +1926,16 @@ export function bindSectionEvents(host, refresh) {
 
     const rerender = () => {
         const mode = host.getAttribute('data-wxg-mode') || 'settings';
+        /*
+         * ⚠️ 工作台模式下 `refresh()` 就是 `refreshWorkspace()`，它**自己会重画**一遍
+         *    ⇒ 这里再来一次 `renderSections` 就是**整页连画两次**：
+         *    白干一倍活儿，而且实测"连点同一颗按钮第 6 次"时界面会塌掉一半
+         *    （自审里量到控件从 80 掉到 20）。所以工作台那条路只走 refresh。
+         */
+        if (mode === 'workspace' && typeof refresh === 'function') {
+            refresh();
+            return;
+        }
         renderSections(host, { mode });
         if (typeof refresh === 'function') {
             refresh();
