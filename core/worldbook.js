@@ -382,13 +382,36 @@ export async function getEntries(bookName) {
     if (!name || !ctx || typeof ctx.getLorebookEntries !== 'function') {
         return [];
     }
+    let data = [];
     try {
-        const data = await ctx.getLorebookEntries(name);
-        return Array.isArray(data) ? data : [];
+        data = await ctx.getLorebookEntries(name);
     } catch (e) {
         console.warn('[万象阁] 读世界书条目失败：' + name, e);
         return [];
     }
+    if (!Array.isArray(data)) {
+        return [];
+    }
+    // ⭐ 条目级"不读"名单（她在面板上点「看条目」挑的那些）——在这里统一过掉，
+    //    ⛔ 不是只存不用；按条目名匹配（她在世界书界面里看到的那一行）。
+    const off = settings ? toList(settings.excludeEntries) : [];
+    if (!off.length) {
+        return data;
+    }
+    const keys = off.map((x) => matchKey(x)).filter(Boolean);
+    const kept = data.filter((e) => {
+        const title = matchKey(entryTitleOf(e));
+        return !title || !keys.some((k) => title === k || title.includes(k));
+    });
+    return kept;
+}
+
+/** 条目名：注释名优先（世界书界面上显示的就是它），退到 key／name */
+export function entryTitleOf(e) {
+    if (!e) {
+        return '';
+    }
+    return trimText(e.comment) || trimText(e.key) || trimText(e.name) || trimText(e.title);
 }
 
 /**

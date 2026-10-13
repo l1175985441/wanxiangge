@@ -236,6 +236,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
     stripHtmlComments: true, // 剥 HTML 注释
     extractBooks: '',       // 提取世界书（读哪些）
     excludeBooks: '',       // 排除世界书（哪些不读、不参与）
+    /**
+     * ⭐ 条目级的"不读"名单（她问"你怎么排除世界书条目"）：
+     * excludeBooks 是整本不读；这里是**条目级**——点「看条目」一个个挑，挑中的不参与推演。
+     * 按**条目名**匹配（世界书界面里看到的那一行名字）。⛔ 引擎只读，⛔ 不改她的世界书。
+     */
+    excludeEntries: '',
     onlyEnabledEntries: true, // 不选时＝角色卡绑定世界里"开启着的"条目
 
     /* 自定义 API */
@@ -247,6 +253,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
         modelCheap: '',     // 打杂用的便宜模型（留空＝同上面那个）
         temperature: 0.4,
         maxTokens: 1600,
+        /**
+         * ⭐ API 书签（她点名要的："加一个保存 API／另存为，我可以设定好几个 API 转"）：
+         * 每一条＝一整套通道（连接方式／地址／密钥／模型／温度／输出上限），存下来随时一键切。
+         * 换站、换模型不用重填。
+         */
+        profiles: [],
     },
 
     /* 面板位置与大小 */

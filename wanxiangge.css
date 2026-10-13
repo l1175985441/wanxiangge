@@ -941,6 +941,84 @@
     min-width: 0;
 }
 
+
+/* ---- ⭐ API 书签（她点名要的：设好几套通道随时切） ---- */
+.wanxiangge .wxg-prof-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 7px;
+}
+
+.wanxiangge .wxg-prof {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 9px;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
+    flex-wrap: wrap;
+}
+
+.wanxiangge .wxg-prof-info {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+    flex: 1 1 12em;
+    flex-wrap: wrap;
+}
+
+.wanxiangge .wxg-prof-nick {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ---- ⭐ 世界书／条目点选（她问"点都点不动"）：可点的小块，点一下就进／出名单 ---- */
+.wanxiangge .wxg-pickwrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 5px 0 7px;
+    align-items: center;
+}
+
+.wanxiangge .wxg-pick {
+    font: inherit;
+    font-size: 0.86em;
+    padding: 2px 10px;
+    cursor: pointer;
+    border: 1px solid var(--wxg-line);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.8;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wanxiangge .wxg-pick:hover {
+    opacity: 1;
+    background: var(--wxg-fill-strong);
+}
+
+.wanxiangge .wxg-pick.is-on {
+    opacity: 1;
+    font-weight: 700;
+    border-color: var(--wxg-accent-line, var(--wxg-line));
+    background: var(--wxg-fill-strong);
+}
+
+.wanxiangge .wxg-pick-head {
+    font-size: 0.84em;
+    color: var(--wxg-dim);
+    width: 100%;
+    margin-top: 3px;
+}
+
 /* ---- 步骤 / 进度 ---- */
 .wanxiangge .wxg-steps {
     list-style: none;
@@ -1336,4 +1414,36 @@ body.wxg-dragging {
         border-bottom: 0;
         padding: 2px 0;
     }
+}
+
+/* ---- ⭐ 每段一个保存条（她拍的："每个大标题加一个保存"） ---- */
+.wanxiangge .wxg-savebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 9px;
+    border-top: 1px dashed var(--wxg-line);
+}
+
+.wanxiangge .wxg-savebar-note {
+    font-size: 0.86em;
+    color: var(--wxg-dim);
+    flex: 1 1 auto;
+}
+
+/* 有未保存的改动：把这一段"点亮"，她一眼看出哪儿还没存 */
+.wanxiangge .wxg-savebar.has-changes .wxg-savebar-note {
+    color: var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+.wanxiangge .wxg-savebar.has-changes {
+    border-top-color: var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+/* 排除名单里的小块：灰一点、带删除线，跟"提取"分开看 */
+.wanxiangge .wxg-pick.is-off {
+    opacity: 0.55;
+    text-decoration: line-through;
 }

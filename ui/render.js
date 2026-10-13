@@ -13,7 +13,7 @@ import { getChat, getCtx } from '../core/adapter.js';
 import { getSettings } from '../core/settings.js';
 import { loadState, getRecallRecord } from '../core/state.js';
 import { receiptText } from '../core/ledger.js';
-import { trimText, asText } from '../core/utils.js';
+import { trimText, asText, asArray } from '../core/utils.js';
 import { renderSections, bindSectionEvents } from './sections.js';
 
 /** 造元素的小助手 */
@@ -191,7 +191,7 @@ export function refreshCardOnFloor(floor) {
         return;
     }
     // 先把这一楼里所有自家卡片摘干净（含嵌套、含重复挂的）
-    const stale = Array.from(node.querySelectorAll('.' + CARD_CLASS));
+    const stale = asArray(node.querySelectorAll('.' + CARD_CLASS));
     for (const old of stale) {
         old.remove();
     }

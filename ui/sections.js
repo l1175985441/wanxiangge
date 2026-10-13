@@ -18,13 +18,13 @@ import {
     updateQuest, removeQuest, addChronicle,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
-import { toList, trimText, asText, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
+import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
 import {
     PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
 } from './theme.js';
 import { questStats } from '../core/summary.js';
 import { replanCurrentFloor } from '../core/actions.js';
-import { listWorldbookNames, collectPeopleFromBook } from '../core/worldbook.js';
+import { listWorldbookNames, collectPeopleFromBook, getEntries } from '../core/worldbook.js';
 import { clockWentBackwards } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
@@ -275,18 +275,20 @@ function secStatus(host) {
  * 卡片那两个开关搬到「召回」段（那是卡片自己的事），这里只留"更新"有关的。
  */
 function secGeneral(host) {
+    const SECID = 'general';
     const s = getSettings();
     const box = section('总控', '整台怎么跑：自动更新、频率、启动行为。'
         + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里⛔ 不再放第二个总闸）',
         { open: true });
-    box.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'set-auto-update'));
+    box.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'stage-auto-update'));
     row(box,
         el('span', 'wxg-note', '频率：每'),
-        numberInput('wxg-update-every', s.updateEvery, 1, 10, 'set-update-every'),
+        numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every'),
         el('span', 'wxg-note', '回合更新一次（1＝每回合都在动；2＝两格停在上一轮）'));
-    box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'set-protected'));
-    box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'set-strict'));
-    box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'set-panel-on-start'));
+    box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
+    box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
+    box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
+    box.appendChild(saveBar('general'));
     host.appendChild(box);
 }
 
@@ -653,6 +655,184 @@ function secCharacters(host) {
     applyCharSearch(host, charSearch.query);
 }
 
+/**
+ * ⭐ 每段一个保存（她拍的："每个大标题的这个地方直接加一个保存得了，弄完设定整页保存"）。
+ *
+ * 为什么要这样：原来一个段里散着好几个"保存"（提取名单／排除名单／条目名单…），
+ * 点一下还立刻生效 ⇒ 点错、面板跳、按钮一片。现在：
+ *   · 段里所有改动先落进**这一段的草稿**（`staging[段] = {键: 值}`）；
+ *   · 段底**一个**「保存这一段」把它整段提交；旁边显示"改了几处"；
+ *   · 想退回 ⇒「撤销这一段」把草稿丢掉（回到已存的）。
+ */
+const staging = {};
+
+/** 记一笔草稿（⛔ 不落设置）；同一段同一键只留最后一次 */
+function stage(secId, key, value) {
+    const box = staging[secId] || (staging[secId] = {});
+    box[key] = value;
+}
+
+/** 这一段草稿里有几处改动 */
+function stagedCount(secId) {
+    const box = staging[secId];
+    return box ? Object.keys(box).length : 0;
+}
+
+/** 这一段某个键的"当前显示值"（草稿优先，其次已存） */
+function stagedValue(secId, key, fallback) {
+    const box = staging[secId];
+    return box && Object.prototype.hasOwnProperty.call(box, key) ? box[key] : fallback;
+}
+
+/**
+ * 段底那条"保存"（每段都有）。
+ * @param {string} secId 段的标识（见各段自己的 id）
+ * @param {string} label 按钮文字（默认"保存这一段"）
+ */
+function saveBar(secId, label) {
+    const n = stagedCount(secId);
+    const bar = el('div', 'wxg-savebar' + (n ? ' has-changes' : ''));
+    bar.setAttribute('data-id', secId);
+    const note = el('span', 'wxg-savebar-note',
+        n ? ('改了 ' + String(n) + ' 处（还没保存）') : '这一段没有未保存的改动');
+    bar.appendChild(note);
+    if (n) {
+        bar.appendChild(button('撤销这一段', 'discard-section', 'wxg-btn-sm', secId));
+    }
+    bar.appendChild(button(label || '保存这一段', 'save-section', n ? '' : 'wxg-btn-sm', secId));
+    return bar;
+}
+
+/** 把这一段的草稿落进设置 */
+function commitSection(secId) {
+    const box = staging[secId];
+    if (!box || !Object.keys(box).length) {
+        return 0;
+    }
+    const patch = {};
+    for (const k of Object.keys(box)) {
+        // 整块外观（色板＋四个颜色槽）
+        if (k === 'appearance' && box[k] && typeof box[k] === 'object') {
+            patch.appearance = Object.assign({}, getSettings().appearance || {}, box[k]);
+            continue;
+        }
+        // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换
+        // （整块替换会把她存好的书签 `profiles` 一起冲掉）
+        if (API_KEYS.includes(k)) {
+            patch.api = Object.assign({}, patch.api || {}, { [k]: box[k] });
+        } else {
+            patch[k] = box[k];
+        }
+    }
+    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。
+    //    patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
+    //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
+    delete staging[secId];
+    patchSettings(patch);
+    return Object.keys(box).length;
+}
+
+/** 走 api 那一格的键（保存时归到 api 下面） */
+const API_KEYS = ['mode', 'url', 'key', 'model', 'modelCheap', 'temperature', 'maxTokens'];
+
+/**
+ * ⭐ `stage-*` 动作总表：动作名 → [这一段, 设置键, 取值方式]。
+ * 有了它，各处控件只要把 `set-xxx` 写成 `stage-xxx` 就进了草稿，⛔ 不用每个都写一个 case。
+ */
+const STAGE_MAP = {
+    // 总控
+    'stage-auto-update': ['general', 'autoUpdate', 'checked'],
+    'stage-update-every': ['general', 'updateEvery', 'value'],
+    'stage-protected': ['general', 'protectedBypass', 'checked'],
+    'stage-strict': ['general', 'strictMention', 'checked'],
+    'stage-panel-on-start': ['general', 'showPanelOnStart', 'checked'],
+    // 外观
+    'stage-app-to-panel': ['appearance', 'applyToPanel', 'checked'],
+    'stage-layout-mode': ['appearance', 'layoutMode', 'value'],
+    // 召回
+    'stage-recent-turns': ['recall', 'recentTurns', 'value'],
+    'stage-max-chars': ['recall', 'maxChars', 'value'],
+    'stage-max-events': ['recall', 'maxEvents', 'value'],
+    'stage-past-floor-cut': ['recall', 'pastFloorCut', 'value'],
+    'stage-max-parallel': ['recall', 'maxParallelChars', 'value'],
+    'stage-sort-mode': ['recall', 'sortMode', 'value'],
+    'stage-card': ['recall', 'cardEnabled', 'checked'],
+    'stage-show-empty': ['recall', 'showEmptyCard', 'checked'],
+    // 自定义 API
+    'stage-api-mode': ['api', 'mode', 'value'],
+    'stage-api-url': ['api', 'url', 'value'],
+    'stage-api-key': ['api', 'key', 'value'],
+    'stage-api-model': ['api', 'model', 'value'],
+    'stage-api-model-cheap': ['api', 'modelCheap', 'value'],
+    'stage-api-temp': ['api', 'temperature', 'value'],
+    'stage-api-maxtok': ['api', 'maxTokens', 'value'],
+    // 读取控制（四格）
+    'stage-extract-tags': ['extract', 'extractTags', 'value'],
+    'stage-exclude-tags': ['extract', 'excludeTags', 'value'],
+    'stage-extract-books': ['extract', 'extractBooks', 'value'],
+    'stage-exclude-books': ['extract', 'excludeBooks', 'value'],
+    'stage-affinity-source': ['extract', 'affinitySource', 'value'],
+    // 提示词
+    'stage-inject-header': ['prompts', 'injectHeader', 'value'],
+    'stage-prompt-world': ['prompts', 'promptWorld', 'value'],
+    'stage-prompt-chars': ['prompts', 'promptChars', 'value'],
+    'stage-jailbreak': ['prompts', 'jailbreak', 'value'],
+};
+
+/** 把一处改动收进草稿（通用入口；⛔ 不落设置） */
+function stageOne(action, target) {
+    // 外观那块是整块存的（色板＋四个颜色槽）
+    if (action === 'stage-appearance') {
+        const key = target.id;                        // wxg-app-xxx → 槽位名
+        const slot = key.replace('wxg-app-', '');
+        const cur = getSettings().appearance || {};
+        if (slot === 'palette') {
+            stage('appearance', 'appearance', Object.assign({}, cur, palettePatch(trimText(target.value))));
+        } else {
+            stage('appearance', 'appearance', Object.assign({}, cur, { [slot]: trimText(target.value), palette: 'custom' }));
+        }
+        return 'appearance';
+    }
+    const row = STAGE_MAP[action];
+    if (!row) {
+        return null;
+    }
+    const [secId, key, how] = row;
+    stage(secId, key, how === 'checked' ? target.checked === true : target.value);
+    return secId;
+}
+
+/** 保存之后说一声（说清"到底存了几处"，⛔ 不静默） */
+function refreshToastSection(secId, n) {
+    if (!n) {
+        toast.info('这一段没有未保存的改动');
+        return;
+    }
+    toast.ok('存好了：这一段改了 ' + String(n) + ' 处');
+}
+
+/**
+ * 只把"保存这条"就地重画一下（⛔ 不整页重画 ⇒ 她还能接着点）。
+ * ⚠️ 要整条重画：改动数一变，「撤销这一段」这颗按钮也得跟着出现／消失。
+ */
+function refreshSaveBar(host, secId) {
+    const bar = host && host.querySelector ? host.querySelector('.wxg-savebar[data-id="' + secId + '"]') : null;
+    if (!bar || !bar.parentNode) {
+        return;
+    }
+    // ⚠️ 用"插新的、删旧的"（不依赖 replaceChild：假 DOM 上不稳）
+    const parent = bar.parentNode;
+    const fresh = saveBar(secId);
+    parent.insertBefore(fresh, bar);
+    parent.removeChild(bar);
+}
+
+/** ⭐ 读取控制：正在看哪本书的条目（重画后要能自动摆回来，否则点一条之后就没得点了） */
+export let pickBook = '';
+export let pickEntries = [];
+/** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
+let listBooksCache = [];
+
 /** 角色状态：搜索与排序的"记忆"（重画之后还在，不会因为改一个字就被清空） */
 export const charSearch = { query: '', sort: 'recent' };
 
@@ -671,7 +851,7 @@ export function applyCharSearch(root, query) {
         return;
     }
     const q = asText(query).trim().toLowerCase();
-    const rows = Array.from(root.querySelectorAll('.wxg-ctable tbody tr[data-search]'));
+    const rows = asArray(root.querySelectorAll('.wxg-ctable tbody tr[data-search]'));
     let shown = 0;
     for (const tr of rows) {
         const hit = !q || asText(tr.getAttribute('data-search')).includes(q);
@@ -809,6 +989,7 @@ function secRoster(host) {
  * 预设色板 + 四个槽位可单独改；文字色留空＝按底面亮度自动算。
  */
 function secAppearance(host) {
+    const SECID = 'appearance';
     const s = getSettings();
     const app = resolveAppearance(s.appearance || {});
     const box = section('外观（工作台配色）',
@@ -818,20 +999,20 @@ function secAppearance(host) {
 
     row(box, field('色板', select('wxg-app-palette',
         PALETTE_KEYS.map((k) => ({ value: k, label: PALETTE_NAMES[k] })),
-        app.palette, 'set-appearance')));
+        app.palette, 'stage-appearance')));
 
     row(box,
-        field('强调色', colorInput('wxg-app-accent', app.accent, 'set-appearance')),
-        field('底面', colorInput('wxg-app-surface', app.surface, 'set-appearance')),
-        field('页面底色', colorInput('wxg-app-bg', app.bg, 'set-appearance')));
+        field('强调色', colorInput('wxg-app-accent', app.accent, 'stage-appearance')),
+        field('底面', colorInput('wxg-app-surface', app.surface, 'stage-appearance')),
+        field('页面底色', colorInput('wxg-app-bg', app.bg, 'stage-appearance')));
     row(box,
-        field('描边', colorInput('wxg-app-border', app.border, 'set-appearance')),
-        field('文字（可留空）', colorInput('wxg-app-text', app.text, 'set-appearance')));
+        field('描边', colorInput('wxg-app-border', app.border, 'stage-appearance')),
+        field('文字（可留空）', colorInput('wxg-app-text', app.text, 'stage-appearance')));
     row(box,
         button('恢复这个色板', 'reset-appearance'),
         el('span', 'wxg-note', '（只把四个槽位退回所选色板；你手改的颜色会被覆盖）'));
     box.appendChild(checkbox('wxg-app-to-panel', '浮层面板与悬浮小框也用这套配色（不勾＝它们跟随酒馆主题）',
-        app.applyToPanel, 'set-app-to-panel'));
+        app.applyToPanel, 'stage-app-to-panel'));
 
     // 实时预览：四个槽位长什么样，直接给她看
     const pv = el('div', 'wxg-app-preview');
@@ -851,62 +1032,94 @@ function secAppearance(host) {
     row(box, field('打开方式', select('wxg-layout-mode', [
         { value: 'workspace', label: '整页工作台（推荐：自己的配色＋左栏导航）' },
         { value: 'panel', label: '浮层面板（老样子，能拖能缩放）' },
-    ], s.layoutMode, 'set-layout-mode')));
+    ], s.layoutMode, 'stage-layout-mode')));
     box.appendChild(el('div', 'wxg-note', '悬浮小框的开关在「总控」里；它在聊天时常驻，点一下就进工作台。'));
 
+    box.appendChild(saveBar('appearance'));
     host.appendChild(box);
 }
 
 function secRecall(host) {
+    const SECID = 'recall';
     const s = getSettings();
     const box = section('召回',
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false });
     row(box,
         el('span', 'wxg-note', '线索回溯'),
-        numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'set-recent-turns'),
+        numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns'),
         el('span', 'wxg-note', '楼 ｜ 人物封顶'),
-        numberInput('wxg-max-chars', s.maxChars, 1, 8, 'set-max-chars'),
+        numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars'),
         el('span', 'wxg-note', '｜ 事件封顶'),
-        numberInput('wxg-max-events', s.maxEvents, 0, 20, 'set-max-events'));
+        numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'));
     row(box,
         el('span', 'wxg-note', '排序'),
         select('wxg-sort-mode', [
             { value: 'related', label: '按相关度（先说到的排前面）' },
             { value: 'name', label: '按名册顺序' },
-        ], s.sortMode, 'set-sort-mode'));
+        ], s.sortMode, 'stage-sort-mode'));
     row(box,
         el('span', 'wxg-note', '过去经历只端'),
-        numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'set-past-floor-cut'),
+        numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
         el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
     row(box,
         el('span', 'wxg-note', '一轮最多推演'),
-        numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'set-max-parallel'),
+        numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
         el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
     // 卡片那两个开关归这儿（它们是"召回之后怎么显示"的事，⛔ 不是总闸）
-    box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'set-card'));
-    box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'set-show-empty'));
+    box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'stage-card'));
+    box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'stage-show-empty'));
+    box.appendChild(saveBar('recall'));
     host.appendChild(box);
 }
 
 function secExtract(host) {
+    const SECID = 'extract';
     const s = getSettings();
     const box = section('读取控制（提取／排除四格）',
-        '四格改完即时保存，刷新、重开都在。默认按结构剥掉成对的机器块与 HTML 注释——剥完为空会自动退回原文，⛔ 不会比剥之前更坏。',
+        '改完按段底那颗「保存这一段」——⛔ 不用一处一处点保存，也不会点一下就跳。'
+        + '世界书这一块不用手打书名：点下面的书名就进名单（再点＝排除、再点＝拿掉），'
+        + '点「看条目」能一条条挑。标签那一块默认按结构剥掉成对的机器块与 HTML 注释——'
+        + '剥完为空会自动退回原文，⛔ 不会比剥之前更坏。',
         { open: false });
-    row(box, field('提取标签', textInput('wxg-extract-tags', s.extractTags, '例：正文, content', 'set-extract-tags', 'wxg-short')));
-    row(box, field('排除标签', textInput('wxg-exclude-tags', s.excludeTags, '例：状态栏, 变量（留空＝只按结构剥）', 'set-exclude-tags', 'wxg-short')));
+    row(box, field('提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short')));
+    row(box, field('排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short')));
     box.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
     box.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
-    row(box, field('提取世界书', textInput('wxg-extract-books', s.extractBooks, '读哪些世界书（逗号分开；留空＝角色卡绑定那本）', 'set-extract-books', 'wxg-short')));
-    row(box, field('排除世界书', textInput('wxg-exclude-books', s.excludeBooks, '哪些世界书不读、不参与', 'set-exclude-books', 'wxg-short')));
+
+    /* ---- 世界书：点选（⛔ 不立刻存，攒到段底一起存） ---- */
+    box.appendChild(el('div', 'wxg-report-h', '提取世界书（读哪些）'));
+    row(box, field('', textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short')));
+    box.appendChild(el('div', 'wxg-report-h', '排除世界书（哪些不读）'));
+    row(box, field('', textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short')));
+
+    const pick = el('div', 'wxg-pickwrap');
+    pick.id = 'wxg-bookpick';
+    pick.appendChild(el('div', 'wxg-pick-head', '世界书（点一下＝进「提取」；再点＝进「排除」；再点＝拿掉。⛔ 都不立刻生效，最后按段底的保存）'));
+    box.appendChild(pick);
+    row(box,
+        button('读世界书列表', 'list-books'),
+        el('span', 'wxg-note', '（没读到就手填；有些酒馆版本没开这个接口）'));
+    const bookList = el('div', 'wxg-note', '');
+    bookList.id = 'wxg-book-list';
+    box.appendChild(bookList);
+
+    const entPick = el('div', 'wxg-pickwrap');
+    entPick.id = 'wxg-entpick';
+    box.appendChild(entPick);
+    const entNote = el('div', 'wxg-note', '');
+    entNote.id = 'wxg-entnote';
+    box.appendChild(entNote);
+
     box.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
     row(box, el('span', 'wxg-note', '"手机"好感的数据源（世界书名或条目关键词；留空＝不接，界面如实写"未接入"）'),
-        textInput('wxg-affinity-source', s.affinitySource, '例：手机 或 关系表', 'set-affinity-source', 'wxg-short'));
+        textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'));
+    box.appendChild(saveBar(SECID));
     host.appendChild(box);
 }
 
 function secApi(host) {
+    const SECID = 'api';
     const s = getSettings();
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
@@ -915,16 +1128,54 @@ function secApi(host) {
     row(box, el('span', 'wxg-note', '连接方式'), select('wxg-api-mode', [
         { value: 'proxy', label: '经酒馆服务器转发（云酒馆最稳）' },
         { value: 'direct', label: '直连（浏览器直接请求）' },
-    ], api.mode, 'set-api-mode'));
-    row(box, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'set-api-url', 'wxg-short')));
-    row(box, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'set-api-key', 'wxg-short')));
-    row(box, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'set-api-model', 'wxg-short')));
-    row(box, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'set-api-model-cheap', 'wxg-short')));
+    ], api.mode, 'stage-api-mode'));
+    row(box, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short')));
+    row(box, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short')));
+    row(box, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short')));
+    row(box, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'stage-api-model-cheap', 'wxg-short')));
     row(box,
-        el('span', 'wxg-note', '温度'), numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'set-api-temp'),
-        el('span', 'wxg-note', '单次最多输出'), numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'set-api-maxtok'));
+        el('span', 'wxg-note', '温度'), numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
+        el('span', 'wxg-note', '单次最多输出'), numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
     row(box, button('测一下连接', 'test-api'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
+
+    /* ⭐ 书签（她点名要的："加一个保存 API／另存为，我可以设定好几个 API 转"） */
+    box.appendChild(el('div', 'wxg-report-h', '书签（存好几套通道，一键切）'));
+    const profs = Array.isArray(api.profiles) ? api.profiles : [];
+    if (!profs.length) {
+        box.appendChild(el('div', 'wxg-empty', '还没有书签。上面填好一套，起个名字点「另存为书签」，以后一键切回来。'));
+    } else {
+        const listEl = el('div', 'wxg-prof-list');
+        for (const p of profs) {
+            const r = el('div', 'wxg-prof');
+            const info = el('div', 'wxg-prof-info');
+            info.appendChild(el('span', 'wxg-prof-nick', trimText(p.nick)));
+            info.appendChild(el('span', 'wxg-note', (trimText(p.model) || '（没填模型）')
+                + (trimText(p.url) ? ' · ' + hostOf(p.url) : '')
+                + ' · ' + (p.mode === 'direct' ? '直连' : '走酒馆转发')));
+            r.appendChild(info);
+            const acts = el('div', 'wxg-row');
+            const use = button('切到这套', 'apply-profile', 'wxg-btn-sm', trimText(p.nick));
+            acts.appendChild(use);
+            acts.appendChild(button('删', 'del-profile', 'wxg-btn-sm', trimText(p.nick)));
+            r.appendChild(acts);
+            listEl.appendChild(r);
+        }
+        box.appendChild(listEl);
+    }
+    row(box,
+        textInput('wxg-profile-nick', '', '书签名（例：主站／备用站）', 'noop', 'wxg-short'),
+        button('另存为书签', 'save-profile'));
+    box.appendChild(el('div', 'wxg-note', '书签存的是**整套**：连接方式／地址／密钥／模型／温度／输出上限。'
+        + '书签名一样就更新那一条（不会越存越多）；想现在就用它，点上面那颗「切到这套」。'));
+    box.appendChild(saveBar('api'));
     host.appendChild(box);
+}
+
+/** 从 URL 里取主机名，只用于显示（⛔ 不泄露整条密钥） */
+function hostOf(url) {
+    const s = asText(url);
+    const m = s.match(/^[a-z]+:\/\/([^/]+)/i);
+    return m ? m[1] : (s.length > 24 ? s.slice(0, 24) + '…' : s);
 }
 
 function secPrompts(host) {
@@ -933,13 +1184,13 @@ function secPrompts(host) {
         '留空＝用内置默认；填了＝原样用你写的。破限词同理：留空＝内置那份，填了＝整段替换。',
         { open: false });
     box.appendChild(el('div', 'wxg-report-h', '注入块开头那句'));
-    box.appendChild(textarea('wxg-inject-header', s.injectHeader, '', 'set-inject-header', 3));
+    box.appendChild(textarea('wxg-inject-header', s.injectHeader, '', 'stage-inject-header', 3));
     box.appendChild(el('div', 'wxg-report-h', '世界推演提示词'));
-    box.appendChild(textarea('wxg-prompt-world', s.promptWorld, '（留空＝用内置）', 'set-prompt-world', 6));
+    box.appendChild(textarea('wxg-prompt-world', s.promptWorld, '（留空＝用内置）', 'stage-prompt-world', 6));
     box.appendChild(el('div', 'wxg-report-h', '角色状态／平行事件提示词'));
-    box.appendChild(textarea('wxg-prompt-chars', s.promptChars, '（留空＝用内置）', 'set-prompt-chars', 6));
+    box.appendChild(textarea('wxg-prompt-chars', s.promptChars, '（留空＝用内置）', 'stage-prompt-chars', 6));
     box.appendChild(el('div', 'wxg-report-h', '破限词'));
-    box.appendChild(textarea('wxg-jailbreak', s.jailbreak, '（留空＝用内置那份）', 'set-jailbreak', 4));
+    box.appendChild(textarea('wxg-jailbreak', s.jailbreak, '（留空＝用内置那份）', 'stage-jailbreak', 4));
     row(box, button('看内置破限词', 'show-jailbreak'), button('全部恢复内置默认', 'reset-prompts'));
     const view = el('pre', 'wxg-report-text', DEFAULT_JAILBREAK);
     view.id = 'wxg-jailbreak-view';
@@ -949,6 +1200,7 @@ function secPrompts(host) {
     worldView.id = 'wxg-prompt-world-view';
     worldView.style.display = 'none';
     box.appendChild(worldView);
+    box.appendChild(saveBar('prompts'));
     host.appendChild(box);
 }
 
@@ -1109,16 +1361,94 @@ export function renderSections(host, opts) {
         secPrompts(staging);
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
-        const before = Array.from(host.children || []).length;
+        const before = asArray(host.children || []).length;
         hangUp(host, staging);
-        const added = Array.from(host.children || []).length - before;
+        const added = asArray(host.children || []).length - before;
         if (!added) {
             drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
         }
         buildJumpNav(host);
+        // ⭐ 读取控制：刚才在挑某本书的条目 ⇒ 重画之后把它摆回来
+        //    （⛔ 不然点一条之后列表就没了，没法接着点第二条）
+        try {
+            renderEntryPick(host);
+        } catch (e) {
+            console.warn('[万象阁] 摆回条目列表出错：', e);
+        }
     } catch (e) {
         console.warn('[万象阁] 画面板出错：', e);
         drawFailure(host, e);
+    }
+}
+
+/**
+ * 画世界书小块（只改这几颗按钮，⛔ 不重画面板 —— 点一下面板就跳会很难连着点）。
+ * @param {object} host 面板正文层
+ * @param {Array<string>} ex 待保存的"提取"名单
+ * @param {Array<string>} no 待保存的"排除"名单
+ */
+export function paintBookPicks(host, ex, no) {
+    const wrap = host && host.querySelector ? host.querySelector('#wxg-bookpick') : null;
+    if (!wrap) {
+        return;
+    }
+    for (const child of asArray(wrap.childNodes)) {
+        if (!String(child.className || '').includes('wxg-pick-head')) {
+            wrap.removeChild(child);
+        }
+    }
+    for (const n of listBooksCache) {
+        const k = asText(n);
+        const inEx = (ex || []).some((x) => asText(x) === k);
+        const inNo = (no || []).some((x) => asText(x) === k);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wxg-pick' + (inEx ? ' is-on' : '') + (inNo ? ' is-off' : '');
+        b.textContent = n + (inEx ? '（提取）' : (inNo ? '（排除）' : ''));
+        b.title = inEx ? '在「提取」名单里（还没保存；再点＝改排除）'
+            : (inNo ? '在「排除」名单里（还没保存；再点＝拿掉）' : '点一下＝要读它');
+        b.setAttribute('data-action', 'pick-book');
+        b.setAttribute('data-book', n);
+        wrap.appendChild(b);
+    }
+}
+
+/**
+ * 把"正在看的那本书"的条目小块摆回面板（点一条之后重画，接着还能点）。
+ * 数据来自 list-entries 抓到的 `pickEntries`，⛔ 不再重复读世界书。
+ */
+export function renderEntryPick(host, offList) {
+    if (!pickBook || !pickEntries.length) {
+        return;
+    }
+    const wrap = host.querySelector('#wxg-entpick');
+    const note = host.querySelector('#wxg-entnote');
+    if (!wrap) {
+        return;
+    }
+    const off = Array.isArray(offList) ? offList : toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+    while (wrap.firstChild) {
+        wrap.removeChild(wrap.firstChild);
+    }
+    if (note) {
+        note.textContent = '「' + pickBook + '」共 ' + String(pickEntries.length)
+            + ' 条：点一下＝不读这一条（⛔ 不立刻保存，按上面「保存条目名单」才生效）；⛔ 不改你的世界书。';
+    }
+    for (const e of pickEntries.slice(0, 200)) {
+        const title = trimText(e && (e.comment || e.key || e.name || e.title));
+        if (!title) {
+            continue;
+        }
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wxg-pick' + (off.some((x) => asText(x) === asText(title)) ? ' is-on' : '');
+        b.textContent = title;
+        b.title = off.some((x) => asText(x) === asText(title))
+            ? '已设为"不读"（再点＝恢复读它）'
+            : '点一下＝不读这一条';
+        b.setAttribute('data-action', 'toggle-entry');
+        b.setAttribute('data-entry', title);
+        wrap.appendChild(b);
     }
 }
 
@@ -1144,7 +1474,7 @@ function buildJumpNav(host) {
     }
     const nav = el('div', 'wxg-nav');
     nav.appendChild(el('span', 'wxg-nav-title', '跳到'));
-    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
+    const secs = asArray(host.querySelectorAll('.wxg-sec'));
     secs.forEach((sec, i) => {
         const titleEl = sec.querySelector('.wxg-sec-title');
         const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
@@ -1202,8 +1532,8 @@ function markActiveNav(host, nav) {
     if (!host || !nav) {
         return;
     }
-    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
-    const btns = Array.from(nav.querySelectorAll('.wxg-nav-btn'));
+    const secs = asArray(host.querySelectorAll('.wxg-sec'));
+    const btns = asArray(nav.querySelectorAll('.wxg-nav-btn'));
     if (!secs.length || !btns.length) {
         return;
     }
@@ -1232,7 +1562,7 @@ export function jumpToSection(host, index) {
     if (!host) {
         return;
     }
-    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
+    const secs = asArray(host.querySelectorAll('.wxg-sec'));
     const sec = secs[Number(index)];
     if (!sec) {
         return;
@@ -1260,11 +1590,11 @@ export function jumpToSection(host, index) {
  * 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非原生层的东西原样搬 */
 function hangUp(host, staging) {
     // ⚠️ children 是 HTMLCollection：先转数组再遍历／查找（真机就栽在这里）
-    for (const node of Array.from(staging.children || [])) {
+    for (const node of asArray(staging.children || [])) {
         const drawer = node && node.__wxgDrawer;
         if (drawer) {
             // 正文层放回壳里（它本来就在壳里，这里是幂等的），再整壳挂上去
-            if (!Array.from(drawer.children || []).includes(node)) {
+            if (!asArray(drawer.children || []).includes(node)) {
                 drawer.appendChild(node);
             }
             host.appendChild(drawer);
@@ -1437,6 +1767,14 @@ export function bindSectionEvents(host, refresh) {
         const isChange = e.type === 'change';
 
         try {
+            // ⭐ 通用草稿入口：凡是 `stage-*` 的控件，一律只进草稿（段底一起保存）
+            if (action.indexOf('stage-') === 0) {
+                const which = stageOne(action, target);
+                if (which) {
+                    refreshSaveBar(host, which);
+                }
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 case 'set-enabled': patchSettings({ enabled: target.checked }); rerender(); break;
@@ -1657,12 +1995,147 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'list-books': {
                     const names = await listWorldbookNames();
-                    const box = byId(host, 'wxg-book-list');
-                    if (box) {
-                        box.textContent = names.length
-                            ? '现有世界书：' + names.join(' ｜ ')
-                            : '没读到世界书列表（可能这个酒馆版本没开这个接口；可以手填书名）';
+                    const wrap = byId(host, 'wxg-bookpick');
+                    const info = byId(host, 'wxg-book-list');
+                    if (!wrap) {
+                        break;
                     }
+                    if (!names.length) {
+                        if (info) {
+                            info.textContent = '没读到世界书列表（有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
+                        }
+                        break;
+                    }
+                    if (info) {
+                        info.textContent = '读到 ' + String(names.length) + ' 本：点书名选它。';
+                    }
+                    // 表头留着，小块交给 paintBookPicks 统一画
+                    for (const child of asArray(wrap.childNodes)) {
+                        if (!String(child.className || '').includes('wxg-pick-head')) {
+                            wrap.removeChild(child);
+                        }
+                    }
+                    listBooksCache = names;
+                    // ⚠️ 从"草稿优先、否则已存"里取（⛔ 重画时别把还没保存的点选冲掉）
+                    paintBookPicks(host,
+                        toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks)),
+                        toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks)));
+                    // 顺手把每本书的"看条目"也摆出来
+                    const ent = byId(host, 'wxg-entpick');
+                    if (ent && !ent.querySelector('[data-action="list-entries"]')) {
+                        for (const n of names) {
+                            ent.appendChild(button('看条目：' + n, 'list-entries', 'wxg-btn-sm', n));
+                        }
+                    }
+                    break;
+                }
+                case 'pick-book': {
+                    const name = trimText(target.getAttribute('data-book'));
+                    if (!name) {
+                        break;
+                    }
+                    // ⭐ 只改这一段草稿：画面不动、⛔ 不存盘、⛔ 不重画
+                    const ex = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
+                    const no = toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks));
+                    const key = (x) => asText(x);
+                    const iEx = ex.findIndex((x) => key(x) === key(name));
+                    const iNo = no.findIndex((x) => key(x) === key(name));
+                    if (iEx >= 0) {
+                        ex.splice(iEx, 1);
+                        no.push(name);
+                        toast.info('「' + name + '」改成"排除"（还没保存）');
+                    } else if (iNo >= 0) {
+                        no.splice(iNo, 1);
+                        toast.info('「' + name + '」从"排除"里拿掉（还没保存）');
+                    } else {
+                        ex.push(name);
+                        toast.ok('「' + name + '」要"提取"（还没保存）');
+                    }
+                    stage('extract', 'extractBooks', ex.join('、'));
+                    stage('extract', 'excludeBooks', no.join('、'));
+                    paintBookPicks(host, ex, no);
+                    refreshSaveBar(host, 'extract');
+                    break;
+                }
+                /* ---- 段级保存／撤销（她拍的："每个大标题加一个保存"） ---- */
+                case 'save-section': {
+                    const n = commitSection(id);
+                    refreshToastSection(id, n);
+                    rerender();
+                    break;
+                }
+                case 'discard-section': {
+                    delete staging[id];
+                    toast.info('这一段没保存的改动丢掉了（回到已存的）');
+                    rerender();
+                    break;
+                }
+                case 'list-entries': {
+                    const name = id;
+                    // ⭐ 记住"正在看哪本书"，重画之后自动摆回来
+                    //    （⛔ 不然她点一条之后列表就没了，没法接着点第二条）
+                    pickBook = trimText(name);
+                    const entries = await getEntries(name);
+                    pickEntries = entries;
+                    const note = byId(host, 'wxg-entnote');
+                    const wrap = byId(host, 'wxg-entpick');
+                    if (!note) {
+                        break;
+                    }
+                    if (!entries.length) {
+                        note.textContent = '「' + name + '」里没读到条目（或这本没开）。';
+                        break;
+                    }
+                    const off = toList(getSettings().excludeEntries);
+                    note.textContent = '「' + name + '」共 ' + String(entries.length)
+                        + ' 条：点一下＝不读这一条（点过的不参与推演）；⛔ 不改你的世界书。';
+                    if (wrap) {
+                        const head = wrap.querySelector('.wxg-pick-head');
+                        while (wrap.firstChild) {
+                            wrap.removeChild(wrap.firstChild);
+                        }
+                        if (head) {
+                            wrap.appendChild(head);
+                        }
+                        for (const e of entries.slice(0, 200)) {
+                            const title = trimText(e && (e.comment || e.key || e.title));
+                            if (!title) {
+                                continue;
+                            }
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'wxg-pick'
+                                + (off.some((x) => asText(x) === asText(title)) ? ' is-on' : '');
+                            b.textContent = title;
+                            b.title = off.some((x) => asText(x) === asText(title))
+                                ? '已设为"不读"（再点＝恢复读它）'
+                                : '点一下＝不读这一条';
+                            b.setAttribute('data-action', 'toggle-entry');
+                            b.setAttribute('data-entry', title);
+                            wrap.appendChild(b);
+                        }
+                    }
+                    break;
+                }
+                case 'toggle-entry': {
+                    const title = trimText(target.getAttribute('data-entry'));
+                    if (!title) {
+                        break;
+                    }
+                    // ⭐ 同样只改"待保存"缓冲（她拍的：别点一下就生效、面板别跳）
+                    const off = toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+                    const i = off.findIndex((x) => asText(x) === asText(title));
+                    if (i >= 0) {
+                        off.splice(i, 1);
+                        toast.ok('「' + title + '」恢复参与（还没保存）');
+                    } else {
+                        off.push(title);
+                        toast.info('「' + title + '」标成"不读"（还没保存）');
+                    }
+                    // ⭐ 进这一段的草稿（等段底那颗保存一起存）
+                    stage('extract', 'excludeEntries', off.join('、'));
+                    renderEntryPick(host, off);
+                    refreshSaveBar(host, 'extract');
                     break;
                 }
                 case 'detect-dupes': {
@@ -1688,10 +2161,10 @@ export function bindSectionEvents(host, refresh) {
                     break;
 
                 /* ---- 召回 ---- */
-                case 'set-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
-                case 'set-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
-                case 'set-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
-                case 'set-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
+                case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
+                case 'stage-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
+                case 'stage-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
+                case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
                 /* ---- 外观（我们自己的配色） ---- */
                 case 'set-appearance': {
                     if (!isChange) {
@@ -1749,9 +2222,14 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
-                case 'set-max-parallel': if (isChange) { patchSettings({ maxParallelChars: target.value }); rerender(); } break;
+                case 'stage-max-parallel': if (isChange) { patchSettings({ maxParallelChars: target.value }); rerender(); } break;
 
                 /* ---- 四格 ---- */
+                /* ⭐ 先进草稿（等段底那颗「保存这一段」一起存），⛔ 不再改一处存一处 */
+
+
+
+
                 case 'set-extract-tags': if (isChange) { patchSettings({ extractTags: target.value }); toast.ok('提取标签已保存'); } break;
                 case 'set-exclude-tags': if (isChange) { patchSettings({ excludeTags: target.value }); toast.ok('排除标签已保存'); } break;
                 case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
@@ -1786,6 +2264,94 @@ export function bindSectionEvents(host, refresh) {
                     } else {
                         toast.fail('没通：' + res.note);
                     }
+                    break;
+                }
+
+                /* ---- ⭐ API 书签（她点名要的：设好几套通道随时切） ---- */
+                case 'save-profile':
+                case 'overwrite-profile': {
+                    const nick = trimText(textOf(host, 'wxg-profile-nick'));
+                    if (!nick) {
+                        toast.fail('先给书签起个名字（例：主站／备用站）');
+                        break;
+                    }
+                    // ⭐ 存书签时把**这一段草稿里的改动也算上**（地址刚改、还没按保存也能存进书签）
+                    // ⚠️ 顺序要紧：**先**把 one 和 list 算好、**再** commitSection ——
+                    //    commitSection 会把草稿删掉，反过来写就只能拿到空的（这个坑真踩过）。
+                    const live = getSettings().api || {};
+                    const draft = staging.api || {};
+                    // ⚠️ 草稿里的 profiles 是**打开面板那一刻的旧值**（甚至空的）
+                    //    ⇒ 合并时不许认它，否则会把刚存的书签冲掉。书签只认设置里那一份。
+                    const cur = Object.assign({}, live, draft);
+                    delete cur.profiles;
+                    const one = {
+                        nick,
+                        mode: cur.mode,
+                        url: trimText(cur.url),
+                        key: trimText(cur.key),
+                        model: trimText(cur.model),
+                        modelCheap: trimText(cur.modelCheap),
+                        temperature: Number(cur.temperature),
+                        maxTokens: Number(cur.maxTokens),
+                        at: Date.now(),
+                    };
+                    const list = (Array.isArray(live.profiles) ? live.profiles : []).slice();
+                    const idx = list.findIndex((p) => trimText(p && p.nick) === nick);
+                    /*
+                     * ⭐ 同名＝更新那一条（她改完地址再存同名，本来就想把这条更新掉）。
+                     *    以前这里拦下来让她去点另一颗「覆盖同名书签」——太绕，去掉那颗按钮了。
+                     *    ⛔ 仍然不会"悄悄多出一条"。
+                     */
+                    if (idx >= 0) {
+                        list[idx] = one;
+                    } else {
+                        list.push(one);
+                    }
+                    /*
+                     * ⚠️ 存书签**只存书签**：⛔ 不顺手把草稿落盘。
+                     *    否则"当前用的通道"会被悄悄改掉（她只是想把这一套存起来，未必想现在就用）。
+                     *    想让它当当前通道 ⇒ 明确点「切到这套」。
+                     */
+                    // ⚠️ 落盘要用**当下**的 api（`live` 是重画前取的快照，profiles 可能还旧）
+                    patchSettings({ api: Object.assign({}, getSettings().api || {}, { profiles: list }) });
+                    const pendingN = stagedCount('api');
+                    toast.ok((idx >= 0 ? '已覆盖书签「' : '已存成书签「') + nick + '」（存的这一套'
+                        + (pendingN ? '；上方还有 ' + String(pendingN) + ' 处没保存的改动' : '')
+                        + '，想现在就用它请点「切到这套」）');
+                    rerender();
+                    break;
+                }
+                case 'apply-profile': {
+                    const nick = id;
+                    const cur = getSettings().api || {};
+                    const one = (Array.isArray(cur.profiles) ? cur.profiles : []).find((p) => trimText(p && p.nick) === nick);
+                    if (!one) {
+                        toast.fail('找不到书签「' + nick + '」');
+                        break;
+                    }
+                    patchSettings({
+                        api: Object.assign({}, cur, {
+                            mode: one.mode,
+                            url: one.url,
+                            key: one.key,
+                            model: one.model,
+                            modelCheap: one.modelCheap,
+                            temperature: one.temperature,
+                            maxTokens: one.maxTokens,
+                        }),
+                    });
+                    toast.ok('已切到书签「' + nick + '」');
+                    rerender();
+                    break;
+                }
+                case 'del-profile': {
+                    const nick = id;
+                    const cur = getSettings().api || {};
+                    const list = (Array.isArray(cur.profiles) ? cur.profiles : [])
+                        .filter((p) => trimText(p && p.nick) !== nick);
+                    patchSettings({ api: Object.assign({}, cur, { profiles: list }) });
+                    toast.ok('删掉书签「' + nick + '」了');
+                    rerender();
                     break;
                 }
 

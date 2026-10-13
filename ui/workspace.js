@@ -15,7 +15,7 @@ import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections } from './sections.js';
 import { applyAppearance } from './theme.js';
 import { loadState } from '../core/state.js';
-import { trimText } from '../core/utils.js';
+import { trimText, asArray } from '../core/utils.js';
 
 let wsEl = null;
 let sideEl = null;
@@ -151,7 +151,7 @@ function buildSidebar() {
     while (sideEl.firstChild) {
         sideEl.removeChild(sideEl.firstChild);
     }
-    const secs = Array.from(hostEl.querySelectorAll('.wxg-sec'));
+    const secs = asArray(hostEl.querySelectorAll('.wxg-sec'));
     secs.forEach((sec, i) => {
         const titleEl = sec.querySelector('.wxg-sec-title');
         const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
@@ -217,14 +217,14 @@ export function showIndex(i, scroll) {
     }
     const n = Number(i);
     activeIndex = Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
-    const items = Array.from(sideEl.children);
+    const items = asArray(sideEl.children);
     items.forEach((b, k) => {
         if (b.classList) {
             b.classList.toggle('is-on', k === activeIndex);
         }
     });
     // 内容区只显示当前那一段（其余藏起来）——像页签一样，一屏只说一件事
-    const secs = Array.from(hostEl.querySelectorAll('.wxg-sec'));
+    const secs = asArray(hostEl.querySelectorAll('.wxg-sec'));
     secs.forEach((sec, k) => {
         const on = k === activeIndex;
         sec.style.display = on ? '' : 'none';

@@ -20,6 +20,33 @@ export function squeeze(v) {
     return asText(v).replace(/\s+/g, '');
 }
 
+/**
+ * ⚠️ 把 **DOM 集合**（children／childNodes／querySelectorAll 的结果）转成真数组。
+ *
+ * ⛔ 不许用 `Array.from(collection)`／`[...collection]`：那些集合**有 length、有下标，
+ *    但没有迭代器**（HTMLCollection/NodeList 的实测差异）⇒ `Array.from` 会直接抛
+ *    "undefined is not iterable"（真机与自审里都踩过：一次是 `staging.children.slice`，
+ *    一次是 `Array.from(node.childNodes)`）。
+ * 这里只按下标取，任何"类数组"都能吃。
+ */
+export function asArray(list) {
+    if (Array.isArray(list)) {
+        return list;
+    }
+    const out = [];
+    if (!list) {
+        return out;
+    }
+    const n = Number(list.length);
+    if (!Number.isFinite(n) || n <= 0) {
+        return out;
+    }
+    for (let i = 0; i < n; i += 1) {
+        out.push(list[i]);
+    }
+    return out;
+}
+
 /** 处理成用于匹配的形式：小写、只留中日韩文字与字母数字 */
 export function matchKey(v) {
     return asText(v)
