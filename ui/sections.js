@@ -1056,6 +1056,9 @@ let chronFilter = 'all';
 /** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
 let openSituation = -1;
 
+/** 过程报告的筛选（那一排小胶囊）：全部／已注入／未注入／失败 */
+let reportFilter = 'all';
+
 /**
  * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
  *   推演＝中性分类章 ｜ 暗线＝要注意 ｜ 警戒／越界＝警告 ｜ 其它＝中性
@@ -1554,14 +1557,51 @@ function secReport(host) {
         return;
     }
     // ⭐ 装盒：报告列表一块（体检第一条）
+    /*
+     * ⭐ 有数据排版术：顶部一排**筛选胶囊带计数**（这一页天生带状态：成没成／注入没注入），
+     *    每条的状态做成**胶囊**（原来埋在文字里，"哪条没成"得逐字读）。
+     */
+    const statusOf = (r) => (r.injectStatus === 'ok' ? '已注入'
+        : (r.injectStatus === 'empty' ? '未注入' : (r.injectStatus === 'error' ? '失败' : '待送')));
+    const statusTone = (r) => (r.injectStatus === 'ok' ? 'is-ok'
+        : (r.injectStatus === 'error' ? 'is-warn' : 'is-off'));
+    const shownList = reportFilter === 'all' ? list : list.filter((r) => statusOf(r) === reportFilter);
+    const fbar = el('div', 'wxg-filters');
+    const mkF = (key, label, n) => {
+        const b = el('button', 'wxg-filter' + (reportFilter === key ? ' is-on' : ''), label);
+        b.type = 'button';
+        b.setAttribute('data-action', 'report-filter');
+        b.setAttribute('data-id', key);
+        b.appendChild(el('span', 'wxg-filter-n', String(n)));
+        return b;
+    };
+    fbar.appendChild(mkF('all', '全部', list.length));
+    for (const st of ['已注入', '未注入', '失败']) {
+        const n = list.filter((r) => statusOf(r) === st).length;
+        if (n) {
+            fbar.appendChild(mkF(st, st, n));
+        }
+    }
+    box.appendChild(fbar);
+
     const cRep = card('每轮记录（从新到旧）');
-    for (const rec of list) {
+    for (const rec of shownList) {
         const shownChars = countChars(rec.injectedText);
-        const statusText = rec.injectStatus === 'ok'
-            ? '已注入 ' + String(shownChars) + ' 字'
-            : (rec.injectStatus === 'empty' ? '未注入' : (rec.injectStatus === 'error' ? '注入失败' : '待送'));
-        const det = foldable(formatStamp(rec.at) + ' · ' + floorLabel(rec.floor) + ' · ' + statusText
-            + ' · ' + (rec.chars && rec.chars.length ? rec.chars.join('、') : '—'), false);
+        const statusText = statusOf(rec);
+        const det = foldable('', false);
+        // 折叠条标题行改成"行化"排法（时间骨架｜状态胶囊｜楼层·字数｜人）
+        if (det.classList) {
+            det.classList.add('is-row');
+        }
+        const sum = det.querySelector('summary');
+        if (sum) {
+            sum.textContent = '';
+            sum.appendChild(el('span', 'wxg-r-k wxg-num', shortTime(rec.at)));
+            sum.appendChild(el('span', 'wxg-badge ' + statusTone(rec), statusText));
+            sum.appendChild(el('span', 'wxg-note', floorLabel(rec.floor)
+                + (rec.injectStatus === 'ok' ? ' · ' + String(shownChars) + ' 字' : '')));
+            sum.appendChild(el('span', 'wxg-r-who', rec.chars && rec.chars.length ? rec.chars.join('、') : '暂无'));
+        }
         const body = el('div', 'wxg-report-body');
 
         body.appendChild(el('div', 'wxg-report-h', '① 怎么挑的'));
@@ -2168,6 +2208,12 @@ export function bindSectionEvents(host, refresh) {
                 case 'chron-filter': {
                     // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
                     chronFilter = trimText(id) || 'all';
+                    rerender();
+                    break;
+                }
+                case 'report-filter': {
+                    // 过程报告的筛选胶囊（同上，只看不改数据）
+                    reportFilter = trimText(id) || 'all';
                     rerender();
                     break;
                 }

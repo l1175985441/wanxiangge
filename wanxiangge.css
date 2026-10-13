@@ -2541,3 +2541,43 @@ body.wxg-dragging {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
 }
+
+/* ---------------------------------------------------------------------------
+   过程报告的每条：折叠条的标题行按"行化"排
+   `时间（骨架）｜ 状态胶囊 ｜ 楼层·字数 ｜ 人`
+   ⚠️ 只作用于标了 `.is-row` 的那条（⛔ 不能全局改 summary——别处的折叠条只有一个标题，
+      套上四列网格会被压成一条窄缝）。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge details.wxg-report.is-row {
+    border: 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.14);
+    border-radius: 0;
+    background: transparent;
+    margin: 0;
+}
+
+.wanxiangge details.wxg-report.is-row:hover {
+    background: rgba(128, 128, 128, 0.07);
+}
+
+.wanxiangge details.wxg-report.is-row > summary {
+    display: grid;
+    grid-template-columns: 4.6em auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 2px;
+}
+
+.wanxiangge details.wxg-report.is-row > summary::marker,
+.wanxiangge details.wxg-report.is-row > summary::-webkit-details-marker {
+    display: none;
+}
+
+/* 「人」那一列靠右，扫一眼就知道这条带了谁 */
+.wanxiangge details.wxg-report.is-row > summary > .wxg-r-who {
+    justify-self: end;
+    font-size: var(--fs-note);
+    font-weight: 500;
+    color: var(--wxg-dim);
+}
