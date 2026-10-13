@@ -12,8 +12,8 @@
 import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
 } from './config.js';
-import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now } from './adapter.js';
-import { makeId, toList, trimText, asText, countChars } from './utils.js';
+import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames } from './adapter.js';
+import { makeId, toList, trimText, asText, countChars, matchKey } from './utils.js';
 import { parseClock } from './clock.js';
 
 /* ------------------------------ 人物 ------------------------------ */
@@ -61,6 +61,12 @@ export function normalizeCharacter(raw) {
         })).filter((q) => q.title) : [],
         inScene: c.inScene === true,
         isPlayer: c.isPlayer === true,
+        /*
+         * ⚠️ 这个字段必须在**白名单里**：`normalizeCharacter` 是挑字段的，
+         *    不写进来就会被洗掉——那"她取消勾玩家棋子"这件事下次读档就没了，
+         *    自动识别又会把它勾回来（跟当初 `infer` 被洗掉是同一类坑，⛔ 别删）。
+         */
+        playerOff: c.playerOff === true,
         isNew: c.isNew === true,
         manual: c.manual === true,           // 用户手改过（引擎要认）
         ignored: c.ignored === true,
@@ -263,8 +269,45 @@ export function discardLedger(state) {
 
 /* ------------------------------ 人物管理 ------------------------------ */
 
+/**
+ * ⭐ 这一位是不是"你"（玩家棋子）——**自动认**，不靠她一个个勾。
+ *
+ * 判据：名字或任一别名跟酒馆当前档的人设名（`name1`）一模一样（按 matchKey 归一后比）。
+ * 为什么值得自动：① 68 个人不该勾 68 次；② 引擎那边 `pipeline` 会把自己排除在
+ * "平行推演"之外，认错了会白烧额度。
+ *
+ * ⚠️ 她手动取消过（`playerOff`）就**听她的**——⛔ 不跟人抢方向盘。
+ */
+export function isPlayerCharacter(c) {
+    if (!c) {
+        return false;
+    }
+    if (c.playerOff === true) {
+        return false;
+    }
+    const names = personaNames().map((n) => matchKey(n)).filter(Boolean);
+    if (!names.length) {
+        return false;
+    }
+    const mine = [c.name].concat(Array.isArray(c.aliases) ? c.aliases : [])
+        .map((n) => matchKey(n)).filter(Boolean);
+    return mine.some((n) => names.includes(n));
+}
+
+/**
+ * 名册（给界面用）。
+ * ⭐ 在这里把"自动认出来的你"并进 `isPlayer`（**只在返回值上并，⛔ 不写存档**）：
+ *    这样 `pipeline`／`recall`／界面三边都不用改，行为立刻就对。
+ */
 export function getRoster() {
-    return loadState().characters;
+    const list = loadState().characters;
+    for (const c of list) {
+        c.isYou = isPlayerCharacter(c);
+        if (c.isYou) {
+            c.isPlayer = true;
+        }
+    }
+    return list;
 }
 
 export function addCharacter(name, extra) {

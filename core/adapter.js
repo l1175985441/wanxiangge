@@ -24,6 +24,42 @@ export function getCtx() {
     return ctx;
 }
 
+/**
+ * ⭐ "你"的名字（人设名）——用来**自动认出玩家棋子**。
+ *
+ * 为什么要它：名册里谁是"她操控的那个人"，不该让她一个个去勾。
+ * 酒馆本来就把当前档的人设名放在 `ctx.name1`（角色卡那边叫 name2），
+ * 拿它对名册一比就知道了——省得 68 个人勾 68 次，而且引擎那边
+ * （`pipeline`）本来就要把自己排除在"平行推演"之外，认错了会白烧额度。
+ *
+ * ⚠️ 只读**当前这一档**的 `name1`，⛔ 不去翻 `ctx.personas` 那张表——
+ *    那是她所有档攒下来的名字，全算进来的话会把别的角色误标成"你"。
+ * 拿不到就返回空数组（⛔ 不抛、不猜）。
+ */
+export function personaNames() {
+    const out = [];
+    /*
+     * ⚠️ 这里**故意不用 asText**（第一版用了，但 adapter 没 import 它
+     *    ⇒ 里面 ReferenceError 被下面的 catch 吞掉、静默返回空数组，
+     *    表现就是"自动认玩家棋子一直不生效"——静默吞错害死人，别再来）。
+     */
+    const push = (v) => {
+        const s = (v === undefined || v === null) ? '' : String(v);
+        const t = s.trim();
+        if (t && !out.includes(t)) {
+            out.push(t);
+        }
+    };
+    let name1 = null;
+    try {
+        name1 = ctx ? ctx.name1 : null;
+    } catch (e) {
+        name1 = null;
+    }
+    push(name1);
+    return out;
+}
+
 /** 拿当前聊天记录数组 */
 export function getChat() {
     if (!ctx || !Array.isArray(ctx.chat)) {

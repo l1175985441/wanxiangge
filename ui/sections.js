@@ -1345,12 +1345,26 @@ function secRoster(host) {
     }
     const list = el('div', 'wxg-roster');
     for (const c of pageList) {
-        const r = el('div', 'wxg-r');
-        // 骨架列：玩家棋子给个记号（其余留空，保持列对齐）
-        r.appendChild(el('span', 'wxg-r-k', c.isPlayer ? '★ 玩家' : ''));
+        const open = String(openChar) === String(c.id);
+        /*
+         * ⭐ **整行可点展开**（复核方："每个角色下面一个按钮好像是有点奇怪"——对）。
+         *    68 个人的名单上糊 136 个按钮，名单就不成名单了；
+         *    而且「删」摆在密集列表里太容易误点 ⇒ 收进展开区。
+         *    行的右侧留一个 `›` 提示"这行能点"。
+         * ⚠️ 行上挂 data-action 是安全的：里面的输入框/开关/删除**各自都有 data-action**，
+         *    事件的 closest 会先命中它们（点输入框不会把行收起来）。
+         */
+        const r = el('div', 'wxg-r is-click' + (open ? ' is-open' : ''));
+        r.setAttribute('data-action', 'edit-char');
+        r.setAttribute('data-id', c.id);
+        r.appendChild(el('span', 'wxg-r-k', ''));
         const main = el('div', 'wxg-r-main');
         const title = el('div', 'wxg-r-title');
         title.appendChild(el('span', 'wxg-r-who', c.name));
+        if (c.isYou || c.isPlayer) {
+            // ⭐ 自动认出来的"你"（跟观棋那个「你 · 玩家棋子」一个意思）
+            title.appendChild(el('span', 'wxg-badge is-ok', '你'));
+        }
         if (c.isNew || isFresh(c)) {
             title.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }
@@ -1366,13 +1380,11 @@ function secRoster(host) {
         r.appendChild(main);
 
         const act = el('div', 'wxg-r-act');
-        const editBtn = button('改', 'edit-char', 'wxg-btn-xs', c.id);
-        act.appendChild(editBtn);
-        act.appendChild(button('删', 'del-char', 'wxg-btn-xs', c.id));
+        act.appendChild(el('span', 'wxg-r-caret' + (open ? ' is-open' : ''), open ? '⌄' : '›'));
         r.appendChild(act);
 
-        // 「改」展开：别名／好感／玩家棋子
-        if (String(openChar) === String(c.id)) {
+        // 展开区：别名／好感／玩家棋子／删除（点行才出来）
+        if (open) {
             const fields = el('div', 'wxg-char-fields');
             const alias = textInput('wxg-alias-' + c.id, c.aliases.join('、'), '别名／昵称（顿号或逗号分开）', 'set-alias', 'wxg-alias');
             alias.setAttribute('data-id', c.id);
@@ -1389,8 +1401,11 @@ function secRoster(host) {
             pbox.setAttribute('data-action', 'set-player');
             pbox.setAttribute('data-id', c.id);
             playerLabel.appendChild(pbox);
-            playerLabel.appendChild(el('span', null, '玩家棋子'));
+            // ⭐ 自动认出来的那位：开关旁边说清"为什么它是玩家棋子"，并给她否决的路
+            playerLabel.appendChild(el('span', null,
+                c.isYou ? '玩家棋子（照酒馆里的人设名自动认的；不想算就取消勾）' : '玩家棋子'));
             actions.appendChild(playerLabel);
+            actions.appendChild(button('删', 'del-char', 'wxg-btn-xs', c.id));
             r.appendChild(actions);
         }
         list.appendChild(r);
@@ -2504,7 +2519,19 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     }
                     break;
-                case 'set-player': updateCharacter(id, { isPlayer: target.checked, manual: true }); rerender(); break;
+                case 'set-player':
+                    /*
+                     * ⚠️ 她**取消勾**的时候要记一笔 `playerOff`：
+                     *    名字跟人设名一样就会被自动认成"你"，不记的话下次重画又被自动勾上，
+                     *    跟她抢方向盘（⛔ 自动可以，但不能盖过她明确说过的话）。
+                     */
+                    updateCharacter(id, {
+                        isPlayer: target.checked === true,
+                        playerOff: target.checked !== true,
+                        manual: true,
+                    });
+                    rerender();
+                    break;
                 case 'del-char': removeCharacter(id); rerender(); break;
                 case 'accept-new': updateCharacter(id, { isNew: false }); toast.ok('收下了'); rerender(); break;
                 case 'accept-new-all': {

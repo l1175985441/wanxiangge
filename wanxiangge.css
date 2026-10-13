@@ -2668,3 +2668,48 @@ body.wxg-dragging {
     border-left: 3px solid var(--wxg-accent, var(--wxg-line));
     border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
 }
+
+/* ---------------------------------------------------------------------------
+   ⑪ 整行可点（`›` 提示）：名单上不再一行糊两个按钮
+   ⚠️ 68 个人的名单糊 136 个按钮，名单就不成名单了；
+      而且「删」摆在密集列表里太容易误点 ⇒ 收进展开区。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-r.is-click {
+    cursor: pointer;
+}
+
+.wanxiangge .wxg-r.is-click:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+/* 展开中的那一行：左侧一条主色细线（"这行是开着的"） */
+.wanxiangge .wxg-r.is-click.is-open {
+    background: rgba(128, 128, 128, 0.07);
+    box-shadow: inset 2px 0 0 var(--wxg-accent, var(--wxg-line));
+}
+
+.wanxiangge .wxg-r-caret {
+    font-size: 1.05em;
+    line-height: 1;
+    color: var(--wxg-dim);
+    opacity: 0.75;
+    transform: translateY(-1px);
+}
+
+.wanxiangge .wxg-r.is-click:hover .wxg-r-caret,
+.wanxiangge .wxg-r-caret.is-open {
+    color: var(--wxg-accent, inherit);
+    opacity: 1;
+}
+
+/* 展开出来的编辑区：跟上面的行拉开一点，别贴着 */
+.wanxiangge .wxg-r > .wxg-char-fields,
+.wanxiangge .wxg-r > .wxg-char-actions {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+}
+
+.wanxiangge .wxg-r > .wxg-char-actions > .checkbox_label {
+    font-size: var(--fs-note);
+}
