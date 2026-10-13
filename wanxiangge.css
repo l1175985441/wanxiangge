@@ -1461,3 +1461,66 @@ body.wxg-dragging {
     opacity: 0.55;
     text-decoration: line-through;
 }
+
+/* ============================ 可读宽度（工作台是整页的，别让一行拉到 1300+） ============================ */
+/* 她这块屏 1600 宽，实测内容区 1372 —— 一行那么长，眼睛要来回扫，看着就乱。
+   收一个"读起来舒服"的宽度，居中放；超宽屏也不会拉成一条长带。 */
+
+.wxg-ws-main > .wxg-sec {
+    max-width: 1080px;
+}
+
+.wanxiangge .wxg-sec-body {
+    max-width: 1080px;
+}
+
+/* 表单控件：一律给"最舒服的宽度"，⛔ 不再一行铺满 */
+.wanxiangge .wxg-field {
+    flex: 0 1 auto;
+    max-width: 100%;
+}
+
+.wanxiangge .wxg-field input.text_pole,
+.wanxiangge .wxg-field textarea.text_pole {
+    flex: 0 1 auto;
+    width: 20em;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.wanxiangge .wxg-field textarea.text_pole {
+    width: 100%;
+    min-width: 14em;
+}
+
+.wanxiangge .wxg-field select.text_pole {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
+}
+
+/* 一小段说明之后跟的那类"整行输入框"（例：加一条暗线）也收窄 */
+.wanxiangge .wxg-sec-body > input.text_pole,
+.wanxiangge .wxg-sec-body > select.text_pole,
+.wanxiangge .wxg-sec-body > textarea.text_pole {
+    max-width: 34em;
+    box-sizing: border-box;
+}
+
+.wanxiangge .wxg-sec-body > .wxg-row > input.text_pole,
+.wanxiangge .wxg-sec-body > .wxg-row > select.text_pole {
+    max-width: 22em;
+}
+
+/* 主按钮：让"该点的那个"一眼看出来（填充主题强调色，⛔ 仍用她的主题色） */
+.wanxiangge button.wxg-primary,
+.wanxiangge .menu_button.wxg-primary {
+    font-weight: 700;
+    background: var(--wxg-fill-strong);
+    border-color: var(--wxg-line);
+}
+
+.wxg-ws .menu_button.wxg-primary {
+    background: var(--wxg-accent-soft, var(--wxg-fill-strong));
+    border-color: var(--wxg-accent-line, var(--wxg-border));
+}
