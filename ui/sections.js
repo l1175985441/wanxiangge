@@ -1358,28 +1358,41 @@ function secPrompts(host) {
         + '下面每块先显示**当前实际用的那份**（留空就是内置的），想改再点「改这套」。',
         { open: false });
 
-    const one = (title, keyVal, kind, id, rows, hint) => {
+    /*
+     * ⭐ 一屏一个焦点（复核方第一条）：**只把第一块摊开**，其余三块收起。
+     *    四块内容差不多、都很长 ⇒ 全摊开就是"一屏四张卡"，正是他说要避免的。
+     *    收起不等于藏起来：卡头那行字还在，点一下就展开（⛔ 不丢任何东西）。
+     */
+    const one = (title, keyVal, kind, id, rows, hint, folded) => {
         const c = card(title);
         c.appendChild(el('div', 'wxg-note', hint));
-        // 当前用的那份（直接摊开读，⛔ 不是空框）
+        // 当前用的那份（就是"留空＝内置"的那一份）
         const cur = el('pre', 'wxg-prompt-cur', effectivePrompt(kind));
-        c.appendChild(cur);
         // 改的地方：默认收起
         const edit = foldable('改这套（留空＝用内置）', false);
         const area = textarea(id, keyVal, '（留空＝用内置那份）', 'stage-' + id.replace('wxg-', ''), rows);
         edit.appendChild(area);
-        c.appendChild(edit);
+        if (folded) {
+            // 次要块：预览与输入框一起收进一个折叠条里
+            const fold = foldable('展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
+            fold.appendChild(cur);
+            fold.appendChild(edit);
+            c.appendChild(fold);
+        } else {
+            c.appendChild(cur);
+            c.appendChild(edit);
+        }
         return c;
     };
 
     box.appendChild(one('注入块开头那句', s.injectHeader, 'header', 'wxg-inject-header', 3,
-        '每轮注入的最前面那一行，声明"这是引擎附注"。'));
+        '每轮注入的最前面那一行，声明"这是引擎附注"。', false));
     box.appendChild(one('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
-        '让模型推"世界现在什么样"时用的那套规矩。'));
+        '让模型推"世界现在什么样"时用的那套规矩。', true));
     box.appendChild(one('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
-        '让模型写每个角色的平行线时用的那套规矩。'));
+        '让模型写每个角色的平行线时用的那套规矩。', true));
     box.appendChild(one('破限词', s.jailbreak, 'jailbreak', 'wxg-jailbreak', 6,
-        '模型有时候"不填东西"——这一段是逼它老实填字段用的。'));
+        '模型有时候"不填东西"——这一段是逼它老实填字段用的。', true));
 
     const c = card('动作');
     row(c, button('全部恢复内置默认', 'reset-prompts'),
