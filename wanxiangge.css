@@ -1826,3 +1826,54 @@ body.wxg-dragging {
     width: 18em;
     max-width: 100%;
 }
+
+/* ============================================================================
+   ⭐ 第三层：规整两列（复核方："「召回」那种数字行排成规整两列——左标签、右控件、对齐"）
+   原来每行是"标签 数字框 标签 数字框 标签 数字框"横着铺 ⇒ 眼睛要来回找。
+   现在：标签固定一列宽（右对齐）、控件紧跟 ⇒ 竖着扫一列标签就行。
+   ⛔ 只对**设置类**的行生效（`.wxg-line`），不碰卡片头、说明、列表。
+   ============================================================================ */
+
+.wanxiangge .wxg-line {
+    display: grid;
+    grid-template-columns: 11em 1fr;
+    align-items: center;
+    gap: var(--s2) var(--s3);
+    padding: var(--s1) 0;
+}
+
+/* 左列：标签右对齐，读起来是一条干净的竖线 */
+.wanxiangge .wxg-line > .wxg-line-k {
+    justify-self: end;
+    text-align: right;
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+    line-height: 1.5;
+    padding-right: var(--s1);
+}
+
+/* 右列：控件靠左；一行里有多个控件就横着排 */
+.wanxiangge .wxg-line > .wxg-line-v {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s2);
+    min-width: 0;
+}
+
+.wanxiangge .wxg-line > .wxg-line-v > .wxg-note {
+    font-size: var(--fs-note);
+}
+
+/* 窄屏：标签不再占一列，改上下堆（⛔ 别把控件挤没） */
+@media (max-width: 720px) {
+    .wanxiangge .wxg-line {
+        grid-template-columns: 1fr;
+        gap: var(--s1);
+    }
+
+    .wanxiangge .wxg-line > .wxg-line-k {
+        justify-self: start;
+        text-align: left;
+    }
+}

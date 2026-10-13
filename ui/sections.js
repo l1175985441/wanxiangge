@@ -176,6 +176,31 @@ function row(host, ...children) {
     return r;
 }
 
+/**
+ * ⭐ 规整两列的"设置行"：**左边标签（右对齐成一条竖线）＋ 右边控件**。
+ *
+ * 复核方原话："「召回」那种数字行排成规整两列——左标签、右控件、对齐"。
+ * 原来一行横着铺"标签 数字框 标签 数字框 标签 数字框"，眼睛得来回找。
+ * ⛔ 只用于设置类行；卡片头、说明、列表照旧。
+ *
+ * @param {HTMLElement} host 挂到哪儿
+ * @param {string} label 左列标签
+ * @param {...HTMLElement} controls 右列控件（可多个，横着排）
+ */
+function line(host, label, ...controls) {
+    const r = el('div', 'wxg-line');
+    r.appendChild(el('div', 'wxg-line-k', label));
+    const v = el('div', 'wxg-line-v');
+    for (const c of controls) {
+        if (c) {
+            v.appendChild(c);
+        }
+    }
+    r.appendChild(v);
+    host.appendChild(r);
+    return r;
+}
+
 function checkbox(id, label, checked, action) {
     const wrap = el('label', 'checkbox_label');
     const box = document.createElement('input');
@@ -348,8 +373,7 @@ function secGeneral(host) {
         + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里⛔ 不再放第二个总闸）',
         { open: true });
     box.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'stage-auto-update'));
-    row(box,
-        el('span', 'wxg-note', '频率：每'),
+    line(box, '更新频率',
         numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every'),
         el('span', 'wxg-note', '回合更新一次（1＝每回合都在动；2＝两格停在上一轮）'));
     box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
@@ -368,10 +392,10 @@ function secWorld(host) {
 
     // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
     const cWorld = card('世界钟・地点');
-    row(cWorld,
-        field('世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short')),
-        field('地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short')));
-    cWorld.appendChild(textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
+    line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'));
+    line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
+    line(cWorld, '这个世界现在什么样',
+        textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     box.appendChild(cWorld);
 
     const cSit = card('局势（势力的碰撞）');
@@ -1133,27 +1157,25 @@ function secRecall(host) {
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false });
     // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
+    // ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
     const cPick = card('每一轮怎么挑');
-    row(cPick,
-        el('span', 'wxg-note', '线索回溯'),
+    line(cPick, '线索回溯',
         numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns'),
-        el('span', 'wxg-note', '楼 ｜ 人物封顶'),
+        el('span', 'wxg-note', '楼'));
+    line(cPick, '人物封顶',
         numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars'),
-        el('span', 'wxg-note', '｜ 事件封顶'),
-        numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'));
-    row(cPick,
-        el('span', 'wxg-note', '排序'),
-        select('wxg-sort-mode', [
-            { value: 'related', label: '按相关度（先说到的排前面）' },
-            { value: 'name', label: '按名册顺序' },
-        ], s.sortMode, 'stage-sort-mode'));
-    box.appendChild(cPick);
-    row(cPick,
-        el('span', 'wxg-note', '过去经历只端'),
+        el('span', 'wxg-note', '个'));
+    line(cPick, '事件封顶',
+        numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'),
+        el('span', 'wxg-note', '条'));
+    line(cPick, '排序', select('wxg-sort-mode', [
+        { value: 'related', label: '按相关度（先说到的排前面）' },
+        { value: 'name', label: '按名册顺序' },
+    ], s.sortMode, 'stage-sort-mode'));
+    line(cPick, '过去经历只端',
         numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
         el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
-    row(cPick,
-        el('span', 'wxg-note', '一轮最多推演'),
+    line(cPick, '一轮最多推演',
         numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
         el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
     box.appendChild(cPick);
@@ -1178,19 +1200,19 @@ function secExtract(host) {
         { open: false });
     // ⭐ 装盒：标签与剥壳 一块、世界书名单 一块、好感来源 一块（体检第一条）
     const cTag = card('标签与剥壳');
-    row(cTag, field('提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short')));
-    row(cTag, field('排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short')));
+    line(cTag, '提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short'));
+    line(cTag, '排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short'));
     cTag.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
     cTag.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
     box.appendChild(cTag);
 
     /* ---- 世界书：点选（⛔ 不立刻存，攒到段底一起存） ---- */
     const cBook = card('世界书名单（读哪些／哪些不读）');
-    row(cBook, el('span', 'wxg-note', '提取（要读的）'));
     // ⚠️ 原来套了个空标签 field('') ⇒ 输入框被往里推一截、跟上面的标签框对不齐
-    row(cBook, textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short'));
-    row(cBook, el('span', 'wxg-note', '排除（不读的）'));
-    row(cBook, textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short'));
+    line(cBook, '提取（要读的）',
+        textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short'));
+    line(cBook, '排除（不读的）',
+        textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short'));
 
     const pick = el('div', 'wxg-pickwrap');
     pick.id = 'wxg-bookpick';
@@ -1214,8 +1236,9 @@ function secExtract(host) {
     box.appendChild(cBook);
 
     const cAff = card('好感来源（"手机"那套）');
-    row(cAff, el('span', 'wxg-note', '世界书名或条目关键词；留空＝不接，界面如实写"未接入"'),
-        textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'));
+    line(cAff, '书名或关键词',
+        textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'),
+        el('span', 'wxg-note', '留空＝不接（界面如实写"未接入"）'));
     box.appendChild(cAff);
     box.appendChild(saveBar(SECID));
     host.appendChild(box);
@@ -1229,18 +1252,20 @@ function secApi(host) {
         '⛔ 不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
         { open: false });
     // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
+    // ⭐ 第三层：这条通道也排成规整两列
     const cCh = card('通道');
-    row(cCh, el('span', 'wxg-note', '连接方式'), select('wxg-api-mode', [
+    line(cCh, '连接方式', select('wxg-api-mode', [
         { value: 'proxy', label: '经酒馆服务器转发（云酒馆最稳）' },
         { value: 'direct', label: '直连（浏览器直接请求）' },
     ], api.mode, 'stage-api-mode'));
-    row(cCh, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short')));
-    row(cCh, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short')));
-    row(cCh, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short')));
-    row(cCh, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'stage-api-model-cheap', 'wxg-short')));
-    row(cCh,
-        el('span', 'wxg-note', '温度'), numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
-        el('span', 'wxg-note', '单次最多输出'), numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
+    line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
+    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short'));
+    line(cCh, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
+    line(cCh, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
+    line(cCh, '温度',
+        numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
+        el('span', 'wxg-note', '单次最多输出'),
+        numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
     row(cCh, button('测一下连接', 'test-api'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
     box.appendChild(cCh);
 
