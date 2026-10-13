@@ -156,123 +156,259 @@
     border-style: dashed;
 }
 
+
 /* ------------------------------- 面板内容 ------------------------------- */
 
-.wanxiangge .wxg-ledger {
-    padding: 6px 8px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    background: rgba(128, 128, 128, 0.1);
-    font-size: 0.92em;
+/*
+ * ⭐ 排版口径（v0.2.7 重做，照实图改的）：
+ *   · 图里最丑的是**按钮被挤成"一个字一行"的竖条** ⇒ 按钮一律不许收缩（flex:0 0 auto），
+ *     放不下就整颗换行；行内用 gap 排开。
+ *   · **只用酒馆原生主题变量**（--SmartTheme*）⇒ 她换主题这里跟着变；
+ *     ⛔ 不抄任何第三方插件的配色与结构（那是人家插件的主题）。
+ *   · 十二段改成**酒馆原生折叠抽屉**（inline-drawer）⇒ 一打开不是两百个控件的墙。
+ *   · 字段＝"真 label ＋ 控件"（点标签能聚焦），窄栏里自动换行、不跟标签错位。
+ *   · 列表项（名册／暗线／局势／编年）做成小卡片，条与条分得清。
+ */
+
+.wanxiangge {
+    --wxg-gap: 6px;
+    --wxg-radius: 6px;
+    --wxg-line: var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
+    --wxg-fill: rgba(128, 128, 128, 0.12);
+    --wxg-fill-strong: rgba(128, 128, 128, 0.2);
+    --wxg-dim: var(--SmartThemeEmColor, rgba(160, 160, 160, 1));
 }
 
-.wanxiangge .wxg-store {
-    padding: 4px 8px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    font-size: 0.9em;
-    background: rgba(128, 128, 128, 0.06);
-    opacity: 0.9;
-}
-
-.wanxiangge .wxg-store[data-tone="ok"] {
-    border-left: 3px solid rgba(80, 160, 80, 0.8);
-}
-
-.wanxiangge .wxg-store[data-tone="bad"] {
-    border-left: 3px solid rgba(200, 90, 90, 0.9);
-    font-weight: 600;
-}
-
+/* ---- 段＝折叠抽屉 ---- */
 .wanxiangge .wxg-sec {
-    margin-bottom: 14px;
+    margin-bottom: 6px;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    overflow: hidden;
 }
 
-.wanxiangge .wxg-sec h4 {
-    margin: 0 0 6px;
-    padding-bottom: 3px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+.wanxiangge .wxg-sec-head {
+    padding: 6px 9px;
+    background: var(--wxg-fill);
+    gap: var(--wxg-gap);
+}
+
+.wanxiangge .wxg-sec-head:hover {
+    background: var(--wxg-fill-strong);
+}
+
+.wanxiangge .wxg-sec-titlewrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.wanxiangge .wxg-sec-title {
     font-size: 1em;
 }
 
+.wanxiangge .wxg-sec-sum {
+    font-size: 0.82em;
+    color: var(--wxg-dim);
+}
+
+.wanxiangge .wxg-sec-body {
+    padding: 8px 9px 10px;
+}
+
+/* 默认收起；标了 data-wxg-open 的那几段默认展开（酒馆用 inline style 切显示，这里要压过它） */
+.wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body {
+    display: block !important;
+}
+
+/* ---- 状态条 ---- */
+.wanxiangge .wxg-ledger,
+.wanxiangge .wxg-store {
+    padding: 5px 9px;
+    margin-bottom: var(--wxg-gap);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
+    font-size: 0.92em;
+    line-height: 1.6;
+}
+
+.wanxiangge .wxg-store[data-tone="ok"] {
+    border-left: 3px solid var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
+}
+
+.wanxiangge .wxg-store[data-tone="bad"] {
+    border-left: 3px solid var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+.wanxiangge .wxg-note {
+    display: block;
+    opacity: 0.72;
+    font-size: 0.88em;
+    line-height: 1.6;
+    margin: 3px 0 6px;
+}
+
+.wanxiangge .wxg-hint {
+    opacity: 0.6;
+    font-size: 0.85em;
+}
+
+/* ---- 行与字段 ---- */
 .wanxiangge .wxg-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    margin: 6px 0;
+    gap: var(--wxg-gap);
+    margin: 5px 0;
+}
+
+/* ⭐ 图里"一个字一行"的元凶就是这条：默认 flex 会让按钮收缩。一律不许缩。 */
+.wanxiangge .wxg-row > .menu_button,
+.wanxiangge .wxg-row > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.wanxiangge .wxg-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wxg-gap) 14px;
 }
 
 .wanxiangge .wxg-field {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    margin: 6px 0;
+    gap: var(--wxg-gap);
+    flex: 1 1 200px;
+    min-width: 0;
+    margin: 3px 0;
+    cursor: pointer;
 }
 
-.wanxiangge .wxg-field label {
-    min-width: 96px;
+.wanxiangge .wxg-field-label {
+    flex: 0 0 auto;
+    min-width: 5.5em;
+    opacity: 0.85;
+    font-size: 0.92em;
 }
 
-.wanxiangge .wxg-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 12px;
-}
-
-.wanxiangge .wxg-grid .wxg-field {
-    flex: 1 1 240px;
-}
-
-.wanxiangge .wxg-note {
-    opacity: 0.7;
-    font-size: 0.9em;
-    flex: 1 1 100%;
+.wanxiangge .wxg-field > .text_pole,
+.wanxiangge .wxg-field > select,
+.wanxiangge .wxg-field > textarea {
+    flex: 1 1 120px;
+    min-width: 0;
 }
 
 .wanxiangge .checkbox_label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--wxg-gap);
     margin: 4px 0;
+    line-height: 1.5;
 }
 
 .wanxiangge .wxg-short {
-    min-width: 180px;
-    flex: 1 1 180px;
+    min-width: 140px;
+    flex: 1 1 140px;
 }
 
 .wanxiangge input[type="number"] {
     width: 84px;
+    flex: 0 0 auto;
 }
 
+/* ---- 列表做成小卡片 ---- */
 .wanxiangge .wxg-list {
-    margin: 4px 0;
-}
-
-.wanxiangge .wxg-roster {
-    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--wxg-gap);
+    margin: 4px 0 8px;
+}
+
+.wanxiangge .wxg-rowitem {
+    padding: 6px 8px;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wanxiangge .wxg-rowname {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.wanxiangge .wxg-name {
+    font-weight: 700;
+}
+
+.wanxiangge .wxg-fact {
+    opacity: 0.85;
+    font-size: 0.9em;
+    line-height: 1.55;
+    word-break: break-word;
+}
+
+.wanxiangge .wxg-fact-missing {
+    opacity: 0.55;
+}
+
+.wanxiangge .wxg-empty {
+    opacity: 0.6;
+    font-size: 0.9em;
+    padding: 4px 0;
+}
+
+.wanxiangge .wxg-badge {
+    display: inline-block;
+    padding: 0 6px;
+    border: 1px solid var(--wxg-line);
+    border-radius: 10px;
+    font-size: 0.78em;
+    line-height: 1.7;
+    white-space: nowrap;
+}
+
+.wanxiangge .wxg-badge-soft {
+    opacity: 0.7;
+    background: var(--wxg-fill);
+}
+
+.wanxiangge .wxg-badge-warn {
+    border-style: dashed;
+    border-color: var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+/* ---- 名册 ---- */
+.wanxiangge .wxg-roster {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wxg-gap);
 }
 
 .wanxiangge .wxg-char {
+    padding: 7px 9px;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
-    border-radius: 6px;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .wanxiangge .wxg-char-main {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
-    min-width: 160px;
 }
 
 .wanxiangge .wxg-char-name {
@@ -281,82 +417,82 @@
 
 .wanxiangge .wxg-char-fields {
     display: flex;
-    flex: 1 1 320px;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--wxg-gap) 12px;
+    align-items: center;
 }
 
 .wanxiangge .wxg-char-fields .wxg-alias {
-    flex: 1 1 180px;
+    flex: 1 1 160px;
+    min-width: 0;
 }
 
 .wanxiangge .wxg-char-fields .wxg-affinity {
-    flex: 1 1 140px;
+    flex: 0 0 72px;
+    width: 72px;
 }
 
 .wanxiangge .wxg-char-actions {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: var(--wxg-gap);
 }
 
 .wanxiangge .wxg-mini {
-    font-size: 0.9em;
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    font-size: 0.86em;
+    min-width: 0;
 }
 
+/* ---- 步骤 / 进度 ---- */
 .wanxiangge .wxg-steps {
-    margin: 0;
-    padding-left: 18px;
-    opacity: 0.85;
+    list-style: none;
+    padding-left: 0;
+    margin: 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .wanxiangge .wxg-steps li {
-    margin: 2px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.92em;
+    line-height: 1.5;
 }
 
 .wanxiangge .wxg-steps li.wxg-ok {
-    opacity: 1;
-    font-weight: 600;
+    opacity: 0.65;
 }
 
 .wanxiangge .wxg-ver {
-    opacity: 0.6;
-    font-size: 0.9em;
-    margin-left: 6px;
-}
-
-.wanxiangge .wxg-hint {
+    font-size: 0.78em;
     opacity: 0.55;
-    font-size: 0.88em;
-    margin-left: 8px;
 }
 
-/* --------------------------- 过程报告与编年 --------------------------- */
-
+/* ---- 过程报告 ---- */
 .wanxiangge .wxg-report-list {
-    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-height: 420px;
-    overflow-y: auto;
+    gap: var(--wxg-gap);
 }
 
 .wanxiangge .wxg-report {
-    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
-    border-radius: 6px;
-    background: rgba(128, 128, 128, 0.06);
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
 }
 
 .wanxiangge .wxg-report > summary {
     cursor: pointer;
-    padding: 5px 8px;
+    padding: 6px 9px;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    list-style: none;
-    font-size: 0.9em;
+    gap: 6px 10px;
+    align-items: baseline;
+    font-size: 0.92em;
 }
 
 .wanxiangge .wxg-report > summary::-webkit-details-marker {
@@ -364,60 +500,69 @@
 }
 
 .wanxiangge .wxg-report > summary:hover {
-    background: rgba(128, 128, 128, 0.12);
+    background: var(--wxg-fill-strong);
 }
 
 .wanxiangge .wxg-report-time {
     opacity: 0.7;
+    font-size: 0.9em;
 }
 
 .wanxiangge .wxg-report-floor {
-    font-weight: 700;
+    opacity: 0.8;
 }
 
 .wanxiangge .wxg-report-status {
+    margin-left: auto;
     opacity: 0.85;
 }
 
 .wanxiangge .wxg-report-body {
-    padding: 6px 10px 10px;
-    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
-    font-size: 0.92em;
+    padding: 8px 9px 10px;
+    border-top: 1px solid var(--wxg-line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .wanxiangge .wxg-report-h {
     font-weight: 700;
-    opacity: 0.85;
-    margin: 8px 0 4px;
+    font-size: 0.92em;
+    margin: 4px 0 2px;
+    opacity: 0.9;
 }
 
 .wanxiangge .wxg-report-text {
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 240px;
-    overflow-y: auto;
-    margin: 4px 0;
+    font-size: 0.88em;
+    line-height: 1.6;
     padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.08);
-    border: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
-    font-size: 0.92em;
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
+    max-height: 40vh;
+    overflow: auto;
 }
 
 .wanxiangge .wxg-chron {
-    padding: 4px 6px;
-    border-left: 2px solid rgba(128, 128, 128, 0.4);
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9em;
+    line-height: 1.55;
 }
 
 .wanxiangge .wxg-hidden-text {
-    display: none;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
-/* ------------------------------- 独立面板 ------------------------------- */
+.wanxiangge .wxg-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
 
 .wxg-panel {
     position: fixed;
@@ -428,7 +573,14 @@
     min-height: 260px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(120, 120, 120, 0.6));
     border-radius: 10px;
-    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96));
+    /*
+     * ⚠️ 实图里"糊成一团"的根因：主题色本身是**半透明**的（酒馆的毛玻璃色），
+     *    底下聊天文字会透上来 ⇒ 面板里外两层字叠一起，看着脏。
+     *    这里先在底下垫一层**不透明**的底，再叠主题色 ⇒ 保留她的色调，但不再透字。
+     */
+    background-color: #1b1d21;
+    background-image: linear-gradient(var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96)),
+            var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96)));
     color: var(--SmartThemeBodyColor, inherit);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
     overflow: hidden;
@@ -442,7 +594,7 @@
     padding: 6px 10px;
     cursor: move;
     user-select: none;
-    background: rgba(128, 128, 128, 0.18);
+    background-color: rgba(128, 128, 128, 0.14);
     border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(120, 120, 120, 0.4));
 }
 

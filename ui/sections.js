@@ -39,13 +39,106 @@ function el(tag, cls, text) {
     return node;
 }
 
-function section(title, hint) {
-    const box = el('section', 'wxg-sec');
-    box.appendChild(el('h4', null, title));
+/**
+ * 一段 = 一个**酒馆原生折叠抽屉**（inline-drawer）。
+ *
+ * 为什么这么改：原来 12 段 <h4> 全平铺，一打开就是 200 多个控件的墙
+ * ⇒ 用酒馆自己的抽屉写法：她看着眼熟，窄栏里还能收起来。
+ *
+ * ⚠️ 关键设计（这里踩过大坑，写下来免得再犯）：
+ *   DOM 里一个节点**只能有一个父亲**——正文层一旦被"挪"到别处，就会自动从壳里抽走
+ *   （我原来把正文层返回出去，调用方一 appendChild 到中转站，壳里的正文就没了，
+ *    最后画出来只剩 12 个标题、内容全空）。
+ *   ⇒ 所以返回的不是 DOM 节点，而是**内容盒**：
+ *       · 各节照旧 `box.appendChild(...)` 往盒里放；
+ *       · 挂载时把盒里的东西**一次性倒进壳里的正文层**，再整壳挂上去。
+ *     正文层全程待在壳里没动过 ⇒ ⛔ 不会出现"标题丢"或"内容丢"。
+ */
+/** 盒 → {壳, 正文层}（挂载时才用） */
+const SECTION_BOX = new WeakMap();
+
+/** 内容盒：对外像元素（appendChild／querySelector／setAttribute／children…），
+ *  实际内容先攒在自己怀里，挂载时倒进正文层 */
+function makeBox() {
+    const inner = el('div', 'wxg-box-inner');
+    return {
+        __wxgBox: true,
+        inner,
+        appendChild(node) {
+            inner.appendChild(node);
+            return node;
+        },
+        append(...nodes) {
+            for (const n of nodes) {
+                if (n) {
+                    inner.appendChild(typeof n === 'string' ? el('span', null, n) : n);
+                }
+            }
+        },
+        querySelector(sel) {
+            return inner.querySelector(sel);
+        },
+        querySelectorAll(sel) {
+            return inner.querySelectorAll(sel);
+        },
+        setAttribute(k, v) {
+            inner.setAttribute(k, v);
+        },
+        getAttribute(k) {
+            return inner.getAttribute(k);
+        },
+        addEventListener(...args) {
+            return inner.addEventListener(...args);
+        },
+        get children() {
+            return inner.children;
+        },
+    };
+}
+
+function section(title, hint, opts) {
+    const o = opts || {};
+    const drawer = el('div', 'wxg-sec inline-drawer');
+    const head = el('div', 'wxg-sec-head inline-drawer-toggle inline-drawer-header');
+    const titleWrap = el('div', 'wxg-sec-titlewrap');
+    titleWrap.appendChild(el('b', 'wxg-sec-title', title));
+    const sum = el('span', 'wxg-sec-sum', o.summary ? asText(o.summary) : '');
+    titleWrap.appendChild(sum);
+    head.appendChild(titleWrap);
+    head.appendChild(el('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
+    drawer.appendChild(head);
+
+    const body = el('div', 'wxg-sec-body inline-drawer-content');
     if (hint) {
-        box.appendChild(el('div', 'wxg-note', hint));
+        body.appendChild(el('div', 'wxg-note', hint));
     }
+    drawer.appendChild(body);
+    if (o.open) {
+        drawer.setAttribute('data-wxg-open', '1');
+    }
+    const box = makeBox();
+    SECTION_BOX.set(box, { drawer, body });
     return box;
+}
+
+/** 改一段标题旁的小摘要（⛔ 不放正文里占地方） */
+export function setSectionSummary(box, text) {
+    const info = box ? SECTION_BOX.get(box) : null;
+    const sum = info ? info.drawer.querySelector('.wxg-sec-sum') : null;
+    if (sum) {
+        sum.textContent = asText(text);
+    }
+}
+
+/**
+ * 一个"带标签的字段"：真 label（点标签能聚焦到输入框）＋ 控件。
+ * ⭐ 原来是一堆 `span«世界钟»` + 裸 input 挤在一行，读起来像没做完的表单。
+ */
+function field(labelText, control) {
+    const wrap = el('label', 'wxg-field');
+    wrap.appendChild(el('span', 'wxg-field-label', labelText));
+    wrap.appendChild(control || el('span', 'wxg-note', '（缺控件）'));
+    return wrap;
 }
 
 function row(host, ...children) {
@@ -154,7 +247,7 @@ function foldable(summaryText, open) {
 /* ------------------------------ 分节 ------------------------------ */
 
 function secStatus(host) {
-    const box = section('账本状态');
+    const box = section('账本状态', null, { open: true });
     const report = storageReport();
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
@@ -201,7 +294,7 @@ function secStatus(host) {
 
 function secGeneral(host) {
     const s = getSettings();
-    const box = section('总控');
+    const box = section('总控', null, { open: true });
     box.appendChild(checkbox('wxg-enabled', '启用万象阁', s.enabled, 'set-enabled'));
     box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'set-card'));
     box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'set-show-empty'));
@@ -220,13 +313,12 @@ function secWorld(host) {
     const state = loadState();
     const w = state.world;
     const box = section('世界状态',
-        '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（⛔ 不按回合数推，世界钟没到点不许提前冒头）。');
+        '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（⛔ 不按回合数推，世界钟没到点不许提前冒头）。',
+        { open: true, summary: trimText(w.clock) || '世界钟未知' });
 
     row(box,
-        el('span', 'wxg-note', '世界钟'),
-        textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'),
-        el('span', 'wxg-note', '地点'),
-        textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
+        field('世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short')),
+        field('地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short')));
     box.appendChild(textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
 
     box.appendChild(el('div', 'wxg-report-h', '局势（势力的碰撞）'));
@@ -319,7 +411,8 @@ function secWorld(host) {
 function secCharacters(host) {
     const state = loadState();
     const box = section('角色状态',
-        '每人七格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点。'
+        '每人七格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点。',
+        { open: true }
         + '内容可以直接改字；改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。');
 
     if (!state.characters.length) {
@@ -418,7 +511,8 @@ function secCharacters(host) {
 function secChronicle(host) {
     const list = getChronicle();
     const box = section('编年',
-        '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。'
+        '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。',
+        { open: true }
         + '⭐ 编年**只给你看**：不注入、不喂模型。');
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录（更新几轮就有了）'));
@@ -451,7 +545,8 @@ function secChronicle(host) {
 function secRoster(host) {
     const roster = getRoster();
     const box = section('人物名册',
-        '名册按聊天各分各的（开新档＝新世界，数据不串）。别名表由你自己维护——正文里叫昵称也能召回上。');
+        '名册按聊天各分各的（开新档＝新世界，数据不串）。别名表由你自己维护——正文里叫昵称也能召回上。',
+        { open: true });
     const d = describeRoster();
     const state = loadState();
     const fresh = Array.isArray(state.newPeople) ? state.newPeople.filter(Boolean) : [];
@@ -526,7 +621,8 @@ function secRoster(host) {
 function secRecall(host) {
     const s = getSettings();
     const box = section('召回',
-        '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。');
+        '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
+        { open: false });
     row(box,
         el('span', 'wxg-note', '线索回溯'),
         numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'set-recent-turns'),
@@ -550,13 +646,14 @@ function secRecall(host) {
 function secExtract(host) {
     const s = getSettings();
     const box = section('读取控制（提取／排除四格）',
-        '四格改完即时保存，刷新、重开都在。默认按结构剥掉成对的机器块与 HTML 注释——剥完为空会自动退回原文，⛔ 不会比剥之前更坏。');
-    row(box, el('span', 'wxg-note', '提取标签'), textInput('wxg-extract-tags', s.extractTags, '例：正文, content', 'set-extract-tags', 'wxg-short'));
-    row(box, el('span', 'wxg-note', '排除标签'), textInput('wxg-exclude-tags', s.excludeTags, '例：状态栏, 变量（留空＝只按结构剥）', 'set-exclude-tags', 'wxg-short'));
+        '四格改完即时保存，刷新、重开都在。默认按结构剥掉成对的机器块与 HTML 注释——剥完为空会自动退回原文，⛔ 不会比剥之前更坏。',
+        { open: false });
+    row(box, field('提取标签', textInput('wxg-extract-tags', s.extractTags, '例：正文, content', 'set-extract-tags', 'wxg-short')));
+    row(box, field('排除标签', textInput('wxg-exclude-tags', s.excludeTags, '例：状态栏, 变量（留空＝只按结构剥）', 'set-exclude-tags', 'wxg-short')));
     box.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
     box.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
-    row(box, el('span', 'wxg-note', '提取世界书'), textInput('wxg-extract-books', s.extractBooks, '读哪些世界书（逗号分开；留空＝角色卡绑定那本）', 'set-extract-books', 'wxg-short'));
-    row(box, el('span', 'wxg-note', '排除世界书'), textInput('wxg-exclude-books', s.excludeBooks, '哪些世界书不读、不参与', 'set-exclude-books', 'wxg-short'));
+    row(box, field('提取世界书', textInput('wxg-extract-books', s.extractBooks, '读哪些世界书（逗号分开；留空＝角色卡绑定那本）', 'set-extract-books', 'wxg-short')));
+    row(box, field('排除世界书', textInput('wxg-exclude-books', s.excludeBooks, '哪些世界书不读、不参与', 'set-exclude-books', 'wxg-short')));
     box.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
     row(box, el('span', 'wxg-note', '"手机"好感的数据源（世界书名或条目关键词；留空＝不接，界面如实写"未接入"）'),
         textInput('wxg-affinity-source', s.affinitySource, '例：手机 或 关系表', 'set-affinity-source', 'wxg-short'));
@@ -567,15 +664,16 @@ function secApi(host) {
     const s = getSettings();
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
-        '⛔ 不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。');
+        '⛔ 不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
+        { open: false });
     row(box, el('span', 'wxg-note', '连接方式'), select('wxg-api-mode', [
         { value: 'proxy', label: '经酒馆服务器转发（云酒馆最稳）' },
         { value: 'direct', label: '直连（浏览器直接请求）' },
     ], api.mode, 'set-api-mode'));
-    row(box, el('span', 'wxg-note', '接口地址'), textInput('wxg-api-url', api.url, 'https://…/v1', 'set-api-url', 'wxg-short'));
-    row(box, el('span', 'wxg-note', '密钥'), textInput('wxg-api-key', api.key, 'sk-…', 'set-api-key', 'wxg-short'));
-    row(box, el('span', 'wxg-note', '推演模型'), textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'set-api-model', 'wxg-short'));
-    row(box, el('span', 'wxg-note', '打杂模型（留空＝同上）'), textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'set-api-model-cheap', 'wxg-short'));
+    row(box, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'set-api-url', 'wxg-short')));
+    row(box, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'set-api-key', 'wxg-short')));
+    row(box, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'set-api-model', 'wxg-short')));
+    row(box, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'set-api-model-cheap', 'wxg-short')));
     row(box,
         el('span', 'wxg-note', '温度'), numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'set-api-temp'),
         el('span', 'wxg-note', '单次最多输出'), numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'set-api-maxtok'));
@@ -586,7 +684,8 @@ function secApi(host) {
 function secPrompts(host) {
     const s = getSettings();
     const box = section('提示词（可看可改）',
-        '留空＝用内置默认；填了＝原样用你写的。破限词同理：留空＝内置那份，填了＝整段替换。');
+        '留空＝用内置默认；填了＝原样用你写的。破限词同理：留空＝内置那份，填了＝整段替换。',
+        { open: false });
     box.appendChild(el('div', 'wxg-report-h', '注入块开头那句'));
     box.appendChild(textarea('wxg-inject-header', s.injectHeader, '', 'set-inject-header', 3));
     box.appendChild(el('div', 'wxg-report-h', '世界推演提示词'));
@@ -610,8 +709,9 @@ function secPrompts(host) {
 function secReport(host) {
     const list = recentRecallRecords(20);
     const box = section('过程报告 · 每轮到底注入了什么',
-        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）③ 回执（成没成、多少字、什么身份、为什么没注入）。'
-        + '（' + FLOOR_NOTE + '）');
+        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
+        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）',
+        { open: false });
     if (!list.length) {
         box.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
         host.appendChild(box);
@@ -700,7 +800,7 @@ function secReport(host) {
 }
 
 function secSteps(host) {
-    const box = section('现在的进度');
+    const box = section('现在的进度', null, { open: true });
     const ul = el('ul', 'wxg-steps');
     const items = [
         '① 骨架 · 扩展能装、界面是中文',
@@ -729,18 +829,43 @@ export function renderSections(host, opts) {
     host.replaceChildren();
     host.classList.add('wanxiangge');
     host.setAttribute('data-wxg-mode', mode);
-    secStatus(host);
-    secWorld(host);
-    secCharacters(host);
-    secChronicle(host);
-    secReport(host);
-    secRoster(host);
-    secGeneral(host);
-    secRecall(host);
-    secExtract(host);
-    secApi(host);
-    secPrompts(host);
-    secSteps(host);
+
+    /*
+     * ⭐ 挂载口径：各节函数返回的是**正文层**（内容都在它里面），
+     *    这里把"壳 ＋ 正文"合起来，**整壳**挂进宿主。
+     *    ⛔ 只挂正文 = 标题全丢；只挂壳 = 内容全丢（这两种错我都犯过，别再来一次）。
+     */
+    const staging = el('div', 'wxg-stage');
+    secStatus(staging);
+    secWorld(staging);
+    secCharacters(staging);
+    secChronicle(staging);
+    secReport(staging);
+    secRoster(staging);
+    secGeneral(staging);
+    secRecall(staging);
+    secExtract(staging);
+    secApi(staging);
+    secPrompts(staging);
+    secSteps(staging);
+    hangUp(host, staging);
+}
+
+/** 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非正文层的东西原样搬 */
+function hangUp(host, staging) {
+    for (const node of (staging.children || []).slice()) {
+        const info = SECTION_BOX.get(node);
+        if (info) {
+            // 盒里的东西一次性倒进壳里的正文层（正文层全程待在壳里，没被挪过）
+            const inner = node.inner;
+            for (const kid of (inner.children || []).slice()) {
+                info.body.appendChild(kid);
+            }
+            host.appendChild(info.drawer);
+        } else {
+            host.appendChild(node);
+        }
+    }
 }
 
 /**
