@@ -1597,12 +1597,11 @@ body.wxg-dragging {
 }
 
 /* ---- 空态：别让整屏空着像坏了（给个像样的空态块） ---- */
+/* ⚠️ 装盒之后空态被卡片放大成 160px 的大块 ⇒ 收成一行 */
 .wxg-ws-main .wxg-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 120px;
-    padding: 18px;
+    display: block;
+    min-height: 0;
+    padding: 10px 12px;
     border: 1px dashed var(--wxg-border, rgba(128, 128, 128, 0.35));
     border-radius: 10px;
     opacity: 0.7;
@@ -1767,4 +1766,20 @@ body.wxg-dragging {
     overflow-wrap: anywhere;
     max-height: 16em;
     overflow: auto;
+}
+
+/* ---- 卡片里的下拉框：按内容宽（⛔ 不占满整行） ---- */
+.wxg-ws .wxg-card > .wxg-row > select.text_pole,
+.wxg-ws .wxg-card .wxg-row > select.text_pole {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 22em;
+    min-width: 8em;
+}
+
+/* 卡片里"文字＋输入框"的行：输入框给个舒服宽度，别把行撑满 */
+.wxg-ws .wxg-card .wxg-row > input.text_pole {
+    flex: 0 1 auto;
+    width: 18em;
+    max-width: 100%;
 }
