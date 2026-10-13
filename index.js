@@ -19,7 +19,7 @@ import { injectBeforeGenerate } from './core/engine.js';
 import { planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 
-const VERSION = '0.1.3';
+const VERSION = '0.1.4';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {
@@ -62,11 +62,12 @@ function bindEvents(ctx) {
         afterMessageReceived();
     });
 
-    // 某条消息画到界面上：该挂卡片就挂
+    // 某条消息画到界面上：该挂卡片就挂（刷新后消息是分几拍渲染的，所以这里也补一次）
     on(types.USER_MESSAGE_RENDERED, (index) => {
         const floor = Number.isFinite(Number(index)) ? Number(index) : -1;
         if (floor >= 0) {
             renderPanel();
+            mountAllCards(2, 900);
         }
     });
 
@@ -145,9 +146,10 @@ function boot() {
         });
 
         // 异步准备：把已有聊天的卡片按账本挂回去，不阻塞酒馆就绪
+        // ⭐ 刷新后消息是分几拍画出来的，一次挂不齐 ⇒ 多补两轮（这也是"刷新后 0 张卡"的修法）
         setTimeout(() => {
             try {
-                mountAllCards();
+                mountAllCards(3, 1200);
                 renderPanel();
                 restoreCards();
             } catch (e) {

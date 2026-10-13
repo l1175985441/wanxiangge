@@ -36,14 +36,27 @@ function hasDom() {
     return typeof document !== 'undefined' && !!document;
 }
 
-/** 取当前聊天的消息节点（按楼层号找 .mes） */
+/** 取当前聊天的消息节点（按楼层号找 .mes；⛔ 只认"有编号、确实是用户发言"的那种） */
 function mesNodeByFloor(floor) {
+    const wanted = Number(floor);
+    if (!Number.isFinite(wanted)) {
+        return null;
+    }
     const nodes = document.querySelectorAll('.mes');
     for (const node of nodes) {
         const raw = node.getAttribute('mesid');
-        if (raw !== null && Number(raw) === Number(floor)) {
-            return node;
+        // ⛔ 空编号的（还在生成／还没入列的占位楼）一律不认
+        if (raw === null || String(raw).trim() === '') {
+            continue;
         }
+        if (Number(raw) !== wanted) {
+            continue;
+        }
+        // ⛔ 只往"用户发言"楼上挂（这一条能挡掉挂到占位楼／回复楼上）
+        if (!node.classList.contains('is_user')) {
+            continue;
+        }
+        return node;
     }
     return null;
 }
@@ -194,7 +207,7 @@ export function refreshCardOnFloor(floor) {
     node.appendChild(fresh);
 }
 
-/** 把挂错地方的自家卡片清掉（对应的那一楼已经没有账了） */
+/** 把挂错地方的自家卡片清掉（对应的那一楼已经不是用户发言、或者已经没有账了） */
 function sweepOrphanCards() {
     if (!hasDom()) {
         return;
@@ -206,39 +219,70 @@ function sweepOrphanCards() {
             .filter((r) => r && Number.isFinite(r.floor))
             .map((r) => Number(r.floor)),
     );
+
+    // ① 每张卡片都要待在"编号对得上、且确实是她那条发言"的楼上
     const cards = document.querySelectorAll('.' + CARD_CLASS);
     for (const card of cards) {
         const raw = card.getAttribute(CARD_ATTR);
         const floor = raw === null ? -1 : Number(raw);
         const msg = chat[floor];
+        const host = card.closest('.mes');
+        const hostId = host && host.getAttribute('mesid') !== null ? Number(host.getAttribute('mesid')) : NaN;
         const isValid = floor >= 0
             && floors.has(floor)
             && msg
             && msg.is_user === true
-            && !msg.is_system;
+            && !msg.is_system
+            && hostId === floor;
         if (!isValid) {
             card.remove();
         }
     }
+
+    // ② 同一楼只留一张（万一还有重复挂的，留最后挂的那张）
+    for (const floor of floors) {
+        const node = mesNodeByFloor(floor);
+        if (!node) {
+            continue;
+        }
+        const mine = node.querySelectorAll('.' + CARD_CLASS);
+        if (mine.length > 1) {
+            for (let i = 0; i < mine.length - 1; i += 1) {
+                mine[i].remove();
+            }
+        }
+    }
 }
 
-/** 按账本把现有聊天的卡片都挂回去（重开酒馆、切聊天后走这里） */
-export function mountAllCards() {
+/**
+ * 按账本把现有聊天的卡片挂回去。
+ * @param {number} tries 还要重试几次（刷新后消息是分几拍画出来的，第一拍可能还没有对应楼）
+ * @param {number} delay 隔多久重试
+ */
+export function mountAllCards(tries, delay) {
     if (!hasDom()) {
         return;
     }
     const chat = getChat();
-    if (!Array.isArray(chat) || !chat.length) {
-        return;
-    }
-    for (let floor = 0; floor < chat.length; floor += 1) {
-        const m = chat[floor];
-        if (!m || !m.is_user || m.is_system) {
-            continue;
+    const list = Array.isArray(chat) ? chat : [];
+    const rounds = Number.isFinite(tries) ? Math.max(0, Math.trunc(tries)) : 0;
+
+    if (list.length) {
+        for (let floor = 0; floor < list.length; floor += 1) {
+            const m = list[floor];
+            if (!m || !m.is_user || m.is_system) {
+                continue;
+            }
+            refreshCardOnFloor(floor);
         }
-        refreshCardOnFloor(floor);
+        sweepOrphanCards();
     }
-    sweepOrphanCards();
+
+    // ⭐ 刷新后消息是分几拍渲染的：没挂上的楼，过一会儿再补一轮
+    if (rounds > 0) {
+        const wait = Number.isFinite(delay) ? delay : 1200;
+        setTimeout(() => mountAllCards(rounds - 1, wait), wait);
+    }
 }
 
 /* ------------------------------- 面板 ------------------------------- */

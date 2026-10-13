@@ -164,75 +164,157 @@ function syncKey(ledger, key) {
     }
 }
 
-/** 存账本：写回当前聊天的元数据（真的存服务端）＋立刻在设置区留一份底 */
-export function writeLedger(state) {
+/**
+ * 存账本。两件事：① 把账本递交给**平台自己的写入接口**；② 回读验证。
+ *
+ * ⚠️ 这里是 v0.1.3 之前没修净的坑（测试方三次实测：账在内存里、盘上没有）：
+ *    酒馆的 `chat_metadata` 是个**会被整体换掉的活绑定**（加载／切换聊天时 `chat_metadata = {...}`），
+ *    我早期拿着一个对象引用往里写，写进去的那个对象可能已经不是平台要保存的那一个了。
+ *    ⇒ 现在一律走官方接口 `updateChatMetadata`（把新值并进**当前**那本），拿不到才退回直写；
+ *      而且**写完必须回读**：回读不到就如实报错，⛔ 不许报喜不报忧。
+ */
+export async function writeLedger(state) {
     if (!state || typeof state !== 'object') {
-        return;
+        return { ok: false, reason: '账本是空的' };
     }
     state.chatKey = currentChatKey();   // 盖个章：这本账属于哪个聊天
-    const md = getChatMetadata();
-    md[LEDGER_KEY] = state;
 
-    // 存服务端：saveMetadata 是标准路子；老版本没有就走 saveChatConditional
-    if (ctx && ctx.chatMetadata === md) {
-        const save = typeof ctx.saveMetadata === 'function'
-            ? ctx.saveMetadata.bind(ctx)
-            : (typeof ctx.saveChatConditional === 'function' ? ctx.saveChatConditional.bind(ctx) : null);
-        if (save) {
-            try {
-                const p = save();
-                if (p && typeof p.then === 'function') {
-                    p.then(() => { lastSaveOk = true; }).catch((e) => {
-                        lastSaveOk = false;
-                        console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
-                    });
-                } else {
-                    lastSaveOk = true;
-                }
-            } catch (e) {
-                lastSaveOk = false;
-                console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
-            }
-        } else if (!warnedNoSave) {
-            warnedNoSave = true;
-            console.warn('[万象阁] 这个酒馆版本没给出存盘接口（saveMetadata／saveChatConditional），账本会只在本次会话内有效——请把这条告诉我。');
-        }
+    // ⭐ 底稿先落（同步入队、立刻落盘）：哪怕下面主存这条路出问题，账也丢不了
+    mirrorLedger(state);
+
+    const wrote = writeMetadataNow(state);
+    if (!wrote.ok) {
+        lastSaveOk = false;
+        saveNote = wrote.reason || '写入没成功';
+        return wrote;   // 底稿已留，账丢不了；面板会如实报红
     }
 
-    // ⭐ 底稿：立刻写、不攒着（刷新页面后就是靠它把账捞回来）
-    mirrorLedger(state);
+    // 存服务端（saveMetadata 是标准路子；老版本没有就走 saveChatConditional）
+    const save = pickSaver();
+    if (save) {
+        try {
+            await save();
+            lastSaveOk = true;
+            saveNote = '';
+        } catch (e) {
+            lastSaveOk = false;
+            saveNote = '存盘报错：' + (e && e.message ? e.message : String(e));
+            console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
+        }
+    } else if (!warnedNoSave) {
+        warnedNoSave = true;
+        console.warn('[万象阁] 这个酒馆版本没给出存盘接口（saveMetadata／saveChatConditional），账本会只在本次会话内有效——请把这条告诉我。');
+    }
+
+    // ⭐ 回读验证：写进去还不够，要能**再读出来**才算数
+    const back = readBackFromMetadata();
+    if (!back) {
+        lastSaveOk = false;
+        saveNote = '写进聊天档后读不回来（可能被平台换掉了对象）';
+        return { ok: false, reason: saveNote };
+    }
+    return { ok: true };
+}
+
+/** 把账本交给平台写入（优先官方接口，其次拿当前那本直写） */
+function writeMetadataNow(state) {
+    if (!ctx) {
+        return { ok: false, reason: '还没拿到酒馆上下文' };
+    }
+    // ① 官方接口：把新值并进"当前"那本 metadata
+    if (typeof ctx.updateChatMetadata === 'function') {
+        try {
+            ctx.updateChatMetadata({ [LEDGER_KEY]: state });
+            if (readBackFromMetadata()) {
+                return { ok: true };
+            }
+        } catch (e) {
+            console.warn('[万象阁] updateChatMetadata 写入失败，改试直接写入：', e);
+        }
+    }
+    // ② 退路：拿**当前这一刻**的 metadata 直写（且不长期持有引用）
+    try {
+        const md = getChatMetadata();
+        md[LEDGER_KEY] = state;
+        if (readBackFromMetadata()) {
+            return { ok: true };
+        }
+        return { ok: false, reason: '写进去了但读不回来' };
+    } catch (e) {
+        return { ok: false, reason: '写入出错：' + (e && e.message ? e.message : String(e)) };
+    }
+}
+
+/** 从现在这一刻的聊天档里把账本读回来（回读验证用） */
+function readBackFromMetadata() {
+    try {
+        const md = getChatMetadata();
+        const got = md ? md[LEDGER_KEY] : null;
+        return got && typeof got === 'object' ? got : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** 用哪个接口存盘 */
+function pickSaver() {
+    if (!ctx) {
+        return null;
+    }
+    if (typeof ctx.saveMetadata === 'function') {
+        return ctx.saveMetadata.bind(ctx);
+    }
+    if (typeof ctx.saveChatConditional === 'function') {
+        return ctx.saveChatConditional.bind(ctx);
+    }
+    return null;
 }
 
 let warnedNoSave = false;
 let lastSaveOk = null;
+let saveNote = '';
 
-/** 存盘情况（面板上如实报给她看：主存／底稿／只在内存） */
+/** 存盘情况（面板上如实报：主存／底稿／只在内存） */
 export function storageReport() {
     const live = currentLive();
-    const score = live ? liveScore(live) : -1;
-    if (score < 0) {
+    const has = live ? liveHasContent(live) : false;
+    if (!has) {
         return { tone: 'idle', text: '还没有账（发一条消息就有了）' };
     }
     if (lastSaveOk === false) {
-        return { tone: 'bad', text: '存盘失败——账只在这次会话里（刷新会丢）；底稿还留着上一份' };
+        return {
+            tone: 'bad',
+            text: '没能存进聊天档（' + (saveNote || '原因未记录') + '）——账只保留在这次会话里，底稿还在',
+        };
     }
     if (lastSaveOk === true) {
-        return { tone: 'ok', text: '已存进聊天档 ✓（设置区里另有一份底稿，刷新／重开都能捞回来）' };
+        return {
+            tone: 'ok',
+            text: '已存进聊天档 ✓（回读验证过；设置区里另有一份底稿）',
+        };
     }
     return { tone: 'idle', text: '已经记下，正在存盘' };
 }
 
-/** 账本里有多少东西（只看有没有，不碰内容） */
-function liveScore(s) {
+/** 底稿里有没有当前聊天这一格 */
+function mirrorBoxHasKey() {
+    try {
+        const store = getExtensionSettings();
+        const box = store ? store[SETTINGS_KEY + '_mirror'] : null;
+        return !!(box && typeof box === 'object' && box[currentChatKey()]);
+    } catch (e) {
+        return false;
+    }
+}
+
+/** 账本里有没有东西（只看有没有，不碰内容） */
+function liveHasContent(s) {
     if (!s || typeof s !== 'object') {
-        return -1;
+        return false;
     }
     const recs = Array.isArray(s.recallRecords) ? s.recallRecords.length : 0;
     const chars = Array.isArray(s.characters) ? s.characters.length : 0;
-    if (!recs && !chars) {
-        return -1;
-    }
-    return recs + chars;
+    return recs + chars > 0;
 }
 
 /** 这本账盖的章（属于哪个聊天） */
