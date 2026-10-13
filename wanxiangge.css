@@ -1645,3 +1645,126 @@ body.wxg-dragging {
     width: 26em;
     max-width: 100%;
 }
+
+/* ============================================================================
+   ⭐ 设计规矩（五条）—— 13 页统一按这套刷（复核方体检后立的）
+   ① 间距档：只有 4 / 8 / 12 / 18 四档，⛔ 不许随手写别的数字
+   ② 字号三档：说明 / 正文 / 小标题
+   ③ 圆角：一个值
+   ④ 一个主色点缀（走主题色，⛔ 不自定品牌色）
+   ⑤ 每页**一个主按钮**，其余弱化
+   ============================================================================ */
+
+.wanxiangge {
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 18px;
+    --fs-note: 0.84em;
+    --fs-body: 0.96em;
+    --fs-head: 1.02em;
+    --r: 8px;
+    --wxg-accent: var(--SmartThemeUnderlineColor, rgb(120, 200, 150));
+}
+
+.wxg-ws .wanxiangge {
+    --wxg-accent: var(--wxg-accent, #5fbf9b);
+}
+
+/* ---- 卡片：一个主题一块（浅描边＋块头一行小字） ---- */
+.wanxiangge .wxg-card {
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--r);
+    background: var(--wxg-fill);
+    padding: var(--s3);
+    margin: 0 0 var(--s3);
+}
+
+/* 卡片头：一行小字，压暗、加字距，一眼看出"这块讲什么" */
+.wanxiangge .wxg-card-h {
+    display: block;
+    font-size: var(--fs-note);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--wxg-dim);
+    margin: 0 0 var(--s2);
+    padding-bottom: var(--s1);
+    border-bottom: 1px solid var(--wxg-line);
+}
+
+.wanxiangge .wxg-card-h ~ .wxg-card-h {
+    margin-top: var(--s3);
+}
+
+/* 卡片里第一/最后一个控件不再多出边距（免得卡片看着空） */
+.wanxiangge .wxg-card > *:first-child {
+    margin-top: 0;
+}
+
+.wanxiangge .wxg-card > *:last-child {
+    margin-bottom: 0;
+}
+
+/* ---- 正文默认节奏：段里各块之间统一间距（⛔ 不再时松时紧） ---- */
+.wxg-ws-main .wxg-sec-body > * {
+    margin-bottom: var(--s2);
+}
+
+.wxg-ws-main .wxg-sec-body > *:last-child {
+    margin-bottom: 0;
+}
+
+/* ---- 三级字号落地 ---- */
+.wanxiangge .wxg-sec-body {
+    font-size: var(--fs-body);
+    line-height: 1.7;
+}
+
+.wanxiangge .wxg-note,
+.wanxiangge .wxg-hint {
+    font-size: var(--fs-note);
+}
+
+.wanxiangge .wxg-report-h,
+.wanxiangge .wxg-card-h {
+    font-size: var(--fs-note);
+}
+
+/* ---- 主按钮：一页一个，它就是"该点的那个" ---- */
+.wanxiangge .menu_button.wxg-primary,
+.wanxiangge button.wxg-primary {
+    font-weight: 700;
+    border-color: var(--wxg-accent, var(--wxg-line));
+    box-shadow: inset 0 0 0 1px var(--wxg-accent, transparent);
+}
+
+.wxg-ws .menu_button.wxg-primary {
+    background: var(--wxg-accent-soft, var(--wxg-fill-strong));
+}
+
+/* ---- 次要按钮：压暗一点，别跟主按钮抢 ---- */
+.wanxiangge .wxg-sec-body .menu_button:not(.wxg-primary):not(.wxg-btn-sm) {
+    opacity: 0.88;
+}
+
+/* ---- 空态：一句话（⛔ 不摆空架子） ---- */
+.wanxiangge .wxg-empty {
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+}
+
+/* ---- 提示词页："当前用的那份"预览（可读的正文块，⛔ 不是空框） ---- */
+.wanxiangge .wxg-prompt-cur {
+    margin: 0 0 var(--s2);
+    padding: var(--s2) var(--s3);
+    border-left: 3px solid var(--wxg-accent, var(--wxg-line));
+    border-radius: 0 var(--r) var(--r) 0;
+    background: var(--black30a, rgba(0, 0, 0, 0.15));
+    font-family: inherit;
+    font-size: var(--fs-note);
+    line-height: 1.75;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 16em;
+    overflow: auto;
+}

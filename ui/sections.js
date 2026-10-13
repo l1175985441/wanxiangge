@@ -130,6 +130,21 @@ function section(title, hint, opts) {
     return body;
 }
 
+/**
+ * ⭐ 一个"块"（卡片）—— 体检结论说得很对：**壳是设计过的、里子跌回表单**。
+ * 内容得先装进结构：一个主题一块卡（浅描边＋块头一行小字），别全都平铺在一个大平面上。
+ *
+ * @param {string} title 块头那行小字（例："世界钟" / "好感来源"）；留空＝不带块头
+ * @returns {HTMLElement} 往它上面加东西即可
+ */
+function card(title) {
+    const box = el('div', 'wxg-card');
+    if (trimText(title)) {
+        box.appendChild(el('div', 'wxg-card-h', title));
+    }
+    return box;
+}
+
 /** 改一段标题旁的小摘要（⛔ 不放正文里占地方） */
 export function setSectionSummary(box, text) {
     const drawer = box ? box.__wxgDrawer : null;
@@ -1230,28 +1245,47 @@ function hostOf(url) {
     return m ? m[1] : (s.length > 24 ? s.slice(0, 24) + '…' : s);
 }
 
+/**
+ * 提示词：**折叠条 ＋ 当前用的那份直接预览**。
+ *
+ * 体检结论点名这里最重："世界推演／角色状态／破限词三个大空框叠着，像没做完的草稿"。
+ * 改法：一套提示词一块卡 —— 先给她看**当前实际会用的那份**（留空就是内置的，直接摊开读），
+ * 想改才点「改这套」展开输入框。⛔ 空框不再当主角。
+ */
 function secPrompts(host) {
     const s = getSettings();
     const box = section('提示词（可看可改）',
-        '留空＝用内置默认；填了＝原样用你写的。破限词同理：留空＝内置那份，填了＝整段替换。',
+        '留空＝用内置默认；填了＝原样用你写的。破限词同理。'
+        + '下面每块先显示**当前实际用的那份**（留空就是内置的），想改再点「改这套」。',
         { open: false });
-    box.appendChild(el('div', 'wxg-report-h', '注入块开头那句'));
-    box.appendChild(textarea('wxg-inject-header', s.injectHeader, '', 'stage-inject-header', 3));
-    box.appendChild(el('div', 'wxg-report-h', '世界推演提示词'));
-    box.appendChild(textarea('wxg-prompt-world', s.promptWorld, '（留空＝用内置）', 'stage-prompt-world', 6));
-    box.appendChild(el('div', 'wxg-report-h', '角色状态／平行事件提示词'));
-    box.appendChild(textarea('wxg-prompt-chars', s.promptChars, '（留空＝用内置）', 'stage-prompt-chars', 6));
-    box.appendChild(el('div', 'wxg-report-h', '破限词'));
-    box.appendChild(textarea('wxg-jailbreak', s.jailbreak, '（留空＝用内置那份）', 'stage-jailbreak', 4));
-    row(box, button('看内置破限词', 'show-jailbreak'), button('全部恢复内置默认', 'reset-prompts'));
-    const view = el('pre', 'wxg-report-text', DEFAULT_JAILBREAK);
-    view.id = 'wxg-jailbreak-view';
-    view.style.display = 'none';
-    box.appendChild(view);
-    const worldView = el('pre', 'wxg-report-text', effectivePrompt('world'));
-    worldView.id = 'wxg-prompt-world-view';
-    worldView.style.display = 'none';
-    box.appendChild(worldView);
+
+    const one = (title, keyVal, kind, id, rows, hint) => {
+        const c = card(title);
+        c.appendChild(el('div', 'wxg-note', hint));
+        // 当前用的那份（直接摊开读，⛔ 不是空框）
+        const cur = el('pre', 'wxg-prompt-cur', effectivePrompt(kind));
+        c.appendChild(cur);
+        // 改的地方：默认收起
+        const edit = foldable('改这套（留空＝用内置）', false);
+        const area = textarea(id, keyVal, '（留空＝用内置那份）', 'stage-' + id.replace('wxg-', ''), rows);
+        edit.appendChild(area);
+        c.appendChild(edit);
+        return c;
+    };
+
+    box.appendChild(one('注入块开头那句', s.injectHeader, 'header', 'wxg-inject-header', 3,
+        '每轮注入的最前面那一行，声明"这是引擎附注"。'));
+    box.appendChild(one('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
+        '让模型推"世界现在什么样"时用的那套规矩。'));
+    box.appendChild(one('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
+        '让模型写每个角色的平行线时用的那套规矩。'));
+    box.appendChild(one('破限词', s.jailbreak, 'jailbreak', 'wxg-jailbreak', 6,
+        '模型有时候"不填东西"——这一段是逼它老实填字段用的。'));
+
+    const c = card('动作');
+    row(c, button('全部恢复内置默认', 'reset-prompts'),
+        el('span', 'wxg-note', '（只清提示词，不动你的开关）'));
+    box.appendChild(c);
     box.appendChild(saveBar('prompts'));
     host.appendChild(box);
 }
