@@ -42,7 +42,12 @@ import { toast } from './toast.js';
  */
 const FMT_SPLIT = /\*\*([^*]+)\*\*/g;
 
-function fillText(node, text) {
+/**
+ * 把文案填进节点（`**这样**` → 真粗体）。
+ * ⚠️ 导出是给**页头副题**用的（workspace.js 那份副题也要走这里，
+ *    不然会露出 `**` 星号——真机截图看到过）。
+ */
+export function fillText(node, text) {
     const s = asText(text);
     if (s.indexOf('**') < 0) {
         node.textContent = s;

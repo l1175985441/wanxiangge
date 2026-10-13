@@ -12,7 +12,7 @@
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
-import { renderSections, bindSectionEvents } from './sections.js';
+import { renderSections, bindSectionEvents, fillText } from './sections.js';
 import { applyAppearance } from './theme.js';
 import { loadState } from '../core/state.js';
 import { trimText, asArray } from '../core/utils.js';
@@ -285,7 +285,8 @@ export function showIndex(i, scroll) {
             h1.textContent = trimText(t && t.textContent) || '';
         }
         if (h1sub) {
-            h1sub.textContent = trimText(cur && cur.getAttribute('data-wxg-sub')) || '';
+            // ⚠️ 副题也要走 fillText（`**粗体**` 得渲染成真粗体，⛔ 不能直接 textContent）
+            fillText(h1sub, trimText(cur && cur.getAttribute('data-wxg-sub')) || '');
         }
     }
     // 顶部跳转条在工作台里不需要（左栏就是导航）
