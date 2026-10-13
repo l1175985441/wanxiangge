@@ -2769,3 +2769,32 @@ body.wxg-dragging {
 .wanxiangge .wxg-card.is-editing {
     box-shadow: inset 2px 0 0 var(--wxg-accent, var(--wxg-line));
 }
+
+/* ---------------------------------------------------------------------------
+   ② 现在的进度：一行总结 ＋ 进度条
+   （原来这一页是我自己的开发清单，⏐ 对用户毫无价值）
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-progress-sum {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: var(--s1) 0 var(--s3);
+    font-size: 1.02em;
+}
+
+.wanxiangge .wxg-pbar {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(128, 128, 128, 0.18);
+    overflow: hidden;
+    margin-bottom: var(--s2);
+}
+
+.wanxiangge .wxg-pbar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--wxg-accent, #5fbf9b);
+    transition: width 0.25s ease;
+}
