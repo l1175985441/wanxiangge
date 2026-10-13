@@ -243,6 +243,32 @@ function boot() {
     }
 }
 
+/**
+ * 启动。
+ *
+ * ⚠️ 真机教训（v0.2.12 之前这里一直空等）：
+ *   `ctx.isReady` 在真酒馆里是 **undefined**（不是布尔），而 `APP_READY` 事件在扩展被加载时
+ *   **往往已经发过了** ⇒ 只挂监听就会永远不启动（面板/设置区都不出现，而扩展"已激活"日志照打）。
+ *   ⇒ 所以这里三手都上：
+ *     ① 真的已经就绪（isReady===true）⇒ 立刻启动；
+ *     ② 挂 APP_READY 监听（万一还没发）；
+ *     ③ **兜底**：1.2 秒后只要还没启动过就启动一次（幂等，boot 里有 started 标记）。
+ *   ②③ 谁先都行，⛔ 不会重复启动。
+ */
+let started = false;
+function startOnce(why) {
+    if (started) {
+        return;
+    }
+    started = true;
+    try {
+        globalThis.__WXG_DIAG__ = Object.assign(globalThis.__WXG_DIAG__ || {}, { startWhy: why });
+    } catch (e) {
+        // 诊断写不了不影响功能
+    }
+    boot();
+}
+
 (function start() {
     const ctx = typeof SillyTavern !== 'undefined' && SillyTavern && typeof SillyTavern.getContext === 'function'
         ? SillyTavern.getContext()
@@ -251,13 +277,16 @@ function boot() {
     const types = ctx && ctx.event_types;
 
     if (source && types && typeof types.APP_READY === 'string') {
-        source.on(types.APP_READY, () => boot());
+        source.on(types.APP_READY, () => startOnce('app-ready-event'));
         if (typeof ctx.isReady === 'boolean' && ctx.isReady === true) {
-            boot();
+            startOnce('isReady=true');
+            return;
         }
+        // 兜底：事件早就发过的情况（真机上就是这种）
+        setTimeout(() => startOnce('fallback-timer'), 1200);
         return;
     }
-    setTimeout(boot, 1500);
+    setTimeout(() => startOnce('no-event-source'), 1500);
 })();
 
 export { openPanel, closePanel, isPanelOpen, loadState };
