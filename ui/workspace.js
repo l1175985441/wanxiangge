@@ -201,11 +201,11 @@ function buildSidebar() {
             const lab = document.createElement('span');
             lab.className = 'wxg-ws-side-group-k';
             lab.textContent = group.label;
-            const hint = document.createElement('span');
-            hint.className = 'wxg-ws-side-group-h';
-            hint.textContent = group.hint || '';
+            /*
+             * ⚠️ ⛔ 不加副题：第一版加了（"看数据"＋"世界现在什么样"），真机上看两根挤成
+             *    一句"看数据世界现在什么样"——参照里分组就**只有组名**，照它。
+             */
             head.appendChild(lab);
-            head.appendChild(hint);
             sideEl.appendChild(head);
         }
         const btn = document.createElement('button');
