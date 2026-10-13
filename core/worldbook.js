@@ -124,6 +124,38 @@ export function extractNameFromTitle(title) {
     return t;
 }
 
+/** 汉字／假名／谚文／字母数字（用来判"名字前后是不是还黏着别的字"） */
+const WORDCH = /[\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/;
+
+/**
+ * 在一行里找"某个角色的名字"，并且要求**名字是独立出现的**。
+ * ⭐ 自审修正·条 11 的连带问题：短名不许命中长名（"某某"不许把"某某乙"那一行算成自己的），
+ *    否则会给短名取到长名的数（我实测就串号了）。
+ * ⚠️ 但也不能矫枉过正：前面是标记字母（R系的美奈子）或后面是分隔符（名字：好感 62）都要认。
+ */
+function findStandaloneName(line, forms, allForms) {
+    for (const form of forms) {
+        let at = line.indexOf(form);
+        while (at >= 0) {
+            const end = at + form.length;
+            const longer = allForms.some((o) => o !== form && o.length > form.length && line.startsWith(o, at));
+            if (!longer) {
+                const before = at > 0 ? line[at - 1] : '';
+                const after = end < line.length ? line[end] : '';
+                // 前面：⛔ 别黏着别的字（但要放过标记字母 R／数字与括号）
+                const beforeOk = !before || !WORDCH.test(before) || /[A-Za-z0-9]/.test(before);
+                // 后面：⛔ 别黏着别的字（但要放过分隔符：： 空格 顿号 括号 竖线）
+                const afterOk = !after || !WORDCH.test(after);
+                if (beforeOk && afterOk) {
+                    return { at, form };
+                }
+            }
+            at = line.indexOf(form, at + 1);
+        }
+    }
+    return null;
+}
+
 /**
  * 读"手机"里的好感（只读，⛔ 不加减、不另存）
  *
@@ -229,16 +261,44 @@ export async function refreshAffinity() {
                 if (!line) {
                     continue;
                 }
+                // 这一行里"所有角色名"的形态表（用来判"是不是被更长的名字包含"）
+                const allForms = [];
+                for (const c of roster) {
+                    allForms.push(c.name, ...(c.aliases || []));
+                }
                 for (const c of roster) {
                     const forms = [c.name].concat(c.aliases || []).filter(Boolean);
-                    if (!forms.some((f) => line.includes(f))) {
+                    // ① 先找"名字独立出现"的位置（⛔ 短名不许命中长名那一行）
+                    const found = findStandaloneName(line, forms, allForms);
+                    if (!found) {
                         continue;
                     }
-                    const num = line.match(/-?\d+(\.\d+)?/);
-                    if (!num) {
+                    const at = found.at;
+                    const hitForm = found.form;
+                    // ② 取数口径（自审修正·条 11）：⛔ 不再抓"行内第一个数字"
+                    //    （会把序号"1."或年份"2026"当成好感）
+                    //    顺序：名字之后的「好感」类关键词后面的数 → 名字之后的第一个数 → 名字之前的最后一个数
+                    const after = line.slice(at + hitForm.length);
+                    const before = line.slice(0, at);
+                    let value = '';
+                    const byKeyword = after.match(/(?:好感|好感度|亲密度|喜欢|羁绊)\s*[:：]?\s*(-?\d+(?:\.\d+)?)/)
+                        || before.match(/(?:好感|好感度|亲密度|喜欢|羁绊)\s*[:：]?\s*(-?\d+(?:\.\d+)?)/);
+                    if (byKeyword) {
+                        value = byKeyword[1];
+                    } else {
+                        const numsAfter = after.match(/-?\d+(?:\.\d+)?/g);
+                        if (numsAfter && numsAfter.length) {
+                            value = numsAfter[0];      // 名字后面第一个数（"名字 … 90(+0.0)" ⇒ 90）
+                        } else {
+                            const numsBefore = before.match(/-?\d+(?:\.\d+)?/g);
+                            if (numsBefore && numsBefore.length) {
+                                value = numsBefore[numsBefore.length - 1];
+                            }
+                        }
+                    }
+                    if (!value) {
                         continue;
                     }
-                    const value = num[0];
                     const from = sourceIsBook ? book : (book + ' · ' + (title || '条目'));
                     if (trimText(c.affinity) !== value || trimText(c.affinitySource) !== from) {
                         c.affinity = value;
@@ -303,10 +363,22 @@ export async function listWorldbookNames() {
     return Array.from(names).sort();
 }
 
-/** 取一本世界书里的条目（兼容不同版本的字段名） */
+/**
+ * 取一本世界书里的条目（兼容不同版本的字段名）。
+ * ⭐ 书名留空 ⇒ 兜底用**角色卡绑定的那本**（`chatMetadata.world_info`）——
+ *    界面上的输入框就是这么承诺她的（"留空＝角色卡绑定那本"，自审修正·条 14）。
+ */
 export async function getEntries(bookName) {
     const ctx = getCtx();
-    const name = trimText(bookName);
+    const settings = getSettings();
+    let name = trimText(bookName);
+    if (!name) {
+        name = trimText(ctx && ctx.chatMetadata && ctx.chatMetadata.world_info);
+    }
+    if (!name && settings) {
+        const list = toList(settings.extractBooks);
+        name = list.length ? list[0] : '';
+    }
     if (!name || !ctx || typeof ctx.getLorebookEntries !== 'function') {
         return [];
     }

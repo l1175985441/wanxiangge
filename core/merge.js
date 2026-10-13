@@ -62,11 +62,14 @@ export function mergeCharacters(keepId, fromName) {
         }
     }
 
-    // 过去经历：合并 + 去重（按文本），顺序保持"由近到远"
+    // 过去经历：合并 + 去重（按文本）+ **按时间从新到旧重排**
+    // ⚠️ 自审修正·条 20：两条各自"由近到远"，直接拼接会整体乱序；
+    //    而且 slice 时会把 from 那边的（可能更新的）记录整批丢掉。
     const pastAll = (keep.past || []).concat(from.past || []);
     const pastUnique = uniqueBy(pastAll.filter((p) => p && trimText(p.text)), (p) => trimText(p.text));
+    pastUnique.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));   // 新的在前；老数据 at=0 排尾
     report.past = pastAll.length - pastUnique.length;
-    keep.past = pastUnique.slice(0, Math.max(keep.past.length, from.past.length, 5));
+    keep.past = pastUnique.slice(0, Math.max(pastUnique.length, 5));
 
     // 这一步的记录：合并 + 去重
     const stepsAll = (keep.steps || []).concat(from.steps || []);

@@ -77,7 +77,7 @@ export function planRecall(options) {
             shown: false,
         });
 
-        commitLedger();
+        commitLedger(rec);
         refreshCardOnFloor(floor);
         renderPanel();
         return rec;

@@ -7,7 +7,7 @@
  */
 
 import {
-    ROSTER_PRESET, STAGES_CONFLICT, STAGES_PROGRESS, DEFAULT_JAILBREAK,
+    TIERS, ROSTER_PRESET, STAGES_CONFLICT, STAGES_PROGRESS, DEFAULT_JAILBREAK,
 } from '../core/config.js';
 import { storageReport, formatStamp } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
@@ -181,6 +181,17 @@ function secStatus(host) {
             + (p.cursor ? ' · 进度 ' + String(p.cursor) : ''));
         msg.setAttribute('data-tone', tone);
         box.appendChild(msg);
+
+        // ⭐ 与"她手改过的版本"冲突时，把那几条**具体写出来**（自审修正·条 16）
+        //    原来只报"有 N 处冲突"，她看不到到底哪儿冲突、引擎保留了哪个版本。
+        if (Array.isArray(p.conflicts) && p.conflicts.length) {
+            const warn = el('div', 'wxg-store', '与你的手改冲突（引擎**按你的版本保留**，内容没被冲掉）：');
+            warn.setAttribute('data-tone', 'bad');
+            box.appendChild(warn);
+            for (const c of p.conflicts) {
+                box.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
+            }
+        }
         row(box,
             p.status === 'running' ? button('取消这次更新', 'cancel-update') : null,
             p.status === 'failed' ? button('重试（有上限）', 'update-now') : null);
@@ -223,23 +234,42 @@ function secWorld(host) {
     if (!w.situations.length) {
         sit.appendChild(el('div', 'wxg-empty', '还没有局势记录（点「立刻更新」让引擎算一次）'));
     } else {
-        for (const item of w.situations) {
+        // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
+        w.situations.forEach((item, idx) => {
             const r = el('div', 'wxg-rowitem');
-            r.appendChild(el('div', 'wxg-rowname', trimText(item.title) || '（未记名）'));
-            const bits = [];
-            if (trimText(item.sides)) {
-                bits.push('各方：' + trimText(item.sides));
+            const head = el('div', 'wxg-rowname');
+            head.appendChild(el('span', 'wxg-name', trimText(item.title) || '（未记名）'));
+            if (item.manual) {
+                head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
             }
-            if (trimText(item.tier)) {
-                bits.push('火候：' + trimText(item.tier));
-            }
-            if (bits.length) {
-                r.appendChild(el('div', 'wxg-fact', bits.join(' ｜ ')));
-            }
+            const del = button('删', 'del-situation', 'wxg-mini');
+            del.setAttribute('data-index', String(idx));
+            head.appendChild(del);
+            r.appendChild(head);
+
+            const line = el('div', 'wxg-row');
+            const title = textInput('wxg-sit-title-' + String(idx), item.title, '这一条局势是什么', 'set-situation', 'wxg-short');
+            title.setAttribute('data-index', String(idx));
+            title.setAttribute('data-key', 'title');
+            line.appendChild(title);
+            const sides = textInput('wxg-sit-sides-' + String(idx), item.sides, '哪几方', 'set-situation', 'wxg-short');
+            sides.setAttribute('data-index', String(idx));
+            sides.setAttribute('data-key', 'sides');
+            line.appendChild(sides);
+            const tierSel = select('wxg-sit-tier-' + String(idx),
+                [{ value: '', label: '（火候）' }].concat(TIERS.map((x) => ({ value: x, label: x }))),
+                item.tier, 'set-situation');
+            tierSel.setAttribute('data-index', String(idx));
+            tierSel.setAttribute('data-key', 'tier');
+            line.appendChild(tierSel);
+            r.appendChild(line);
             sit.appendChild(r);
-        }
+        });
     }
     box.appendChild(sit);
+    row(box,
+        textInput('wxg-new-situation', '', '自己加一条局势（例：商会与教会在争港口税）', 'noop', 'wxg-short'),
+        button('加一条局势', 'add-situation'));
 
     box.appendChild(el('div', 'wxg-report-h', '暗线（自己有时间表，到点才动）'));
     const hid = el('div', 'wxg-list');
@@ -614,6 +644,14 @@ function secReport(host) {
         if (Array.isArray(rec.notes) && rec.notes.length) {
             body.appendChild(el('div', 'wxg-notes', '说明：' + rec.notes.join('；')));
         }
+        // ⭐ 这一轮更新里"与你的手改冲突"的具体条目（条 16：⛔ 不许只报个数字）
+        if (Array.isArray(rec.conflicts) && rec.conflicts.length) {
+            body.appendChild(el('div', 'wxg-report-h', '⚠️ 这一轮更新时与你的手改冲突'));
+            body.appendChild(el('div', 'wxg-notes', '引擎按**你的版本**保留，没冲掉你改的字：'));
+            for (const c of rec.conflicts) {
+                body.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
+            }
+        }
 
         body.appendChild(el('div', 'wxg-report-h', '② 实际送进请求的内容'));
         const text = trimText(rec.injectedText);
@@ -837,6 +875,47 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-update-every': if (isChange) { patchSettings({ updateEvery: target.value }); } break;
 
                 /* ---- 世界状态 ---- */
+                case 'set-situation': {
+                    if (!isChange) {
+                        break;
+                    }
+                    const idx = Number(target.getAttribute('data-index'));
+                    const wkey = target.getAttribute('data-key') || '';
+                    const state = loadState();
+                    const list = (state.world.situations || []).slice();
+                    if (Number.isFinite(idx) && list[idx]) {
+                        list[idx] = Object.assign({}, list[idx], { [wkey]: trimText(target.value), manual: true });
+                        updateWorld({ situations: list }, { manual: true });
+                        toast.ok('局势改好了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'del-situation': {
+                    const idx = Number(target.getAttribute('data-index'));
+                    const list = (loadState().world.situations || []).slice();
+                    if (Number.isFinite(idx) && list[idx]) {
+                        const gone = list.splice(idx, 1)[0];
+                        updateWorld({ situations: list }, { manual: true });
+                        addChronicle({ floor: -1, kind: '局势·手动删除', who: '', text: trimText(gone.title) || '（未记名）' });
+                        toast.ok('删掉了（已在编年里留痕）');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'add-situation': {
+                    const title = trimText(textOf(host, 'wxg-new-situation'));
+                    if (!title) {
+                        toast.warn('先写一句这条局势是什么');
+                        break;
+                    }
+                    const list = (loadState().world.situations || []).slice();
+                    list.push({ title, sides: '', tier: '几天内', at: Date.now(), floor: -1, manual: true });
+                    updateWorld({ situations: list }, { manual: true });
+                    toast.ok('加上了');
+                    rerender();
+                    break;
+                }
                 case 'set-world-clock': {
                     if (isChange) {
                         const before = loadState().world.clock;

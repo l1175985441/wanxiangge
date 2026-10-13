@@ -192,7 +192,7 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
         list.splice(anchor, 0, note);
 
         await enqueue(() => {
-            putRecallRecord(Object.assign({}, rec, {
+            const saved = putRecallRecord(Object.assign({}, rec, {
                 floor,
                 injectStatus: 'ok',
                 injectNote: '已附在本轮你的消息前面（请求里身份＝系统）',
@@ -201,7 +201,7 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
                 injectType: trimText(type) || 'normal',
                 injectAs: 'system',
             }));
-            commitLedger();
+            commitLedger(saved);
             refreshCardOnFloor(floor);
             renderPanel();
         });
@@ -211,11 +211,11 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
             const rec = getRecallRecordById(leadMesId) || getRecallRecord(floor);
             if (rec) {
                 await enqueue(() => {
-                    putRecallRecord(Object.assign({}, rec, {
+                    const saved = putRecallRecord(Object.assign({}, rec, {
                         injectStatus: 'error',
                         injectNote: '注入时出错：' + (e && e.message ? e.message : String(e)),
                     }));
-                    commitLedger();
+                    commitLedger(saved);
                     refreshCardOnFloor(floor);
                     renderPanel();
                 });

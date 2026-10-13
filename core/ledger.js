@@ -36,11 +36,29 @@ export function markCarried(items) {
     return marked;
 }
 
-/** 记一条账（面板"最近发生了什么"用） */
-export function commitLedger() {
+/**
+ * 记一条账（面板"最近发生了什么"用）。
+ * @param {object} [justNow] 刚写的那条召回记录；给了就用它（最稳），
+ *   ⛔ 不再"抓数组末尾那条"——重跑旧楼时那条是在数组**中间**原地更新的（自审修正·条 18）。
+ */
+export function commitLedger(justNow) {
     const state = loadState();
     const records = state.recallRecords;
-    const latest = records.length ? records[records.length - 1] : null;
+    let latest = justNow && typeof justNow === 'object' ? justNow : null;
+    if (!latest) {
+        // 退路：按"注入时刻"取最新的一条（⛔ 不是按数组顺序）
+        let bestAt = -1;
+        for (const r of records) {
+            if (!r) {
+                continue;
+            }
+            const at = Number(r.injectedAt || r.at || 0);
+            if (at > bestAt) {
+                bestAt = at;
+                latest = r;
+            }
+        }
+    }
     if (!latest) {
         return;
     }

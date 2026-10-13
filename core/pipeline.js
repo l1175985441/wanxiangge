@@ -327,8 +327,10 @@ function applyCharacter(raw, material, conflicts) {
     }
 
     // 过去经历（第一人称，由近到远）
+    // ⚠️ 模型给的是"由近到远"；而 pushPast 是往**队首**插的
+    //    ⇒ 必须**倒着**推，否则顺序会被反过来（自审修正·条 10）
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
-    for (const p of past.slice(0, 5)) {
+    for (const p of past.slice(0, 5).reverse()) {
         pushPast(c.id, p, 5);
     }
 
@@ -379,6 +381,8 @@ async function stepCharacters(material) {
     const rotated = bench.slice().sort((a, b) => (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0));
     const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
 
+    // "我"（玩家棋子）**不建自己的推演行**——他的存在由**别人**的行侧面承载
+    // （见提示词规矩 2／14：说话、看、递、反应）。这里的过滤是**有意保留**的（N4）。
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
     if (!picked.length) {
         return { ok: true, summary: '这一轮没有要处理的角色（都在省额度轮转里）' };
@@ -387,6 +391,7 @@ async function stepCharacters(material) {
     const charLines = picked.map((c) => {
         const inScene = onStageIds.has(c.id);
         const lines = [
+            // c.isPlayer 不会为真（上面已过滤）；留着是为将来放开时也能显示对
             '· ' + c.name + '（' + (inScene ? '现场' : '不在场') + (c.isPlayer ? '／玩家棋子' : '') + '）',
             '  现有：年龄 ' + (trimText(c.age) || '未知')
             + ' ｜ 身份 ' + (trimText(c.identity) || '未知')
@@ -405,7 +410,10 @@ async function stepCharacters(material) {
         }
         lines.push('  ' + (inScene
             ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
-            : '他不在正文现场：现状只能靠推演写，但只写"这一步"（正在进行时／刚做完），⛔ 不写下一步。'));
+            + '✅ 可以照正文那样**侧面带"我"**（对"我"说／看向"我"／把东西放到"我"面前／对"我"的反应）；'
+            + '⛔ 但"我"自己的动作、台词、神态、位置一个字都不许写。'
+            : '他不在正文现场（暗地）：现状只能靠推演写，只写"这一步"（正在进行时／刚做完），⛔ 不写下一步；'
+            + '⛔ 这一段里**不许出现"我"**（"我"的动静影响不到他）。'));
         return lines.join('\n');
     }).join('\n');
 
@@ -475,25 +483,68 @@ async function stepCharacters(material) {
 }
 
 /**
- * 退化要出声：模型万一写了"我"（替玩家写行动／台词／决定），
- * 内容留着（不擅自改它的字），但**记一条说明**让她看得见（⛔ 不许静默退化）。
+ * 退化要出声：模型万一**替"我"**写了东西，记一条说明让她看得见（⛔ 不许静默退化）。
+ * 内容不动她的字。
+ *
+ * ⭐ 口径（条 19 她当场裁定 · 侧面式）：**"别人对'我'做的事"是允许的**——
+ *    说／问／喊、看／注视／审视、递／放／推给、狐疑／担心／等着回应……现场人物这么写是对的。
+ *   ⛔ 只拦三件明确的事：
+ *     ① "我"当主语＋动作（我站起来／我走出门）；
+ *     ② 预判"我"（我接下来…）；
+ *     ③ 改"我"处境的被动句（被赶出家门的我／被带走了）。
+ *   ⛔ 不做"猜动词"那套（宁可少报，也不冤枉合规的侧面写法）。
  */
 export function checkActingAsMe(rows, floor) {
     const hits = [];
     for (const raw of Array.isArray(rows) ? rows : []) {
         const name = trimText(raw && raw.name);
-        const fields = ['current', 'timePlace', 'infer'];
-        for (const f of fields) {
+        // 模型能写、我们会落的**全部文本字段**都过一遍（不只是 current）
+        const pieces = [];
+        for (const f of ['current', 'timePlace', 'infer', 'identity', 'age', 'faction']) {
             const text = trimText(raw && raw[f]);
-            if (!text) {
-                continue;
+            if (text) {
+                pieces.push({ f, text });
             }
-            // 逮三种：替"我"做事／"我"当主语＋动作／预判"我"
-            const hit = /(我)(会|要|打算|准备|决定|走向|走进|拿起|转身|站起|坐下|离开|回到|赶往|说出|喊道)/.test(text)
-                || /(对|向|跟|和|把|给|被)我(说|看|递|带|拉|推|抱|赶|送|叫|问|打)/.test(text)
-                || /我(接下来|之后|下一步)/.test(text);
-            if (hit) {
-                hits.push(name + ' 的「' + f + '」里出现了"我"的动作／处境：' + text.slice(0, 40));
+        }
+        if (Array.isArray(raw && raw.past)) {
+            const joined = raw.past.map((x) => trimText(x)).filter(Boolean).join('；');
+            if (joined) {
+                pieces.push({ f: 'past', text: joined });
+            }
+        }
+        if (Array.isArray(raw && raw.schedule)) {
+            const joined = raw.schedule
+                .map((s) => [trimText(s && s.what), trimText(s && s.due)].filter(Boolean).join(' '))
+                .filter(Boolean).join('；');
+            if (joined) {
+                pieces.push({ f: 'schedule', text: joined });
+            }
+        }
+
+        for (const piece of pieces) {
+            const text = piece.text;
+            const reasons = [];
+
+            // ① "我"当主语＋动作
+            //    ⚠️ 中文里主语和动词之间常夹时间／地点（"我昨天跑去港口"），
+            //       所以中间允许一小段非动作词（自审修正：原来要求紧挨着，会漏）
+            const meVerb = /我[^，。；！？\n]{0,6}?(会|要|打算|准备|决定|走向|走进|拿起|转身|站起|坐下|离开|回到|赶往|说出|喊道|跑去|走出|看着|伸手|摇头|点头)/;
+            if (meVerb.test(text)) {
+                reasons.push('"我"自己做了动作');
+            }
+            // ② 预判"我"
+            if (/我(接下来|之后|下一步|等会儿|一会儿)/.test(text)) {
+                reasons.push('预判"我"接下来会怎样');
+            }
+            // ③ 改"我"处境的被动句（⛔ 侧面豁免不适用这类）
+            const passive = text.match(/(被|给|让|叫)([^，。；！？]{0,8})我(带|拉|推|抱|赶|送|打|抓|拽|扔|丢|抬|背)/)
+                || text.match(/被[^，。；！？]{0,6}的\s*我/);
+            if (passive) {
+                reasons.push('改了"我"的处境（' + passive[0] + '）');
+            }
+
+            if (reasons.length) {
+                hits.push(name + ' 的「' + piece.f + '」里' + reasons.join('、') + '：' + text.slice(0, 40));
             }
         }
     }
@@ -632,6 +683,23 @@ export async function runUpdate(opts) {
     const text = (cancelRequested ? '已取消（已跑的部分保留）' : (failed ? '有一步没成' : '更新完成'))
         + (parts.length ? '：' + parts.join('；') : (lastError ? '：' + lastError : ''));
 
+    // ⭐ 把这一轮的"与你手改冲突"条目**留档**到更新那一刻的召回记录上，
+    //    这样面板「过程报告」里那一轮点开就能看见具体哪条冲突、引擎保留了哪个版本（条 16）。
+    if (Array.isArray(charRes.conflicts) && charRes.conflicts.length) {
+        const list = state.recallRecords;
+        let target = null;
+        let bestAt = -1;
+        for (const r of list) {
+            if (r && r.floor === floor && (Number(r.at) || 0) > bestAt) {
+                bestAt = Number(r.at) || 0;
+                target = r;
+            }
+        }
+        if (target) {
+            target.conflicts = charRes.conflicts.slice(0, 20);
+        }
+    }
+
     setPipeline({
         status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
         step: '完成',
@@ -639,6 +707,7 @@ export async function runUpdate(opts) {
         error: failed ? (lastError || '未知原因') : '',
         text,
         cursor: msgs.length,
+        conflicts: Array.isArray(charRes.conflicts) ? charRes.conflicts.slice(0, 20) : [],
     });
     state.lastUpdate = {
         at: Date.now(),

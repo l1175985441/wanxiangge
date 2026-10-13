@@ -466,11 +466,27 @@ function flushMirror() {
             continue;
         }
     }
-    // 只留最近 8 个聊天，别让设置文件越涨越大
-    const keys = Object.keys(box);
-    if (keys.length > 8) {
-        for (const k of keys.slice(0, keys.length - 8)) {
-            delete box[k];
+    // 底稿只留最近 8 个聊天。
+    // ⚠️ 自审修正·条 13：⛔ 不能按 `Object.keys` 的顺序删——那是**插入顺序**，
+    //    最早建的那一格永远在队首 ⇒ 天天在用的档反而被先删掉。
+    //    改成按**账本自己的时间戳**排序（与 pickFresher 同一口径），淘汰最旧的。
+    const entries = Object.keys(box).map((k) => {
+        const snap = box[k] || {};
+        let latest = Number((snap.lastUpdate || {}).at || 0);
+        if (Array.isArray(snap.recallRecords)) {
+            for (const r of snap.recallRecords) {
+                const at = Number((r && r.at) || 0);
+                if (at > latest) {
+                    latest = at;
+                }
+            }
+        }
+        return { key: k, at: latest };
+    });
+    if (entries.length > 8) {
+        entries.sort((a, b) => a.at - b.at);   // 最旧的排前面
+        for (const item of entries.slice(0, entries.length - 8)) {
+            delete box[item.key];
         }
     }
     persistSettings();

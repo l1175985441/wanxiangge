@@ -569,19 +569,25 @@ export function pruneRecallRecords(chatLength, protectedFloor) {
 
 /* ------------------------------ 快照与撤回 ------------------------------ */
 
+/** 撤回时要一起存/一起还原的那几样（⛔ 不含 recallRecords：那是召回日志，撤回更新不该抹掉它） */
+function snapshotPayload(state) {
+    return deepClone({
+        characters: state.characters,
+        world: state.world,
+        events: state.events,
+        chronicle: state.chronicle.slice(-120),
+        newPeople: state.newPeople,   // 自审修正·条 25：新认的人也要能撤回（否则徽章残留）
+        stat: state.stat,
+    });
+}
+
 /** 更新前留底（撤回用） */
 export function takeSnapshot(label) {
     const state = loadState();
     const snap = {
         at: now(),
         label: trimText(label) || '更新前',
-        data: deepClone({
-            characters: state.characters,
-            world: state.world,
-            events: state.events,
-            chronicle: state.chronicle.slice(-120),
-            stat: state.stat,
-        }),
+        data: snapshotPayload(state),
     };
     state.snapshots.push(snap);
     if (state.snapshots.length > SNAPSHOT_KEEP) {
@@ -600,17 +606,14 @@ export function rollbackLast() {
         return null;
     }
     // 撤回也要留一手：把"撤之前"的当前状态再压一版，撤错了能再撤回来
-    const undo = deepClone({
-        characters: state.characters,
-        world: state.world,
-        events: state.events,
-        chronicle: state.chronicle.slice(-120),
-        stat: state.stat,
-    });
+    const undo = snapshotPayload(state);
     state.characters = snap.data.characters || [];
     state.world = snap.data.world || state.world;
     state.events = snap.data.events || [];
     state.chronicle = Array.isArray(snap.data.chronicle) ? snap.data.chronicle : state.chronicle;
+    if (Array.isArray(snap.data.newPeople)) {
+        state.newPeople = snap.data.newPeople;
+    }
     state.stat = snap.data.stat || state.stat;
     state.snapshots.push({ at: now(), label: '撤回前（可再撤回）', data: undo });
     if (state.snapshots.length > SNAPSHOT_KEEP) {
