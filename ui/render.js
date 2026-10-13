@@ -306,19 +306,42 @@ export function renderPanel() {
     }
 }
 
-/** 把设置区那一块挂进酒馆扩展设置区 */
+/**
+ * 把设置区那一块挂进酒馆扩展设置区。
+ *
+ * ⚠️ 实测（真机冒烟时偶发失败）：`#extensions_settings2` 是酒馆**后来才建**的容器，
+ *    比扩展启动晚 ⇒ 只试一次会直接放弃、那块就永远不出现（"设置区没挂上"）。
+ *    ⇒ 这里自带**重试窗口**（和魔法棒入口一个路子），容器一出现就挂上。
+ */
+const MOUNT_TRIES = 100;
+const MOUNT_INTERVAL_MS = 300;
+
 export async function mountPanel(version) {
     if (!hasDom()) {
         return;
     }
-    if (document.getElementById(ROOT_ID)) {
-        return;
+    for (let i = 0; i < MOUNT_TRIES; i += 1) {
+        if (document.getElementById(ROOT_ID)) {
+            return;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const ok = await tryMountPanel(version);
+        if (ok) {
+            return;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, MOUNT_INTERVAL_MS));
     }
+    console.warn('[万象阁] 等了 ' + String(Math.round(MOUNT_TRIES * MOUNT_INTERVAL_MS / 1000))
+        + ' 秒也没等到扩展设置区的容器，那一块没挂上（不影响聊天与注入）');
+}
+
+/** 试一次；挂上了返回 true，容器还没出现返回 false */
+async function tryMountPanel(version) {
     const ctx = getCtx();
     const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
     if (!container) {
-        console.warn('[万象阁] 没找到扩展设置区，面板没挂上（不影响聊天与注入）');
-        return;
+        return false;
     }
 
     let html = '';
@@ -344,13 +367,14 @@ export async function mountPanel(version) {
     container.insertAdjacentHTML('beforeend', html);
     const root = document.getElementById(ROOT_ID);
     if (!root) {
-        return;
+        return false;
     }
     const host = settingsHost();
     if (host) {
         bindSectionEvents(host, renderPanel);
         renderSections(host, { mode: 'settings' });
     }
+    return true;
 }
 
 /** 面板开着吗（给入口做高亮） */
