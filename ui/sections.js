@@ -999,17 +999,21 @@ function secRoster(host) {
         row(box, button('一键收下这些新认的人', 'accept-new-all'));
     }
 
-    row(box, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
-    row(box, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
-    row(box,
+    // ⭐ 装盒：录入 一块、名册 一块（体检第一条）
+    const cIn = card('录入');
+    row(cIn, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
+    row(cIn, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
+    row(cIn,
         textInput('wxg-book-name', '', '从世界书读人：填世界书名（留空＝角色卡绑定那本）', 'noop', 'wxg-short'),
         button('从世界书读人', 'read-book'),
         button('列出世界书', 'list-books'));
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
-    box.appendChild(bookList);
-    row(box, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
+    cIn.appendChild(bookList);
+    row(cIn, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
+    box.appendChild(cIn);
 
+    const cList = card('名册（' + String(d.total) + ' 人）');
     const list = el('div', 'wxg-roster');
     for (const c of roster) {
         const r = el('div', 'wxg-char');
@@ -1051,7 +1055,8 @@ function secRoster(host) {
 
         list.appendChild(r);
     }
-    box.appendChild(list);
+    cList.appendChild(list);
+    box.appendChild(cList);
     host.appendChild(box);
 }
 
@@ -1160,39 +1165,47 @@ function secExtract(host) {
         + '点「看条目」能一条条挑。标签那一块默认按结构剥掉成对的机器块与 HTML 注释——'
         + '剥完为空会自动退回原文，⛔ 不会比剥之前更坏。',
         { open: false });
-    row(box, field('提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short')));
-    row(box, field('排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short')));
-    box.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
-    box.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
+    // ⭐ 装盒：标签与剥壳 一块、世界书名单 一块、好感来源 一块（体检第一条）
+    const cTag = card('标签与剥壳');
+    row(cTag, field('提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short')));
+    row(cTag, field('排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short')));
+    cTag.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
+    cTag.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
+    box.appendChild(cTag);
 
     /* ---- 世界书：点选（⛔ 不立刻存，攒到段底一起存） ---- */
-    box.appendChild(el('div', 'wxg-report-h', '提取世界书（读哪些）'));
+    const cBook = card('世界书名单（读哪些／哪些不读）');
+    row(cBook, el('span', 'wxg-note', '提取（要读的）'));
     // ⚠️ 原来套了个空标签 field('') ⇒ 输入框被往里推一截、跟上面的标签框对不齐
-    row(box, textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short'));
-    box.appendChild(el('div', 'wxg-report-h', '排除世界书（哪些不读）'));
-    row(box, textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short'));
+    row(cBook, textInput('wxg-extract-books', stagedValue(SECID, 'extractBooks', s.extractBooks), '留空＝角色卡绑定那本；也可手填，逗号分开', 'stage-extract-books', 'wxg-short'));
+    row(cBook, el('span', 'wxg-note', '排除（不读的）'));
+    row(cBook, textInput('wxg-exclude-books', stagedValue(SECID, 'excludeBooks', s.excludeBooks), '点下面书名也能填进来；也可手填', 'stage-exclude-books', 'wxg-short'));
 
     const pick = el('div', 'wxg-pickwrap');
     pick.id = 'wxg-bookpick';
     pick.appendChild(el('div', 'wxg-pick-head', '世界书（点一下＝进「提取」；再点＝进「排除」；再点＝拿掉。⛔ 都不立刻生效，最后按段底的保存）'));
-    box.appendChild(pick);
-    row(box,
+    cBook.appendChild(pick);
+    row(cBook,
         button('读世界书列表', 'list-books'),
         el('span', 'wxg-note', '（没读到就手填；有些酒馆版本没开这个接口）'));
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
-    box.appendChild(bookList);
+    cBook.appendChild(bookList);
 
     const entPick = el('div', 'wxg-pickwrap');
     entPick.id = 'wxg-entpick';
-    box.appendChild(entPick);
+    cBook.appendChild(entPick);
     const entNote = el('div', 'wxg-note', '');
     entNote.id = 'wxg-entnote';
-    box.appendChild(entNote);
+    cBook.appendChild(entNote);
 
-    box.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
-    row(box, el('span', 'wxg-note', '"手机"好感的数据源（世界书名或条目关键词；留空＝不接，界面如实写"未接入"）'),
+    cBook.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
+    box.appendChild(cBook);
+
+    const cAff = card('好感来源（"手机"那套）');
+    row(cAff, el('span', 'wxg-note', '世界书名或条目关键词；留空＝不接，界面如实写"未接入"'),
         textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'));
+    box.appendChild(cAff);
     box.appendChild(saveBar(SECID));
     host.appendChild(box);
 }
@@ -1204,24 +1217,27 @@ function secApi(host) {
     const box = section('自定义 API（后台推演走这条通道）',
         '⛔ 不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
         { open: false });
-    row(box, el('span', 'wxg-note', '连接方式'), select('wxg-api-mode', [
+    // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
+    const cCh = card('通道');
+    row(cCh, el('span', 'wxg-note', '连接方式'), select('wxg-api-mode', [
         { value: 'proxy', label: '经酒馆服务器转发（云酒馆最稳）' },
         { value: 'direct', label: '直连（浏览器直接请求）' },
     ], api.mode, 'stage-api-mode'));
-    row(box, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short')));
-    row(box, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short')));
-    row(box, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short')));
-    row(box, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'stage-api-model-cheap', 'wxg-short')));
-    row(box,
+    row(cCh, field('接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short')));
+    row(cCh, field('密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short')));
+    row(cCh, field('推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short')));
+    row(cCh, field('打杂模型（留空＝同上）', textInput('wxg-api-model-cheap', api.modelCheap, '便宜的模型', 'stage-api-model-cheap', 'wxg-short')));
+    row(cCh,
         el('span', 'wxg-note', '温度'), numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
         el('span', 'wxg-note', '单次最多输出'), numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
-    row(box, button('测一下连接', 'test-api'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
+    row(cCh, button('测一下连接', 'test-api'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
+    box.appendChild(cCh);
 
     /* ⭐ 书签（她点名要的："加一个保存 API／另存为，我可以设定好几个 API 转"） */
-    box.appendChild(el('div', 'wxg-report-h', '书签（存好几套通道，一键切）'));
+    const cProf = card('书签（存好几套通道，一键切）');
     const profs = Array.isArray(api.profiles) ? api.profiles : [];
     if (!profs.length) {
-        box.appendChild(el('div', 'wxg-empty', '还没有书签。上面填好一套，起个名字点「另存为书签」，以后一键切回来。'));
+        cProf.appendChild(el('div', 'wxg-empty', '还没有书签。上面填好一套，起个名字点「另存为书签」，以后一键切回来。'));
     } else {
         const listEl = el('div', 'wxg-prof-list');
         for (const p of profs) {
@@ -1239,13 +1255,14 @@ function secApi(host) {
             r.appendChild(acts);
             listEl.appendChild(r);
         }
-        box.appendChild(listEl);
+        cProf.appendChild(listEl);
     }
-    row(box,
+    row(cProf,
         textInput('wxg-profile-nick', '', '书签名（例：主站／备用站）', 'noop', 'wxg-short'),
         button('另存为书签', 'save-profile'));
-    box.appendChild(el('div', 'wxg-note', '书签存的是**整套**：连接方式／地址／密钥／模型／温度／输出上限。'
+    cProf.appendChild(el('div', 'wxg-note', '书签存的是**整套**：连接方式／地址／密钥／模型／温度／输出上限。'
         + '书签名一样就更新那一条（不会越存越多）；想现在就用它，点上面那颗「切到这套」。'));
+    box.appendChild(cProf);
     box.appendChild(saveBar('api'));
     host.appendChild(box);
 }
