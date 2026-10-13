@@ -1957,6 +1957,7 @@ export function bindSectionEvents(host, refresh) {
                 const which = stageOne(action, target);
                 if (which) {
                     refreshSaveBar(host, which);
+                    const bar = host.querySelector('.wxg-savebar[data-id="' + which + '"]');
                 }
                 return;
             }

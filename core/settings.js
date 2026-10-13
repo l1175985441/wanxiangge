@@ -186,7 +186,13 @@ export function patchSettings(patch) {
         }
     }
     if (clean.api && typeof clean.api === 'object') {
-        const api = Object.assign({}, clean.api);
+        /*
+         * ⚠️⚠️ `api` 必须**并进原来那份**，⛔ 不能整块替换。
+         *    真事故：某一段只改了"地址"这一个键，patch 里的 api 就只有那一个键，
+         *    整块一替换 ⇒ 她存好的书签 `api.profiles` **当场消失**
+         *    （自测里量到：保存这一段的动作之后 profiles 从 1 条变成 null）。
+         */
+        const api = Object.assign({}, s.api || {}, clean.api);
         if (Object.hasOwn(api, 'temperature')) {
             api.temperature = Math.min(2, Math.max(0, Number(api.temperature) || DEFAULT_SETTINGS.api.temperature));
         }
