@@ -103,6 +103,42 @@ export function findMentions(text, index) {
     return uniqueBy(hits, (h) => h.character.id);
 }
 
+/**
+ * 这段正文里出现了名册上的哪些人（＝"谁在现场／前台"）。
+ *
+ * ⭐ 与召回共用同一套名字判定，另外**多认一层"主名"**：
+ *    正文里常写简称（例：名册上是"某某·某某"，正文只写"某某"）——
+ *    只认全名会把明明演到的人判成"不在场"，那就等于放他去自由推演（她最在意的污染）。
+ *   · 主名＝中圆点/空格前那一段（≥2 字才用，免得"雷"这种一个字乱撞）；
+ *   · 单字全名（如"晓"）照旧算。
+ */
+export function mentionedCharacters(text, roster) {
+    const hay = matchKey(text);
+    if (!hay) {
+        return [];
+    }
+    const found = new Map();
+    const add = (c) => {
+        if (c && !found.has(c.id)) {
+            found.set(c.id, c);
+        }
+    };
+    for (const c of findMentions(text, buildNameIndex(roster)).map((h) => h.character)) {
+        add(c);
+    }
+    for (const c of Array.isArray(roster) ? roster : []) {
+        if (!c || c.ignored) {
+            continue;
+        }
+        const name = trimText(c.name);
+        const head = name.split(/[·・\s]/)[0];
+        if (head && head !== name && head.length >= 2 && hay.includes(matchKey(head))) {
+            add(c);
+        }
+    }
+    return Array.from(found.values());
+}
+
 function recentContext(chat, leadFloor, turns) {
     const list = Array.isArray(chat) ? chat : [];
     const n = clampNumber(turns, 1, 10, 3);
@@ -193,7 +229,9 @@ function personBlock(item, opts) {
     if (item.inScene && item.protected) {
         lines.push('  正在经历：（本轮正文已演，不重复列出）');
     } else if (trimText(c.current)) {
-        lines.push('  正在经历：' + trimText(c.current));
+        // ⭐ 引擎自己标了"这条不牢"的，注入时也要带着标——⛔ 不能被下一轮当成既定事实
+        lines.push('  正在经历：' + trimText(c.current)
+            + (c.currentSuspect ? '　⚠（引擎判定这条不可靠：' + (trimText(c.currentSuspectWhy) || '疑似越界') + '，别当事实用）' : ''));
     }
 
     const past = Array.isArray(c.past) ? c.past : [];

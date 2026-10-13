@@ -24,6 +24,7 @@ import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
 import { markBookDirty } from './book.js';
 import { trimText, asText, clampNumber, uniqueBy, floorLabel } from './utils.js';
+import { mentionedCharacters } from './recall.js';
 
 let running = false;
 let cancelRequested = false;
@@ -42,6 +43,46 @@ export function cancelUpdate() {
         text: '收到取消请求，跑完当前这一小步就停',
     });
     saveState();
+}
+
+/**
+ * 这句话里有没有"下一步动作／预判"的写法（需求书点名的污染源）。
+ * ⚠️ 只用于"标记成不可靠"，⛔ 不擅自改她的字、也不静默丢掉。
+ */
+const PREDICT_PAT = /下一步|接下来(?:要|会|去|就)|后续(?:预测|会|将)|准备(?:去|要|着)|即将(?:去|要|会)|打算(?:去|要)|等下(?:要|去)|待会儿(?:要|去)|然后(?:就)?(?:去|要)|明天(?:要|会|去)|稍后(?:要|会)/;
+
+/** 文案里是否含"下一步／预判" */
+export function looksLikePrediction(text) {
+    return PREDICT_PAT.test(asText(text));
+}
+
+/**
+ * 这段"正在经历"能不能在正文里找到依据（现场角色专用）。
+ *
+ * ⚠️ 判定口径要**宽**：同一件事换个说法（"在码头清点货物" vs "码头清点着货物"）必须算通过，
+ *    否则天天误报，她会把这个提醒当噪音。所以不看"逐字包含"，而看**二元组覆盖率**：
+ *    把这一段切成两字一组，数有多少组也出现在正文里；覆盖不到 34% 才判"正文里没有"。
+ */
+export function textAppearsIn(text, source) {
+    const a = asText(text).replace(/[\s，。、；：！？,.;:!?"'（）()【】《》…—-]/g, '');
+    const b = asText(source).replace(/\s+/g, '');
+    if (!a || !b) {
+        return false;
+    }
+    if (a.length <= 2) {
+        return b.includes(a);
+    }
+    const grams = [];
+    for (let i = 0; i + 2 <= a.length; i += 1) {
+        grams.push(a.slice(i, i + 2));
+    }
+    let hit = 0;
+    for (const g of grams) {
+        if (b.includes(g)) {
+            hit += 1;
+        }
+    }
+    return (hit / grams.length) >= 0.34;
 }
 
 function setPipeline(patch) {
@@ -71,19 +112,8 @@ function recentMessages(floor, turns) {
 
 /** 这一楼正文里出现了哪些名册上的人（认全名与别名；决定谁"在现场"） */
 function whoIsOnStage(text, roster) {
-    const hay = asText(text).toLowerCase().replace(/\s+/g, '');
-    const hit = [];
-    for (const c of roster) {
-        const forms = [c.name].concat(c.aliases || []);
-        for (const f of forms) {
-            const key = asText(f).toLowerCase().replace(/\s+/g, '');
-            if (key.length >= 2 && hay.includes(key)) {
-                hit.push(c);
-                break;
-            }
-        }
-    }
-    return hit;
+    // ⭐ 走召回那套统一判定（漏了单字名会让前台角色被误当"不在场"去自由推演）
+    return mentionedCharacters(text, roster);
 }
 
 /* ------------------------------ 世界状态那一步 ------------------------------ */
@@ -316,6 +346,39 @@ function applyCharacter(raw, material, conflicts) {
     // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
     const cur = trimText(raw && raw.current);
     if (cur) {
+        /*
+         * ⭐ 污染的正门在这儿（她点名的）：模型在"正在经历"里写了**下一步动作／预判**，
+         *    以前只记一条提醒、**那句话照样当成事实存下来** ⇒ 下一回合又被喂回给它，
+         *    于是长出"正文里根本没有的假事件"。
+         * ⛔ 现在的处理：**标记成不可靠**（suspect），并在编年里留一条可查的记录。
+         *    · 不擅自改它的字（那是她的账本）；
+         *    · 不静默丢掉（她要能看见"引擎自己知道这条不牢"）；
+         *    · 注入时会把"⚠ 疑似越界的预判"一并写给她/模型看 ⇒ 不会被当成既定事实。
+         *
+         * ⭐ 现场角色再加一道（她逐字口径："正在在线的不准编造，只准写正文的"）：
+         *    正文里**找不到**他这段"正在经历" ⇒ 判定为编造，一样标记不可靠。
+         */
+        let why = '';
+        if (looksLikePrediction(cur)) {
+            why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
+        } else if (onStage && !textAppearsIn(cur, material.rawText || material.recentText)) {
+            why = '这是现场角色，但正文里找不到这段描写 ⇒ 视为编造（现场角色只准做正文的总结）';
+        }
+        if (why) {
+            c.currentSuspect = true;
+            c.currentSuspectWhy = why;
+            conflicts.push(c.name + ' 的「正在经历」：' + why + '（' + cur.slice(0, 30) + '…）');
+            addChronicle({
+                floor: material.floor,
+                kind: onStage ? '⚠ 越界·现场编造' : '⚠ 越界·疑似预判',
+                who: c.name,
+                text: cur + '（' + why + '）',
+                clock: loadState().world.clock,
+            });
+        } else {
+            delete c.currentSuspect;
+            delete c.currentSuspectWhy;
+        }
         pushStep(c.id, cur, material.floor);
         addChronicle({
             floor: material.floor,
@@ -376,7 +439,8 @@ async function stepCharacters(material) {
         return { ok: true, summary: '名册是空的，角色这一步跳过（先去面板录人）' };
     }
 
-    const onStage = whoIsOnStage(material.recentText, roster);
+    // ⭐ 判"谁在现场"要看**原文**（清洗可能剥掉状态栏，剥过的文本会冤枉人）
+    const onStage = whoIsOnStage(material.rawText || material.recentText, roster);
     const onStageIds = new Set(onStage.map((c) => c.id));
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
@@ -669,6 +733,9 @@ export async function runUpdate(opts) {
     const material = {
         floor,
         recentText: cleaned.text,
+        // ⭐ 另留一份"清洗前"的原文：判"谁在现场""这句正文里有没有"要用它——
+        //    清洗会剥掉状态栏之类，拿剥过的文本去判会冤枉（把一个明明写到的人判成"不在场"）。
+        rawText: msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n'),
         messages: msgs,
         fellBack: cleaned.fellBack,
     };

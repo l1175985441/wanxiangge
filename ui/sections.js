@@ -426,6 +426,15 @@ function secCharacters(host) {
         curInput.setAttribute('data-id', c.id);
         curInput.setAttribute('data-key', 'current');
         cur.appendChild(curInput);
+        // ⭐ 引擎自己知道这条不牢时，要**当场说出来**（她点名的"污染正文"就是这个）：
+        //    现场角色写了正文里没有的 ⇒ 标记"疑似编造"；写到下一步／预判 ⇒ 标记"越界"。
+        if (c.currentSuspect) {
+            const warn = el('div', 'wxg-store', '⚠ 这条「正在经历」引擎判定**不可靠**：'
+                + (trimText(c.currentSuspectWhy) || '疑似越界')
+                + '　⇒ 已标出来、但没擅自改它，你看着办（下一步该由你回话决定）');
+            warn.setAttribute('data-tone', 'bad');
+            cur.appendChild(warn);
+        }
         body.appendChild(cur);
 
         const past = el('div', 'wxg-field');
