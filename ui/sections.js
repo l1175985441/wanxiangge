@@ -1059,6 +1059,12 @@ let openSituation = -1;
 /** 过程报告的筛选（那一排小胶囊）：全部／已注入／未注入／失败 */
 let reportFilter = 'all';
 
+/** 名册的筛选：全部／玩家棋子／新认的／我改过的 */
+let rosterFilter = 'all';
+
+/** 名册里哪一个人正展开着编辑（''＝都没展开） */
+let openChar = '';
+
 /**
  * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
  *   推演＝中性分类章 ｜ 暗线＝要注意 ｜ 警戒／越界＝警告 ｜ 其它＝中性
@@ -1223,46 +1229,86 @@ function secRoster(host) {
     row(cIn, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
     box.appendChild(cIn);
 
-    const cList = card('名册（' + String(d.total) + ' 人）');
+    const cList = card('名册');
+    /*
+     * ⭐ 行化（有数据排版术第七条）：**一个人一行**。
+     *    `名字 ＋ 胶囊（玩家棋子/新认/已手改）｜ 别名·好感 灰字 ｜ 右侧 改 · 删`
+     * ⚠️ 原来一个人一张卡（名字行＋两个输入框行＋开关行 ≈ 135px）：
+     *    真机灌了 47 人之后一屏只看得到 3 个人——"有哪些条"根本扫不出来，
+     *    正好撞在验收口径上（三秒要能抓住有哪些人）。
+     * 改/删都在行上；点「改」才展开三个输入框（⛔ 不用为编辑把每行都撑开）。
+     */
+    // 筛选胶囊（带计数）
+    const isFresh = (c) => fresh.some((n) => trimText(n) === trimText(c.name));
+    const shownRoster = rosterFilter === 'all' ? roster
+        : (rosterFilter === 'player' ? roster.filter((c) => c.isPlayer)
+            : (rosterFilter === 'new' ? roster.filter((c) => isFresh(c) || c.isNew)
+                : roster.filter((c) => c.manual)));
+    const rf = el('div', 'wxg-filters');
+    const mkR = (key, label, n) => {
+        const b = el('button', 'wxg-filter' + (rosterFilter === key ? ' is-on' : ''), label);
+        b.type = 'button';
+        b.setAttribute('data-action', 'roster-filter');
+        b.setAttribute('data-id', key);
+        b.appendChild(el('span', 'wxg-filter-n', String(n)));
+        return b;
+    };
+    rf.appendChild(mkR('all', '全部', roster.length));
+    rf.appendChild(mkR('player', '玩家棋子', roster.filter((c) => c.isPlayer).length));
+    rf.appendChild(mkR('new', '新认的', roster.filter((c) => isFresh(c) || c.isNew).length));
+    rf.appendChild(mkR('manual', '我改过的', roster.filter((c) => c.manual).length));
+    cList.appendChild(rf);
+
     const list = el('div', 'wxg-roster');
-    for (const c of roster) {
-        const r = el('div', 'wxg-char');
-        const main = el('div', 'wxg-char-main');
-        main.appendChild(el('div', 'wxg-char-name', c.name));
-        if (c.isPlayer) {
-            main.appendChild(el('span', 'wxg-badge wxg-badge-warn', '玩家棋子'));
-        }
-        if (c.isNew) {
-            main.appendChild(el('span', 'wxg-badge wxg-badge-soft', '新认的人'));
+    for (const c of shownRoster) {
+        const r = el('div', 'wxg-r');
+        // 骨架列：玩家棋子给个记号（其余留空，保持列对齐）
+        r.appendChild(el('span', 'wxg-r-k', c.isPlayer ? '★ 玩家' : ''));
+        const main = el('div', 'wxg-r-main');
+        const title = el('div', 'wxg-r-title');
+        title.appendChild(el('span', 'wxg-r-who', c.name));
+        if (c.isNew || isFresh(c)) {
+            title.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }
         if (c.manual) {
-            main.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已手动修改'));
+            title.appendChild(el('span', 'wxg-badge is-info', '已手改'));
         }
+        main.appendChild(title);
+        // 第二行（灰）：别名 · 好感（空值写"暂无"，⛔ 不隐身）
+        const bits = [];
+        bits.push('别名：' + (c.aliases && c.aliases.length ? c.aliases.join('、') : '暂无'));
+        bits.push('好感：' + (trimText(c.affinity) || '暂无'));
+        main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ')));
         r.appendChild(main);
 
-        const fields = el('div', 'wxg-char-fields');
-        const alias = textInput('wxg-alias-' + c.id, c.aliases.join('、'), '别名／昵称（顿号或逗号分开）', 'set-alias', 'wxg-alias');
-        alias.setAttribute('data-id', c.id);
-        fields.appendChild(alias);
-        const aff = textInput('wxg-aff-' + c.id, c.affinity, '好感（读自"手机"，未接入先空着）', 'set-affinity', 'wxg-affinity');
-        aff.setAttribute('data-id', c.id);
-        fields.appendChild(aff);
-        r.appendChild(fields);
+        const act = el('div', 'wxg-r-act');
+        const editBtn = button('改', 'edit-char', 'wxg-btn-sm', c.id);
+        act.appendChild(editBtn);
+        act.appendChild(button('删', 'del-char', 'wxg-btn-sm', c.id));
+        r.appendChild(act);
 
-        const actions = el('div', 'wxg-char-actions');
-        // ⚠️ ⛔ 别借 wxg-mini（那是悬浮球的根，position:fixed）——借了标签就脱离文档流、按钮全叠在一起
-        const playerLabel = el('label', 'checkbox_label wxg-chip-sm');
-        const pbox = document.createElement('input');
-        pbox.type = 'checkbox';
-        pbox.checked = c.isPlayer === true;
-        pbox.setAttribute('data-action', 'set-player');
-        pbox.setAttribute('data-id', c.id);
-        playerLabel.appendChild(pbox);
-        playerLabel.appendChild(el('span', null, '玩家棋子'));
-        actions.appendChild(playerLabel);
-        actions.appendChild(button('删除', 'del-char', 'wxg-btn-sm', c.id));
-        r.appendChild(actions);
-
+        // 「改」展开：别名／好感／玩家棋子
+        if (String(openChar) === String(c.id)) {
+            const fields = el('div', 'wxg-char-fields');
+            const alias = textInput('wxg-alias-' + c.id, c.aliases.join('、'), '别名／昵称（顿号或逗号分开）', 'set-alias', 'wxg-alias');
+            alias.setAttribute('data-id', c.id);
+            fields.appendChild(alias);
+            const aff = textInput('wxg-aff-' + c.id, c.affinity, '好感（读自"手机"，未接入先空着）', 'set-affinity', 'wxg-affinity');
+            aff.setAttribute('data-id', c.id);
+            fields.appendChild(aff);
+            r.appendChild(fields);
+            const actions = el('div', 'wxg-char-actions');
+            const playerLabel = el('label', 'checkbox_label wxg-chip-sm');
+            const pbox = document.createElement('input');
+            pbox.type = 'checkbox';
+            pbox.checked = c.isPlayer === true;
+            pbox.setAttribute('data-action', 'set-player');
+            pbox.setAttribute('data-id', c.id);
+            playerLabel.appendChild(pbox);
+            playerLabel.appendChild(el('span', null, '玩家棋子'));
+            actions.appendChild(playerLabel);
+            r.appendChild(actions);
+        }
         list.appendChild(r);
     }
     cList.appendChild(list);
@@ -2214,6 +2260,18 @@ export function bindSectionEvents(host, refresh) {
                 case 'report-filter': {
                     // 过程报告的筛选胶囊（同上，只看不改数据）
                     reportFilter = trimText(id) || 'all';
+                    rerender();
+                    break;
+                }
+                case 'roster-filter': {
+                    // 名册的筛选胶囊（同上）
+                    rosterFilter = trimText(id) || 'all';
+                    rerender();
+                    break;
+                }
+                case 'edit-char': {
+                    // 名册行上的「改」：展开/收起那个人的三个输入框
+                    openChar = String(openChar) === String(id) ? '' : String(id);
                     rerender();
                     break;
                 }
