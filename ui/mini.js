@@ -14,8 +14,10 @@ import { MINI_ID } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { floorLabel } from '../core/utils.js';
 import { buildStateSummary } from '../core/summary.js';
+import { runUpdate } from '../core/pipeline.js';
 import { applyAppearance } from './theme.js';
 import { openWorkspace } from './workspace.js';
+import { toast } from './toast.js';
 
 let ballEl = null;      // 小球
 let panelEl = null;     // 展开后的面板
@@ -79,6 +81,12 @@ export function mountMini() {
     const actions = document.createElement('div');
     actions.className = 'wxg-mini-actions';
     actions.appendChild(elBtn('工作台', 'open', '打开整页工作台'));
+    /*
+     * ⭐ 「更新」就在球上（复核方："选了手动更新，小球是不是得加上手动更新的东西？"）
+     *    —— 手动模式下这是**唯一**的更新入口，必须在这儿。
+     *    自动模式也留着：想催一次就催一次（不会重复跑，pipeline 自己有在跑判定）。
+     */
+    actions.appendChild(elBtn('更新', 'update', '立刻更新世界与角色状态（后台跑，不挡你聊天）'));
     actions.appendChild(elBtn('收起', 'collapse', '收回小球（再点球也能开）'));
     actions.appendChild(elBtn('✕', 'hide', '藏起来（「总控」里能再叫出来）'));
     head.appendChild(actions);
@@ -175,6 +183,13 @@ export function refreshMini() {
     }
 
     const rows = [
+        /*
+         * ⭐ 第一行就说清"现在是自动还是手动"（复核方问的正是这个）：
+         *    手动模式下球上那颗「更新」就是唯一入口，得让她一眼知道该不该点它。
+         */
+        ['更新方式', (getSettings().autoUpdate
+            ? '自动（每 ' + String(getSettings().updateEvery || 1) + ' 回合）'
+            : '手动（点上面的「更新」）')],
         ['世界钟', s.clock + (s.place ? ' · ' + s.place : '')],
         ['局势', String(s.situations) + ' 条' + (s.hiddenDue ? '（有 ' + String(s.hiddenDue) + ' 条到点）' : '')],
         ['暗线', String(s.hiddenLive) + ' 条在走' + (s.hidden ? '（共 ' + String(s.hidden) + '）' : '')],
@@ -249,6 +264,18 @@ function onMiniClick(e) {
     }
     if (action === 'open') {
         openWorkspace();
+        return;
+    }
+    /*
+     * ⭐ 手动更新（复核方点名要的："选了手动更新，悬浮小球是不是得加上手动更新的东西？"）
+     *    —— 对：选了手动模式却只能钻进工作台按，等于把唯一的入口藏起来了。
+     *    这里跟「账本状态」那颗「立刻更新」**走同一个函数**（⛔ 不复制一份实现，
+     *    免得两边行为分叉）。
+     */
+    if (action === 'update') {
+        runUpdate({ manual: true });
+        toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
+        refreshMini();
         return;
     }
     if (action === 'collapse') {
