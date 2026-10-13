@@ -1659,10 +1659,14 @@ body.wxg-dragging {
     --s2: 8px;
     --s3: 12px;
     --s4: 18px;
-    --fs-note: 0.84em;
-    --fs-body: 0.96em;
-    --fs-head: 1.02em;
+    /* 字号**三档**（复核方给的规矩） */
+    --fs-note: 0.84em;   /* 说明／注释 */
+    --fs-body: 0.96em;   /* 正文／控件 */
+    --fs-head: 1.02em;   /* 块头／小标题 */
     --r: 8px;
+    /* 卡片底色：抬一档（文字色 5% 罩色）——深浅两套主题都成立 */
+    --wxg-card-bg: rgba(128, 128, 128, 0.09);
+    --wxg-accent-soft-strong: rgba(128, 128, 128, 0.35);
     --wxg-accent: var(--SmartThemeUnderlineColor, rgb(120, 200, 150));
 }
 
@@ -1670,24 +1674,64 @@ body.wxg-dragging {
     --wxg-accent: var(--wxg-accent, #5fbf9b);
 }
 
-/* ---- 卡片：一个主题一块（浅描边＋块头一行小字） ---- */
-.wanxiangge .wxg-card {
-    border: 1px solid var(--wxg-line);
-    border-radius: var(--r);
-    background: var(--wxg-fill);
-    padding: var(--s3);
-    margin: 0 0 var(--s3);
+/* 工作台里：卡片比页面底亮一档（用文字色罩色，深浅都成立），竖条用我们自己的强调色 */
+.wxg-ws .wanxiangge .wxg-card {
+    background: rgba(128, 128, 128, 0.1);
 }
 
-/* 卡片头：一行小字，压暗、加字距，一眼看出"这块讲什么" */
+.wxg-ws .wanxiangge .wxg-card::before {
+    background: var(--wxg-accent, var(--wxg-line));
+    opacity: 0.85;
+}
+
+/* 段标题（"世界状态"这种）再大一点：它是这一页的主标题 */
+.wxg-ws-main .wxg-sec-title {
+    font-size: 1.1em;
+}
+
+/* ---- 卡片：一个主题一块（浅描边＋块头一行小字） ---- */
+/*
+ * ⭐ 第二层：**分层 + 上色 + 字号三档**（复核方：给卡片上点色、把卡与背景拉开层次、字分三档）
+ *
+ * 分三层（靠明度差，⛔ 不靠加更多边框）：
+ *   ① 底色 --wxg-bg          最深（页面底）
+ *   ② 卡片 --wxg-card-bg     抬一档（用文字色 5% 的罩色 ⇒ 深色主题变亮、浅色主题变暗，两边都对）
+ *   ③ 卡片头那条            再用主色薄罩一层（视觉上把"块头"独立出来）
+ * 加上**左侧一条主色竖条**：一眼看出"这是一块"，且全页只有这一个强调来源。
+ */
+.wanxiangge .wxg-card {
+    position: relative;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--r);
+    background: var(--wxg-card-bg, var(--wxg-fill));
+    padding: var(--s3);
+    padding-left: calc(var(--s3) + 3px);
+    margin: 0 0 var(--s3);
+    box-shadow: 0 1px 2px var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.06));
+}
+
+/* 左侧主色竖条：这一块的"锚"（用主题强调色，⛔ 不自定品牌色） */
+.wanxiangge .wxg-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: var(--r) 0 0 var(--r);
+    background: var(--wxg-accent-soft-strong, var(--wxg-accent-line, var(--wxg-line)));
+}
+
+/* 卡片头：一行小字，用**主色**（它是小标题，不是灰说明）
+   ⚠️ 原来和说明文字一个色一个号 ⇒ 看不出哪是标题 */
 .wanxiangge .wxg-card-h {
     display: block;
-    font-size: var(--fs-note);
+    font-size: var(--fs-head);
     font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--wxg-dim);
+    letter-spacing: 0.04em;
+    color: var(--wxg-accent, var(--wxg-dim));
     margin: 0 0 var(--s2);
-    padding-bottom: var(--s1);
+    padding-bottom: var(--s2);
     border-bottom: 1px solid var(--wxg-line);
 }
 
