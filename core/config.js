@@ -65,19 +65,17 @@ export function groupOfSection(name) {
 }
 
 export const SIDEBAR_ICONS = [
-    'fa-book',
-    'fa-list-check',
-    'fa-earth-asia',
-    'fa-user',
-    'fa-clipboard-list',
-    'fa-scroll',
-    'fa-address-book',
-    'fa-sliders',
-    'fa-palette',
-    'fa-filter',
-    'fa-scissors',
-    'fa-plug',
-    'fa-pen-nib',
+    'fa-book',            // 状态（账本／进度／每轮记录）
+    'fa-earth-asia',      // 世界状态
+    'fa-user',            // 角色状态
+    'fa-scroll',          // 编年
+    'fa-address-book',    // 人物名册
+    'fa-sliders',         // 总控
+    'fa-palette',         // 外观
+    'fa-filter',          // 召回
+    'fa-scissors',        // 读取控制
+    'fa-plug',            // 自定义 API
+    'fa-pen-nib',         // 提示词
 ];
 
 /** 卡片挂载用的消息标记属性 */

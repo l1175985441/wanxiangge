@@ -323,8 +323,17 @@ function foldable(summaryText, open) {
 
 /* ------------------------------ 分节 ------------------------------ */
 
-function secStatus(host) {
-    const box = section('账本状态', null, { open: true });
+function secStatus(host, intoSelf) {
+    /*
+     * ⭐ 三页并一页（复核方："这三个是不是应该坐到一个地方？"）
+     *    账本状态／现在的进度／过程报告 —— 原来分三页，其实是同一件事的三个切面：
+     *    存没存、跑到哪楼、每轮到底送进去什么。
+     *    ⏐ 内容一样不少，只是不再各占一个屏。
+     */
+    const box = section('状态',
+        '账本存没存、引擎跑到哪楼、每轮到底送进去什么——'
+        + '原来分三页，其实是同一件事。',
+        { open: true });
     // ⭐ 装盒：现在怎么样 一块、动作 一块（体检第一条）
     const cNow = card('现在怎么样');
     const report = storageReport();
@@ -341,6 +350,9 @@ function secStatus(host) {
         + ' ｜ 编年 ' + String(world.chronological)
         + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版'));
     box.appendChild(cNow);
+
+    // ⭐ 进度（原「现在的进度」那一整块）直接摆进这一页
+    secSteps(host, box);
 
     const cAct = card('动作');
     row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
@@ -374,7 +386,15 @@ function secStatus(host) {
             p.status === 'failed' ? button('重试（有上限）', 'update-now') : null);
         box.appendChild(cRun);
     }
-    host.appendChild(box);
+    /*
+     * ⭐「每轮记录」（原「过程报告」）也并进这一页——它就是"一行一楼"那张表，
+     *    跟上面的进度是同一件事的两面：一个看数量，一个看**到底送了什么**进去。
+     *    ⛔ 不删内容，只是不再单占一个屏。
+     */
+    secReport(host, box);
+    if (!intoSelf) {
+        host.appendChild(box);
+    }
 }
 
 /**
@@ -1839,17 +1859,29 @@ function secPrompts(host) {
     host.appendChild(box);
 }
 
-function secReport(host) {
+/**
+ * 每轮记录（原「过程报告」）。同上：给了容器就摆进去，自己不开页。
+ */
+function secReport(host, intoBox) {
     const list = recentRecallRecords(20);
     // 摘要只留一句（标题行是 nowrap 的，太长会被裁）；完整口径放正文
-    const box = section('过程报告 · 每轮到底注入了什么', '每轮注入了什么，可回看',
+    const box = intoBox || section('过程报告 · 每轮到底注入了什么', '每轮注入了什么，可回看',
         { open: false });
     box.appendChild(el('div', 'wxg-note',
         '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
         + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
     if (!list.length) {
-        box.appendChild(el('div', 'wxg-empty is-hero', '还没有记录：发一条消息、正文生成之后就会有了。'));
-        host.appendChild(box);
+        /*
+         * ⚠️ 空的时候**也要有标题**（并页之后更明显）：原来整块都不画 ⇒
+         *    她在「状态」页上根本不知道这儿将来会出一条"每轮记录"。
+         *    现在就一句「还没有记录」，标题留着。
+         */
+        const cEmpty = card('每轮记录');
+        cEmpty.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
+        box.appendChild(cEmpty);
+        if (!intoBox) {
+            host.appendChild(box);
+        }
         return;
     }
     // ⭐ 装盒：报告列表一块（体检第一条）
@@ -1972,23 +2004,33 @@ function secReport(host) {
         cRep.appendChild(det);
     }
     box.appendChild(cRep);
-    host.appendChild(box);
+    if (!intoBox) {
+        host.appendChild(box);
+    }
 }
 
-function secSteps(host) {
+/**
+ * 进度那一整块。
+ * @param {object} host 宿主（只在需要自开一页时用）
+ * @param {object} [intoBox] 给了就往这个盒子里摆（（三页并一页就是走这条），⏐ 不再开新页
+ */
+function secSteps(host, intoBox) {
     /*
      * ⭐ 这一页原来是**插件自己的开发清单**（① 骨架 ② 主线 ③ 世界状态…）。
      *    复核方一眼看穿："这个是插件进度吧？做完了的情况这个是删除还是？"
      *    ——对，那是我造它时的待办，对用户毫无价值；插件做完了它就是一页废纸。
      *    换成她提的**真实楼层进度**：做了多少楼、还剩多少楼（还能看出是哪几楼）。
      */
-    const box = section('现在的进度', '引擎按楼层往后走：已做的楼有记录，没做的楼下次更新会接着走。',
+    const box = intoBox || section('现在的进度',
+        '引擎按楼层往后走：已做的楼有记录，没做的楼下次更新会接着走。',
         { open: true });
     const chat = getChat();
     const total = chat.length;
     if (!total) {
-        box.appendChild(el('div', 'wxg-empty is-hero', '这个聊天还没有正文（发一条消息就有了）'));
-        host.appendChild(box);
+        box.appendChild(el('div', 'wxg-empty', '这个聊天还没有正文（发一条消息就有了）'));
+        if (!intoBox) {
+            host.appendChild(box);
+        }
         return;
     }
 
@@ -2157,7 +2199,9 @@ function secSteps(host) {
         detail.appendChild(row);
     }
     box.appendChild(detail);
-    host.appendChild(box);
+    if (!intoBox) {
+        host.appendChild(box);
+    }
 }
 
 /* ------------------------------ 渲染与事件 ------------------------------ */
@@ -2189,13 +2233,15 @@ export function renderSections(host, opts) {
     stagingMode = mode;
     const stageEl = el('div', 'wxg-stage');
     try {
-        // ① 看板：现在怎么样
+        /*
+         * ① 状态：账本／进度／每轮记录 —— **三页已并成一页**
+         *    （复核方："这三个是不是应该坐到一个地方？"）
+         *    ⏐ secSteps／secReport 不再各自开页，改成往状态页里摆（见 secStatus）。
+         */
         secStatus(stageEl);
-        secSteps(stageEl);
         // ② 世界与人
         secWorld(stageEl);
         secCharacters(stageEl);
-        secReport(stageEl);
         secChronicle(stageEl);
         secRoster(stageEl);
         // ③ 配置：设一次就不动
