@@ -79,7 +79,7 @@ export function mountMini() {
     const actions = document.createElement('div');
     actions.className = 'wxg-mini-actions';
     actions.appendChild(elBtn('工作台', 'open', '打开整页工作台'));
-    actions.appendChild(elBtn('钉住', 'pin', '钉住＝鼠标移开也不收回'));
+    actions.appendChild(elBtn('收起', 'collapse', '收回小球（再点球也能开）'));
     actions.appendChild(elBtn('✕', 'hide', '藏起来（「总控」里能再叫出来）'));
     head.appendChild(actions);
     panelEl.appendChild(head);
@@ -95,10 +95,11 @@ export function mountMini() {
     wrapEl.style.top = (num(pos.y) !== null ? num(pos.y) : Math.max(12, winH() - 110)) + 'px';
 
     wrapEl.addEventListener('click', onMiniClick);
-    wrapEl.addEventListener('mouseenter', () => setExpanded(true));
-    wrapEl.addEventListener('mouseleave', () => {
-        if (!(getSettings().mini || {}).pinned) {
-            setExpanded(false);
+    // ⭐ 展开后**不自动收回**（原来鼠标一移开就缩回去 ⇒ 真机上想点面板里的东西会被它躲开，
+    //    真人用也会烦）。收起方式：再点一下球／点面板右上角 ✕「收起」／Esc。
+    wrapEl.addEventListener('mouseenter', () => {
+        if ((getSettings().mini || {}).hoverOpen !== false && !isExpanded()) {
+            setExpanded(true, { auto: true });
         }
     });
     makeDraggable(wrapEl, ballEl);
@@ -111,17 +112,24 @@ export function mountMini() {
     return wrapEl;
 }
 
+/** 现在展开着吗 */
+export function isExpanded() {
+    return !!(wrapEl && wrapEl.classList && typeof wrapEl.classList.contains === 'function'
+        && wrapEl.classList.contains('is-open'));
+}
+
 /** 展开／收回（小球 ↔ 面板） */
 export function setExpanded(on) {
     if (!wrapEl) {
         return;
     }
     const want = on === true;
-    if (wrapEl.classList) {
-        wrapEl.classList.toggle('is-open', want);
-    }
+    wrapEl.setAttribute('data-open', want ? '1' : '0');
     if (panelEl && panelEl.style) {
         panelEl.style.display = want ? 'block' : 'none';
+    }
+    if (wrapEl.classList && typeof wrapEl.classList.toggle === 'function') {
+        wrapEl.classList.toggle('is-open', want);
     }
     if (want) {
         keepInView();
@@ -243,11 +251,8 @@ function onMiniClick(e) {
         openWorkspace();
         return;
     }
-    if (action === 'pin') {
-        const cfg = getSettings().mini || {};
-        const pinned = !cfg.pinned;
-        patchSettings({ mini: Object.assign({}, cfg, { pinned, collapsed: !pinned }) });
-        setExpanded(pinned);
+    if (action === 'collapse') {
+        setExpanded(false);
         return;
     }
     if (action === 'hide') {
@@ -256,8 +261,7 @@ function onMiniClick(e) {
         return;
     }
     if (action === 'toggle') {
-        const open = wrapEl.classList && wrapEl.classList.contains ? wrapEl.classList.contains('is-open') : false;
-        setExpanded(!open);
+        setExpanded(!isExpanded());
     }
 }
 
