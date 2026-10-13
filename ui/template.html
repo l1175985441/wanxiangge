@@ -7,92 +7,11 @@
       <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
     </div>
     <div class="inline-drawer-content">
-
-      <div class="wxg-ledger" id="wxg-ledger-line">还没有更新记录</div>
-      <div class="wxg-store" id="wxg-store-line">账本状态：还没有账（发一条消息就有了）</div>
-
-      <section class="wxg-sec">
-        <h4>总控</h4>
-        <label class="checkbox_label"><input type="checkbox" id="wxg-enabled"><span>启用万象阁</span></label>
-        <label class="checkbox_label"><input type="checkbox" id="wxg-card-enabled"><span>在你每条发言后面显示召回卡片</span></label>
-        <label class="checkbox_label"><input type="checkbox" id="wxg-show-empty"><span>没有召回时也显示空态卡片</span></label>
-        <label class="checkbox_label"><input type="checkbox" id="wxg-protected"><span>现场保护：正文刚演过的人，本轮只带状态、不重复推演</span></label>
-        <label class="checkbox_label"><input type="checkbox" id="wxg-strict"><span>严格模式：只带本轮点名的人（关掉＝连最近正文提到的人一起带）</span></label>
-        <div class="wxg-row">
-          <button id="wxg-replan" class="menu_button">重算本楼</button>
-          <span class="wxg-note">不满意就点它重算；所有设置改完即时保存，刷新也不会丢。</span>
-        </div>
-      </section>
-
-      <section class="wxg-sec">
-        <h4>人物名册</h4>
-        <div class="wxg-note" id="wxg-roster-count">还没有人物。</div>
-        <div class="wxg-row">
-          <input type="text" id="wxg-new-name" class="text_pole" placeholder="新人物名字">
-          <button id="wxg-add-char" class="menu_button">加入名册</button>
-          <button id="wxg-preset-roster" class="menu_button">一键盘入预设名册</button>
-        </div>
-        <div class="wxg-row">
-          <input type="text" id="wxg-roster-import" class="text_pole" placeholder="批量导入：名字一行一个（也认逗号、顿号）">
-          <button id="wxg-import-roster" class="menu_button">批量导入</button>
-        </div>
-        <div class="wxg-note">
-          名册按聊天各分各的（开新档＝新世界，数据不串）。从世界书读取人物条目、一键合并等功能在做，后面几版补上。
-        </div>
-        <div class="wxg-roster" id="wxg-roster"></div>
-      </section>
-
-      <section class="wxg-sec">
-        <h4>召回</h4>
-        <div class="wxg-field">
-          <label for="wxg-recent-turns">线索回溯楼数</label>
-          <input type="number" id="wxg-recent-turns" class="text_pole" min="1" max="10" step="1">
-          <span class="wxg-note">除了你这条发言，再往回看几楼正文（默认 3）。</span>
-        </div>
-        <div class="wxg-field">
-          <label for="wxg-max-chars">人物条数封顶</label>
-          <input type="number" id="wxg-max-chars" class="text_pole" min="1" max="8" step="1">
-          <span class="wxg-note">一轮最多带几个人的状态（默认 8）。</span>
-        </div>
-        <div class="wxg-field">
-          <label for="wxg-sort-mode">排序方式</label>
-          <select id="wxg-sort-mode" class="text_pole">
-            <option value="related">按相关度（先说到的排前面）</option>
-            <option value="name">按名册顺序</option>
-          </select>
-        </div>
-      </section>
-
-      <section class="wxg-sec">
-        <h4>提示词</h4>
-        <div class="wxg-note">
-          这里写的是注入块开头那句话。推演、更新、破限用的提示词等第 3 步接上模型后一并开出来，全部可看可改。
-        </div>
-        <textarea id="wxg-inject-header" class="text_pole textarea_compact" rows="3"></textarea>
-      </section>
-
-      <section class="wxg-sec">
-        <h4>过程报告 · 每轮到底注入了什么</h4>
-        <div class="wxg-note">
-          按时间从新到旧列着：这一轮<b>怎么挑的</b>（为什么是这几个人）、<b>实际送进请求的那段内容一字不差</b>（可复制）、以及<b>回执</b>（成没成、多少字、为什么没注入）。
-          这段内容只进请求、<b>不落正文、不进聊天记录</b>；要回看就在这里看。
-        </div>
-        <div class="wxg-report-list" id="wxg-report-list"></div>
-      </section>
-
-      <section class="wxg-sec">
-        <h4>现在的进度</h4>
-        <ul class="wxg-steps">
-          <li class="wxg-ok">① 骨架 · 扩展能装、界面是中文</li>
-          <li class="wxg-ok">② 主线 · 发消息 → 召回 → 注入 → 卡片 ＋ 回执</li>
-          <li>③ 世界状态 · 势力的碰撞与暗线（阶段制，挂世界钟）</li>
-          <li>④ 状态格 · 年龄／身份／经历／势力／好感／时间地点</li>
-          <li>⑤ 平行事件 · 每个角色自己那条线 ＋ 编年</li>
-          <li>⑥ 稳当 · 失败可见、撤回上一版、对账、补推历史</li>
-          <li>⑦ 收尾 · 四格名单、自定义 API、提示词与破限词、人物合并</li>
-        </ul>
-      </section>
-
+      <div class="wxg-note">
+        这里的内容和魔法棒 🪄 菜单里那个「万象阁」面板是同一套（一份内容两处用）。
+        想要大窗口、能拖能缩放的面板，就点输入框旁的魔法棒。
+      </div>
+      <div class="wxg-settings-host"></div>
     </div>
   </div>
 </div>

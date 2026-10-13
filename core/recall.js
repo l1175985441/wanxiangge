@@ -1,26 +1,25 @@
 /**
  * 万象阁 · 召回引擎
  *
- * ⭐ 口径（用户当场确认）：召回是**一个动作**——
- *    她发消息 → 当场算一次"这轮该带什么" → 跟着她这条消息一起进请求。
- *    本文件算出的这一份东西，同时供两处使用：注入给主模型（文字面）、卡片给她看（显示面）。
+ * ⭐ 口径：召回是**一个动作**——她发消息 → 当场算一次"这轮该带什么" →
+ *    跟着她这条消息一起进请求。同一份东西，两个面：给主模型的是文字，给她看的是卡片。
  *
- * 本轮实现：
- *   「人」＝说到谁就带谁——人物状态（好感等）＝必带那一档；
- *   「事」＝世界的事留到第 3 步（现在恒为空，卡片上显示空态）。
+ * 分两档（需求书第 4 节）：
+ *   · 角色状态（好感等）＝**必带那一档**（说到谁带谁）；
+ *   · 世界状态／平行事件＝**自动筛**：以她的最新发言为线索，相关的进、其余排后台。
  */
 
 import { clampNumber, countChars, matchKey, trimText, uniqueBy } from './utils.js';
-import { getRoster } from './state.js';
-import { getSettings } from './settings.js';
+import { getRoster, loadState } from './state.js';
+import { getSettings, effectivePrompt } from './settings.js';
 
-/** 注入总量封顶（硬上限，防越跑越灌；超出的人只记"未进"） */
-export const INJECT_CHAR_CAP = 900;
+/** 注入总量封顶（硬上限，防越跑越灌） */
+export const INJECT_CHAR_CAP = 1400;
 
-/** 一人一块，封顶条数在代码里写死，防止用户把上下文灌爆 */
+/** 一人一块，封顶条数在代码里再夹一次 */
 const HARD_CHAR_LIMIT = 8;
 
-/** 聊天里最后一条用户消息所在的楼层号（拿不到返回 -1） */
+/** 聊天里最后一条用户消息所在的楼层号 */
 export function findLastUserFloor(chat) {
     const list = Array.isArray(chat) ? chat : [];
     for (let i = list.length - 1; i >= 0; i -= 1) {
@@ -32,7 +31,7 @@ export function findLastUserFloor(chat) {
     return -1;
 }
 
-/** 聊天里最后一条消息的标识（给卡片挂载用） */
+/** 聊天里最后一条消息的标识（卡片挂载用） */
 export function findLastMesId(chat) {
     const list = Array.isArray(chat) ? chat : [];
     for (let i = list.length - 1; i >= 0; i -= 1) {
@@ -44,17 +43,13 @@ export function findLastMesId(chat) {
     return '';
 }
 
-/** 取某楼层消息的正文 */
 export function getMessageText(chat, floor) {
     const list = Array.isArray(chat) ? chat : [];
     const m = list[floor];
-    if (!m) {
-        return '';
-    }
-    return trimText(m.mes);
+    return m ? trimText(m.mes) : '';
 }
 
-/** 按名字与别名造索引（大小写、空白、标点都不计较） */
+/** 按名字与别名造索引 */
 export function buildNameIndex(roster) {
     const index = new Map();
     for (const c of Array.isArray(roster) ? roster : []) {
@@ -65,7 +60,7 @@ export function buildNameIndex(roster) {
         for (const form of forms) {
             const key = matchKey(form);
             if (key.length < 2) {
-                continue; // 单字太容易误撞，不参与匹配（要召回请把全名或别名填进别名表）
+                continue;   // 单字太容易误撞
             }
             if (!index.has(key)) {
                 index.set(key, c);
@@ -75,7 +70,7 @@ export function buildNameIndex(roster) {
     return index;
 }
 
-/** 在一段文字里找出提到了哪些人（按出现位置排序，去重） */
+/** 在一段文字里找出提到了哪些人（按出现位置排序） */
 export function findMentions(text, index) {
     const hay = matchKey(text);
     if (!hay) {
@@ -83,18 +78,15 @@ export function findMentions(text, index) {
     }
     const hits = [];
     for (const pair of index.entries()) {
-        const key = pair[0];
-        const ch = pair[1];
-        const pos = hay.indexOf(key);
+        const pos = hay.indexOf(pair[0]);
         if (pos >= 0) {
-            hits.push({ character: ch, pos });
+            hits.push({ character: pair[1], pos });
         }
     }
     hits.sort((a, b) => a.pos - b.pos);
     return uniqueBy(hits, (h) => h.character.id);
 }
 
-/** 最近几楼正文（作为"没说名字但正在演"的线索） */
 function recentContext(chat, leadFloor, turns) {
     const list = Array.isArray(chat) ? chat : [];
     const n = clampNumber(turns, 1, 10, 3);
@@ -110,12 +102,12 @@ function recentContext(chat, leadFloor, turns) {
 }
 
 /** 一个人的状态块（给主模型看的那份） */
-function personBlock(item, header) {
+function personBlock(item) {
     const c = item.character;
     const lines = ['· ' + c.name];
 
     if (trimText(c.affinity)) {
-        lines.push('  好感：' + trimText(c.affinity));
+        lines.push('  好感：' + trimText(c.affinity) + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
     } else {
         lines.push('  好感：未接入数据源（不显示数值）');
     }
@@ -133,7 +125,6 @@ function personBlock(item, header) {
     }
 
     if (item.inScene && item.protected) {
-        // 现场保护：正文里刚演过的人，本轮不重复推演，只带状态
         lines.push('  正在经历：（本轮正文已演，不重复列出）');
     } else if (trimText(c.current)) {
         lines.push('  正在经历：' + trimText(c.current));
@@ -143,10 +134,19 @@ function personBlock(item, header) {
     const fresh = past.filter((p) => p && p.text && !p.injected);
     if (fresh.length) {
         lines.push('  过去经历（由近到远）：' + fresh.map((p) => p.text).join('；'));
-    } else if (past.length && past[0] && past[0].text) {
-        lines.push('  过去经历（最近一条）：' + past[0].text);
+    } else if (past.length && trimText(past[0].text)) {
+        lines.push('  过去经历（最近一条）：' + trimText(past[0].text));
     }
 
+    if (trimText(c.infer)) {
+        lines.push('  推断（⛔ 不是事实）：' + trimText(c.infer));
+    }
+    if (c.schedule && c.schedule.length) {
+        const todo = c.schedule.filter((s) => !s.done);
+        if (todo.length) {
+            lines.push('  日程：' + todo.map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+        }
+    }
     if (c.isPlayer) {
         lines.push('  备注：这是玩家棋子（由她本人控制），只可作为"别人对TA做的事"出现。');
     }
@@ -156,48 +156,152 @@ function personBlock(item, header) {
     return lines.join('\n') + '\n';
 }
 
-/** 把召回的条目拼成给主模型的注入块（纯文字面） */
-export function assembleInjectText(items, headerText) {
-    const header = trimText(headerText);
-    const body = [];
+/** 一条世界事件的块 */
+function eventBlock(ev) {
+    const title = trimText(ev && ev.title);
+    if (!title) {
+        return '';
+    }
+    const bits = [];
+    if (trimText(ev.text)) {
+        bits.push(trimText(ev.text));
+    }
+    if (trimText(ev.sides)) {
+        bits.push('各方：' + trimText(ev.sides));
+    }
+    if (trimText(ev.stage)) {
+        bits.push('阶段：' + trimText(ev.stage));
+    }
+    if (trimText(ev.tier)) {
+        bits.push('火候：' + trimText(ev.tier));
+    }
+    return '· ' + title + (bits.length ? '：' + bits.join(' ｜ ') : '') + '\n';
+}
+
+/** 她把"世界状态"和"平行事件"按相关度筛出来 */
+function pickEvents(leadText, ctxText, events, cap) {
+    const n = clampNumber(cap, 0, 20, 6);
+    if (!n || !Array.isArray(events) || !events.length) {
+        return { picked: [], dropped: 0 };
+    }
+    const lead = matchKey(leadText);
+    const ctx = matchKey(ctxText);
+    const scored = events.map((ev, idx) => {
+        const hay = matchKey([ev.title, ev.text, ev.sides, ev.stage].filter(Boolean).join(''));
+        let score = 0;
+        if (lead && hay) {
+            // 发言里出现同一个词就加分（粗筛：2 字以上的切片）
+            for (let i = 0; i + 2 <= lead.length; i += 2) {
+                const gram = lead.slice(i, i + 2);
+                if (gram.length === 2 && hay.includes(gram)) {
+                    score += 2;
+                }
+            }
+        }
+        if (ctx && hay) {
+            for (let i = 0; i + 2 <= ctx.length; i += 4) {
+                const gram = ctx.slice(i, i + 2);
+                if (gram.length === 2 && hay.includes(gram)) {
+                    score += 1;
+                }
+            }
+        }
+        return { ev, idx, score };
+    });
+    const hot = scored.filter((s) => s.score > 0);
+    const cold = scored.filter((s) => s.score === 0);
+    // 相关的优先；不够封顶数就用"暗线优先、新的优先"补齐（世界不被冷落）
+    hot.sort((a, b) => b.score - a.score);
+    cold.sort((a, b) => (b.ev.kind === 'hidden' ? 1 : 0) - (a.ev.kind === 'hidden' ? 1 : 0)
+        || (Number(b.ev.at) || 0) - (Number(a.ev.at) || 0));
+    const merged = hot.concat(cold).slice(0, n);
+    return { picked: merged.map((x) => x.ev), dropped: Math.max(0, events.length - merged.length) };
+}
+
+/** 把召回的条目拼成给主模型的注入块 */
+export function assembleInjectText(items, events, headerText) {
+    const header = trimText(headerText) || effectivePrompt('header');
+    const blocks = [];
     for (const item of Array.isArray(items) ? items : []) {
         if (item && item.character) {
-            body.push(personBlock(item, header));
+            blocks.push(personBlock(item));
         }
     }
-    if (!body.length) {
+    const evBlocks = (Array.isArray(events) ? events : []).map(eventBlock).filter(Boolean);
+
+    // ⭐ 没有人物也没有事件 ⇒ 一个字都不注入（免得只灌一段世界钟，白占上下文）
+    if (!blocks.length && !evBlocks.length) {
         return '';
     }
 
-    let text = header + '\n' + body.join('\n');
-
-    // 总量封顶：超了就砍尾巴，并如实说明还差多少条没进去
-    if (countChars(text) > INJECT_CHAR_CAP) {
-        const kept = [];
-        let used = countChars(header) + 20;
-        for (const item of items) {
-            const block = personBlock(item, header);
-            if (used + countChars(block) > INJECT_CHAR_CAP) {
-                break;
-            }
-            used += countChars(block);
-            kept.push(item);
-        }
-        const dropped = items.length - kept.length;
-        if (!kept.length) {
-            return '';
-        }
-        text = header + '\n' + kept.map((it) => personBlock(it, header)).join('\n');
-        text += '\n（本轮另有 ' + String(dropped) + ' 人的状态因篇幅上限未列入）\n';
+    const state = loadState();
+    const worldLines = [];
+    if (trimText(state.world.clock)) {
+        worldLines.push('世界钟：' + trimText(state.world.clock));
+    }
+    if (trimText(state.world.place)) {
+        worldLines.push('地点：' + trimText(state.world.place));
+    }
+    if (trimText(state.world.bigPicture)) {
+        worldLines.push(trimText(state.world.bigPicture));
     }
 
-    return text;
+    let text = header + '\n';
+    if (worldLines.length) {
+        text += '【世界】' + worldLines.join(' ｜ ') + '\n';
+    }
+    if (blocks.length) {
+        text += '\n【人物】\n' + blocks.join('\n');
+    }
+    if (evBlocks.length) {
+        text += '\n【世界上正在发生的事】\n' + evBlocks.join('');
+    }
+
+    if (countChars(text) > INJECT_CHAR_CAP) {
+        // 超了就砍尾巴，并如实说明砍了多少条
+        let kept = '';
+        let keptChars = 0;
+        let keptPeople = 0;
+        let keptEvents = 0;
+        for (const b of blocks) {
+            if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
+                break;
+            }
+            kept += b;
+            keptChars += countChars(b);
+            keptPeople += 1;
+        }
+        for (const b of evBlocks) {
+            if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
+                break;
+            }
+            kept += b;
+            keptChars += countChars(b);
+            keptEvents += 1;
+        }
+        const droppedP = blocks.length - keptPeople;
+        const droppedE = evBlocks.length - keptEvents;
+        if (!keptChars) {
+            return '';
+        }
+        text = header + '\n' + kept;
+        const note = [];
+        if (droppedP) {
+            note.push(String(droppedP) + ' 人');
+        }
+        if (droppedE) {
+            note.push(String(droppedE) + ' 条世界事件');
+        }
+        if (note.length) {
+            text += '\n（本轮另有 ' + note.join('、') + ' 因篇幅上限未列入）\n';
+        }
+    }
+    return trimText(text) + '\n';
 }
 
 /**
- * 算一次召回。
- * @param {object} input { chat, leadFloor, leadText }
- * @returns {object} { items, chars, events, lead, floor, from, notes }
+ * 算一次召回（纯本地，不发请求）。
+ * @returns {object} { floor, mesId, lead, from, items, events, chars, notes, at }
  */
 export function buildRecall(input) {
     const opts = input || {};
@@ -214,8 +318,8 @@ export function buildRecall(input) {
         from: '',
         at: Date.now(),
         items: [],
-        chars: [],
         events: [],
+        chars: [],
         notes,
     };
 
@@ -229,11 +333,6 @@ export function buildRecall(input) {
     }
 
     const roster = getRoster().filter((c) => c && !c.ignored);
-    if (!roster.length) {
-        notes.push('人物名册还是空的（去设置里录入或从世界书读取）');
-        return result;
-    }
-
     const index = buildNameIndex(roster);
     const ctxText = recentContext(chat, leadFloor, settings.recentTurns);
     result.from = ctxText;
@@ -247,11 +346,6 @@ export function buildRecall(input) {
     if (settings.sortMode === 'name') {
         const order = new Map(roster.map((c, i) => [c.id, i]));
         picked = picked.slice().sort((a, b) => (order.get(a.character.id) || 0) - (order.get(b.character.id) || 0));
-    }
-
-    if (!picked.length) {
-        notes.push('本轮没有说到名册里的人');
-        return result;
     }
 
     const limit = Math.min(settings.maxChars, HARD_CHAR_LIMIT);
@@ -269,9 +363,26 @@ export function buildRecall(input) {
         protected: leadKeys.has(h.character.id) && settings.protectedBypass === true,
     }));
 
+    // 世界事件：按她最新发言相关度筛
+    const evRes = pickEvents(leadText, ctxText, loadState().events || [], settings.maxEvents);
+    result.events = evRes.picked;
+    if (evRes.dropped > 0) {
+        notes.push('世界事件共 ' + String((loadState().events || []).length) + ' 条，按相关度取了 ' + String(evRes.picked.length) + ' 条，其余排后台');
+    }
+
+    if (!kept.length && !evRes.picked.length) {
+        notes.push('本轮没有说到名册里的人，也没有相关的世界事件');
+    } else if (!kept.length) {
+        notes.push('本轮没说到名册里的人（只带了世界事件）');
+    }
     if (settings.protectedBypass && leadKeys.size) {
         notes.push('现场保护：本轮点名的 ' + String(leadKeys.size) + ' 人只带状态、不重复推演');
     }
 
     return result;
+}
+
+/** 这一轮注入了多少字（给回执用，与送进去的那一串同源） */
+export function injectSize(text) {
+    return countChars(trimText(text));
 }

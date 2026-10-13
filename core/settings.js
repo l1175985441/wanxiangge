@@ -2,17 +2,22 @@
  * 万象阁 · 设置层
  *
  * 存两处：
- *   ① 全局设置（开关、召回参数、提示词）＝酒馆的扩展设置，随账号持久化，刷新、重开都在；
- *   ② 人物名册 ＝按聊天各分各的（新聊天＝新世界），存在当前聊天的账本里。
+ *   ① 全局设置（开关、参数、提示词、四格、API）＝酒馆的扩展设置，随账号持久化；
+ *   ② 人物名册与账本 ＝按聊天各分各的（新聊天＝新世界），在 core/state.js。
+ *
+ * 规矩：留空＝用内置默认；填了＝原样用她的（⛔ 不替她改字）。
  */
 
-import { DEFAULT_SETTINGS, SETTINGS_KEY, SETTINGS_VERSION, LEGACY_INJECT_HEADERS } from './config.js';
+import {
+    DEFAULT_SETTINGS, SETTINGS_KEY, SETTINGS_VERSION, LEGACY_INJECT_HEADERS,
+    DEFAULT_PROMPT_WORLD, DEFAULT_PROMPT_CHARS, DEFAULT_JAILBREAK, DEFAULT_INJECT_HEADER,
+} from './config.js';
 import { getExtensionSettings, persistSettings } from './adapter.js';
-import { clampNumber, toList, trimText } from './utils.js';
+import { clampNumber, toList, trimText, asText } from './utils.js';
+import { setLimits } from './state.js';
 
 let settings = null;
 
-/** 取当前设置（首次调用时用品默认值兜底并补齐缺键） */
 export function getSettings() {
     if (!settings) {
         settings = loadSettings();
@@ -28,46 +33,74 @@ function loadSettings() {
 
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved);
 
-    // 补齐缺键（升级后老设置少了新键时不至于炸）
+    // 补齐缺键（升级后新增的设置项不会缺）
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
         if (!Object.hasOwn(merged, key) || merged[key] === undefined) {
             merged[key] = DEFAULT_SETTINGS[key];
         }
     }
 
-    // 数值型参数夹取到合理范围
+    // 数值夹取
     merged.recentTurns = clampNumber(merged.recentTurns, 1, 10, DEFAULT_SETTINGS.recentTurns);
-    merged.maxChars = clampNumber(merged.maxChars, 1, 20, DEFAULT_SETTINGS.maxChars);
+    merged.maxChars = clampNumber(merged.maxChars, 1, 8, DEFAULT_SETTINGS.maxChars);
     merged.maxEvents = clampNumber(merged.maxEvents, 0, 20, DEFAULT_SETTINGS.maxEvents);
     merged.updateEvery = clampNumber(merged.updateEvery, 1, 10, DEFAULT_SETTINGS.updateEvery);
+    merged.maxParallelChars = clampNumber(merged.maxParallelChars, 0, 12, DEFAULT_SETTINGS.maxParallelChars);
+    merged.capEvents = clampNumber(merged.capEvents, 10, 300, DEFAULT_SETTINGS.capEvents);
+    merged.capChronicle = clampNumber(merged.capChronicle, 100, 5000, DEFAULT_SETTINGS.capChronicle);
+    merged.capHidden = clampNumber(merged.capHidden, 5, 200, DEFAULT_SETTINGS.capHidden);
+    merged.capPast = clampNumber(merged.capPast, 2, 20, DEFAULT_SETTINGS.capPast);
+
     merged.sortMode = merged.sortMode === 'name' ? 'name' : 'related';
     merged.enabled = merged.enabled !== false;
     merged.cardEnabled = merged.cardEnabled !== false;
+    merged.showEmptyCard = merged.showEmptyCard !== false;
     merged.strictMention = merged.strictMention === true;
     merged.protectedBypass = merged.protectedBypass !== false;
-    merged.showEmptyCard = merged.showEmptyCard !== false;
-    merged.injectHeader = trimText(merged.injectHeader) || DEFAULT_SETTINGS.injectHeader;
+    merged.autoUpdate = merged.autoUpdate !== false;
+    merged.stripPairedBlocks = merged.stripPairedBlocks !== false;
+    merged.stripHtmlComments = merged.stripHtmlComments !== false;
+    merged.onlyEnabledEntries = merged.onlyEnabledEntries !== false;
+    merged.showPanelOnStart = merged.showPanelOnStart === true;
 
-    // ⭐ 升级过来的旧设置：如果那句话还是"旧的默认文案"，就换成新的默认；
-    //    她**自己改过**的（不等于任何旧默认）一律原样保留，⛔ 不动她的字。
+    merged.injectHeader = trimText(merged.injectHeader) || DEFAULT_INJECT_HEADER;
+    // 升级：还是旧默认文案就换新的；她自己改过的一律保留
     for (const legacy of LEGACY_INJECT_HEADERS) {
         if (merged.injectHeader === legacy) {
-            merged.injectHeader = DEFAULT_SETTINGS.injectHeader;
+            merged.injectHeader = DEFAULT_INJECT_HEADER;
             break;
         }
     }
 
+    // API 那一块也要补齐
+    merged.api = Object.assign({}, DEFAULT_SETTINGS.api, merged.api && typeof merged.api === 'object' ? merged.api : {});
+    merged.api.mode = merged.api.mode === 'direct' ? 'direct' : 'proxy';
+    merged.api.temperature = Number.isFinite(Number(merged.api.temperature)) ? Number(merged.api.temperature) : DEFAULT_SETTINGS.api.temperature;
+    merged.api.maxTokens = clampNumber(merged.api.maxTokens, 200, 8000, DEFAULT_SETTINGS.api.maxTokens);
+
+    merged.panel = Object.assign({}, DEFAULT_SETTINGS.panel, merged.panel && typeof merged.panel === 'object' ? merged.panel : {});
+
     merged.version = SETTINGS_VERSION;
-    merged.roster = []; // 名册另存，见 state.js
+    merged.roster = [];   // 名册另存（按聊天各分各的）
 
     if (store) {
         store[SETTINGS_KEY] = merged;
     }
     persistSettings();
+    applyLimits(merged);
     return merged;
 }
 
-/** 改一处设置并立刻存盘 */
+/** 把容量上限交给状态层（避免两边 import 打转） */
+function applyLimits(s) {
+    setLimits({
+        capEvents: s.capEvents,
+        capHidden: s.capHidden,
+        capChronicle: s.capChronicle,
+        capPast: s.capPast,
+    });
+}
+
 export function patchSettings(patch) {
     const s = getSettings();
     Object.assign(s, patch || {});
@@ -76,16 +109,75 @@ export function patchSettings(patch) {
         store[SETTINGS_KEY] = s;
     }
     persistSettings();
+    applyLimits(s);
     return s;
 }
 
-/** 设置里的提示词、名单文本统一走这个（留空＝用默认） */
+/** 三套提示词恢复内置默认（⛔ 只清空＝回默认，不动她的开关） */
+export function setAllPromptsDefault() {
+    return patchSettings({ promptWorld: '', promptChars: '', jailbreak: '', injectHeader: DEFAULT_INJECT_HEADER });
+}
+
+/** 内置默认提示词（原样） */
+export function defaultPrompt(kind) {
+    if (kind === 'world') {
+        return DEFAULT_PROMPT_WORLD;
+    }
+    if (kind === 'chars') {
+        return DEFAULT_PROMPT_CHARS;
+    }
+    if (kind === 'jailbreak') {
+        return DEFAULT_JAILBREAK;
+    }
+    return '';
+}
+
+/** 实际生效的提示词：留空＝内置；填了＝她的 */
+export function effectivePrompt(kind) {
+    const s = getSettings();
+    if (kind === 'world') {
+        return trimText(s.promptWorld) || DEFAULT_PROMPT_WORLD;
+    }
+    if (kind === 'chars') {
+        return trimText(s.promptChars) || DEFAULT_PROMPT_CHARS;
+    }
+    if (kind === 'jailbreak') {
+        return trimText(s.jailbreak) || DEFAULT_JAILBREAK;
+    }
+    if (kind === 'header') {
+        return trimText(s.injectHeader) || DEFAULT_INJECT_HEADER;
+    }
+    return '';
+}
+
+/** 把 {{占位}} 换成真内容 */
+export function fillTemplate(template, values) {
+    let out = asText(template);
+    const map = values || {};
+    for (const key of Object.keys(map)) {
+        out = out.split('{{' + key + '}}').join(asText(map[key]));
+    }
+    // 没填上的占位换成空，⛔ 不把 {{xx}} 这种黑话喂给模型
+    out = out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, '');
+    return out;
+}
+
+/** 提示词里用到的占位符清单（面板上给她看） */
+export function promptPlaceholders(kind) {
+    if (kind === 'world') {
+        return ['{{world}}', '{{clock}}', '{{recent}}', '{{hidden}}'];
+    }
+    if (kind === 'chars') {
+        return ['{{clock}}', '{{world}}', '{{recent}}', '{{chars}}'];
+    }
+    return [];
+}
+
 export function textOrDefault(value, fallback) {
     const v = trimText(value);
     return v || fallback;
 }
 
-/** 名单类文本 → 数组 */
 export function listSetting(value) {
     return toList(value);
 }

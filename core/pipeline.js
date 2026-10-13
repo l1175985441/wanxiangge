@@ -1,0 +1,789 @@
+/**
+ * 万象阁 · 更新流水（世界状态＋角色七格＋平行事件＋编年）
+ *
+ * 一次更新＝**一个请求**（十几个角色合并成一次结构化输出），⛔ 不许一轮各发一个请求。
+ * 规矩都写在这里：
+ *   · 单请求 ≤ 2 分钟（超时如实报错）；
+ *   · 失败看得见、重试有**上限**（⛔ 不无限重试）；
+ *   · 更新前留快照（能撤回）；
+ *   · 手改过的字段⛔ 不许无脑冲掉（以她的版本为准，并记一条冲突说明）；
+ *   · 在正文现场的角色只做"总结正文里已写的"，不在场的才靠推演；
+ *   · 暗线按**世界钟**推进（⛔ 不按回合数）；
+ *   · 补推历史分批、可取消、⛔ 不卡界面；隐藏楼层照读。
+ */
+
+import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
+import { getChat } from './adapter.js';
+import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
+import {
+    loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
+    updateWorld, updateCharacter, getRoster,
+} from './state.js';
+import { callModelJson } from './apiclient.js';
+import { cleanMessages, isHiddenMessage } from './extract.js';
+import { parseClock, isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
+import { markBookDirty } from './book.js';
+import { trimText, asText, countChars, toList, uniqueBy, clampNumber } from './utils.js';
+
+let running = false;
+let cancelRequested = false;
+
+/** 正在跑吗 */
+export function isRunning() {
+    return running;
+}
+
+/** 请求取消（跑完当前这一小步就停） */
+export function cancelUpdate() {
+    cancelRequested = true;
+    const state = loadState();
+    state.pipeline = Object.assign({}, state.pipeline, {
+        cancelRequested: true,
+        text: '收到取消请求，跑完当前这一小步就停',
+    });
+    saveState();
+}
+
+function setPipeline(patch) {
+    const state = loadState();
+    state.pipeline = Object.assign({}, state.pipeline, patch);
+    saveState();
+}
+
+/* ------------------------------ 取材料 ------------------------------ */
+
+/** 最近 N 楼的正文（含隐藏楼：⛔ 不许因为被隐藏就漏掉） */
+function recentMessages(floor, turns) {
+    const chat = getChat();
+    const n = clampNumber(turns, 1, 40, 6);
+    const end = Number.isFinite(floor) && floor >= 0 ? floor + 1 : chat.length;
+    const start = Math.max(0, end - n);
+    const out = [];
+    for (let i = start; i < end; i += 1) {
+        const m = chat[i];
+        if (!m || !trimText(m.mes)) {
+            continue;
+        }
+        out.push({ floor: i, mes: m.mes, isUser: m.is_user === true, hidden: isHiddenMessage(m) });
+    }
+    return out;
+}
+
+/** 这一楼正文里出现了哪些名册上的人（认全名与别名；决定谁"在现场"） */
+function whoIsOnStage(text, roster) {
+    const hay = asText(text).toLowerCase().replace(/\s+/g, '');
+    const hit = [];
+    for (const c of roster) {
+        const forms = [c.name].concat(c.aliases || []);
+        for (const f of forms) {
+            const key = asText(f).toLowerCase().replace(/\s+/g, '');
+            if (key.length >= 2 && hay.includes(key)) {
+                hit.push(c);
+                break;
+            }
+        }
+    }
+    return hit;
+}
+
+/* ------------------------------ 世界状态那一步 ------------------------------ */
+
+async function stepWorld(material) {
+    const settings = getSettings();
+    const state = loadState();
+    const world = state.world || {};
+    const hiddenLines = (world.hidden || [])
+        .filter((h) => !isLineDone(h.stage))
+        .map((h) => {
+            const due = isLineDue(h, world.clock);
+            return '· ' + h.name + '【' + h.stage + '】 到点条件：' + (h.trigger || '（没写）')
+                + ' ｜ 火候：' + (h.tier || '几天内')
+                + ' ｜ 现状：' + (h.note || '（没写）')
+                + ' ｜ 现在到点了吗：' + (due.due ? '到了（可以推进）' : '没到（⛔ 保持原样）——' + due.why);
+        })
+        .join('\n') || '（还没有暗线）';
+
+    const prompt = fillTemplate(effectivePrompt('world'), {
+        world: [
+            '世界钟：' + (trimText(world.clock) || '未知'),
+            world.place ? '地点：' + trimText(world.place) : '',
+            world.bigPicture ? '总览：' + trimText(world.bigPicture) : '',
+            '局势：' + ((world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || '（还没有）'),
+        ].filter(Boolean).join('\n'),
+        clock: trimText(world.clock) || '未知',
+        recent: material.recentText || '（没有可读的正文）',
+        hidden: hiddenLines,
+    });
+
+    const res = await callModelJson({
+        prompt,
+        system: settings.jailbreak || undefined,
+        maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
+    });
+
+    if (!res.ok) {
+        return { ok: false, reason: res.reason };
+    }
+    const v = res.value || {};
+
+    // 世界钟：只接受"往前走"的钟（模型写倒退就保留旧的并记一条）
+    const notes = [];
+    const newClock = trimText(v.clock);
+    if (newClock && newClock !== '未知') {
+        if (clockWentBackwards(world.clock, newClock)) {
+            notes.push('模型给的世界钟比原来早（' + asText(world.clock) + ' → ' + newClock + '），已保留原来的，没让它倒退');
+        } else {
+            updateWorld({ clock: newClock }, {});
+        }
+    } else {
+        notes.push('这次没读出世界钟，保持不变（' + (trimText(world.clock) || '未知') + '）');
+    }
+    if (trimText(v.place)) {
+        updateWorld({ place: trimText(v.place) }, {});
+    }
+    if (trimText(v.bigPicture)) {
+        updateWorld({ bigPicture: trimText(v.bigPicture) }, {});
+    }
+
+    // 局势
+    const situations = Array.isArray(v.situations) ? v.situations : [];
+    if (situations.length) {
+        const fresh = situations.map((s) => ({
+            title: trimText(s && (s.title || s.text)),
+            sides: trimText(s && s.sides),
+            tier: trimText(s && s.tier),
+            at: Date.now(),
+            floor: material.floor,
+        })).filter((s) => s.title);
+        if (fresh.length) {
+            updateWorld({ situations: fresh }, {});
+        }
+    }
+
+    // 暗线：到点才推进（⛔ 不看回合数）
+    const hiddenIn = Array.isArray(v.hidden) ? v.hidden : [];
+    let advanced = 0;
+    let blocked = 0;
+    const currentClock = loadState().world.clock;
+    for (const raw of hiddenIn) {
+        const name = trimText(raw && raw.name);
+        if (!name) {
+            continue;
+        }
+        const existing = loadState().world.hidden.find((h) => h.name === name);
+        const stageIn = trimText(raw.stage);
+        if (existing) {
+            const due = isLineDue(existing, currentClock);
+            const wantsAdvance = raw.advance === true || (stageIn && stageIn !== existing.stage);
+            if (wantsAdvance && !due.due) {
+                blocked += 1;
+                existing.note = trimText(raw.note) || existing.note;
+                continue;   // 没到点：⛔ 不许提前冒头
+            }
+            upsertHidden({
+                name,
+                stage: stageIn || (wantsAdvance ? nextStage(existing.stage, existing.kind) : existing.stage),
+                trigger: trimText(raw.trigger) || existing.trigger,
+                tier: trimText(raw.tier) || existing.tier,
+                note: trimText(raw.note) || existing.note,
+            });
+            if (wantsAdvance && due.due) {
+                advanced += 1;
+                addChronicle({
+                    floor: material.floor,
+                    kind: '暗线推进',
+                    who: name,
+                    text: '「' + name + '」推进到【' + (stageIn || nextStage(existing.stage, existing.kind)) + '】（' + due.why + '）',
+                    clock: currentClock,
+                });
+            }
+        } else {
+            const fresh = upsertHidden({
+                name,
+                stage: stageIn || '萌芽',
+                trigger: trimText(raw.trigger),
+                tier: trimText(raw.tier) || '几天内',
+                note: trimText(raw.note),
+                kind: trimText(raw.kind),
+            });
+            if (fresh) {
+                addChronicle({
+                    floor: material.floor,
+                    kind: '暗线新增',
+                    who: name,
+                    text: '新暗线「' + name + '」：' + (fresh.note || fresh.trigger || ''),
+                    clock: currentClock,
+                });
+            }
+        }
+    }
+
+    // 派生成"世界事件"（召回用）
+    const worldNow = loadState().world;
+    const events = [];
+    for (const s of worldNow.situations || []) {
+        events.push({ title: s.title, text: s.sides, kind: 'situation', sides: s.sides, tier: s.tier, floor: material.floor });
+    }
+    for (const h of worldNow.hidden || []) {
+        if (isLineDone(h.stage)) {
+            continue;
+        }
+        events.push({ title: h.name, text: h.note || h.trigger, kind: 'hidden', stage: h.stage, tier: h.tier, floor: material.floor });
+    }
+    if (events.length) {
+        setEvents(events);
+    }
+
+    const summary = '世界状态已更新：局势 ' + String((worldNow.situations || []).length)
+        + ' 条、暗线 ' + String((worldNow.hidden || []).length) + ' 条'
+        + (advanced ? '（推进 ' + String(advanced) + ' 条）' : '')
+        + (blocked ? '（' + String(blocked) + ' 条没到点，摁住了）' : '')
+        + (notes.length ? '；' + notes.join('；') : '');
+
+    return { ok: true, summary, notes, events: events.length };
+}
+
+/* ------------------------------ 角色那一步 ------------------------------ */
+
+/** 把模型给的字符字段安全地写回（手改过的⛔ 不许冲掉） */
+function applyCharacter(raw, material, conflicts) {
+    const state = loadState();
+    const name = trimText(raw && (raw.name || raw.character));
+    if (!name) {
+        return null;
+    }
+    let c = state.characters.find((x) => x.name === name)
+        || state.characters.find((x) => (x.aliases || []).includes(name));
+    let isNew = false;
+    if (!c) {
+        // 新认的人：自动建档（⛔ 不打扰她），但打标记让她一眼看得见
+        c = {
+            id: 'wxg_' + Math.random().toString(36).slice(2, 9),
+            name,
+            aliases: [],
+            past: [],
+            schedule: [],
+            steps: [],
+            isNew: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        };
+        state.characters.push(c);
+        state.newPeople = uniqueBy((state.newPeople || []).concat([name]), (x) => x);
+        isNew = true;
+    }
+
+    const onStage = raw.onStage === true;
+    const patch = { lastUpdatedAt: Date.now() };
+    patch.lastSeenFloor = material.floor;
+    patch.inScene = onStage;
+
+    const textFields = ['age', 'identity', 'faction', 'timePlace', 'current', 'infer'];
+    for (const f of textFields) {
+        const incoming = trimText(raw && raw[f]);
+        if (!incoming) {
+            continue;
+        }
+        const old = trimText(c[f]);
+        if (old && c.manual && old !== incoming) {
+            conflicts.push(c.name + ' 的「' + f + '」她手改过，保留她的版本（模型想改成：' + incoming.slice(0, 40) + '）');
+            continue;
+        }
+        patch[f] = incoming;
+    }
+
+    // 好感：只"读"，⛔ 不自己加减、不自己编（模型给的只当参考，若她没接数据源就照抄）
+    const incomingAff = trimText(raw && raw.affinity);
+    if (incomingAff && incomingAff !== '未知' && !trimText(c.affinitySource)) {
+        const old = trimText(c.affinity);
+        if (!(old && c.manual && old !== incomingAff)) {
+            patch.affinity = incomingAff;
+        }
+    }
+
+    // 世界钟的连续性：时间地点里若含时间，倒退就记一条异常（不覆盖）
+    if (patch.timePlace) {
+        const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
+        if (back) {
+            conflicts.push(c.name + ' 的时间地点看着往回走了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
+            delete patch.timePlace;
+        }
+    }
+
+    Object.assign(c, patch);
+    c.updatedAt = Date.now();
+
+    // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
+    const cur = trimText(raw && raw.current);
+    if (cur) {
+        pushStep(c.id, cur, material.floor);
+        addChronicle({
+            floor: material.floor,
+            kind: onStage ? '现场·总结' : '推演·这一步',
+            who: c.name,
+            text: cur,
+            clock: loadState().world.clock,
+        });
+    }
+
+    // 过去经历（第一人称，由近到远）
+    const past = Array.isArray(raw && raw.past) ? raw.past : [];
+    for (const p of past.slice(0, 5)) {
+        pushPast(c.id, p, 5);
+    }
+
+    // 日程：约好的事要记下、到点跟上
+    const schedule = Array.isArray(raw && raw.schedule) ? raw.schedule : [];
+    if (schedule.length) {
+        for (const s of schedule) {
+            const what = trimText(s && (s.what || s.text));
+            if (!what) {
+                continue;
+            }
+            if (!c.schedule.some((x) => x.what === what)) {
+                c.schedule.push({ what, due: trimText(s && s.due), done: false });
+            }
+        }
+    }
+
+    // 日程到点判断（按世界钟，⛔ 不按回合）
+    const clock = loadState().world.clock;
+    for (const s of c.schedule) {
+        if (s.done || !trimText(s.due)) {
+            continue;
+        }
+        const due = isLineDue({ trigger: s.due, tier: '几天内' }, clock);
+        if (due.due) {
+            s.done = true;
+            addChronicle({ floor: material.floor, kind: '日程到点', who: c.name, text: s.what + '（' + due.why + '）', clock });
+        }
+    }
+
+    return { name: c.name, isNew };
+}
+
+async function stepCharacters(material) {
+    const settings = getSettings();
+    const state = loadState();
+    const roster = state.characters.filter((c) => !c.ignored);
+    if (!roster.length) {
+        return { ok: true, summary: '名册是空的，角色这一步跳过（先去面板录人）' };
+    }
+
+    const onStage = whoIsOnStage(material.recentText, roster);
+    const onStageIds = new Set(onStage.map((c) => c.id));
+
+    // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
+    const maxParallel = clampNumber(settings.maxParallelChars, 0, 12, 6);
+    const bench = roster.filter((c) => !onStageIds.has(c.id) && !c.isPlayer);
+    const rotated = bench.slice().sort((a, b) => (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0));
+    const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
+
+    const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
+    if (!picked.length) {
+        return { ok: true, summary: '这一轮没有要处理的角色（都在省额度轮转里）' };
+    }
+
+    const charLines = picked.map((c) => {
+        const inScene = onStageIds.has(c.id);
+        const lines = [
+            '· ' + c.name + '（' + (inScene ? '现场' : '不在场') + (c.isPlayer ? '／玩家棋子' : '') + '）',
+            '  现有：年龄 ' + (trimText(c.age) || '未知')
+            + ' ｜ 身份 ' + (trimText(c.identity) || '未知')
+            + ' ｜ 势力 ' + (trimText(c.faction) || '未知')
+            + ' ｜ 好感 ' + (trimText(c.affinity) || '未接入')
+            + ' ｜ 时间地点 ' + (trimText(c.timePlace) || '未知'),
+        ];
+        if (trimText(c.current)) {
+            lines.push('  上一轮"正在经历"：' + trimText(c.current));
+        }
+        if (c.past.length) {
+            lines.push('  过去经历（由近到远）：' + c.past.map((p) => p.text).join('；'));
+        }
+        if (c.schedule.length) {
+            lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+        }
+        lines.push('  ' + (inScene
+            ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
+            : '他不在正文现场：现状只能靠推演写，但只写"这一步"（正在进行时／刚做完），⛔ 不写下一步。'));
+        return lines.join('\n');
+    }).join('\n');
+
+    const prompt = fillTemplate(effectivePrompt('chars'), {
+        clock: trimText(loadState().world.clock) || '未知',
+        world: [
+            trimText(loadState().world.bigPicture),
+            ((loadState().world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || ''),
+        ].filter(Boolean).join('\n') || '（还没有记录）',
+        recent: material.recentText || '（没有可读的正文）',
+        chars: charLines,
+    });
+
+    const res = await callModelJson({
+        prompt,
+        system: settings.jailbreak || undefined,
+        maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
+    });
+    if (!res.ok) {
+        return { ok: false, reason: res.reason };
+    }
+
+    const v = res.value || {};
+    const rows = Array.isArray(v.chars) ? v.chars : (Array.isArray(v.characters) ? v.characters : []);
+    if (!rows.length) {
+        return { ok: false, reason: '模型没按格式给出角色（chars 是空的）' };
+    }
+
+    const conflicts = [];
+    let written = 0;
+    let newPeople = 0;
+    for (const raw of rows) {
+        const row = Object.assign({}, raw);
+        // 现场标记由我们决定（⛔ 不让模型自己选，免得它把在场的人当不在场去推演）
+        const found = picked.find((c) => c.name === trimText(raw && raw.name));
+        row.onStage = found ? onStageIds.has(found.id) : false;
+        const done = applyCharacter(row, material, conflicts);
+        if (done) {
+            written += 1;
+            if (done.isNew) {
+                newPeople += 1;
+            }
+        }
+    }
+
+    // 世界钟那一步可能带回来更新过的钟，这里再补读一次
+    const clockNow = trimText(v.clock);
+    if (clockNow && clockNow !== '未知' && !clockWentBackwards(loadState().world.clock, clockNow)) {
+        updateWorld({ clock: clockNow }, {});
+    }
+
+    if (conflicts.length) {
+        setPipeline({ conflicts: conflicts.slice(0, 20) });
+    }
+
+    const summary = '角色状态＋平行事件已更新：写了 ' + String(written) + ' 人'
+        + '（现场 ' + String(onStage.length) + ' 人、轮转 ' + String(pickedBench.length) + ' 人）'
+        + (newPeople ? '，其中新认 ' + String(newPeople) + ' 人' : '')
+        + (conflicts.length ? '；有 ' + String(conflicts.length) + ' 处与她手改的版本冲突，已按她的版本保留' : '');
+
+    return { ok: true, summary, written, conflicts };
+}
+
+/* ------------------------------ 主流程 ------------------------------ */
+
+/** 从"时间・地点"里抠出时间部分（交给 clock 判） */
+function extractClockFromPlace(text) {
+    const s = trimText(text);
+    if (!s) {
+        return '';
+    }
+    const cut = s.split(/[·・|｜,，、]/)[0];
+    return trimText(cut) || s;
+}
+
+/**
+ * 跑一次更新。
+ * @param {object} opts { manual:boolean, floor:number, turns:number }
+ */
+export async function runUpdate(opts) {
+    const o = opts || {};
+    if (running) {
+        return { ok: false, reason: '上一轮还在跑' };
+    }
+    const settings = getSettings();
+    if (!settings.enabled) {
+        return { ok: false, reason: '总开关关着' };
+    }
+
+    running = true;
+    cancelRequested = false;
+    const chat = getChat();
+    const floor = Number.isFinite(o.floor) && o.floor >= 0 ? o.floor : chat.length - 1;
+
+    // 留一版快照（撤回用）
+    takeSnapshot('更新前（第 ' + String(floor + 1) + ' 楼）');
+
+    setPipeline({
+        kind: 'update',
+        status: 'running',
+        step: '取材料',
+        startedAt: Date.now(),
+        endedAt: 0,
+        tries: 0,
+        error: '',
+        text: '开始更新（第 ' + String(floor + 1) + ' 楼）',
+        cursor: 0,
+        atFloor: floor,
+        cancelRequested: false,
+        conflicts: [],
+    });
+
+    // 取材料：最近几楼（含隐藏楼）＋ 走四格清洗
+    const msgs = recentMessages(floor, Math.max(6, settings.recentTurns * 2));
+    const cleaned = cleanMessages(msgs);
+    const material = {
+        floor,
+        recentText: cleaned.text,
+        messages: msgs,
+        fellBack: cleaned.fellBack,
+    };
+    if (!trimText(material.recentText)) {
+        setPipeline({ status: 'failed', step: '取材料', error: '这一楼附近没有可读的正文', endedAt: Date.now(), text: '没材料可推' });
+        running = false;
+        return { ok: false, reason: '这一楼附近没有可读的正文' };
+    }
+    setPipeline({ step: '读世界状态', text: '正在算世界状态（第 ' + String(floor + 1) + ' 楼）' });
+
+    let lastError = '';
+    let worldRes = { ok: false, reason: '没跑' };
+    let charRes = { ok: false, reason: '没跑' };
+
+    // 世界这一步：带重试上限
+    for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
+        if (cancelRequested) {
+            break;
+        }
+        setPipeline({ tries: attempt });
+        worldRes = await stepWorld(material);
+        if (worldRes.ok) {
+            break;
+        }
+        lastError = worldRes.reason;
+        if (attempt < RETRY_LIMIT) {
+            setPipeline({ text: '世界状态这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次（最多 ' + String(RETRY_LIMIT) + ' 次）' });
+            await sleep(800);
+        }
+    }
+
+    if (!cancelRequested && worldRes.ok) {
+        setPipeline({ step: '读角色状态与平行事件', text: '正在算角色状态与平行事件' });
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
+            if (cancelRequested) {
+                break;
+            }
+            charRes = await stepCharacters(material);
+            if (charRes.ok) {
+                break;
+            }
+            lastError = charRes.reason;
+            if (attempt < RETRY_LIMIT) {
+                setPipeline({ text: '角色这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次' });
+                await sleep(800);
+            }
+        }
+    }
+
+    const state = loadState();
+    state.stat.updates = Number(state.stat.updates || 0) + 1;
+    saveState();
+
+    // 收尾：把这一轮的结果落进世界书，并更新账本状态
+    const failed = cancelRequested ? false : !(worldRes.ok && charRes.ok);
+    const parts = [];
+    if (worldRes.ok) {
+        parts.push(worldRes.summary);
+    }
+    if (charRes.ok) {
+        parts.push(charRes.summary);
+    }
+    const text = (cancelRequested ? '已取消（已跑的部分保留）' : (failed ? '有一步没成' : '更新完成'))
+        + (parts.length ? '：' + parts.join('；') : (lastError ? '：' + lastError : ''));
+
+    setPipeline({
+        status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
+        step: '完成',
+        endedAt: Date.now(),
+        error: failed ? (lastError || '未知原因') : '',
+        text,
+        cursor: msgs.length,
+    });
+    state.lastUpdate = {
+        at: Date.now(),
+        status: failed ? 'failed' : 'ok',
+        note: text,
+    };
+    saveState();
+    markBookDirty();
+
+    running = false;
+    return {
+        ok: !failed,
+        reason: failed ? lastError : '',
+        text,
+        world: worldRes,
+        chars: charRes,
+    };
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* ------------------------------ 补推历史 ------------------------------ */
+
+let backfilling = false;
+
+/**
+ * 把已有聊天从头补推到现在（分批、可取消、⛔ 不卡界面）。
+ * ⚠️ 识别隐藏楼层：隐藏只影响显示，照读。
+ */
+export async function runBackfill(opts) {
+    const o = opts || {};
+    if (backfilling || running) {
+        return { ok: false, reason: '已经在跑了' };
+    }
+    const settings = getSettings();
+    const chat = getChat();
+    if (!chat.length) {
+        return { ok: false, reason: '这个聊天还没有楼' };
+    }
+
+    // 用户楼作为分批边界（一层一层往前走）
+    const userFloors = [];
+    for (let i = 0; i < chat.length; i += 1) {
+        const m = chat[i];
+        if (m && m.is_user && !m.is_system) {
+            userFloors.push(i);
+        }
+    }
+    if (!userFloors.length) {
+        return { ok: false, reason: '还没有你的发言' };
+    }
+    const startFrom = Number.isFinite(o.from) && o.from >= 0 ? o.from : 0;
+    const todo = userFloors.filter((f) => f >= startFrom);
+    if (!todo.length) {
+        return { ok: true, text: '没有要补的楼了' };
+    }
+
+    backfilling = true;
+    cancelRequested = false;
+    setPipeline({
+        kind: 'backfill',
+        status: 'running',
+        step: '补推历史',
+        startedAt: Date.now(),
+        text: '准备补推 ' + String(todo.length) + ' 个楼层',
+        cursor: 0,
+        atFloor: -1,
+        cancelRequested: false,
+        conflicts: [],
+    });
+
+    let done = 0;
+    let failedAt = '';
+    for (const floor of todo) {
+        if (cancelRequested) {
+            break;
+        }
+        setPipeline({ text: '补推中：第 ' + String(floor + 1) + ' 楼（' + String(done + 1) + '/' + String(todo.length) + '）', cursor: done });
+        // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
+        // eslint-disable-next-line no-await-in-loop
+        const res = await runUpdate({ manual: true, floor });
+        if (!res.ok) {
+            failedAt = '第 ' + String(floor + 1) + ' 楼：' + (res.reason || '失败');
+            break;
+        }
+        done += 1;
+        await sleep(400);   // 让界面喘口气，⛔ 不挡她聊天
+    }
+
+    backfilling = false;
+    const text = cancelRequested
+        ? ('补推已取消（已完成 ' + String(done) + ' 楼，进度留着，下次接着补）')
+        : (failedAt ? ('补推中断：' + failedAt + '（已完成 ' + String(done) + ' 楼）')
+            : ('补推完成：共 ' + String(done) + ' 楼'));
+    setPipeline({
+        status: cancelRequested ? 'cancelled' : (failedAt ? 'failed' : 'ok'),
+        step: '完成',
+        endedAt: Date.now(),
+        error: failedAt,
+        text,
+        cursor: done,
+    });
+    markBookDirty();
+    return { ok: !failedAt, text, done };
+}
+
+/** 补推还在跑吗 */
+export function isBackfilling() {
+    return backfilling;
+}
+
+/* ------------------------------ 对账 ------------------------------ */
+
+/**
+ * 账与楼对账：楼层被删／重跑时，对不上的账跟着清；⛔ 有软保护（防误清空）。
+ */
+export function runReconcile() {
+    const chat = getChat();
+    const state = loadState();
+    const notes = [];
+
+    if (!Array.isArray(chat) || chat.length === 0) {
+        return { removed: 0, note: '拿不到聊天内容，这次不动手（防误清空）' };
+    }
+
+    const before = state.recallRecords.length;
+    state.recallRecords = state.recallRecords.filter((r) => {
+        if (!r) {
+            return false;
+        }
+        const m = chat[r.floor];
+        if (!m) {
+            return false;   // 楼没了
+        }
+        if (!m.is_user || m.is_system) {
+            return false;   // 这楼已经不是她的发言了（重跑／重排）
+        }
+        if (trimText(r.mesId) && trimText(m.mesId) && trimText(r.mesId) !== trimText(m.mesId)) {
+            return false;   // 同一楼换了内容 ⇒ 账对不上
+        }
+        return true;
+    });
+    const removed = before - state.recallRecords.length;
+
+    // 编年里超过现有楼的推演记录：不删，只标记"楼已不在"（软处理，她要能回看）
+    let orphan = 0;
+    for (const c of state.chronicle) {
+        if (Number.isFinite(c.floor) && c.floor >= 0 && c.floor >= chat.length) {
+            if (!c.floorGone) {
+                c.floorGone = true;
+                orphan += 1;
+            }
+        }
+    }
+
+    saveState();
+    if (removed > 0) {
+        notes.push('清了 ' + String(removed) + ' 条对不上的召回账');
+    }
+    if (orphan > 0) {
+        notes.push('有 ' + String(orphan) + ' 条编年对应的楼层已经不在了（记录留着，只标了一下）');
+    }
+    return { removed, note: notes.join('；') || '账与楼对得上，没动' };
+}
+
+/* ------------------------------ 频率控制 ------------------------------ */
+
+/**
+ * 到该更新的回合了吗（每 N 回合）。
+ * ⚠️ 注意：频率只影响"多久更新一次"，⛔ 不影响暗线推进（那个只看世界钟）。
+ */
+export function shouldUpdateNow(floor) {
+    const settings = getSettings();
+    const every = clampNumber(settings.updateEvery, 1, 10, 1);
+    if (every <= 1) {
+        return true;
+    }
+    const state = loadState();
+    const last = Number(state.pipeline && state.pipeline.atFloor);
+    if (!Number.isFinite(last) || last < 0) {
+        return true;
+    }
+    return (floor - last) >= every;
+}
+
+/** 一轮最多发几次请求（预算，省额度） */
+export function callBudget() {
+    return CALLS_PER_TURN + 1;   // 更新那一次 ＋ 打杂（挑拣／摘要，可不用）
+}

@@ -1,8 +1,8 @@
 /**
  * 万象阁 · 样式
  *
- * 所有类名统一 wxg 前缀，避免和酒馆主题／别的扩展打架。
- * 卡片挂在她每条发言楼后面，折叠着：平时一行标题＋状态，点开才看内容。
+ * 全部类名带 wxg 前缀，避免和酒馆主题／别的扩展打架。
+ * 卡片挂在她每条发言楼后面（折叠着）；独立面板有自己的标题栏、能拖能缩放。
  */
 
 /* ------------------------------- 卡片 ------------------------------- */
@@ -156,7 +156,7 @@
     border-style: dashed;
 }
 
-/* ------------------------------- 面板 ------------------------------- */
+/* ------------------------------- 面板内容 ------------------------------- */
 
 .wanxiangge .wxg-ledger {
     padding: 6px 8px;
@@ -215,8 +215,14 @@
     min-width: 96px;
 }
 
-.wanxiangge .wxg-field input[type="number"] {
-    width: 84px;
+.wanxiangge .wxg-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+}
+
+.wanxiangge .wxg-grid .wxg-field {
+    flex: 1 1 240px;
 }
 
 .wanxiangge .wxg-note {
@@ -229,6 +235,19 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    margin: 4px 0;
+}
+
+.wanxiangge .wxg-short {
+    min-width: 180px;
+    flex: 1 1 180px;
+}
+
+.wanxiangge input[type="number"] {
+    width: 84px;
+}
+
+.wanxiangge .wxg-list {
     margin: 4px 0;
 }
 
@@ -291,7 +310,28 @@
     opacity: 0.85;
 }
 
-/* --------------------------- 过程报告 --------------------------- */
+.wanxiangge .wxg-steps li {
+    margin: 2px 0;
+}
+
+.wanxiangge .wxg-steps li.wxg-ok {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.wanxiangge .wxg-ver {
+    opacity: 0.6;
+    font-size: 0.9em;
+    margin-left: 6px;
+}
+
+.wanxiangge .wxg-hint {
+    opacity: 0.55;
+    font-size: 0.88em;
+    margin-left: 8px;
+}
+
+/* --------------------------- 过程报告与编年 --------------------------- */
 
 .wanxiangge .wxg-report-list {
     margin-top: 8px;
@@ -339,11 +379,6 @@
     opacity: 0.85;
 }
 
-.wanxiangge .wxg-report-who {
-    margin-left: auto;
-    opacity: 0.8;
-}
-
 .wanxiangge .wxg-report-body {
     padding: 6px 10px 10px;
     border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
@@ -354,10 +389,6 @@
     font-weight: 700;
     opacity: 0.85;
     margin: 8px 0 4px;
-}
-
-.wanxiangge .wxg-report-h:first-child {
-    margin-top: 0;
 }
 
 .wanxiangge .wxg-report-text {
@@ -373,23 +404,103 @@
     font-size: 0.92em;
 }
 
-.wanxiangge .wxg-steps li {
-    margin: 2px 0;
+.wanxiangge .wxg-chron {
+    padding: 4px 6px;
+    border-left: 2px solid rgba(128, 128, 128, 0.4);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
-.wanxiangge .wxg-steps li.wxg-ok {
+.wanxiangge .wxg-hidden-text {
+    display: none;
+}
+
+/* ------------------------------- 独立面板 ------------------------------- */
+
+.wxg-panel {
+    position: fixed;
+    z-index: 30000;
+    display: flex;
+    flex-direction: column;
+    min-width: 360px;
+    min-height: 260px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(120, 120, 120, 0.6));
+    border-radius: 10px;
+    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96));
+    color: var(--SmartThemeBodyColor, inherit);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    resize: none;
+}
+
+.wxg-panel-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: move;
+    user-select: none;
+    background: rgba(128, 128, 128, 0.18);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(120, 120, 120, 0.4));
+}
+
+.wxg-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.wxg-panel-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.wxg-panel-btn {
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 6px;
+    opacity: 0.85;
+}
+
+.wxg-panel-btn:hover {
+    background: rgba(128, 128, 128, 0.28);
     opacity: 1;
-    font-weight: 600;
 }
 
-.wanxiangge .wxg-ver {
-    opacity: 0.6;
-    font-size: 0.9em;
-    margin-left: 6px;
+.wxg-panel-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 10px 12px 18px;
 }
 
-.wanxiangge .wxg-hint {
-    opacity: 0.55;
-    font-size: 0.88em;
-    margin-left: 8px;
+.wxg-panel-grip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    background:
+        linear-gradient(135deg, transparent 0 45%, rgba(150, 150, 150, 0.8) 45% 55%, transparent 55% 70%, rgba(150, 150, 150, 0.8) 70% 80%, transparent 80%);
+}
+
+body.wxg-dragging {
+    user-select: none;
+    cursor: move;
+}
+
+/* 手机上：面板默认铺满，别缩成一小块 */
+@media (max-width: 800px) {
+    .wxg-panel {
+        left: 2vw !important;
+        top: 6vh !important;
+        width: 96vw !important;
+        height: 86vh !important;
+    }
 }

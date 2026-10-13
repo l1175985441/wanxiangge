@@ -1,19 +1,21 @@
 /**
  * 万象阁 · 动作层
  *
- * 把"发消息 → 算一次召回 → 存账 → 挂卡片 → 刷新面板"这条线串起来。
- * 所有重活都排进同一个队里按顺序跑，不并发抢写账本，也不挡酒馆界面。
+ * "发消息 → 算一次召回 → 存账 → 挂卡片 →（生成完）后台更新"这条线串在这里。
+ * 重活排进同一个队里按顺序跑：不并发抢写账本，也不挡酒馆界面。
  */
 
 import { getChat, now } from './adapter.js';
-import { buildRecall, assembleInjectText, findLastUserFloor } from './recall.js';
-import { getSettings } from './settings.js';
-import { putRecallRecord, getRecallRecord, dropRecallRecord, pruneRecallRecords } from './state.js';
+import { buildRecall, assembleInjectText, findLastUserFloor, injectSize } from './recall.js';
+import { getSettings, effectivePrompt } from './settings.js';
+import { putRecallRecord, dropRecallRecord, pruneRecallRecords, getRecallRecord, loadState } from './state.js';
 import { commitLedger } from './ledger.js';
-import { countChars, trimText } from './utils.js';
+import { trimText } from './utils.js';
 import { mountAllCards, refreshCardOnFloor, renderPanel } from '../ui/render.js';
+import { runUpdate, shouldUpdateNow, isRunning as isUpdating } from './pipeline.js';
+import { refreshAffinity } from './worldbook.js';
+import { markBookDirty } from './book.js';
 
-/** 全局任务队：同一个时刻只有一件后台活在跑 */
 let queue = Promise.resolve();
 
 /** 排队执行（出错只记日志，不让整个插件停摆） */
@@ -34,9 +36,8 @@ export function enqueue(task) {
  */
 export function planRecall(options) {
     const opts = options || {};
-    return enqueue(() => {
+    return enqueue(async () => {
         const settings = getSettings();
-        // 用传进来的这份聊天（拦截器给的是"请求副本"）；没传就用当前聊天记录
         const chat = Array.isArray(opts.chat) ? opts.chat : getChat();
         const floor = Number.isFinite(opts.floor) ? opts.floor : findLastUserFloor(chat);
         if (floor < 0) {
@@ -44,11 +45,17 @@ export function planRecall(options) {
         }
         const leadText = trimText(opts.leadText) || trimText(chat[floor] && chat[floor].mes);
 
+        // 顺手把"手机"里的好感读一遍（源更新了，读到的就是新的）
+        try {
+            await refreshAffinity();
+        } catch (e) {
+            console.warn('[万象阁] 读好感出错：', e);
+        }
+
         const recall = buildRecall({ chat, leadFloor: floor, leadText });
-        // ⚠️ 送进去的和记下来的必须是**同一串**：这里先去掉首尾空白，
-        //    记录、字数、回执、过程报告全用这一串（免得出现 106 vs 105 这种 1 字差）
+        // ⚠️ 送进去的和记下来的必须是**同一串**（免得字数对不上）
         const text = settings.enabled
-            ? trimText(assembleInjectText(recall.items, settings.injectHeader))
+            ? trimText(assembleInjectText(recall.items, recall.events, effectivePrompt('header')))
             : '';
 
         const rec = putRecallRecord({
@@ -62,7 +69,7 @@ export function planRecall(options) {
             chars: recall.chars,
             notes: recall.notes,
             injectedText: text,
-            injectedChars: countChars(text),
+            injectedChars: injectSize(text),
             injectedAt: 0,
             injectStatus: 'pending',
             injectNote: '',
@@ -87,24 +94,52 @@ export function replanCurrentFloor() {
     return planRecall({ floor });
 }
 
-/** 新楼生成完：刷新一次（卡片＋面板） */
-export function afterMessageReceived() {
+/**
+ * 新楼生成完：刷新卡片与面板，然后（按频率）在后台更新世界与角色状态。
+ * ⛔ 更新一定不挡她聊天：先返回，活交给后台。
+ */
+export function afterMessageReceived(floor) {
     return enqueue(() => {
         commitLedger();
-        mountAllCards();
+        mountAllCards(2, 900);
         renderPanel();
+
+        const settings = getSettings();
+        if (!settings.enabled || !settings.autoUpdate) {
+            return null;
+        }
+        const chat = getChat();
+        const at = Number.isFinite(floor) ? floor : chat.length - 1;
+        if (at < 0) {
+            return null;
+        }
+        if (!shouldUpdateNow(at)) {
+            return null;   // 频率没到（每 N 回合）
+        }
+        if (isUpdating()) {
+            return null;   // 上一轮还没跑完
+        }
+        // 放后台跑，不 await（免得挡住界面）
+        setTimeout(() => {
+            runUpdate({ manual: false, floor: at }).then(() => {
+                markBookDirty();
+                mountAllCards(1, 600);
+                renderPanel();
+            }).catch((e) => console.warn('[万象阁] 后台更新出错：', e));
+        }, 1200);
+        return null;
     });
 }
 
-/** 切聊天／新开档：账本换一份，卡片按新账本重挂 */
+/** 切聊天／新开档 */
 export function onChatSwitched() {
     return enqueue(() => {
-        mountAllCards();
+        mountAllCards(2, 900);
         renderPanel();
     });
 }
 
-/** 楼层删掉：账跟着对账（软保护：拿不到聊天长度就不动手） */
+/** 楼层删掉：账跟着对账（软保护） */
 export function reconcileAfterDelete() {
     return enqueue(() => {
         const chat = getChat();
@@ -127,11 +162,11 @@ export function onFloorEdited(floor) {
 /** 首屏／重开酒馆：按账本把卡片挂回去 */
 export function restoreCards() {
     return enqueue(() => {
-        mountAllCards();
+        mountAllCards(3, 1200);
         renderPanel();
-        const latest = getChat();
-        if (Array.isArray(latest) && latest.length) {
-            pruneRecallRecords(latest.length, findLastUserFloor(latest));
+        const chat = getChat();
+        if (Array.isArray(chat) && chat.length) {
+            pruneRecallRecords(chat.length, findLastUserFloor(chat));
         }
     });
 }
@@ -140,4 +175,9 @@ export function restoreCards() {
 export function lastActivityAt() {
     const rec = getRecallRecord(findLastUserFloor(getChat()));
     return rec ? rec.at : now();
+}
+
+/** 顺手暴露一下状态（面板用） */
+export function pipelineState() {
+    return loadState().pipeline || {};
 }

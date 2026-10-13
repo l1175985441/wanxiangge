@@ -2,8 +2,8 @@
  * 万象阁 · 账本
  *
  * 账 ＝ 上次更新是什么时候、更新了什么、有没有失败。
- * 本轮只记两件事：本轮召回（进了什么）＋ 本轮注入回执（注入多少字、什么时候、什么原因）。
- * 每次更新前留底、一键撤回、对账这些等第 3 步接模型更新时一起做。
+ * 每次更新前留底、一键撤回、对账这些在 core/state.js 与 core/pipeline.js 里做，
+ * 这里负责：把结果组织成人话（回执、上次更新那一行）。
  */
 
 import { formatStamp, formatClock, now } from './adapter.js';
@@ -36,7 +36,7 @@ export function markCarried(items) {
     return marked;
 }
 
-/** 记一条账（在召回记录之外另记一行人话摘要，给面板"最近发生了什么"用） */
+/** 记一条账（面板"最近发生了什么"用） */
 export function commitLedger() {
     const state = loadState();
     const records = state.recallRecords;
@@ -46,22 +46,28 @@ export function commitLedger() {
     }
 
     const statusText = latest.injectStatus === 'ok'
-        ? '已注入 ' + String(latest.injectedChars) + ' 字'
+        ? '已注入 ' + String(countChars(latest.injectedText)) + ' 字'
         : (latest.injectStatus === 'empty' ? '未注入' : '正文还没生成，本轮待送');
+
+    const who = [];
+    if (latest.chars && latest.chars.length) {
+        who.push(latest.chars.join('、'));
+    }
+    if (latest.events && latest.events.length) {
+        who.push('事 ' + String(latest.events.length) + ' 条');
+    }
 
     state.lastUpdate = {
         at: latest.at || now(),
         status: latest.injectStatus === 'ok'
             ? 'ok'
             : (latest.injectStatus === 'empty' ? 'idle' : (latest.injectStatus === 'error' ? 'failed' : 'pending')),
-        note: '第 ' + String(latest.floor + 1) + ' 楼：' + statusText
-            + (latest.chars && latest.chars.length ? '（' + latest.chars.join('、') + '）' : ''),
+        note: '第 ' + String(latest.floor + 1) + ' 楼：' + statusText + (who.length ? '（' + who.join('；') + '）' : ''),
     };
 
     if (latest.injectStatus === 'ok') {
         markCarried(latest.items);
     }
-
     saveState();
 }
 
@@ -69,6 +75,7 @@ export function commitLedger() {
 export function ledgerText() {
     const state = loadState();
     const lu = state.lastUpdate || {};
+    const pipe = state.pipeline || {};
     if (!lu.at) {
         return '还没有更新记录';
     }
@@ -78,7 +85,14 @@ export function ledgerText() {
         : (lu.status === 'failed'
             ? '失败'
             : (lu.status === 'pending' ? '已算好，等正文生成时送进去' : '未注入'));
-    return when + ' · ' + status + (lu.note ? ' · ' + lu.note : '');
+    let line = when + ' · ' + status + (lu.note ? ' · ' + lu.note : '');
+    if (pipe.status === 'failed' && pipe.error) {
+        line += ' ｜ 更新那一步失败：' + pipe.error + '（重试有上限；点「立刻更新」可再来一次）';
+    }
+    if (pipe.status === 'running') {
+        line += ' ｜ 正在更新：' + (pipe.text || '…');
+    }
+    return line;
 }
 
 /** 一张卡片的回执行文案（⛔ 不许含糊：有没有注入、注入多少、为什么没注入） */
@@ -86,11 +100,12 @@ export function receiptText(rec) {
     if (!rec) {
         return '本轮没有记录';
     }
-    // 字数一律现数（不信存下来的值，免得升级前后对不上）
+    // 字数一律现数（与送进去的那一串同源，免得两处对不上）
     const chars = countChars(rec.injectedText);
     if (rec.injectStatus === 'ok') {
         const asRole = rec.injectAs === 'system' ? '（请求里身份＝系统）' : '';
-        return '本轮注入 ✓ ' + String(chars) + ' 字' + asRole + '（' + formatClock(rec.injectedAt || rec.at) + '）';
+        const ev = rec.events && rec.events.length ? '，含世界事件 ' + String(rec.events.length) + ' 条' : '';
+        return '本轮注入 ✓ ' + String(chars) + ' 字' + ev + asRole + '（' + formatClock(rec.injectedAt || rec.at) + '）';
     }
     if (rec.injectStatus === 'empty') {
         const reason = trimText(rec.injectNote) || '本轮没有要带的内容';

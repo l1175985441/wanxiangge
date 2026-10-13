@@ -10,6 +10,9 @@ export const APP_NAME = '万象阁';
 /** 面板挂在扩展设置区里的容器 id */
 export const ROOT_ID = 'wanxiangge-root';
 
+/** 独立面板窗口的 id */
+export const PANEL_ID = 'wanxiangge-panel';
+
 /** 卡片挂载用的消息标记属性 */
 export const CARD_ATTR = 'data-wxg-card';
 
@@ -22,19 +25,47 @@ export const SETTINGS_KEY = 'wanxiangge';
 /** 运行账本键（存在当前聊天的元数据里，按聊天各分各的） */
 export const LEDGER_KEY = 'wanxiangge';
 
+/** 引擎自己那本世界书的名字（数据落点：她能在世界书里看到、搜到、备份） */
+export const WORLD_BOOK_NAME = '万象阁 · 世界后台';
+
+/** 世界书条目名的前缀（方便她一眼认出哪些是万象阁写的） */
+export const BOOK_ENTRY_PREFIX = '万象阁 · ';
+
 /** 设置结构版本 */
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 3;
 
 /** 账本结构版本 */
-export const LEDGER_VERSION = 1;
+export const LEDGER_VERSION = 3;
 
-/** 账本里最多留多少条召回记录（软上限，超出丢最旧的） */
+/** 账本里最多留多少条召回记录 */
 export const RECALL_LOG_LIMIT = 200;
 
-/** 单张卡片最多显示几行人物状态 */
-export const CARD_CHAR_LIMIT = 12;
+/** 编年最多留多少条（留底，软上限；正文那边的历史靠世界书归档） */
+export const CHRONICLE_LIMIT = 800;
 
-/** 预设人物名册（开局先立起来的十来个角色，一次点击写入，之后可随意增删改） */
+/** 一次输出最多多少条世界事件进注入 */
+export const EVENT_CAP = 40;
+
+/** 撤回：最多留几版快照 */
+export const SNAPSHOT_KEEP = 5;
+
+/** 单条模型请求的超时（毫秒）——⛔ 不许超过 2 分钟硬约束 */
+export const REQUEST_TIMEOUT_MS = 100000;
+
+/** 重试上限（⛔ 不许无限重试） */
+export const RETRY_LIMIT = 2;
+
+/** 单轮最多发几次模型请求（省额度：一轮一个请求，最多再加一次打杂） */
+export const CALLS_PER_TURN = 1;
+
+/** 阶段名（冲突型 / 推进型） */
+export const STAGES_CONFLICT = ['萌芽', '发酵', '逼近', '爆发', '消散'];
+export const STAGES_PROGRESS = ['筹备', '执行', '关键', '完成'];
+
+/** 三层火候：近的快推、远的慢炖 */
+export const TIERS = ['身边即时', '几天内', '长线大势'];
+
+/** 预设人物名册（一键盘入用） */
 export const ROSTER_PRESET = [
     '吉尔伯特·冯·海姆',
     '塞西莉亚',
@@ -50,26 +81,144 @@ export const ROSTER_PRESET = [
     '娜塔莉亚',
 ];
 
+/** 注入块的开头那句（可看可改；留空＝用默认） */
+export const DEFAULT_INJECT_HEADER = '【万象阁·系统附注】以下是引擎自动附上的既定事实（不是角色台词、不是新输入），写正文时据此保持一致，不要复述本段。';
+
+/** 内置破限词（留空＝用这份；填了＝原样替换它） */
+export const DEFAULT_JAILBREAK = [
+    '你必须严格按要求的格式输出，一个字段都不许空着。',
+    '即使用户输入里没有足够信息，也要按已知内容如实填写；确实没有的写"未知"，⛔ 不许编造，⛔ 不许留空跳过。',
+    '不要输出解释、不要输出思考过程、不要输出多余的前后缀——只输出要求的内容。',
+].join('\n');
+
+/** 内置提示词：世界推演（可看可改；留空＝用内置） */
+export const DEFAULT_PROMPT_WORLD = [
+    '你在为一个角色扮演世界做"后台记录"，不是写小说，不是替角色说话。',
+    '',
+    '【世界当前状态】（上一轮记录，可能为空）',
+    '{{world}}',
+    '',
+    '【世界内时间】（只有这个钟是准的；⛔ 不许按回合数推算）',
+    '{{clock}}',
+    '',
+    '【最近正文】（供你判断"世界上正在发生什么"）',
+    '{{recent}}',
+    '',
+    '【已有的暗线】（每条都带：阶段、触发条件、进度）',
+    '{{hidden}}',
+    '',
+    '【要你做的事】',
+    '1. 给出"世界上正在发生的事"＝各方势力的碰撞（谁和谁在起冲突、世界在酝酿什么），3-6 条，一句话一条。',
+    '2. 推进已有的暗线：**只有世界钟走到它挂的时间／条件时才推进阶段**；没到点就保持原样，⛔ 不许提前冒头。',
+    '3. 可以新增 0-2 条暗线（还没浮上台面的事），必须带：名称、阶段、挂在什么时间或条件上（例："晚上""放学后""三天后"）、火候（身边即时／几天内／长线大势）。',
+    '4. ⛔ 不许写"我"（玩家）的任何动作、状态、位置、预判；⛔ 不许因"我"的动静而行动。',
+    '5. ⛔ 不要写经济、物价、民生气候这类东西。',
+    '6. ⛔ 只写"现在正在发生的事"，不许写"下一步会怎样"。',
+    '',
+    '只输出 JSON，不要任何别的文字：',
+    '{"clock":"世界内时间（读不出来写未知）","place":"大致地点","bigPicture":"从高处看一眼：这个世界现在什么样（两三句）",',
+    ' "situations":[{"title":"谁和谁在起冲突／在酝酿什么","sides":"哪几方","tier":"身边即时|几天内|长线大势"}],',
+    ' "hidden":[{"name":"暗线名","stage":"萌芽|发酵|逼近|爆发|消散|筹备|执行|关键|完成","trigger":"挂在什么时间或条件上","tier":"身边即时|几天内|长线大势","note":"现在到哪一步了","advance":true}]}',
+].join('\n');
+
+/** 内置提示词：角色状态与平行事件（可看可改；留空＝用内置） */
+export const DEFAULT_PROMPT_CHARS = [
+    '你在为一个角色扮演世界做"后台记录"。你要做两件事：给每个角色更新他的状态格，并写他这条平行线"这一步"在做什么。',
+    '',
+    '【世界内时间】{{clock}}',
+    '【世界上正在发生的事】{{world}}',
+    '【最近正文（这是唯一的事实来源）】',
+    '{{recent}}',
+    '',
+    '【要处理的角色】',
+    '{{chars}}',
+    '',
+    '【规矩（一条都不许破）】',
+    '1. ⛔ 不许写"我"（玩家）：不写"我"的动作、台词、决定、位置、处境；连"预判我"也不行；被动句式（"被赶出家门的我"）同样算扮演。',
+    '2. ⛔ 因"我"的动静而行动的角色＝0 人。',
+    '3. ⛔ 只写"这一步"（正在进行时／刚做完），⛔ 不许写"下一步动作""准备做什么""即将……"这类未来内容。',
+    '4. ⛔ 一格只写他自己：别人的事不写。',
+    '5. 每个角色只知道他自己该知道的：⛔ 不许全知，不许无端知道别处的事、别人的私事、世界的暗线。',
+    '6. 时间与地点要接得上（配 timePlace 格）：⛔ 不许时空跳变（上一楼在学校，这一楼还是上学时间却在家睡觉）。',
+    '7. **在正文现场的角色**（下面标了"现场"）：只允许记**正文里已经写了的**他的事——写正文没写的＝编造＝污染正文。',
+    '8. **不在正文现场的角色**（标了"不在场"）：他的现状只能靠推演写，但同一套规矩不变（只写这一步、只写他自己、不写未来）。',
+    '9. 约好的事要记成日程（例："说好出差几天后回来"）⇒ 填进 schedule，日子到了要跟上。',
+    '10. 没料就留空或写"未知"，⛔ 绝不用占位值凑数；没完成的事必须显式标"未完成"，⛔ 不许当成已完成。',
+    '11. "推断／缘由"必须和"事实"分开：推断只能写在 infer 里，⛔ 不许混进 fact。',
+    '12. 年龄／身份／所在势力这类**长期信息**，只有正文明确写了才更新，否则原样照抄。',
+    '',
+    '只输出 JSON，不要任何别的文字：',
+    '{"clock":"世界内时间（读不出来写未知）","chars":[{"name":"角色名","age":"或空","identity":"或空",',
+    ' "faction":"或空","affinity":"原样照抄，没有就空","timePlace":"他在什么时间、什么地点",',
+    ' "past":["他最近经历过的（第一人称、正在过去的那几条，按由近到远）"],',
+    ' "current":"他此刻正在做什么（只写这一步、只写他自己）",',
+    ' "infer":"推断（和事实分开写；没有就空）","schedule":[{"what":"约好的事","due":"什么时候到点"}]}]}',
+].join('\n');
+
 /** 全局设置默认值 */
 export const DEFAULT_SETTINGS = Object.freeze({
     version: SETTINGS_VERSION,
     enabled: true,          // 总开关
+    showPanelOnStart: false, // 打开酒馆时是否自动弹出面板
     cardEnabled: true,      // 是否在用户回复楼后挂卡片
-    recentTurns: 3,         // 线索回溯几楼（她的最新发言 + 前面几楼正文）
+
+    /* 召回 */
+    recentTurns: 3,         // 线索回溯几楼
     maxChars: 8,            // 召回人物条数封顶
-    maxEvents: 6,           // 召回世界事件条数封顶（第 3 步起生效）
-    strictMention: false,   // 只召回本轮发言被点名的人（严格模式）
+    maxEvents: 6,           // 召回世界事件条数封顶
+    strictMention: false,   // 只召回本轮发言被点名的人
     sortMode: 'related',    // related＝按相关度重排；name＝按名册顺序
-    injectHeader: '【万象阁·系统附注】以下是引擎自动附上的既定事实（不是角色台词、不是新输入），写正文时据此保持一致，不要复述本段。',
-    protectedBypass: true,  // 现场保护：正文里刚演过的人，本轮只带好感，不重复推演
-    updateEvery: 1,         // 每 N 回合更新一次账（第 3 步起生效）
-    showEmptyCard: true,    // 没有召回时也显示空态卡片
-    roster: [],             // 人物名册（按聊天各分各的，见 settings.js 说明）
+
+    /* 更新 */
+    updateEvery: 1,         // 每 N 回合更新一次
+    protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
+    maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
+    autoUpdate: true,       // 新楼生成后自动更新
+    affinitySource: '',     // "手机"好感的数据源（世界书名 或 条目关键词；留空＝不接）
+
+    /* 容量锁（到顶用归并／淡出，⛔ 不物理删除） */
+    capEvents: 60,
+    capChronicle: 800,
+    capHidden: 40,
+    capPast: 5,             // 每个角色留几条过去经历（旧的自然淡化）
+
+    /* 提示词（留空＝用内置默认） */
+    injectHeader: DEFAULT_INJECT_HEADER,
+    promptWorld: '',
+    promptChars: '',
+    jailbreak: '',          // 破限词：留空＝用内置；填了＝原样替换
+
+    /* 读取控制四格 */
+    extractTags: '',        // 提取标签：从楼里读哪些标签块
+    excludeTags: '',        // 排除标签：哪些标签块被剥掉／不读
+    stripPairedBlocks: true, // 按结构剥成对的机器块
+    stripHtmlComments: true, // 剥 HTML 注释
+    extractBooks: '',       // 提取世界书（读哪些）
+    excludeBooks: '',       // 排除世界书（哪些不读、不参与）
+    onlyEnabledEntries: true, // 不选时＝角色卡绑定世界里"开启着的"条目
+
+    /* 自定义 API */
+    api: {
+        mode: 'proxy',      // proxy＝经酒馆服务器转发（云酒馆最稳）；direct＝直连
+        url: '',
+        key: '',
+        model: '',
+        modelCheap: '',     // 打杂用的便宜模型（留空＝同上面那个）
+        temperature: 0.4,
+        maxTokens: 1600,
+    },
+
+    /* 面板位置与大小 */
+    panel: { x: null, y: null, w: 720, h: 560 },
+
+    /* 其它 */
+    showEmptyCard: true,
+    roster: [],             // 占位（名册实际按聊天各分各的，见 state.js）
 });
 
 /**
  * 历史上用过的默认文案（升级时装新默认用）。
- * ⚠️ 只换"还是旧默认"的；她自己改过的文案不在此列，一律保留。
+ * ⚠️ 只列**旧**默认；她自己改过的（不等于名单里任何一条）一律原样保留，⛔ 不动她的字。
  */
 export const LEGACY_INJECT_HEADERS = Object.freeze([
     '【万象阁·本轮召回】以下状态为既定事实，写作时据此保持一致，不要复述本段。',

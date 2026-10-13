@@ -8,8 +8,10 @@
  *      还要剥掉 Markdown 加粗、标题符号这类外壳。
  */
 
-import { matchKey, trimText } from './utils.js';
+import { matchKey, trimText, asText, toList } from './utils.js';
 import { getCtx } from './adapter.js';
+import { loadState, saveState } from './state.js';
+import { getSettings } from './settings.js';
 
 /** 包裹用的括号对（成对剥壳用） */
 const BRACKETS = [
@@ -118,6 +120,124 @@ export function extractNameFromTitle(title) {
         return '';
     }
     return t;
+}
+
+/**
+ * 读"手机"里的好感（只读，⛔ 不加减、不另存）
+ *
+ * 她那边的好感在某个世界书条目里（例：手机／关系表）。这里：
+ *   · 先按她配的「好感数据源」找条目（书名或条目关键词）；
+ *   · 在每个条目里，找"跟这个角色名在同一段话里"的分数；
+ *   · 找到就写进角色的 affinity 字段并注明来源；**找不到就留着不动**（⛔ 不编、不清零）。
+ */
+export async function refreshAffinity() {
+    const settings = getSettings();
+    const source = trimText(settings.affinitySource);
+    if (!source) {
+        return { ok: false, reason: '没配好感数据源' };
+    }
+    const state = loadState();
+    const roster = state.characters || [];
+    if (!roster.length) {
+        return { ok: false, reason: '名册是空的' };
+    }
+
+    const ctx = getCtx();
+    if (!ctx || typeof ctx.getLorebookEntries !== 'function') {
+        return { ok: false, reason: '这个世界书版本没给出读条目的接口' };
+    }
+    if (typeof ctx.getWorldbookNames === 'function') {
+        try {
+            const names = await ctx.getWorldbookNames();
+            const list = Array.isArray(names) ? names : [];
+            if (list.length && !list.some((n) => trimText(n) === source)) {
+                return { ok: false, reason: '没找到叫《' + source + '》的世界书（现有：' + list.join('、') + '）' };
+            }
+        } catch (e) {
+            // 读不到列表就继续试读条目
+        }
+    }
+
+    // 书名候选：她填的源名 + 提取世界书 + 角色卡绑定
+    const books = new Set();
+    books.add(source);
+    for (const b of toList(settings.extractBooks)) {
+        books.add(b);
+    }
+    const bound = trimText(ctx.chatMetadata && ctx.chatMetadata.world_info);
+    if (bound) {
+        books.add(bound);
+    }
+
+    let updated = 0;
+    let scanned = 0;
+    let readAny = false;
+
+    for (const book of books) {
+        if (!book) {
+            continue;
+        }
+        let entries = null;
+        try {
+            // eslint-disable-next-line no-await-in-loop
+            entries = await ctx.getLorebookEntries(book);
+        } catch (e) {
+            entries = null;
+        }
+        if (!Array.isArray(entries)) {
+            continue;
+        }
+        readAny = true;
+        for (const entry of entries) {
+            if (!entry || typeof entry !== 'object') {
+                continue;
+            }
+            const title = trimText(entry.comment) || trimText(entry.key);
+            const body = asText(entry.content);
+            if (!body) {
+                continue;
+            }
+            // 只读"跟好感有关"的条目（她配的关键词，或书名本身就对上了）
+            const relevant = book === source || matchKey(title).includes(matchKey(source)) || /好感|亲密度|好感度/.test(body);
+            if (!relevant) {
+                continue;
+            }
+            scanned += 1;
+            const lines = body.split(/\n+/);
+            for (const rawLine of lines) {
+                const line = trimText(rawLine);
+                if (!line) {
+                    continue;
+                }
+                for (const c of roster) {
+                    const forms = [c.name].concat(c.aliases || []).filter(Boolean);
+                    const hitName = forms.find((f) => line.includes(f));
+                    if (!hitName) {
+                        continue;
+                    }
+                    const num = line.match(/-?\d+(\.\d+)?/);
+                    if (!num) {
+                        continue;
+                    }
+                    const value = num[0];
+                    if (trimText(c.affinity) !== value || trimText(c.affinitySource) !== book) {
+                        c.affinity = value;
+                        c.affinitySource = book;
+                        c.updatedAt = Date.now();
+                        updated += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!readAny) {
+        return { ok: false, reason: '读不到那本世界书（书名对不对？）：' + source };
+    }
+    if (updated) {
+        saveState();
+    }
+    return { ok: true, updated, scanned };
 }
 
 /** 列出现有世界书名字（读不到就返回空数组，机器不崩） */
