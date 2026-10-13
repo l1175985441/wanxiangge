@@ -4,7 +4,7 @@
     "js": "index.js",
     "css": "wanxiangge.css",
     "author": "万象阁",
-    "version": "0.2.22",
+    "version": "0.2.23",
     "homePage": "",
     "auto_update": false,
     "minimum_client_version": "1.12.0",

@@ -2262,7 +2262,20 @@ export function bindSectionEvents(host, refresh) {
                     if (res.ok) {
                         toast.ok('连接通了：' + res.note);
                     } else {
-                        toast.fail('没通：' + res.note);
+                        /*
+                         * ⭐ 失败时把**实际打的地址**一起说出来。
+                         *    云酒馆最常见的两种坑就在这儿：挂在子路径下（路径推错）、
+                         *    或服务器把"自定义 URL"关了 ⇒ 光说"失败了"她没法判断。
+                         */
+                        let where = '';
+                        try {
+                            const mod = await import('../core/apiclient.js');
+                            where = mod.tavernApiPath();
+                        } catch (e) {
+                            where = '';
+                        }
+                        const mode = (getSettings().api || {}).mode === 'direct' ? '直连' : '经酒馆转发';
+                        toast.fail('没通（走的' + mode + (where ? '，打的是 ' + where : '') + '）：' + res.note);
                     }
                     break;
                 }

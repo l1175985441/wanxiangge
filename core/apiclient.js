@@ -176,6 +176,40 @@ export async function callModel(opts) {
     }
 }
 
+/**
+ * 酒馆"服务器转发"那条接口的地址。
+ *
+ * ⚠️ 云酒馆**可以整个挂在子路径下**（例：域名后面还跟一层目录）——那种情况下
+ *    写死 `/api/backends/...` 会打到**根域**、直接 404（本地酒馆看不出来，因为就在根上）。
+ *    办法：拿页面自己的 `location` 推。酒馆的前端页面在 `<挂载点>/` 或 `<挂载点>/index.html`：
+ *      · 结尾是 /index.html ⇒ 去掉它；
+ *      · 结尾是别的 .html（例如 login 页）⇒ 退回上一级；
+ *      · 推不出来（拿不到 location）⇒ 退回绝对路径，跟以前一样。
+ */
+export function tavernApiPath() {
+    const fallback = '/api/backends/chat-completions/generate';
+    let loc = null;
+    try {
+        loc = typeof window !== 'undefined' && window.location ? window.location : null;
+    } catch (e) {
+        loc = null;
+    }
+    if (!loc || !loc.pathname) {
+        return fallback;
+    }
+    let dir = String(loc.pathname);
+    if (/\/index\.html?$/i.test(dir)) {
+        dir = dir.replace(/\/index\.html?$/i, '');
+    } else if (/\.html?$/i.test(dir)) {
+        dir = dir.replace(/\/[^/]*$/, '');
+    } else if (!/\/$/.test(dir)) {
+        // 没有文件名也没斜杠（少见）⇒ 当成目录
+        dir = dir.replace(/\/[^/]*$/, '');
+    }
+    dir = dir.replace(/\/+$/, '');
+    return dir + fallback;
+}
+
 /** ① 经酒馆服务器转发 */
 async function callViaServer(url, key, model, body, signal, cheap) {
     const ctx = getCtx();
@@ -197,12 +231,22 @@ async function callViaServer(url, key, model, body, signal, cheap) {
         max_tokens: body.max_tokens,
         stream: false,
     };
-    const res = await fetch('/api/backends/chat-completions/generate', {
+    const endpoint = tavernApiPath();
+    let res = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
         signal,
     });
+    // ⚠️ 404 兜底：推出来的路径万一不对（她那台环境的挂法不同），退回绝对路径再试一次
+    if (res.status === 404 && endpoint !== '/api/backends/chat-completions/generate') {
+        res = await fetch('/api/backends/chat-completions/generate', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal,
+        });
+    }
     if (!res.ok) {
         let detail = '';
         try {
@@ -210,7 +254,11 @@ async function callViaServer(url, key, model, body, signal, cheap) {
         } catch (e) {
             detail = '';
         }
-        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + (detail ? '：' + detail : '') };
+        // 404 时把话说到位：云酒馆挂在子路径上、或酒馆没开这条接口
+        const hint = res.status === 404
+            ? '（接口没找到：如果酒馆挂在子路径下，或"自定义 URL"被服务器关了，就会这样）'
+            : '';
+        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + (detail ? '：' + detail : '') };
     }
     const data = await res.json().catch(() => null);
     const text = readCompletionText(data);
