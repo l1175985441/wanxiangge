@@ -692,15 +692,21 @@
     display: block !important;
 }
 
-/* ---- 状态条 ---- */
+/* ---- 状态行 ----
+ * ⚠️ 这一条原来是"灰底＋圆角的方块"（`background: var(--wxg-fill)`），
+ *    于是「已存进聊天档」「上次更新：…」看着像**两个空输入框**——
+ *    一屏的密度陡增，正是复核方说的那口"松"没补上。
+ *    ⇒ 改成**纯文本行＋一个小圆点**（参照图里这类一律是文本行，⛔ 不铺底、不描边）。
+ */
 .wanxiangge .wxg-ledger,
 .wanxiangge .wxg-store {
-    padding: 6px 10px 6px 22px;
-    margin-bottom: var(--wxg-gap);
-    border-radius: var(--wxg-radius);
-    background: var(--wxg-fill);
-    font-size: 0.92em;
-    line-height: 1.66;
+    padding: 3px 0 3px 18px;
+    margin-bottom: 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: var(--fs-label);
+    line-height: 1.8;
     position: relative;
 }
 
