@@ -267,20 +267,26 @@ function secStatus(host) {
     host.appendChild(box);
 }
 
+/**
+ * 总控：只放"整台怎么跑"的开关。
+ * ⚠️ 原来这里第一个是「启用万象阁」——**冗余**（她点出来的）：酒馆扩展列表里勾上了，
+ *    插件就是启用的；再放一个总闸＝两个开关管同一件事，关哪个都容易搞混。⇒ **去掉**。
+ *    想停就在酒馆的扩展列表里关它。
+ * 卡片那两个开关搬到「召回」段（那是卡片自己的事），这里只留"更新"有关的。
+ */
 function secGeneral(host) {
     const s = getSettings();
-    const box = section('总控', null, { open: true });
-    box.appendChild(checkbox('wxg-enabled', '启用万象阁', s.enabled, 'set-enabled'));
-    box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'set-card'));
-    box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'set-show-empty'));
-    box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出面板', s.showPanelOnStart, 'set-panel-on-start'));
-    box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'set-protected'));
-    box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'set-strict'));
+    const box = section('总控', '整台怎么跑：自动更新、频率、启动行为。'
+        + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里⛔ 不再放第二个总闸）',
+        { open: true });
     box.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'set-auto-update'));
     row(box,
         el('span', 'wxg-note', '频率：每'),
         numberInput('wxg-update-every', s.updateEvery, 1, 10, 'set-update-every'),
         el('span', 'wxg-note', '回合更新一次（1＝每回合都在动；2＝两格停在上一轮）'));
+    box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'set-protected'));
+    box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'set-strict'));
+    box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'set-panel-on-start'));
     host.appendChild(box);
 }
 
@@ -383,12 +389,20 @@ function secWorld(host) {
     host.appendChild(box);
 }
 
+/**
+ * 角色状态：**一行一个人，七列各就各位**（她点名要的形态）。
+ * 她原话："不是应该七列？几个小标题然后名字各就各位然后每一列各自填各自的？而且最上面还要加上搜索，
+ * 否则人物一多就哈哈哈。"
+ *
+ * 排布：名字（＋徽章＋明细开关）｜年龄｜身份｜所在势力｜好感｜时间・地点｜正在经历
+ *   点「明细」展开那一行：过去经历／日程／任务／合并与收下按钮（⛔ 不占表宽）。
+ */
 function secCharacters(host) {
     const state = loadState();
     const box = section('角色状态',
-        '每人七格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点。',
-        { open: true }
-        + '内容可以直接改字；改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。');
+        '一行一个人：**名字／年龄／身份／所在势力／好感／时间・地点／正在经历**各就各位，格子里直接改字；'
+        + '改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。点「明细」看过去经历、日程与任务。',
+        { open: true });
 
     if (!state.characters.length) {
         box.appendChild(el('div', 'wxg-empty', '名册还是空的：下面「人物名册」里加人，或点「一键盘入预设名册」。'));
@@ -396,47 +410,138 @@ function secCharacters(host) {
         return;
     }
 
-    for (const c of state.characters) {
-        const det = foldable(trimText(c.name)
-            + (c.isPlayer ? '（玩家棋子）' : '')
-            + (trimText(c.identity) ? ' · ' + trimText(c.identity) : '')
-            + (trimText(c.affinity) ? ' · 好感 ' + trimText(c.affinity) : ' · 好感未接'), false);
-        const body = el('div', 'wxg-report-body');
-        const grid = el('div', 'wxg-grid');
+    /* ---- 工具条：搜索 ＋ 排序 ＋ 计数 ---- */
+    const tools = el('div', 'wxg-ctools');
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.id = 'wxg-char-search';
+    search.className = 'text_pole wxg-search';
+    search.placeholder = '搜人：名字／别名／身份／势力／时间地点／正在经历／任务';
+    search.value = charSearch.query;
+    search.setAttribute('data-live-action', 'char-search');
+    tools.appendChild(search);
+    tools.appendChild(select('wxg-char-sort', [
+        { value: 'recent', label: '按最近更新' },
+        { value: 'name', label: '按名字' },
+        { value: 'affinity', label: '按好感' },
+        { value: 'scene', label: '本轮在现场的优先' },
+    ], charSearch.sort, 'char-sort'));
+    const countChip = el('span', 'wxg-note', String(state.characters.length) + ' 人');
+    countChip.setAttribute('data-role', 'char-count');
+    tools.appendChild(countChip);
+    box.appendChild(tools);
 
-        const field = (label, key, value, placeholder) => {
-            const f = el('div', 'wxg-field');
-            f.appendChild(el('label', null, label));
-            const input = textInput('wxg-c-' + key + '-' + c.id, value, placeholder, 'set-char-field', 'wxg-short');
-            input.setAttribute('data-id', c.id);
-            input.setAttribute('data-key', key);
-            f.appendChild(input);
-            return f;
-        };
-        grid.appendChild(field('年龄', 'age', c.age, ''));
-        grid.appendChild(field('身份', 'identity', c.identity, ''));
-        grid.appendChild(field('所在势力', 'faction', c.faction, ''));
-        grid.appendChild(field('好感（读自"手机"）', 'affinity', c.affinity, '未接入就留空'));
-        grid.appendChild(field('时间・地点', 'timePlace', c.timePlace, '例：第二天 上午 · 学校'));
-        body.appendChild(grid);
+    /* ---- 排序 ---- */
+    const rows = state.characters.slice();
+    if (charSearch.sort === 'name') {
+        rows.sort((a, b) => asText(a.name).localeCompare(asText(b.name), 'zh'));
+    } else if (charSearch.sort === 'affinity') {
+        rows.sort((a, b) => affinityNum(b.affinity) - affinityNum(a.affinity));
+    } else if (charSearch.sort === 'scene') {
+        rows.sort((a, b) => (b.inScene === true ? 1 : 0) - (a.inScene === true ? 1 : 0)
+            || Number(b.lastSeenFloor || 0) - Number(a.lastSeenFloor || 0));
+    } else {
+        rows.sort((a, b) => Number(b.lastSeenFloor || 0) - Number(a.lastSeenFloor || 0)
+            || Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+    }
 
-        const cur = el('div', 'wxg-field');
-        cur.appendChild(el('label', null, '正在经历'));
-        const curInput = textarea('wxg-c-current-' + c.id, c.current, '本回合正在发生的事（只写这一步、只写他自己）', 'set-char-field', 2);
-        curInput.setAttribute('data-id', c.id);
-        curInput.setAttribute('data-key', 'current');
-        cur.appendChild(curInput);
-        // ⭐ 引擎自己知道这条不牢时，要**当场说出来**（她点名的"污染正文"就是这个）：
-        //    现场角色写了正文里没有的 ⇒ 标记"疑似编造"；写到下一步／预判 ⇒ 标记"越界"。
+    /* ---- 表 ---- */
+    const table = document.createElement('table');
+    table.className = 'wxg-ctable';
+    const thead = document.createElement('thead');
+    const htr = document.createElement('tr');
+    for (const h of ['名字', '年龄', '身份', '所在势力', '好感', '时间・地点', '正在经历']) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        htr.appendChild(th);
+    }
+    thead.appendChild(htr);
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    /** 表格里的一个可改格子 */
+    const cell = (c, key, placeholder, isArea) => {
+        const td = document.createElement('td');
+        if (key === 'current') {
+            td.className = 'wxg-cur-cell';
+        }
+        const input = isArea
+            ? textarea('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field', 2)
+            : textInput('wxg-c-' + key + '-' + c.id, c[key], placeholder, 'set-char-field');
+        input.setAttribute('data-id', c.id);
+        input.setAttribute('data-key', key);
+        td.appendChild(input);
+        return td;
+    };
+
+    for (const c of rows) {
+        const tr = document.createElement('tr');
+        // 搜索用的"底稿"（搜的时候只切 class，⛔ 不重画页面，才不会打断她打字）
+        tr.setAttribute('data-search', asText([
+            c.name, (c.aliases || []).join(' '), c.identity, c.faction, c.timePlace, c.current, c.affinity,
+            (c.quests || []).map((q) => q.title).join(' '),
+        ].join(' ')).toLowerCase());
+        tr.setAttribute('data-id', c.id);
+
+        /* 名字这一格：名字 ＋ 徽章 ＋ 明细开关 */
+        const nameTd = document.createElement('td');
+        const nameCell = el('div', 'wxg-cname-cell');
+        nameCell.appendChild(el('span', 'wxg-cname', trimText(c.name) || '（没名字）'));
+        if (c.isPlayer) {
+            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '玩家棋子'));
+        }
+        if (c.inScene) {
+            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '在现场'));
+        }
+        if (c.isNew) {
+            nameCell.appendChild(el('span', 'wxg-badge', '新认的人'));
+        }
+        if (c.manual) {
+            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
+        }
+        if (c.currentSuspect) {
+            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-warn', '⚠ 不可靠'));
+        }
+        if (c.ignored) {
+            nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已忽略'));
+        }
+        const more = button('明细', 'toggle-cdetail', 'wxg-mini', c.id);
+        nameCell.appendChild(more);
+        nameTd.appendChild(nameCell);
+        tr.appendChild(nameTd);
+
+        tr.appendChild(cell(c, 'age', '几岁'));
+        tr.appendChild(cell(c, 'identity', '是什么'));
+        tr.appendChild(cell(c, 'faction', '所属'));
+        const affTd = cell(c, 'affinity', '未接入就留空');
+        // 好感只能"读"——接入数据源时提示她这是读来的
+        affTd.title = trimText(c.affinitySource) ? ('读自：' + trimText(c.affinitySource)) : '没接数据源（引擎不自己编）';
+        tr.appendChild(affTd);
+        tr.appendChild(cell(c, 'timePlace', '例：第二天 上午 · 学校'));
+        tr.appendChild(cell(c, 'current', '本回合正在发生的事（只写这一步、只写他自己）', true));
+        tbody.appendChild(tr);
+
+        /* ---- 明细行（默认收起） ---- */
+        const dtr = document.createElement('tr');
+        dtr.className = 'wxg-cdetail-row';
+        dtr.setAttribute('data-detail-of', c.id);
+        dtr.setAttribute('data-hide', '1');
+        const dtd = document.createElement('td');
+        dtd.setAttribute('colspan', '7');
+        const detail = el('div', 'wxg-cdetail');
+        if (detail.style) {
+            detail.style.display = 'none';
+        }
+
         if (c.currentSuspect) {
             const warn = el('div', 'wxg-store', '⚠ 这条「正在经历」引擎判定**不可靠**：'
                 + (trimText(c.currentSuspectWhy) || '疑似越界')
                 + '　⇒ 已标出来、但没擅自改它，你看着办（下一步该由你回话决定）');
             warn.setAttribute('data-tone', 'bad');
-            cur.appendChild(warn);
+            detail.appendChild(warn);
         }
-        body.appendChild(cur);
 
+        // 过去经历
         const past = el('div', 'wxg-field');
         past.appendChild(el('label', null, '过去经历（由近到远，旧的自然淡化）'));
         const pastBox = el('div', 'wxg-list');
@@ -448,8 +553,9 @@ function secCharacters(host) {
             }
         }
         past.appendChild(pastBox);
-        body.appendChild(past);
+        detail.appendChild(past);
 
+        // 日程
         if (c.schedule.length) {
             const sch = el('div', 'wxg-field');
             sch.appendChild(el('label', null, '日程（到点要跟上）'));
@@ -458,11 +564,11 @@ function secCharacters(host) {
                 schBox.appendChild(el('div', 'wxg-fact', '· ' + s.what + (s.due ? '（' + s.due + '）' : '') + (s.done ? ' ✓已到' : '')));
             }
             sch.appendChild(schBox);
-            body.appendChild(sch);
+            detail.appendChild(sch);
         }
 
-        // ⭐ 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
-        //    整理规则（我定的）：**进行中的排前面，完成/搁置的收进折叠里**（不占地方，但一条不丢）
+        // 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
+        // 整理规则（我定的）：进行中的排前面，完成/搁置的收进折叠里（不占地方，但一条不丢）
         if (Array.isArray(c.quests) && c.quests.length) {
             const qBox = el('div', 'wxg-list');
             const open = c.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
@@ -474,11 +580,10 @@ function secCharacters(host) {
                 + (over.length ? '（已结束 ' + String(over.length) + '）' : '')));
 
             const makeQuestRow = (q) => {
-                const row = el('div', 'wxg-rowitem');
+                const row2 = el('div', 'wxg-rowitem');
                 const head = el('div', 'wxg-rowname');
                 head.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(q.kind) === 'main' ? '主线' : '支线'));
                 head.appendChild(el('span', 'wxg-name', trimText(q.title)));
-                // 状态可手改（活跃／完成／搁置）
                 const st = select('wxg-q-' + c.id + '-' + trimText(q.title), [
                     { value: '活跃', label: '活跃' },
                     { value: '完成', label: '完成' },
@@ -493,14 +598,14 @@ function secCharacters(host) {
                 const del = button('删', 'del-quest', 'wxg-mini', c.id);
                 del.setAttribute('data-title', trimText(q.title));
                 head.appendChild(del);
-                row.appendChild(head);
+                row2.appendChild(head);
                 if (trimText(q.note)) {
-                    row.appendChild(el('div', 'wxg-fact', trimText(q.note)));
+                    row2.appendChild(el('div', 'wxg-fact', trimText(q.note)));
                 }
                 if (Array.isArray(q.items) && q.items.length) {
-                    row.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
+                    row2.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
                 }
-                return row;
+                return row2;
             };
 
             if (!open.length) {
@@ -518,30 +623,71 @@ function secCharacters(host) {
                 fold.appendChild(inner);
                 qBox.appendChild(fold);
             }
-            body.appendChild(qBox);
+            detail.appendChild(qBox);
         }
 
+        // 合并与收下
         const badges = el('div', 'wxg-row');
-        if (c.manual) {
-            badges.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已手动修改'));
-        }
-        if (c.isNew) {
-            badges.appendChild(el('span', 'wxg-badge wxg-badge-soft', '新认的人'));
-        }
-        if (c.inScene) {
-            badges.appendChild(el('span', 'wxg-badge wxg-badge-soft', '本轮在现场'));
-        }
         badges.appendChild(button('按这条合并…', 'merge-into', 'wxg-mini', c.id));
         if (c.isNew) {
             badges.appendChild(button('名字对，收下', 'accept-new', 'wxg-mini', c.id));
             badges.appendChild(button('忽略这条', 'ignore-char', 'wxg-mini', c.id));
         }
-        body.appendChild(badges);
+        detail.appendChild(badges);
 
-        det.appendChild(body);
-        box.appendChild(det);
+        dtd.appendChild(detail);
+        dtr.appendChild(dtd);
+        tbody.appendChild(dtr);
     }
+
+    table.appendChild(tbody);
+    box.appendChild(table);
+    box.appendChild(el('div', 'wxg-note', '搜索只筛显示，⛔ 不动数据；「明细」里是过去经历、日程与任务。'));
     host.appendChild(box);
+
+    // 按当前的搜索词先筛一遍
+    applyCharSearch(host, charSearch.query);
+}
+
+/** 角色状态：搜索与排序的"记忆"（重画之后还在，不会因为改一个字就被清空） */
+export const charSearch = { query: '', sort: 'recent' };
+
+/** 把好感写成能排序的数字（"62"／"62(+0.5)"／"未知" 都能认） */
+function affinityNum(v) {
+    const m = asText(v).match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : -Infinity;
+}
+
+/**
+ * 按搜索词筛行：只切 css 类，⛔ 不重画页面
+ * （重画会把她正在打的字、正在看的滚动位置全弄没）。
+ */
+export function applyCharSearch(root, query) {
+    if (!root || typeof root.querySelectorAll !== 'function') {
+        return;
+    }
+    const q = asText(query).trim().toLowerCase();
+    const rows = Array.from(root.querySelectorAll('.wxg-ctable tbody tr[data-search]'));
+    let shown = 0;
+    for (const tr of rows) {
+        const hit = !q || asText(tr.getAttribute('data-search')).includes(q);
+        if (tr.classList) {
+            tr.classList.toggle('wxg-rowfiltered', !hit);
+        }
+        if (hit) {
+            shown += 1;
+        }
+        // 明细行跟着主人一起藏
+        const id = tr.getAttribute('data-id');
+        const detail = root.querySelector('.wxg-cdetail-row[data-detail-of="' + id + '"]');
+        if (detail && detail.classList && !hit) {
+            detail.classList.add('wxg-rowfiltered');
+        }
+    }
+    const chip = root.querySelector('[data-role="char-count"]');
+    if (chip) {
+        chip.textContent = q ? ('筛出 ' + String(shown) + ' 人') : (String(rows.length) + ' 人');
+    }
 }
 
 function secChronicle(host) {
@@ -733,6 +879,9 @@ function secRecall(host) {
         el('span', 'wxg-note', '一轮最多推演'),
         numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'set-max-parallel'),
         el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
+    // 卡片那两个开关归这儿（它们是"召回之后怎么显示"的事，⛔ 不是总闸）
+    box.appendChild(checkbox('wxg-card-enabled', '在你每条发言后面显示召回卡片', s.cardEnabled, 'set-card'));
+    box.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'set-show-empty'));
     host.appendChild(box);
 }
 
@@ -1294,6 +1443,29 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-strict': patchSettings({ strictMention: target.checked }); break;
                 case 'set-auto-update': patchSettings({ autoUpdate: target.checked }); break;
                 case 'set-update-every': if (isChange) { patchSettings({ updateEvery: target.value }); } break;
+                /* ---- 角色状态：明细开关 / 排序 ---- */
+                case 'toggle-cdetail': {
+                    // 点「明细」展开那一行（只切显示，⛔ 不重画，免得丢她正在改的字）
+                    const drow = host.querySelector('.wxg-cdetail-row[data-detail-of="' + id + '"]');
+                    if (drow) {
+                        const openNow = drow.getAttribute('data-hide') !== '1';
+                        drow.setAttribute('data-hide', openNow ? '1' : '0');
+                        const inner = drow.querySelector('.wxg-cdetail');
+                        if (inner && inner.style) {
+                            inner.style.display = openNow ? 'none' : 'block';
+                        }
+                        if (target.textContent === '明细' || target.textContent === '收起') {
+                            target.textContent = openNow ? '明细' : '收起';
+                        }
+                    }
+                    break;
+                }
+                case 'char-sort':
+                    if (isChange) {
+                        charSearch.sort = trimText(target.value) || 'recent';
+                        rerender();
+                    }
+                    break;
 
                 /* ---- 世界状态 ---- */
                 case 'set-situation': {
@@ -1698,4 +1870,16 @@ export function bindSectionEvents(host, refresh) {
 
     host.addEventListener('click', handler);
     host.addEventListener('change', handler);
+    // ⭐ 角色搜索要"边打边筛"：只切显示、⛔ 不重画
+    //    （重画会把她正在打的字和滚动位置全弄没）
+    host.addEventListener('input', (e) => {
+        const t = e && e.target;
+        if (!t || typeof t.getAttribute !== 'function') {
+            return;
+        }
+        if (t.getAttribute('data-live-action') === 'char-search') {
+            charSearch.query = asText(t.value);
+            applyCharSearch(host, charSearch.query);
+        }
+    });
 }

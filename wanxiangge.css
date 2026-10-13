@@ -565,6 +565,7 @@
     }
 }
 
+/* ---- 顶部跳转条（浮层面板里画；工作台靠左栏导航，不用它） ----
    ⭐ 做成"分段导航"的样子：当前所在的那段高亮＋下划线（滚动时会自动跟着变）。
    为什么：原来 12 颗一模一样的胶囊，看不出"你现在在哪"（对照别家插件的 tab 栏看出来的）。 */
 .wanxiangge .wxg-nav {
@@ -1145,5 +1146,123 @@ body.wxg-dragging {
         top: 6vh !important;
         width: 96vw !important;
         height: 86vh !important;
+    }
+}
+
+/* ============================ 角色状态：一行一个人（她点名要的） ============================ */
+/* 她原话："不是应该七列？几个小标题然后名字各就各位然后每一列各自填各自的？而且最上面还要加上搜索" */
+
+.wanxiangge .wxg-ctools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 9px;
+}
+
+.wanxiangge .wxg-search {
+    flex: 1 1 12em;
+    min-width: 8em;
+}
+
+.wanxiangge .wxg-ctools .wxg-note {
+    flex: 0 0 auto;
+}
+
+/* 宽了才铺成表；窄栏（设置区那 340px）自动退回卡片，⛔ 不硬挤成七列 */
+.wanxiangge .wxg-ctable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.94em;
+    table-layout: fixed;
+}
+
+.wanxiangge .wxg-ctable th {
+    text-align: left;
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--wxg-line);
+    color: var(--wxg-dim);
+    background: var(--wxg-fill);
+}
+
+.wanxiangge .wxg-ctable td {
+    padding: 4px 5px;
+    border-bottom: 1px solid var(--wxg-line);
+    vertical-align: top;
+}
+
+.wanxiangge .wxg-ctable tbody tr:hover {
+    background: var(--wxg-fill);
+}
+
+.wanxiangge .wxg-ctable input,
+.wanxiangge .wxg-ctable textarea,
+.wanxiangge .wxg-ctable select {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.96em;
+}
+
+.wanxiangge .wxg-cname-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.wanxiangge .wxg-cname {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wanxiangge .wxg-cur-cell textarea {
+    min-height: 2.6em;
+    resize: vertical;
+}
+
+/* 收起来的行：只给她一列"明细 ＋ 徽章"，点开看全部 */
+.wanxiangge .wxg-cdetail-row > td {
+    padding: 0;
+    border-bottom: 0;
+}
+
+.wanxiangge .wxg-cdetail {
+    padding: 9px 11px 12px;
+    border-bottom: 1px solid var(--wxg-line);
+    background: var(--wxg-fill);
+}
+
+.wanxiangge .wxg-rowfiltered {
+    display: none;
+}
+
+/* 窄栏：表格铺不开 ⇒ 一行退回一张卡（标头藏起来，字段各自带标签） */
+@media (max-width: 620px) {
+    .wanxiangge .wxg-ctable,
+    .wanxiangge .wxg-ctable thead,
+    .wanxiangge .wxg-ctable tbody,
+    .wanxiangge .wxg-ctable tr,
+    .wanxiangge .wxg-ctable td,
+    .wanxiangge .wxg-ctable th {
+        display: block;
+        width: auto;
+    }
+
+    .wanxiangge .wxg-ctable thead {
+        display: none;
+    }
+
+    .wanxiangge .wxg-ctable tbody tr {
+        margin-bottom: 8px;
+        border: 1px solid var(--wxg-line);
+        border-radius: var(--wxg-radius);
+        padding: 6px 7px;
+    }
+
+    .wanxiangge .wxg-ctable td {
+        border-bottom: 0;
+        padding: 2px 0;
     }
 }
