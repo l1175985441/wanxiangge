@@ -73,6 +73,12 @@ function section(title, hint, opts) {
     }
     // 壳记在正文层自己的属性上（直接引用，零魔法）
     body.__wxgDrawer = drawer;
+    // ⚠️ 这两个标记只给**离线预览页**用（它没有酒馆那套 JS，得照标记判断哪几段是展开的）：
+    //    ⛔ 不参与任何逻辑判断；我上一版把标记弄丢过，结果预览把每段正文都跳过了（只剩标题连成一坨）。
+    body.setAttribute('data-wxg-sec', title);
+    if (o.open) {
+        body.setAttribute('data-wxg-open', '1');
+    }
     return body;
 }
 
@@ -830,24 +836,31 @@ export function renderSections(host, opts) {
      *    这里把"壳 ＋ 正文"合起来，**整壳**挂进宿主。
      *    ⛔ 只挂正文 = 标题全丢；只挂壳 = 内容全丢（这两种错我都犯过，别再来一次）。
      *
+     * ⭐ 顺序也照"怎么用"排（原来是历史顺序，看板被埋在配置后面）：
+     *    ① 现在怎么样（账本／进度）→ ② 世界与人（世界／角色／编年／名册／过程报告）
+     *    → ③ 设一次就不动（总控／召回／读取控制／API／提示词）
+     *
      * ⚠️ 加固（真机崩过一次）：**挂载这一步也在 try 里**——它要是抛，兜底才真的兜得住。
      *    并且 `children` 是 **HTMLCollection**（真 DOM），⛔ 没有 .slice()/.includes()，
      *    一律 `Array.from(...)` 转成数组再用（假环境把它做成数组，所以自审没抓住，已修 shim）。
      */
     const staging = el('div', 'wxg-stage');
     try {
+        // ① 看板：现在怎么样
         secStatus(staging);
+        secSteps(staging);
+        // ② 世界与人
         secWorld(staging);
         secCharacters(staging);
-        secChronicle(staging);
         secReport(staging);
+        secChronicle(staging);
         secRoster(staging);
+        // ③ 配置：设一次就不动
         secGeneral(staging);
         secRecall(staging);
         secExtract(staging);
         secApi(staging);
         secPrompts(staging);
-        secSteps(staging);
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = Array.from(host.children || []).length;
@@ -856,13 +869,84 @@ export function renderSections(host, opts) {
         if (!added) {
             drawFailure(host, new Error('12 段一段都没画出来（可能是这一版和设置里存的老数据对不上）'));
         }
+        buildJumpNav(host);
     } catch (e) {
         console.warn('[万象阁] 画面板出错：', e);
         drawFailure(host, e);
     }
 }
 
-/** 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非正文层的东西原样搬 */
+/**
+ * 顶部"快速跳转"（只在**独立面板**里画）。
+ *
+ * 为什么这么做（而不是分页／页签）：
+ *   · 分页会把东西**藏起来**——"没完成的事""失败原因"这类她要能一眼看见；
+ *   · 面板本来就能拖大，宽栏里一行放得下 ⇒ 一行"跳转条"比页签更省事、也不丢内容；
+ *   · 窄栏（酒馆设置区那个抽屉）里放不下就不画，那边靠折叠＋顺序解决。
+ * ⛔ 不用 anchor 链接（怕动了地址栏），走委托点击 + scrollIntoView。
+ */
+function buildJumpNav(host) {
+    if (!host) {
+        return;
+    }
+    const old = host.querySelector('.wxg-nav');
+    if (old) {
+        old.remove();
+    }
+    if (host.getAttribute('data-wxg-mode') !== 'panel') {
+        return;   // 窄栏不画
+    }
+    const nav = el('div', 'wxg-nav');
+    nav.appendChild(el('span', 'wxg-nav-title', '跳到'));
+    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
+    secs.forEach((sec, i) => {
+        const titleEl = sec.querySelector('.wxg-sec-title');
+        const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
+        const btn = el('button', 'wxg-nav-btn', name);
+        btn.type = 'button';
+        btn.setAttribute('data-jump', String(i));
+        nav.appendChild(btn);
+    });
+    // ⚠️ 要插在**最前面**：用 firstChild 当参照（appendChild 那样会跑到末尾去）
+    const first = (host.children && host.children.length) ? host.children[0] : null;
+    if (first) {
+        host.insertBefore(nav, first);
+    } else {
+        host.appendChild(nav);
+    }
+}
+
+/** 跳转条上的点击：滚到那一段，并顺手把它展开（不然滚到了还是收着的） */
+export function jumpToSection(host, index) {
+    if (!host) {
+        return;
+    }
+    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
+    const sec = secs[Number(index)];
+    if (!sec) {
+        return;
+    }
+    // 展开它（酒馆的折叠是内联样式管的，这里直接设）
+    const body = sec.querySelector('.wxg-sec-body');
+    if (body && body.style) {
+        body.style.display = 'block';
+    }
+    const icon = sec.querySelector('.inline-drawer-icon');
+    if (icon && icon.classList) {
+        icon.classList.remove('down');
+        icon.classList.add('up');
+    }
+    if (typeof sec.scrollIntoView === 'function') {
+        try {
+            sec.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        } catch (e) {
+            sec.scrollIntoView();
+        }
+    }
+}
+
+/**
+ * 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非原生层的东西原样搬 */
 function hangUp(host, staging) {
     // ⚠️ children 是 HTMLCollection：先转数组再遍历／查找（真机就栽在这里）
     for (const node of Array.from(staging.children || [])) {
@@ -1023,6 +1107,12 @@ export function bindSectionEvents(host, refresh) {
     };
 
     const handler = async (e) => {
+        // ⭐ 顶部"快速跳转"：它没有 data-action（那是给会改数据的东西用的）
+        const jump = e.target.closest && e.target.closest('[data-jump]');
+        if (jump) {
+            jumpToSection(host, jump.getAttribute('data-jump'));
+            return;
+        }
         const target = e.target.closest('[data-action]');
         if (!target) {
             return;

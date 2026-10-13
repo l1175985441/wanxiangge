@@ -179,6 +179,47 @@
     --wxg-dim: var(--SmartThemeEmColor, rgba(160, 160, 160, 1));
 }
 
+/* ---- 顶部"快速跳转"（只在独立面板里画；窄栏里不出现） ---- */
+.wanxiangge .wxg-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--wxg-line);
+    border-radius: var(--wxg-radius);
+    background: var(--wxg-fill);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.wanxiangge .wxg-nav-title {
+    font-size: 0.82em;
+    opacity: 0.6;
+    margin-right: 2px;
+}
+
+.wanxiangge .wxg-nav-btn {
+    font: inherit;
+    font-size: 0.84em;
+    line-height: 1.6;
+    padding: 1px 9px;
+    border: 1px solid var(--wxg-line);
+    border-radius: 11px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.85;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.wanxiangge .wxg-nav-btn:hover {
+    opacity: 1;
+    background: var(--wxg-fill-strong);
+}
+
 /* ---- 段＝折叠抽屉 ---- */
 .wanxiangge .wxg-sec {
     margin-bottom: 6px;
