@@ -2657,3 +2657,14 @@ body.wxg-dragging {
     cursor: default;
     pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+   ④ 引用块：长文段一律"左竖线 ＋ 浅底"
+   —— 提示词那块的 `.wxg-prompt-cur` 早就是这个样子；
+      过程报告里"实际送进请求的内容"也是**被引用的原文**，归到同一个语言里。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-report-text {
+    border-left: 3px solid var(--wxg-accent, var(--wxg-line));
+    border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+}

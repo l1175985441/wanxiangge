@@ -1740,7 +1740,8 @@ function secReport(host) {
         if (Array.isArray(rec.items) && rec.items.length) {
             for (const item of rec.items) {
                 const c = item && item.character ? item.character : {};
-                const bits = [trimText(c.name) || '（未记名）', '理由：' + (trimText(item.reason) || '—')];
+                // 空值写「暂无」（复核方第六条：不隐身、不写"—"）
+                const bits = [trimText(c.name) || '（未记名）', '理由：' + (trimText(item.reason) || '暂无')];
                 const has = [];
                 has.push(trimText(c.affinity) ? '好感 ' + trimText(c.affinity) : '好感未接入数据源');
                 if (trimText(c.identity)) {
