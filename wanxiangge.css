@@ -297,9 +297,16 @@
 }
 
 .wanxiangge .wxg-field > .text_pole,
-.wanxiangge .wxg-field > select,
+.wanxiangge .wxg-field > select {
+    /* ⚠️ 真机上看出来的：`flex:1 1 140px` 会把输入框在宽面板里拉满一整行，
+       标签被挤到上一行、下面留一片空 ⇒ 改成按内容伸展（不主动拉大），
+       窄栏里它还是会自己换行。 */
+    flex: 0 1 auto;
+    min-width: 7em;
+}
+
 .wanxiangge .wxg-field > textarea {
-    flex: 1 1 120px;
+    flex: 1 1 100%;
     min-width: 0;
 }
 
@@ -312,8 +319,9 @@
 }
 
 .wanxiangge .wxg-short {
-    min-width: 140px;
-    flex: 1 1 140px;
+    /* 同理：不主动拉大（原来 flex:1 1 140px 在宽栏里会把一行撑爆） */
+    flex: 0 1 auto;
+    min-width: 7em;
 }
 
 .wanxiangge input[type="number"] {
