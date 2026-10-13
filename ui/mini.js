@@ -69,10 +69,12 @@ export function mountMini() {
     ballEl.appendChild(dot);
 
     /* ---- 展开面板 ---- */
+    // 头部整条都能点（她点了名字或空白处也能开合，⛔ 不逼她非点那颗小球）
     panelEl = document.createElement('div');
     panelEl.className = 'wxg-mini-panel';
     const head = document.createElement('div');
     head.className = 'wxg-mini-head';
+    head.setAttribute('data-mini-action', 'toggle');
     head.appendChild(elText('span', 'wxg-mini-name', '万象阁'));
     const actions = document.createElement('div');
     actions.className = 'wxg-mini-actions';
