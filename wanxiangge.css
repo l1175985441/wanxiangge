@@ -2891,3 +2891,47 @@ body.wxg-dragging {
     font-size: var(--fs-note);
     color: var(--wxg-dim);
 }
+
+/* ---------------------------------------------------------------------------
+   ④ 左栏分组（自家面板参考里点名的做法）
+   13 段平铺太长 ⇒ "看数据／调设置"两堆；组标题比条目小一号、更淡，⏐ 不跟条目抢眼。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-ws-side-group {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: var(--s3) var(--s2) 4px;
+    margin-top: var(--s1);
+}
+
+.wanxiangge .wxg-ws-side-group:first-child {
+    padding-top: var(--s1);
+    margin-top: 0;
+}
+
+.wanxiangge .wxg-ws-side-group-k {
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--wxg-dim);
+    text-transform: none;
+}
+
+.wanxiangge .wxg-ws-side-group-h {
+    font-size: 0.74em;
+    color: var(--wxg-dim);
+    opacity: 0.7;
+}
+
+/* 组与组之间一条淡线（分开两堆） */
+.wanxiangge .wxg-ws-side-group:not(:first-child) {
+    border-top: 1px solid var(--wxg-line);
+}
+
+/* 「总共 N 楼」那一行（自家面板真机图里它在最上面单独一句） */
+.wanxiangge .wxg-total-line {
+    padding: var(--s2) 0 var(--s1);
+    font-size: 1.02em;
+    color: var(--wxg-text-strong, inherit);
+}

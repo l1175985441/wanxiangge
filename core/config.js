@@ -29,6 +29,41 @@ export const MINI_ID = 'wanxiangge-mini';
  *    ⛔ 别随手写一个"看着像"的名字（缺了就是一个空白方块，而且很难一眼发现）。
  * 顺序＝段落顺序：账本／进度／世界／角色／过程报告／编年／名册／总控／外观／召回／读取／API／提示词。
  */
+/**
+ * ⭐ 左栏**分组**（复核方从那张自家面板参考里点名的："左栏分组"）。
+ *
+ * 为什么：13 个段平铺成一条，找一段得从头扫到尾——分两组之后，
+ * "看数据"和"调设置"各自成堆，扫一眼就知道该往哪边看。
+ *
+ * ⚠️ 按**关键词**配对（`includes`），⛔ 不按序号：段名以后改了字也不会错位。
+ * 第一个匹配上的组说了算；都不匹配 ⇒ 归到最后那组（⛔ 不会掉出去）。
+ */
+export const SIDEBAR_GROUPS = [
+    {
+        key: 'look',
+        label: '看数据',
+        hint: '世界现在什么样',
+        match: ['账本', '进度', '世界状态', '角色状态', '过程报告', '编年', '名册'],
+    },
+    {
+        key: 'tune',
+        label: '调设置',
+        hint: '设一次就不动',
+        match: ['总控', '外观', '召回', '读取控制', 'API', '提示词'],
+    },
+];
+
+/** 段名 → 组（⛔ 拿不到就给最后一组，别让它掉出左栏） */
+export function groupOfSection(name) {
+    const s = String(name || '');
+    for (const g of SIDEBAR_GROUPS) {
+        if (g.match.some((k) => s.includes(k))) {
+            return g;
+        }
+    }
+    return SIDEBAR_GROUPS[SIDEBAR_GROUPS.length - 1];
+}
+
 export const SIDEBAR_ICONS = [
     'fa-book',
     'fa-list-check',

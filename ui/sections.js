@@ -2046,11 +2046,19 @@ function secSteps(host) {
     }
     const stat = (pred) => rows.filter(pred).length;
     const doneCount = stat((r) => r.done);
+    // 走到哪楼了（取已做里最高的那楼；⏐ 不假设它们是连着的）
+    const maxDone = rows.filter((r) => r.done).reduce((m, r) => Math.max(m, r.floor), -1);
     const injCount = stat((r) => r.injected);
     const chronCount = stat((r) => r.chron);
     const num = (n) => String(n) + ' 楼';
 
-    // ⭐ 统计表（柚月那种一行一类）
+    /*
+     * ⭐ 统计表（自家面板那张真机图的排法）：
+     *    第一行先单独一句「总共 N 楼」，下面才是一行一类的「已 X｜没 X」。
+     */
+    box.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
+
+    // ⭐ 统计表（一行一类）
     const cStat = card('进度');
     const addStat = (label, doneN, totalN, extra) => {
         const line = el('div', 'wxg-stat-line');
@@ -2063,8 +2071,8 @@ function secSteps(host) {
         }
         cStat.appendChild(line);
     };
-    addStat('正文', doneCount, total, '共 ' + num(total) + '（含 #0 开场白）'
-        + (lastFloor >= 0 ? ' · 上次走到 ' + floorLabel(lastFloor) : ' · 还没更新过'));
+    addStat('正文', doneCount, total, (maxDone >= 0 ? '最高到 ' + floorLabel(maxDone) : '还没开始')
+        + (lastFloor >= 0 ? ' · 上次更新停在 ' + floorLabel(lastFloor) : ' · 还没更新过'));
     addStat('注入', injCount, total, '把状态送进请求的楼');
     addStat('编年', chronCount, total, '留下过记录的楼');
 

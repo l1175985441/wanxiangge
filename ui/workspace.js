@@ -10,7 +10,7 @@
  *   · 浮层小框（ui/mini.js）是"聊天时瞄一眼"的入口，点它就打开这里。
  */
 
-import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS } from '../core/config.js';
+import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, groupOfSection } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections, bindSectionEvents, fillText } from './sections.js';
 import { applyAppearance } from './theme.js';
@@ -169,7 +169,9 @@ export function refreshWorkspace() {
     buildSidebar();
     renderChips();
     // 默认停在上次看的那一段
-    const idx = Math.min(Math.max(0, activeIndex), Math.max(0, (sideEl ? sideEl.children.length : 1) - 1));
+    // ⚠️ 同样只数**条目**（children 里还有组标题，见 showIndex 里的说明）
+    const itemCount = asArray(sideEl ? sideEl.querySelectorAll('.wxg-ws-side-item') : []).length;
+    const idx = Math.min(Math.max(0, activeIndex), Math.max(0, itemCount - 1));
     showIndex(idx, false);
     hostEl.scrollTop = scroll;
 }
@@ -183,9 +185,29 @@ function buildSidebar() {
         sideEl.removeChild(sideEl.firstChild);
     }
     const secs = asArray(hostEl.querySelectorAll('.wxg-sec'));
+    /*
+     * ⭐ 左栏**分组**（自家面板参考里点名的做法）：13 段平铺太长 ⇒ 分"看数据／调设置"两堆。
+     *    ⚠️ 组按**关键词**配（见 config.SIDEBAR_GROUPS），⛔ 不按序号——段名改字也不会错位。
+     */
+    let lastGroupKey = null;
     secs.forEach((sec, i) => {
         const titleEl = sec.querySelector('.wxg-sec-title');
         const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
+        const group = groupOfSection(name);
+        if (group && group.key !== lastGroupKey) {
+            lastGroupKey = group.key;
+            const head = document.createElement('div');
+            head.className = 'wxg-ws-side-group';
+            const lab = document.createElement('span');
+            lab.className = 'wxg-ws-side-group-k';
+            lab.textContent = group.label;
+            const hint = document.createElement('span');
+            hint.className = 'wxg-ws-side-group-h';
+            hint.textContent = group.hint || '';
+            head.appendChild(lab);
+            head.appendChild(hint);
+            sideEl.appendChild(head);
+        }
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'wxg-ws-side-item';
@@ -252,7 +274,13 @@ export function showIndex(i, scroll) {
     }
     const n = Number(i);
     activeIndex = Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
-    const items = asArray(sideEl.children);
+    /*
+     * ⚠️⚠️ 只数**条目**，⛔ 不能数 `sideEl.children`：
+     *    加左栏分组之后，children 里混进了组标题（`.wxg-ws-side-group`），
+     *    按 children 序号取 ⇒ 第 k 个可能是个组标题（不是按钮）⇒ **高亮全丢**
+     *    （自审当场抓到："同时只该有一条高亮，实际 0"）。
+     */
+    const items = asArray(sideEl.querySelectorAll('.wxg-ws-side-item'));
     items.forEach((b, k) => {
         /*
          * ⚠️ `b` 本身可能是空的（重画时左栏会有空槽位 ⇒ 读 undefined 的 classList 会抛）。
