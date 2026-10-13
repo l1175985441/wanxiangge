@@ -930,7 +930,11 @@
     gap: var(--wxg-gap);
 }
 
-.wanxiangge .wxg-mini {
+/* ⚠️ 以前这些小按钮用 `wxg-mini` 当类名 —— 后来 `wxg-mini` 变成了**悬浮球的根节点**
+   （`position: fixed`）⇒ 类名撞车：面板里的"明细／删／合并"按钮**全变成了 fixed 定位**，
+   真机截图上它就直接压在名字上（量出来 position:fixed、宽 30px）。
+   ⇒ 小按钮专用 `wxg-btn-sm`，⛔ 不再借悬浮球的类名。 */
+.wanxiangge .wxg-btn-sm {
     flex: 0 0 auto;
     padding: 1px 8px;
     font-size: 0.86em;

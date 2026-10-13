@@ -315,7 +315,7 @@ function secWorld(host) {
             if (item.manual) {
                 head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
             }
-            const del = button('删', 'del-situation', 'wxg-mini');
+            const del = button('删', 'del-situation', 'wxg-btn-sm');
             del.setAttribute('data-index', String(idx));
             head.appendChild(del);
             r.appendChild(head);
@@ -360,7 +360,7 @@ function secWorld(host) {
             if (h.manual) {
                 head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
             }
-            head.appendChild(button('删', 'del-hidden', 'wxg-mini', h.id));
+            head.appendChild(button('删', 'del-hidden', 'wxg-btn-sm', h.id));
             r.appendChild(head);
             if (trimText(h.trigger)) {
                 r.appendChild(el('div', 'wxg-fact', '到点条件：' + trimText(h.trigger)));
@@ -503,7 +503,7 @@ function secCharacters(host) {
         if (c.ignored) {
             nameCell.appendChild(el('span', 'wxg-badge wxg-badge-soft', '已忽略'));
         }
-        const more = button('明细', 'toggle-cdetail', 'wxg-mini', c.id);
+        const more = button('明细', 'toggle-cdetail', 'wxg-btn-sm', c.id);
         nameCell.appendChild(more);
         nameTd.appendChild(nameCell);
         tr.appendChild(nameTd);
@@ -593,7 +593,7 @@ function secCharacters(host) {
                 if (q.manual) {
                     head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
                 }
-                const del = button('删', 'del-quest', 'wxg-mini', c.id);
+                const del = button('删', 'del-quest', 'wxg-btn-sm', c.id);
                 del.setAttribute('data-title', trimText(q.title));
                 head.appendChild(del);
                 row2.appendChild(head);
@@ -626,10 +626,10 @@ function secCharacters(host) {
 
         // 合并与收下
         const badges = el('div', 'wxg-row');
-        badges.appendChild(button('按这条合并…', 'merge-into', 'wxg-mini', c.id));
+        badges.appendChild(button('按这条合并…', 'merge-into', 'wxg-btn-sm', c.id));
         if (c.isNew) {
-            badges.appendChild(button('名字对，收下', 'accept-new', 'wxg-mini', c.id));
-            badges.appendChild(button('忽略这条', 'ignore-char', 'wxg-mini', c.id));
+            badges.appendChild(button('名字对，收下', 'accept-new', 'wxg-btn-sm', c.id));
+            badges.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-sm', c.id));
         }
         detail.appendChild(badges);
 
@@ -795,7 +795,7 @@ function secRoster(host) {
         playerLabel.appendChild(pbox);
         playerLabel.appendChild(el('span', null, '玩家棋子'));
         actions.appendChild(playerLabel);
-        actions.appendChild(button('删除', 'del-char', 'wxg-mini', c.id));
+        actions.appendChild(button('删除', 'del-char', 'wxg-btn-sm', c.id));
         r.appendChild(actions);
 
         list.appendChild(r);
@@ -1023,7 +1023,7 @@ function secReport(host) {
             body.appendChild(el('pre', 'wxg-report-text', text));
             const bar = el('div', 'wxg-row');
             const key = 'rec-' + String(rec.floor) + '-' + String(rec.at);
-            bar.appendChild(button('复制这段', 'copy-text', 'wxg-mini', key));
+            bar.appendChild(button('复制这段', 'copy-text', 'wxg-btn-sm', key));
             bar.appendChild(el('span', 'wxg-note', '这段只进请求、不落正文。'));
             body.appendChild(bar);
             const holder = el('div', 'wxg-hidden-text', text);
