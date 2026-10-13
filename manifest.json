@@ -1,0 +1,23 @@
+{
+    "display_name": "万象阁",
+    "loading_order": 60,
+    "js": "index.js",
+    "css": "wanxiangge.css",
+    "author": "万象阁",
+    "version": "0.1.0",
+    "homePage": "",
+    "auto_update": false,
+    "minimum_client_version": "1.12.0",
+    "generate_interceptor": "万象阁_生成前拦截",
+    "requires": [],
+    "optional": [],
+    "dependencies": [],
+    "hooks": {
+        "activate": "onActivate",
+        "install": "onInstall",
+        "update": "onUpdate",
+        "delete": "onDelete",
+        "enable": "onEnable",
+        "disable": "onDisable"
+    }
+}

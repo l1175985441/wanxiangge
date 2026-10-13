@@ -1,0 +1,377 @@
+/**
+ * 万象阁 · 样式
+ *
+ * 所有类名统一 wxg 前缀，避免和酒馆主题／别的扩展打架。
+ * 卡片挂在她每条发言楼后面，折叠着：平时一行标题＋状态，点开才看内容。
+ */
+
+/* ------------------------------- 卡片 ------------------------------- */
+
+.wxg-card {
+    margin-top: 8px;
+    font-size: 0.9em;
+    line-height: 1.55;
+    opacity: 0.96;
+}
+
+.wxg-card > details {
+    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
+    border-radius: 8px;
+    background: rgba(128, 128, 128, 0.08);
+    overflow: hidden;
+}
+
+.wxg-card > details > summary {
+    cursor: pointer;
+    padding: 5px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    user-select: none;
+}
+
+.wxg-card > details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.wxg-card > details > summary:hover {
+    background: rgba(128, 128, 128, 0.12);
+}
+
+.wxg-card-title {
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.wxg-card-count {
+    opacity: 0.75;
+}
+
+.wxg-card-chevron {
+    margin-left: auto;
+    opacity: 0.6;
+    transition: transform 0.15s ease;
+}
+
+.wxg-card > details[open] .wxg-card-chevron {
+    transform: rotate(180deg);
+}
+
+.wxg-card-body {
+    padding: 8px 10px 10px;
+    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.wxg-col {
+    flex: 1 1 240px;
+    min-width: 200px;
+}
+
+.wxg-col-title {
+    font-weight: 700;
+    opacity: 0.8;
+    margin-bottom: 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+}
+
+.wxg-rowitem {
+    margin-bottom: 8px;
+}
+
+.wxg-rowname {
+    font-weight: 600;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.wxg-name {
+    font-weight: 700;
+}
+
+.wxg-fact {
+    opacity: 0.9;
+    padding-left: 2px;
+}
+
+.wxg-fact-missing {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.wxg-empty {
+    opacity: 0.6;
+    font-style: italic;
+    padding: 2px 0;
+}
+
+.wxg-unit {
+    opacity: 0.5;
+    font-size: 0.92em;
+}
+
+.wxg-card-foot {
+    flex: 1 1 100%;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    opacity: 0.85;
+}
+
+.wxg-receipt {
+    font-weight: 600;
+}
+
+.wxg-notes {
+    opacity: 0.75;
+    font-size: 0.95em;
+}
+
+/* --------------------------- 标签与小件 --------------------------- */
+
+.wxg-badge {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 500;
+    line-height: 1.5;
+    border: 1px solid currentColor;
+    opacity: 0.85;
+}
+
+.wxg-badge-soft {
+    opacity: 0.65;
+}
+
+.wxg-badge-warn {
+    opacity: 0.9;
+    border-style: dashed;
+}
+
+/* ------------------------------- 面板 ------------------------------- */
+
+.wanxiangge .wxg-ledger {
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: rgba(128, 128, 128, 0.1);
+    font-size: 0.92em;
+}
+
+.wanxiangge .wxg-sec {
+    margin-bottom: 14px;
+}
+
+.wanxiangge .wxg-sec h4 {
+    margin: 0 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    font-size: 1em;
+}
+
+.wanxiangge .wxg-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.wanxiangge .wxg-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.wanxiangge .wxg-field label {
+    min-width: 96px;
+}
+
+.wanxiangge .wxg-field input[type="number"] {
+    width: 84px;
+}
+
+.wanxiangge .wxg-note {
+    opacity: 0.7;
+    font-size: 0.9em;
+    flex: 1 1 100%;
+}
+
+.wanxiangge .checkbox_label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+}
+
+.wanxiangge .wxg-roster {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.wanxiangge .wxg-char {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    border-radius: 6px;
+}
+
+.wanxiangge .wxg-char-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 160px;
+}
+
+.wanxiangge .wxg-char-name {
+    font-weight: 700;
+}
+
+.wanxiangge .wxg-char-fields {
+    display: flex;
+    flex: 1 1 320px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.wanxiangge .wxg-char-fields .wxg-alias {
+    flex: 1 1 180px;
+}
+
+.wanxiangge .wxg-char-fields .wxg-affinity {
+    flex: 1 1 140px;
+}
+
+.wanxiangge .wxg-char-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wanxiangge .wxg-mini {
+    font-size: 0.9em;
+}
+
+.wanxiangge .wxg-steps {
+    margin: 0;
+    padding-left: 18px;
+    opacity: 0.85;
+}
+
+/* --------------------------- 过程报告 --------------------------- */
+
+.wanxiangge .wxg-report-list {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.wanxiangge .wxg-report {
+    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    border-radius: 6px;
+    background: rgba(128, 128, 128, 0.06);
+}
+
+.wanxiangge .wxg-report > summary {
+    cursor: pointer;
+    padding: 5px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    font-size: 0.9em;
+}
+
+.wanxiangge .wxg-report > summary::-webkit-details-marker {
+    display: none;
+}
+
+.wanxiangge .wxg-report > summary:hover {
+    background: rgba(128, 128, 128, 0.12);
+}
+
+.wanxiangge .wxg-report-time {
+    opacity: 0.7;
+}
+
+.wanxiangge .wxg-report-floor {
+    font-weight: 700;
+}
+
+.wanxiangge .wxg-report-status {
+    opacity: 0.85;
+}
+
+.wanxiangge .wxg-report-who {
+    margin-left: auto;
+    opacity: 0.8;
+}
+
+.wanxiangge .wxg-report-body {
+    padding: 6px 10px 10px;
+    border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    font-size: 0.92em;
+}
+
+.wanxiangge .wxg-report-h {
+    font-weight: 700;
+    opacity: 0.85;
+    margin: 8px 0 4px;
+}
+
+.wanxiangge .wxg-report-h:first-child {
+    margin-top: 0;
+}
+
+.wanxiangge .wxg-report-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 4px 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.08);
+    border: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
+    font-size: 0.92em;
+}
+
+.wanxiangge .wxg-steps li {
+    margin: 2px 0;
+}
+
+.wanxiangge .wxg-steps li.wxg-ok {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.wanxiangge .wxg-ver {
+    opacity: 0.6;
+    font-size: 0.9em;
+    margin-left: 6px;
+}
+
+.wanxiangge .wxg-hint {
+    opacity: 0.55;
+    font-size: 0.88em;
+    margin-left: 8px;
+}
