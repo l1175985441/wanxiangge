@@ -2798,3 +2798,24 @@ body.wxg-dragging {
     background: var(--wxg-accent, #5fbf9b);
     transition: width 0.25s ease;
 }
+
+/* 统计表那一行（柚月那张"进度"的排法：名字＋已/没两颗胶囊＋一句灰说明） */
+.wanxiangge .wxg-stat-line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.12);
+}
+
+.wanxiangge .wxg-stat-line:last-of-type {
+    border-bottom: 0;
+}
+
+.wanxiangge .wxg-stat-k {
+    flex: 0 0 auto;
+    min-width: 3.2em;
+    font-weight: 600;
+    color: var(--wxg-text-strong, inherit);
+}

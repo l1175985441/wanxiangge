@@ -1931,7 +1931,11 @@ function secSteps(host) {
     const lastFloor = (state.lastUpdate && Number.isFinite(Number(state.lastUpdate.floor)))
         ? Number(state.lastUpdate.floor) : -1;
 
-    // 每楼记了什么（编年条数 / 注入字数 / 有没有回执）
+    /*
+     * ⚠️ 楼层口径**必须跟酒馆一致**（复核方点名）：酒馆消息头上的编号从 0 起，
+     *    **#0 就是开场白**。所以"共几楼"＝聊天数组长度，楼号 0 … 长度-1。
+     *    ⏐ 别自己从 1 数、也别把开场白漏掉（那会跟她在酒馆里看到的号对不上）。
+     */
     const perFloor = new Map();
     const touch = (f) => {
         const k = Number(f);
@@ -1958,44 +1962,68 @@ function secSteps(host) {
     }
 
     /*
-     * "做过没做过"的口径（⛔ 不猜、不美化）：
-     *   ① 有编年或有回执 ⇒ 做过；
-     *   ② 或者**在世界钟走过的范围内**（≤ 上次更新到的楼）⇒ 引擎已经走过去了，
-     *      那几楼只是没留下单独记录（比如那几轮没人在场）。
+     * 分类计数（照柚月那张"进度"的排法：一行一类，"已 X | 没 X"）。
+     * ⏐ 口径写清楚，不美化：没记录就是没记录。
      */
     const rows = [];
     for (let f = 0; f < total; f += 1) {
         const e = perFloor.get(f) || null;
         const done = !!(e && (e.chron || e.rec)) || (lastFloor >= 0 && f <= lastFloor);
-        rows.push({ floor: f, done, info: e });
+        rows.push({
+            floor: f,
+            done,
+            info: e,
+            injected: !!(e && e.rec && e.rec.injectStatus === 'ok'),
+            chron: !!(e && e.chron),
+        });
     }
-    rows.reverse();   // 新的在上面
-    const doneCount = rows.filter((r) => r.done).length;
-    const leftCount = total - doneCount;
+    const stat = (pred) => rows.filter(pred).length;
+    const doneCount = stat((r) => r.done);
+    const injCount = stat((r) => r.injected);
+    const chronCount = stat((r) => r.chron);
+    const num = (n) => String(n) + ' 楼';
 
-    // ① 一行总结（她要的就是这个数）
-    const sum = el('div', 'wxg-progress-sum');
-    sum.appendChild(el('span', 'wxg-r-who', '正文共 ' + String(total) + ' 楼'));
-    sum.appendChild(el('span', 'wxg-badge is-ok', '已做 ' + String(doneCount)));
-    sum.appendChild(el('span', 'wxg-badge ' + (leftCount ? 'is-warn' : 'is-off'), '还剩 ' + String(leftCount)));
-    if (lastFloor >= 0) {
-        sum.appendChild(el('span', 'wxg-note', '上次走到 ' + floorLabel(lastFloor)));
-    }
-    box.appendChild(sum);
+    // ⭐ 统计表（柚月那种一行一类）
+    const cStat = card('进度');
+    const addStat = (label, doneN, totalN, extra) => {
+        const line = el('div', 'wxg-stat-line');
+        line.appendChild(el('span', 'wxg-stat-k', label));
+        line.appendChild(el('span', 'wxg-badge ' + (doneN ? 'is-ok' : 'is-off'), '已 ' + num(doneN)));
+        line.appendChild(el('span', 'wxg-badge ' + ((totalN - doneN) ? 'is-warn' : 'is-off'),
+            '没 ' + num(totalN - doneN)));
+        if (extra) {
+            line.appendChild(el('span', 'wxg-note', extra));
+        }
+        cStat.appendChild(line);
+    };
+    addStat('正文', doneCount, total, '共 ' + num(total) + '（含 #0 开场白）'
+        + (lastFloor >= 0 ? ' · 上次走到 ' + floorLabel(lastFloor) : ' · 还没更新过'));
+    addStat('注入', injCount, total, '把状态送进请求的楼');
+    addStat('编年', chronCount, total, '留下过记录的楼');
 
-    // ② 进度条（百分比一眼看得出）
-    const pct = Math.round((doneCount / total) * 100);
+    // 说明行（柚月那张底下也有一行「隐藏」＝…）—— 术语必须自己解释
+    cStat.appendChild(el('div', 'wxg-note',
+        '「已做」＝引擎走过去并留下记录的楼（有编年或有回执，或者在世界钟走过的范围内）。'
+        + '「没做」＝下次更新会接着走的楼。楼层号跟酒馆消息头上的编号一致：#0 是开场白。'));
+
+    // 进度条
+    const pct = total ? Math.round((doneCount / total) * 100) : 0;
     const track = el('div', 'wxg-pbar');
     const fill = el('div', 'wxg-pbar-fill');
     if (fill.style) {
         fill.style.width = String(pct) + '%';
     }
     track.appendChild(fill);
-    box.appendChild(track);
-    box.appendChild(el('div', 'wxg-note', '走了 ' + String(pct) + '%（'
-        + (leftCount ? '再更新 ' + String(leftCount) + ' 楼就追平了' : '已经追平正文') + '）'));
+    cStat.appendChild(track);
+    cStat.appendChild(el('div', 'wxg-note', '走了 ' + String(pct) + '%（'
+        + (total - doneCount ? '再更新 ' + num(total - doneCount) + '就追平正文' : '已经追平正文') + '）'));
+    box.appendChild(cStat);
 
-    // ③ 筛选胶囊（带计数）
+    /*
+     * ⭐ 逐楼清单**收进折叠条**（照"一屏一个焦点"）：主画面就是上面那张统计表，
+     *    想看"到底是哪几楼"再点开。⏐ 不是删掉——她要的是两份都在。
+     */
+    const detail = foldable('展开看是哪几楼（' + num(total) + '）', false);
     const fbar = el('div', 'wxg-filters');
     const mk = (key, label, n) => {
         const b = el('button', 'wxg-filter' + (stepFilter === key ? ' is-on' : ''), label);
@@ -2007,29 +2035,34 @@ function secSteps(host) {
     };
     fbar.appendChild(mk('all', '全部', total));
     fbar.appendChild(mk('done', '已做', doneCount));
-    fbar.appendChild(mk('todo', '还没做', leftCount));
-    box.appendChild(fbar);
+    fbar.appendChild(mk('todo', '还没做', total - doneCount));
+    detail.appendChild(fbar);
 
     const shown = stepFilter === 'done' ? rows.filter((r) => r.done)
         : (stepFilter === 'todo' ? rows.filter((r) => !r.done) : rows);
     stepPage = clampPage(stepPage, shown.length, PER_PAGE.steps);
     if (shown.length > PER_PAGE.steps) {
-        box.appendChild(pager('step-page', stepPage, PER_PAGE.steps, shown.length));
+        detail.appendChild(pager('step-page', stepPage, PER_PAGE.steps, shown.length));
     }
 
-    // ④ 一行一楼
-    const cList = card(stepFilter === 'all' ? '按楼层看' : (stepFilter === 'done' ? '已经做过的' : '还没做的'));
-    const pageRows = shown.slice((stepPage - 1) * PER_PAGE.steps, stepPage * PER_PAGE.steps);
+    // 一行一楼（新的在上面）
+    const newest = shown.slice().reverse();
+    const pageRows = newest.slice((stepPage - 1) * PER_PAGE.steps, stepPage * PER_PAGE.steps);
     if (!pageRows.length) {
-        cList.appendChild(el('div', 'wxg-empty', '这一筛没有楼层'));
+        detail.appendChild(el('div', 'wxg-empty', '这一筛没有楼层'));
     }
     for (const r of pageRows) {
         const row = el('div', 'wxg-r');
-        row.appendChild(el('div', 'wxg-r-k wxg-num', floorLabel(r.floor)));
+        row.appendChild(el('div', 'wxg-r-k wxg-num', floorLabel(r.floor)
+            + (r.floor === 0 ? ' 开场白' : '')));
         const main = el('div', 'wxg-r-main');
         const title = el('div', 'wxg-r-title');
         if (r.done) {
             title.appendChild(el('span', 'wxg-badge is-ok', '已做'));
+            if (r.injected) {
+                title.appendChild(el('span', 'wxg-badge is-info', '已注入'));
+            }
+            main.appendChild(title);
             const bits = [];
             if (r.info && r.info.chron) {
                 bits.push('编年 ' + String(r.info.chron) + ' 条');
@@ -2037,7 +2070,6 @@ function secSteps(host) {
             if (r.info && r.info.chars) {
                 bits.push('注入 ' + String(r.info.chars) + ' 字');
             }
-            main.appendChild(title);
             main.appendChild(el('div', 'wxg-r-sub', bits.length ? bits.join(' · ') : '走过了（这楼没单独留记录）'));
         } else {
             title.appendChild(el('span', 'wxg-badge is-off', '还没做'));
@@ -2047,9 +2079,9 @@ function secSteps(host) {
                 : '还没更新过（点「立刻更新」或等新楼）'));
         }
         row.appendChild(main);
-        cList.appendChild(row);
+        detail.appendChild(row);
     }
-    box.appendChild(cList);
+    box.appendChild(detail);
     host.appendChild(box);
 }
 
