@@ -354,8 +354,12 @@
 }
 
 /* 工作台里颜色一律走 --wxg-*（⛔ 不跟酒馆主题） */
-.wxg-ws .wxg-ledger,
-.wxg-ws .wxg-store,
+/*
+ * ⚠️ `.wxg-store` / `.wxg-ledger` **不在这一组里**（原来在）。
+ *    它们是**状态文字行**（「已存进聊天档」「上次更新：…」），给了填充底色＋描边
+ *    就变成"两个空输入框"，一屏的密度陡增——参照图里这类都是纯文本行＋一个小圆点。
+ *    它们的样子在下面单独写。
+ */
 .wxg-ws .wxg-rowitem,
 .wxg-ws .wxg-report,
 .wxg-ws .wxg-report-text,
@@ -363,6 +367,15 @@
 .wxg-ws .wxg-sec-head {
     background: var(--wxg-fill, rgba(230, 231, 228, 0.07));
     border-color: var(--wxg-border, #3a3f46);
+}
+
+/* 状态行：纯文本 ＋ 一个小圆点（好/坏/在跑各有各的色），⛔ 不铺底、不描边 */
+.wxg-ws .wxg-store,
+.wxg-ws .wxg-ledger {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 3px 0;
 }
 
 .wxg-ws .wxg-note,
