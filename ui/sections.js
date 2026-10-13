@@ -441,14 +441,6 @@ function secCharacters(host) {
         past.appendChild(pastBox);
         body.appendChild(past);
 
-        const infer = el('div', 'wxg-field');
-        infer.appendChild(el('label', null, '推断（与事实分开）'));
-        const inferInput = textarea('wxg-c-infer-' + c.id, c.infer, '为什么这样／可能会怎样——只作为推断，⛔ 不当事实', 'set-char-field', 2);
-        inferInput.setAttribute('data-id', c.id);
-        inferInput.setAttribute('data-key', 'infer');
-        infer.appendChild(inferInput);
-        body.appendChild(infer);
-
         if (c.schedule.length) {
             const sch = el('div', 'wxg-field');
             sch.appendChild(el('label', null, '日程（到点要跟上）'));

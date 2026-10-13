@@ -16,7 +16,7 @@
 
 import { APP_NAME } from './core/config.js';
 import { setContext, getCtx } from './core/adapter.js';
-import { resetCache, loadState } from './core/state.js';
+import { resetCache, loadState, migrateInferToChronicle } from './core/state.js';
 import { injectBeforeGenerate } from './core/engine.js';
 import {
     planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards,
@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.17';
+const VERSION = '0.2.18';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {
@@ -177,6 +177,15 @@ function boot() {
             return;
         }
         setContext(ctx);
+        // ⭐ 老数据迁移：以前存过的"推断"这一格（按需求书不该存在）搬进编年留档，⛔ 不静默丢
+        try {
+            const moved = migrateInferToChronicle();
+            if (moved) {
+                console.log('[万象阁] 把 ' + String(moved) + ' 条旧的"推断"搬进了编年（那一格已取消）');
+            }
+        } catch (e) {
+            console.warn('[万象阁] 迁移旧数据出错：', e);
+        }
         // ⭐ 拿到酒馆上下文之后，立刻把设置跟"酒馆设置区"对一次：
         //    ⛔ 免得用的是启动早期读到的内置默认（那样设置永远落不了盘）
         try {

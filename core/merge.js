@@ -43,7 +43,7 @@ export function mergeCharacters(keepId, fromName) {
     keep.aliases = Array.from(aliasSet);
 
     /* ② 数据互补：谁有谁填，⛔ 一个字段都不丢 */
-    const textFields = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'infer', 'affinitySource'];
+    const textFields = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'affinitySource'];
     for (const f of textFields) {
         const mine = trimText(keep[f]);
         const theirs = trimText(from[f]);

@@ -279,7 +279,7 @@ function applyCharacter(raw, material, conflicts) {
     patch.lastSeenFloor = material.floor;
     patch.inScene = onStage;
 
-    const textFields = ['age', 'identity', 'faction', 'timePlace', 'current', 'infer'];
+    const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
     for (const f of textFields) {
         const incoming = trimText(raw && raw[f]);
         if (!incoming) {
@@ -534,7 +534,7 @@ export function checkActingAsMe(rows, floor) {
         const name = trimText(raw && raw.name);
         // 模型能写、我们会落的**全部文本字段**都过一遍（不只是 current）
         const pieces = [];
-        for (const f of ['current', 'timePlace', 'infer', 'identity', 'age', 'faction']) {
+        for (const f of ['current', 'timePlace', 'identity', 'age', 'faction']) {
             const text = trimText(raw && raw[f]);
             if (text) {
                 pieces.push({ f, text });

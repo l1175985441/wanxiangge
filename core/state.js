@@ -40,7 +40,6 @@ export function normalizeCharacter(raw) {
         })).filter((p) => p.text) : [],
         current: trimText(c.current),
         timePlace: trimText(c.timePlace),
-        infer: trimText(c.infer),            // 推断：与事实分开存
         schedule: Array.isArray(c.schedule) ? c.schedule.filter(Boolean).map((s) => ({
             what: trimText(s && s.what),
             due: trimText(s && s.due),
@@ -75,6 +74,42 @@ export function normalizeCharacter(raw) {
         createdAt: c.createdAt || now(),
         updatedAt: c.updatedAt || now(),
     };
+}
+
+/**
+ * 老数据迁移：以前存过"推断（infer）"这一格 —— 按需求书这一格**不该存在**
+ * （她定的角色字段只有七格：年龄／身份／过去经历／正在经历／所在势力／好感值／时间・地点）。
+ * ⛔ 不静默丢：把它搬进**编年**留档（标注来源），再从角色身上摘掉。
+ * @returns {number} 搬走了几条
+ */
+export function migrateInferToChronicle() {
+    const state = loadState();
+    let moved = 0;
+    for (const c of state.characters || []) {
+        if (!c) {
+            continue;
+        }
+        const text = trimText(c.infer);
+        if (!text) {
+            if (Object.hasOwn(c, 'infer')) {
+                delete c.infer;
+            }
+            continue;
+        }
+        state.chronicle.push({
+            at: now(),
+            floor: Number.isFinite(Number(c.lastSeenFloor)) ? Number(c.lastSeenFloor) : -1,
+            kind: '推断·已归入编年',
+            who: trimText(c.name),
+            text: '（以前存过的推断，现已不再作为角色字段）' + text,
+        });
+        delete c.infer;
+        moved += 1;
+    }
+    if (moved) {
+        saveState();
+    }
+    return moved;
 }
 
 /** 造一条空人物 */

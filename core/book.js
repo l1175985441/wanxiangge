@@ -199,9 +199,6 @@ function buildEntries() {
                 lines.push('  · ' + p.text);
             }
         }
-        if (trimText(c.infer)) {
-            lines.push('推断（⛔ 不是事实）：' + trimText(c.infer));
-        }
         if (c.aliases.length) {
             lines.push('别名：' + c.aliases.join('、'));
         }
