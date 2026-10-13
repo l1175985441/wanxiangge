@@ -1963,6 +1963,12 @@ body.wxg-dragging {
     box-sizing: border-box;
 }
 
+/* ⚠️ 工作台里：段内那份说明**藏起来**——同一句话已经在页头当副题显示了，
+   ⛔ 不能再出现一次（第一版就是这样，截图里一眼看出重复）。 */
+.wxg-ws .wxg-sec-body > .wxg-sec-hint {
+    display: none;
+}
+
 /* ⚠️ 段摘要（.wxg-sec-sum）在工作台里跟着标题行一起隐藏了，这是有意的：
    副题改由页头统一显示，⛔ 不再出现"标题旁边一小串灰字"。 */
 
@@ -2202,10 +2208,12 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-empty::before {
     content: '\f0c8';
+    /* ⚠️ 实心图标家族的字重必须是 **900**（写成 400 会回退成别的字体，
+       页面上就出现一个彩色怪字——真机上截图看到过）。 */
     font-family: 'Font Awesome 6 Free', 'FontAwesome';
-    font-weight: 400;
+    font-weight: 900;
     font-size: 1.7em;
-    opacity: 0.35;
+    opacity: 0.4;
 }
 
 /* 空态里若带按钮，它就是"这一个主按钮"（参照构画「生成点」） */

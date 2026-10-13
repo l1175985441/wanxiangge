@@ -113,7 +113,13 @@ function section(title, hint, opts) {
 
     const body = el('div', 'wxg-sec-body inline-drawer-content');
     if (hint && typeof hint === 'string') {
-        body.appendChild(el('div', 'wxg-note', hint));
+        /*
+         * ⭐ 段说明挂一个标记类。
+         *    工作台里它是**页头的副题**（.wxg-ws-h1sub），所以这里那份要藏起来——
+         *    不然同一句话会在页头和正文各出现一次（真机上截图看到过）。
+         *    浮层/设置区那两个地方没有页头，这份照常显示。
+         */
+        body.appendChild(el('div', 'wxg-note wxg-sec-hint', hint));
     }
     drawer.appendChild(body);
     if (o.open) {
