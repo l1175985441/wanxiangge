@@ -399,6 +399,24 @@ function secGeneral(host) {
     host.appendChild(box);
 }
 
+/**
+ * 暗线阶段 → 胶囊样式（走的是"阶段"这条线：萌芽最早、消散/完成收尾）。
+ * ⛔ 按语义分档，不按颜色名——以后加阶段也不用改这里。
+ */
+function stageTone(stage) {
+    const s = asText(stage);
+    if (s === '消散' || s === '完成') {
+        return 'is-off';
+    }
+    if (s === '爆发' || s === '关键' || s === '逼近') {
+        return 'is-warn';
+    }
+    if (s === '发酵' || s === '执行') {
+        return 'is-info';
+    }
+    return 'is-info'; // 萌芽／筹备
+}
+
 function secWorld(host) {
     const state = loadState();
     const w = state.world;
@@ -420,34 +438,50 @@ function secWorld(host) {
         sit.appendChild(el('div', 'wxg-empty', '还没有局势记录（点「立刻更新」让引擎算一次）'));
     } else {
         // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
+        // ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
         w.situations.forEach((item, idx) => {
-            const r = el('div', 'wxg-rowitem');
-            const head = el('div', 'wxg-rowname');
-            head.appendChild(el('span', 'wxg-name', trimText(item.title) || '（未记名）'));
+            const r = el('div', 'wxg-r');
+            const tierW = el('span', 'wxg-badge ' + (trimText(item.tier) === '立刻' ? 'is-warn' : 'is-info'),
+                trimText(item.tier) || '慢慢来');
+            r.appendChild(tierW);
+            const main = el('div', 'wxg-r-main');
+            const title = el('div', 'wxg-r-title');
+            title.appendChild(el('span', 'wxg-r-who', trimText(item.title) || '（未记名）'));
             if (item.manual) {
-                head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
+                title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
             }
+            main.appendChild(title);
+            main.appendChild(el('div', 'wxg-r-sub', '哪几方：' + (trimText(item.sides) || '暂无')));
+            r.appendChild(main);
+
+            const act = el('div', 'wxg-r-act');
+            const editBtn = button('改', 'edit-situation', 'wxg-btn-sm');
+            editBtn.setAttribute('data-index', String(idx));
+            act.appendChild(editBtn);
             const del = button('删', 'del-situation', 'wxg-btn-sm');
             del.setAttribute('data-index', String(idx));
-            head.appendChild(del);
-            r.appendChild(head);
+            act.appendChild(del);
+            r.appendChild(act);
 
-            const line = el('div', 'wxg-row');
-            const title = textInput('wxg-sit-title-' + String(idx), item.title, '这一条局势是什么', 'set-situation', 'wxg-short');
-            title.setAttribute('data-index', String(idx));
-            title.setAttribute('data-key', 'title');
-            line.appendChild(title);
-            const sides = textInput('wxg-sit-sides-' + String(idx), item.sides, '哪几方', 'set-situation', 'wxg-short');
-            sides.setAttribute('data-index', String(idx));
-            sides.setAttribute('data-key', 'sides');
-            line.appendChild(sides);
-            const tierSel = select('wxg-sit-tier-' + String(idx),
-                [{ value: '', label: '（火候）' }].concat(TIERS.map((x) => ({ value: x, label: x }))),
-                item.tier, 'set-situation');
-            tierSel.setAttribute('data-index', String(idx));
-            tierSel.setAttribute('data-key', 'tier');
-            line.appendChild(tierSel);
-            r.appendChild(line);
+            // 「改」展开的编辑行（默认收起，⛔ 不占地方）
+            if (String(openSituation) === String(idx)) {
+                const line = el('div', 'wxg-row');
+                const title2 = textInput('wxg-sit-title-' + String(idx), item.title, '这一条局势是什么', 'set-situation', 'wxg-short');
+                title2.setAttribute('data-index', String(idx));
+                title2.setAttribute('data-key', 'title');
+                line.appendChild(title2);
+                const sides2 = textInput('wxg-sit-sides-' + String(idx), item.sides, '哪几方', 'set-situation', 'wxg-short');
+                sides2.setAttribute('data-index', String(idx));
+                sides2.setAttribute('data-key', 'sides');
+                line.appendChild(sides2);
+                const tierSel = select('wxg-sit-tier-' + String(idx),
+                    [{ value: '', label: '（火候）' }].concat(TIERS.map((x) => ({ value: x, label: x }))),
+                    item.tier, 'set-situation');
+                tierSel.setAttribute('data-index', String(idx));
+                tierSel.setAttribute('data-key', 'tier');
+                line.appendChild(tierSel);
+                r.appendChild(line);
+            }
             sit.appendChild(r);
         });
     }
@@ -462,28 +496,37 @@ function secWorld(host) {
     if (!w.hidden.length) {
         hid.appendChild(el('div', 'wxg-empty', '还没有暗线（引擎会在更新时排出来）'));
     } else {
+        /*
+         * ⭐ 行化（有数据排版术第七条）：一行一条暗线
+         *    `阶段胶囊 ｜ 名字 ＋（到点条件／现在到哪一步） ｜ 右侧改阶段 ＋ 删`
+         * ⚠️ 原来每个字段各占一行（到点条件一行、现在到哪一步一行、下拉一行）
+         *    ⇒ 6 条暗线就是一屏半。
+         */
         for (const h of w.hidden) {
-            const r = el('div', 'wxg-rowitem');
-            const head = el('div', 'wxg-rowname');
-            head.appendChild(el('span', 'wxg-name', trimText(h.name) || '（未记名）'));
-            head.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(h.stage) || '萌芽'));
+            const r = el('div', 'wxg-r');
+            r.appendChild(el('span', 'wxg-badge ' + stageTone(h.stage), trimText(h.stage) || '萌芽'));
+            const main = el('div', 'wxg-r-main');
+            const title = el('div', 'wxg-r-title');
+            title.appendChild(el('span', 'wxg-r-who', trimText(h.name) || '（未记名）'));
             if (trimText(h.tier)) {
-                head.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(h.tier)));
+                title.appendChild(el('span', 'wxg-badge is-off', trimText(h.tier)));
             }
             if (h.manual) {
-                head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
+                title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
             }
-            head.appendChild(button('删', 'del-hidden', 'wxg-btn-sm', h.id));
-            r.appendChild(head);
-            if (trimText(h.trigger)) {
-                r.appendChild(el('div', 'wxg-fact', '到点条件：' + trimText(h.trigger)));
-            }
-            if (trimText(h.note)) {
-                r.appendChild(el('div', 'wxg-fact', '现在到哪一步：' + trimText(h.note)));
-            }
-            r.appendChild(select('hid-stage-' + h.id,
+            main.appendChild(title);
+            // 第二行：到点条件 ／ 现在到哪一步（空值写"暂无"，⛔ 不隐身）
+            const bits = [];
+            bits.push('到点：' + (trimText(h.trigger) || '暂无'));
+            bits.push('走到：' + (trimText(h.note) || '暂无'));
+            main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ')));
+            r.appendChild(main);
+            const act = el('div', 'wxg-r-act');
+            act.appendChild(select('hid-stage-' + h.id,
                 (h.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
                 h.stage, 'set-hidden-stage', h.id));
+            act.appendChild(button('删', 'del-hidden', 'wxg-btn-sm', h.id));
+            r.appendChild(act);
             hid.appendChild(r);
         }
     }
@@ -1005,10 +1048,13 @@ export function applyCharSearch(root, query) {
 }
 
 /**
- * ⭐ 编年的筛选（那一排小胶囊）。放在模块级：点一下只重画，不落设置。
+ * 编年的筛选（那一排小胶囊）。放在模块级：点一下只重画，不落设置。
  * （"筛选带计数"是跟参照学的**做法**；文案是我们自己的——⛔ 别照抄别家的字。）
  */
 let chronFilter = 'all';
+
+/** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
+let openSituation = -1;
 
 /**
  * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
@@ -1093,7 +1139,7 @@ function secChronicle(host) {
     box.appendChild(hit);
 
     // ③ 按楼层分组，一组一个"行列表"
-    const cChron = card(chronFilter === 'all' ? '一回合一行' : ('只看「' + chronFilter + '」'));
+    const cChron = card(chronFilter === 'all' ? '按回合攒的' : ('只看「' + chronFilter + '」'));
     const groups = [];
     for (const c of shown) {
         const f = Number.isFinite(c.floor) && c.floor >= 0 ? Number(c.floor) : -1;
@@ -2122,6 +2168,13 @@ export function bindSectionEvents(host, refresh) {
                 case 'chron-filter': {
                     // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
                     chronFilter = trimText(id) || 'all';
+                    rerender();
+                    break;
+                }
+                case 'edit-situation': {
+                    // 局势行上的「改」：展开/收起那一行的编辑框（⛔ 不重画别的东西）
+                    const idx = Number(target.getAttribute('data-index'));
+                    openSituation = String(openSituation) === String(idx) ? -1 : idx;
                     rerender();
                     break;
                 }
