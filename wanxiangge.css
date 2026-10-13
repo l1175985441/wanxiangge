@@ -1608,3 +1608,33 @@ body.wxg-dragging {
     opacity: 0.7;
     text-align: center;
 }
+
+/* ---- 勾选项：一条一行（⛔ 别三个挤在一行，看着像没排过） ---- */
+.wxg-ws .wxg-sec-body > label.checkbox_label,
+.wxg-ws .wxg-sec-body > label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 0;
+    white-space: normal;
+    line-height: 1.5;
+}
+
+/* 勾选项的说明文字太长时能换行（原来一行硬挤） */
+.wxg-ws .wxg-sec-body > label.checkbox_label span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* ---- "文字 ＋ 数字框 ＋ 文字"这类行：垂直居中对齐，别看着断开 ---- */
+.wanxiangge .wxg-row {
+    align-items: center;
+    gap: 6px;
+}
+
+.wanxiangge .wxg-row > input.text_pole[type='number'],
+.wanxiangge .wxg-row > input.text_pole {
+    flex: 0 0 auto;
+    width: 7em;
+    min-width: 5em;
+}
