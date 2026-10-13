@@ -179,14 +179,338 @@
     --wxg-dim: var(--SmartThemeEmColor, rgba(160, 160, 160, 1));
 }
 
-/* ---- 顶部"快速跳转"（只在独立面板里画；窄栏里不出现） ---- */
+/* ============================ 工作台（整页窗口） ============================
+   ⭐ 这是我们**自己的地盘**：配色走 `--wxg-*`（由 ui/theme.js 按她的选择写进来），
+      ⛔ 不再迁就酒馆主题——但每个变量都给兜底值，万一没设也不会变成透明/看不见。 */
+
+.wxg-ws {
+    position: fixed;
+    inset: 0;
+    z-index: 30010;
+    display: flex;
+    flex-direction: column;
+    background: var(--wxg-bg, #141619);
+    color: var(--wxg-text, #e6e7e4);
+    font-size: 15px;
+}
+
+.wxg-ws-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    flex: 0 0 auto;
+    background: var(--wxg-surface, #1d1f23);
+    border-bottom: 1px solid var(--wxg-border, #3a3f46);
+}
+
+.wxg-ws-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.82em;
+    background: var(--wxg-accent, #5fbf9b);
+    color: var(--wxg-bg, #141619);
+}
+
+.wxg-ws-titlebox {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    min-width: 0;
+}
+
+.wxg-ws-name {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.wxg-ws-sub {
+    font-size: 0.8em;
+    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+}
+
+.wxg-ws-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.wxg-ws-chip {
+    font-size: 0.8em;
+    padding: 2px 10px;
+    border: 1px solid var(--wxg-border, #3a3f46);
+    border-radius: 999px;
+    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+    white-space: nowrap;
+}
+
+.wxg-ws-chip-bad {
+    border-color: var(--wxg-accent, #e0654f);
+    color: var(--wxg-accent, #e0654f);
+}
+
+.wxg-ws-x {
+    font: inherit;
+    font-size: 0.9em;
+    padding: 2px 9px;
+    cursor: pointer;
+    border: 1px solid var(--wxg-border, #3a3f46);
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+}
+
+.wxg-ws-x:hover {
+    background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
+}
+
+.wxg-ws-body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+/* 左栏：竖排导航 */
+.wxg-ws-side {
+    width: 188px;
+    flex: 0 0 auto;
+    padding: 10px 8px;
+    overflow: auto;
+    background: var(--wxg-surface, #1d1f23);
+    border-right: 1px solid var(--wxg-border, #3a3f46);
+}
+
+.wxg-ws-side-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.92em;
+    padding: 7px 10px;
+    margin-bottom: 2px;
+    cursor: pointer;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.72;
+}
+
+.wxg-ws-side-item:hover {
+    opacity: 1;
+    background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
+}
+
+.wxg-ws-side-item.is-on {
+    opacity: 1;
+    font-weight: 700;
+    background: var(--wxg-accent-soft, rgba(95, 191, 155, 0.18));
+    box-shadow: inset 3px 0 0 var(--wxg-accent, #5fbf9b);
+}
+
+.wxg-ws-side-ico {
+    width: 1.15em;
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.wxg-ws-side-txt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 右侧内容：一屏只说一件事（当前段） */
+.wxg-ws-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+    padding: 16px 20px 28px;
+}
+
+/* 工作台里：段壳不要边框与标题（左栏已经是导航），只留内容 */
+.wxg-ws-main .wxg-sec {
+    border: 0;
+    margin-bottom: 0;
+    overflow: visible;
+}
+
+.wxg-ws-main .wxg-sec-head {
+    display: none;
+}
+
+.wxg-ws-main .wxg-sec-body {
+    padding: 0;
+}
+
+/* 工作台里颜色一律走 --wxg-*（⛔ 不跟酒馆主题） */
+.wxg-ws .wxg-ledger,
+.wxg-ws .wxg-store,
+.wxg-ws .wxg-rowitem,
+.wxg-ws .wxg-report,
+.wxg-ws .wxg-report-text,
+.wxg-ws .wxg-char,
+.wxg-ws .wxg-sec-head {
+    background: var(--wxg-fill, rgba(230, 231, 228, 0.07));
+    border-color: var(--wxg-border, #3a3f46);
+}
+
+.wxg-ws .wxg-note,
+.wxg-ws .wxg-sec-sum,
+.wxg-ws .wxg-report-time,
+.wxg-ws .wxg-empty {
+    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+}
+
+.wxg-ws .wxg-store[data-tone="ok"]::before,
+.wxg-ws .wxg-ledger::before {
+    background: var(--wxg-accent, #5fbf9b);
+}
+
+.wxg-ws .wxg-store[data-tone="ok"] {
+    border-left-color: var(--wxg-accent, #5fbf9b);
+}
+
+.wxg-ws .wxg-store[data-tone="bad"] {
+    border-left-color: #e0654f;
+}
+
+.wxg-ws .wxg-store[data-tone="bad"]::before {
+    background: #e0654f;
+}
+
+.wxg-ws .wxg-badge {
+    border-color: var(--wxg-border, #3a3f46);
+}
+
+.wxg-ws .wxg-badge-soft {
+    background: var(--wxg-fill, rgba(230, 231, 228, 0.07));
+}
+
+.wxg-ws input,
+.wxg-ws select,
+.wxg-ws textarea,
+.wxg-ws button,
+.wxg-ws .menu_button {
+    background: var(--wxg-fill, rgba(230, 231, 228, 0.07));
+    color: inherit;
+    border: 1px solid var(--wxg-border, #3a3f46);
+    border-radius: 7px;
+}
+
+.wxg-ws button:hover,
+.wxg-ws .menu_button:hover {
+    background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
+}
+
+/* ============================ 悬浮小框（当前状态） ============================ */
+
+.wxg-mini {
+    position: fixed;
+    z-index: 30020;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 8px;
+    font-size: 13px;
+    cursor: move;
+    background: var(--wxg-surface, #1d1f23);
+    color: var(--wxg-text, #e6e7e4);
+    border: 1px solid var(--wxg-border, #3a3f46);
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    max-width: min(70vw, 520px);
+}
+
+.wxg-mini-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: var(--wxg-accent, #5fbf9b);
+}
+
+.wxg-mini-dot.is-bad {
+    background: #e0654f;
+}
+
+.wxg-mini-dot.is-idle {
+    background: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+}
+
+.wxg-mini-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+}
+
+.wxg-mini-btn {
+    font: inherit;
+    font-size: 0.86em;
+    padding: 1px 8px;
+    cursor: pointer;
+    border: 1px solid var(--wxg-border, #3a3f46);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.85;
+}
+
+.wxg-mini-btn:hover {
+    opacity: 1;
+    background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
+}
+
+/* ---- 顶部跳转条（浮层面板里画；工作台靠左栏导航，不用它） ---- */
+
+/* 收成一个小点：只留状态点，鼠标放上去再展开 */
+.wxg-mini.is-folded {
+    padding: 6px;
+    gap: 0;
+}
+
+.wxg-mini.is-folded .wxg-mini-text,
+.wxg-mini.is-folded .wxg-mini-btn {
+    display: none;
+}
+
+.wxg-mini.is-folded:hover .wxg-mini-text,
+.wxg-mini.is-folded:hover .wxg-mini-btn {
+    display: inline-block;
+}
+
+@media (max-width: 700px) {
+    .wxg-ws-side {
+        width: 132px;
+        font-size: 0.92em;
+    }
+    .wxg-ws-side-txt {
+        font-size: 0.9em;
+    }
+    .wxg-ws-main {
+        padding: 12px 12px 22px;
+    }
+}
+
+   ⭐ 做成"分段导航"的样子：当前所在的那段高亮＋下划线（滚动时会自动跟着变）。
+   为什么：原来 12 颗一模一样的胶囊，看不出"你现在在哪"（对照别家插件的 tab 栏看出来的）。 */
 .wanxiangge .wxg-nav {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px;
-    padding: 6px 8px;
-    margin-bottom: 8px;
+    gap: 2px 4px;
+    padding: 4px 8px 0;
+    margin-bottom: 10px;
     border: 1px solid var(--wxg-line);
     border-radius: var(--wxg-radius);
     background: var(--wxg-fill);
@@ -196,27 +520,38 @@
 }
 
 .wanxiangge .wxg-nav-title {
-    font-size: 0.82em;
-    opacity: 0.6;
-    margin-right: 2px;
+    font-size: 0.8em;
+    opacity: 0.55;
+    margin-right: 4px;
+    letter-spacing: 0.06em;
 }
 
 .wanxiangge .wxg-nav-btn {
     font: inherit;
-    font-size: 0.84em;
-    line-height: 1.6;
-    padding: 1px 9px;
-    border: 1px solid var(--wxg-line);
-    border-radius: 11px;
+    font-size: 0.85em;
+    line-height: 1.9;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
     background: transparent;
     color: inherit;
-    opacity: 0.85;
+    opacity: 0.62;
     cursor: pointer;
     white-space: nowrap;
+    transition: opacity 0.12s ease, background 0.12s ease;
 }
 
 .wanxiangge .wxg-nav-btn:hover {
+    opacity: 0.95;
+    background: var(--wxg-fill-strong);
+}
+
+/* 当前所在的那一段：亮起来＋下划线用主题的强调色 */
+.wanxiangge .wxg-nav-btn.is-on {
     opacity: 1;
+    font-weight: 700;
+    border-bottom-color: var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
     background: var(--wxg-fill-strong);
 }
 
@@ -229,7 +564,7 @@
 }
 
 .wanxiangge .wxg-sec-head {
-    padding: 6px 9px;
+    padding: 8px 10px;
     background: var(--wxg-fill);
     gap: var(--wxg-gap);
 }
@@ -247,7 +582,8 @@
 }
 
 .wanxiangge .wxg-sec-title {
-    font-size: 1em;
+    font-size: 1.04em;
+    letter-spacing: 0.01em;
 }
 
 .wanxiangge .wxg-sec-sum {
@@ -256,7 +592,13 @@
 }
 
 .wanxiangge .wxg-sec-body {
-    padding: 8px 9px 10px;
+    padding: 10px 11px 12px;
+    line-height: 1.68;
+}
+
+/* 段与段之间松一点，看着不挤 */
+.wanxiangge .wxg-sec {
+    margin-bottom: 9px;
 }
 
 /* 默认收起；标了 data-wxg-open 的那几段默认展开（酒馆用 inline style 切显示，这里要压过它） */
@@ -267,20 +609,51 @@
 /* ---- 状态条 ---- */
 .wanxiangge .wxg-ledger,
 .wanxiangge .wxg-store {
-    padding: 5px 9px;
+    padding: 6px 10px 6px 22px;
     margin-bottom: var(--wxg-gap);
     border-radius: var(--wxg-radius);
     background: var(--wxg-fill);
     font-size: 0.92em;
-    line-height: 1.6;
+    line-height: 1.66;
+    position: relative;
+}
+
+/* ⭐ 状态点：一条状态是不是"正常"要**一眼看出来**（对照别家插件那排绿点看出来的）。
+   用主题的强调色，⛔ 不自定品牌色（换主题才不会打架）。 */
+.wanxiangge .wxg-ledger::before,
+.wanxiangge .wxg-store::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 0.72em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--wxg-dim);
+    opacity: 0.7;
+}
+
+.wanxiangge .wxg-ledger::before {
+    background: var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
+    opacity: 0.9;
 }
 
 .wanxiangge .wxg-store[data-tone="ok"] {
     border-left: 3px solid var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
 }
 
+.wanxiangge .wxg-store[data-tone="ok"]::before {
+    background: var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
+    opacity: 1;
+}
+
 .wanxiangge .wxg-store[data-tone="bad"] {
     border-left: 3px solid var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+}
+
+.wanxiangge .wxg-store[data-tone="bad"]::before {
+    background: var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+    opacity: 1;
 }
 
 .wanxiangge .wxg-note {
@@ -381,13 +754,17 @@
 }
 
 .wanxiangge .wxg-rowitem {
-    padding: 6px 8px;
+    padding: 7px 9px;
     border: 1px solid var(--wxg-line);
     border-radius: var(--wxg-radius);
     background: var(--wxg-fill);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
+}
+
+.wanxiangge .wxg-rowitem:hover {
+    background: var(--wxg-fill-strong);
 }
 
 .wanxiangge .wxg-rowname {

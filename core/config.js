@@ -13,6 +13,18 @@ export const ROOT_ID = 'wanxiangge-root';
 /** 独立面板窗口的 id */
 export const PANEL_ID = 'wanxiangge-panel';
 
+/** 工作台（我们自己的整页窗口）的根节点 id */
+export const WORKSPACE_ID = 'wanxiangge-workspace';
+
+/** 悬浮小框（聊天时瞄一眼状态用）的根节点 id */
+export const MINI_ID = 'wanxiangge-mini';
+
+/**
+ * 工作台左栏的图标（按段落顺序：账本／进度／世界／角色／过程报告／编年／名册／总控／召回／读取／API／提示词）。
+ * ⛔ 用字符而不是字体图标：不依赖任何图标库，也不会因为版本变动变空白。
+ */
+export const SIDEBAR_ICONS = ['📒', '🧭', '🌍', '👤', '📋', '📜', '👥', '⚙️', '🎯', '🧹', '🔌', '✍️'];
+
 /** 卡片挂载用的消息标记属性 */
 export const CARD_ATTR = 'data-wxg-card';
 
@@ -229,6 +241,30 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
     /* 面板位置与大小 */
     panel: { x: null, y: null, w: 720, h: 560 },
+
+    /**
+     * 布局：workspace＝自己的整页工作台（默认，她拍的）＋悬浮小框；
+     *       panel＝老的浮层面板。
+     */
+    layoutMode: 'workspace',
+
+    /** 悬浮小框（当前状态）开关与位置 */
+    mini: { show: true, x: null, y: null, collapsed: false },
+
+    /**
+     * ⭐ 外观（**我们自己的配色**，见 ui/theme.js）：
+     * 工作台是自己的地盘 ⇒ 配色自己定，不必迁就酒馆主题；
+     * 文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。
+     */
+    appearance: {
+        palette: 'ink',
+        accent: '#5fbf9b',
+        surface: '#1d1f23',
+        bg: '#141619',
+        border: '#3a3f46',
+        text: '',
+        applyToPanel: true,
+    },
 
     /* 其它 */
     showEmptyCard: true,

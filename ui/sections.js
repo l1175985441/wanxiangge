@@ -19,6 +19,9 @@ import {
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
+import {
+    PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
+} from './theme.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, collectPeopleFromBook } from '../core/worldbook.js';
 import { clockWentBackwards } from '../core/clock.js';
@@ -125,8 +128,18 @@ function checkbox(id, label, checked, action) {
     return wrap;
 }
 
-function textInput(id, value, placeholder, action, cls) {
-    const input = document.createElement('input');
+/** 颜色选择器（type=color），旁边给个"当前值"的小方块，她一眼看得出选了啥 */
+function colorInput(id, value, action) {
+    const box = document.createElement('input');
+    box.type = 'color';
+    box.id = id;
+    box.className = 'wxg-color';
+    box.value = asText(value) || '#000000';
+    box.setAttribute('data-action', action);
+    return box;
+}
+
+function textInput(id, value, placeholder, action, cls) {    const input = document.createElement('input');
     input.type = 'text';
     input.id = id;
     input.className = 'text_pole ' + (cls || '');
@@ -615,6 +628,59 @@ function secRoster(host) {
     host.appendChild(box);
 }
 
+/**
+ * ⭐ 外观：我们自己的配色（工作台是自己的地盘，不必迁就酒馆主题）
+ * 预设色板 + 四个槽位可单独改；文字色留空＝按底面亮度自动算。
+ */
+function secAppearance(host) {
+    const s = getSettings();
+    const app = resolveAppearance(s.appearance || {});
+    const box = section('外观（工作台配色）',
+        '工作台是**我们自己的整页窗口**，配色自己定，⛔ 不用迁就酒馆主题；'
+        + '设置抽屉那边仍跟随酒馆主题。文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。',
+        { open: false, summary: PALETTE_NAMES[app.palette] || '' });
+
+    row(box, field('色板', select('wxg-app-palette',
+        PALETTE_KEYS.map((k) => ({ value: k, label: PALETTE_NAMES[k] })),
+        app.palette, 'set-appearance')));
+
+    row(box,
+        field('强调色', colorInput('wxg-app-accent', app.accent, 'set-appearance')),
+        field('底面', colorInput('wxg-app-surface', app.surface, 'set-appearance')),
+        field('页面底色', colorInput('wxg-app-bg', app.bg, 'set-appearance')));
+    row(box,
+        field('描边', colorInput('wxg-app-border', app.border, 'set-appearance')),
+        field('文字（可留空）', colorInput('wxg-app-text', app.text, 'set-appearance')));
+    row(box,
+        button('恢复这个色板', 'reset-appearance'),
+        el('span', 'wxg-note', '（只把四个槽位退回所选色板；你手改的颜色会被覆盖）'));
+    box.appendChild(checkbox('wxg-app-to-panel', '浮层面板与悬浮小框也用这套配色（不勾＝它们跟随酒馆主题）',
+        app.applyToPanel, 'set-app-to-panel'));
+
+    // 实时预览：四个槽位长什么样，直接给她看
+    const pv = el('div', 'wxg-app-preview');
+    pv.setAttribute('data-role', 'app-preview');
+    applyAppearance(pv, s.appearance || {});
+    pv.appendChild(el('div', 'wxg-app-pv-name', '万象阁 · 预览'));
+    const pvRow = el('div', 'wxg-row');
+    pvRow.appendChild(el('span', 'wxg-badge', '强调色'));
+    pvRow.appendChild(el('span', 'wxg-badge wxg-badge-soft', '淡底'));
+    const pvBtn = el('button', 'menu_button', '按钮长这样');
+    pvBtn.type = 'button';
+    pvRow.appendChild(pvBtn);
+    pv.appendChild(pvRow);
+    pv.appendChild(el('div', 'wxg-fact', '这一块用的是你选的配色——不用打开工作台就能看出效果。'));
+    box.appendChild(pv);
+
+    row(box, field('打开方式', select('wxg-layout-mode', [
+        { value: 'workspace', label: '整页工作台（推荐：自己的配色＋左栏导航）' },
+        { value: 'panel', label: '浮层面板（老样子，能拖能缩放）' },
+    ], s.layoutMode, 'set-layout-mode')));
+    box.appendChild(el('div', 'wxg-note', '悬浮小框的开关在「总控」里；它在聊天时常驻，点一下就进工作台。'));
+
+    host.appendChild(box);
+}
+
 function secRecall(host) {
     const s = getSettings();
     const box = section('召回',
@@ -857,6 +923,7 @@ export function renderSections(host, opts) {
         secRoster(staging);
         // ③ 配置：设一次就不动
         secGeneral(staging);
+        secAppearance(staging);
         secRecall(staging);
         secExtract(staging);
         secApi(staging);
@@ -914,6 +981,71 @@ function buildJumpNav(host) {
     } else {
         host.appendChild(nav);
     }
+
+    // 滚动时高亮"你现在在哪一段"（scroll-spy）
+    bindNavScrollSpy(host, nav);
+    markActiveNav(host, nav);
+}
+
+/**
+ * 滚动时把"当前所在那一段"高亮出来。
+ * ⚠️ 监听挂在**宿主**（面板正文层）上，每次重画前先解绑，⛔ 免得叠一堆监听器。
+ */
+function bindNavScrollSpy(host, nav) {
+    if (typeof host.removeEventListener === 'function' && host.__wxgSpy) {
+        host.removeEventListener('scroll', host.__wxgSpy);
+        host.__wxgSpy = null;
+        // 顺手把滚动动效的监听也撤掉
+        if (host.__wxgEndTimer) {
+            clearTimeout(host.__wxgEndTimer);
+            host.__wxgEndTimer = null;
+        }
+    }
+    if (typeof host.addEventListener !== 'function' || typeof requestAnimationFrame !== 'function') {
+        return;
+    }
+    const spy = () => {
+        if (host.__wxgSpyBusy) {
+            return;
+        }
+        host.__wxgSpyBusy = true;
+        requestAnimationFrame(() => {
+            host.__wxgSpyBusy = false;
+            markActiveNav(host, nav);
+        });
+    };
+    host.__wxgSpy = spy;
+    host.addEventListener('scroll', spy);
+}
+
+/** 哪一段离顶端最近，就把哪一颗点亮 */
+function markActiveNav(host, nav) {
+    if (!host || !nav) {
+        return;
+    }
+    const secs = Array.from(host.querySelectorAll('.wxg-sec'));
+    const btns = Array.from(nav.querySelectorAll('.wxg-nav-btn'));
+    if (!secs.length || !btns.length) {
+        return;
+    }
+    // 视口顶端往下一点点的位置当作"当前行"
+    const hostTop = Number(host.getBoundingClientRect ? host.getBoundingClientRect().top : 0);
+    const line = hostTop + 24;
+    let active = 0;
+    secs.forEach((sec, i) => {
+        const top = sec.getBoundingClientRect ? sec.getBoundingClientRect().top : 0;
+        if (top <= line) {
+            active = i;
+        }
+    });
+    btns.forEach((b, i) => {
+        const on = i === active;
+        if (b.classList) {
+            b.classList.toggle('is-on', on);
+        } else {
+            b.setAttribute('class', on ? 'wxg-nav-btn is-on' : 'wxg-nav-btn');
+        }
+    });
 }
 
 /** 跳转条上的点击：滚到那一段，并顺手把它展开（不然滚到了还是收着的） */
@@ -1358,6 +1490,42 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
                 case 'set-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
                 case 'set-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
+                /* ---- 外观（我们自己的配色） ---- */
+                case 'set-appearance': {
+                    if (!isChange) {
+                        break;
+                    }
+                    const key = target.id;   // wxg-app-xxx → 槽位名
+                    const slot = key.replace('wxg-app-', '');
+                    const patch = {};
+                    if (slot === 'palette') {
+                        Object.assign(patch, palettePatch(trimText(target.value)));
+                    } else {
+                        patch[slot] = trimText(target.value);
+                        // 手改了槽位 ⇒ 色板显示为"自定义"（⛔ 不假装还是预设）
+                        patch.palette = 'custom';
+                    }
+                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, patch) });
+                    toast.ok('配色已更新' + (slot === 'palette' ? '' : '（已标为「自定义」）'));
+                    rerender();
+                    break;
+                }
+                case 'reset-appearance': {
+                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, palettePatch(trimText(getSettings().appearance && getSettings().appearance.palette))) });
+                    toast.ok('已退回所选色板');
+                    rerender();
+                    break;
+                }
+                case 'set-app-to-panel':
+                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, { applyToPanel: target.checked }) });
+                    toast.ok(target.checked ? '浮层与小框也跟着这套配色' : '浮层与小框改为跟随酒馆主题');
+                    rerender();
+                    break;
+                case 'set-layout-mode':
+                    patchSettings({ layoutMode: trimText(target.value) === 'panel' ? 'panel' : 'workspace' });
+                    toast.ok(trimText(target.value) === 'panel' ? '以后点入口＝开浮层面板' : '以后点入口＝开整页工作台');
+                    rerender();
+                    break;
                 /* ---- 任务（主线／支线）：她也能改 ---- */
                 case 'set-quest-status': {
                     if (!isChange) {

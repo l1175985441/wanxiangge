@@ -9,6 +9,8 @@
  */
 
 import { openPanel, closePanel, isPanelOpen } from './shell.js';
+import { openWorkspace, closeWorkspace, isWorkspaceOpen } from './workspace.js';
+import { getSettings } from '../core/settings.js';
 import { toast } from './toast.js';
 
 const ENTRY_ID = 'wxg-wand-entry';
@@ -53,10 +55,20 @@ export function mountWandEntry() {
     item.appendChild(label);
 
     item.addEventListener('click', () => {
-        if (isPanelOpen()) {
-            closePanel();
+        // ⭐ 点入口：按布局模式决定开哪个——
+        //    workspace＝自己的整页工作台（默认）；panel＝老的浮层窗口。
+        if (getSettings().layoutMode === 'panel') {
+            if (isPanelOpen()) {
+                closePanel();
+            } else {
+                openPanel();
+            }
+            return;
+        }
+        if (isWorkspaceOpen()) {
+            closeWorkspace();
         } else {
-            openPanel();
+            openWorkspace();
         }
     });
 
@@ -120,7 +132,8 @@ export function syncEntryState() {
     if (!item) {
         return;
     }
-    item.classList.toggle('active', isPanelOpen());
+    // 工作台开着也算"开着"（入口高亮）
+    item.classList.toggle('active', isPanelOpen() || isWorkspaceOpen());
 }
 
 /** 顺手一条小提示（装上时告诉她入口在哪） */

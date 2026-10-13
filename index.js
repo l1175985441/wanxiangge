@@ -23,12 +23,14 @@ import {
 } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen } from './ui/shell.js';
+import { openWorkspace, isWorkspaceOpen, refreshWorkspace } from './ui/workspace.js';
+import { mountMini, refreshMini } from './ui/mini.js';
 import { ensureWandEntry, syncEntryState } from './ui/wand.js';
 import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.15';
+const VERSION = '0.2.16';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis['万象阁_生成前拦截'] = async function (chat, contextSize, abort, type) {
@@ -78,8 +80,12 @@ function bindEvents(ctx) {
     on(types.USER_MESSAGE_RENDERED, () => {
         mountAllCards(2, 900);
         renderPanel();
+        refreshMini();
         if (isPanelOpen()) {
             import('./ui/shell.js').then((m) => m.refreshPanel()).catch(() => {});
+        }
+        if (isWorkspaceOpen()) {
+            refreshWorkspace();
         }
     });
 
@@ -221,9 +227,20 @@ function boot() {
                     console.warn('[万象阁] 对账出错：', e);
                 }
 
-                // 她自己要求"打开酒馆就弹出面板"时才弹
+                // 她自己要求"打开酒馆就弹出面板"时才弹（按布局模式开对应的那个）
                 if (getSettings().showPanelOnStart) {
-                    openPanel();
+                    if (getSettings().layoutMode === 'panel') {
+                        openPanel();
+                    } else {
+                        openWorkspace();
+                    }
+                }
+
+                // ⭐ 悬浮小框：聊天时常驻，一眼看"世界现在什么样"（她拍的）
+                try {
+                    mountMini();
+                } catch (e) {
+                    console.warn('[万象阁] 悬浮小框没挂上：', e);
                 }
             } catch (e) {
                 console.warn('[万象阁] 首屏同步出错：', e);
