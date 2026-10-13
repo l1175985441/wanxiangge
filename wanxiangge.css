@@ -278,8 +278,9 @@
 }
 
 /* 左栏：竖排导航 */
+/* 加宽：最长那条（"过程报告 · 每轮到底注入了什么"）原来被挤成三行 */
 .wxg-ws-side {
-    width: 188px;
+    width: 218px;
     flex: 0 0 auto;
     padding: 10px 8px;
     overflow: auto;
@@ -289,7 +290,7 @@
 
 .wxg-ws-side-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 9px;
     width: 100%;
     text-align: left;
@@ -326,7 +327,7 @@
 .wxg-ws-side-txt {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.35;
 }
 
 /* 右侧内容：一屏只说一件事（当前段） */
