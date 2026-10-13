@@ -2283,3 +2283,261 @@ body.wxg-dragging {
 .wanxiangge .wxg-empty button {
     margin-top: var(--s1);
 }
+
+/* ============================================================================
+   ⭐ 有数据排版术（对照 有数据版参考-别家排版-20261014/ 十五张实拍）
+   —— 上一批治"空态好看"，这一批治"**有数据好看**"。
+      核心四条：行化一切 / 状态胶囊 / 筛选带计数 / 数字当骨架。
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   ① 状态胶囊
+   ⚠️ 必须 inline-flex（宽度按内容）：原来只在 flex 列容器里当子项 ⇒ 被拉成整条
+      （真机截图里「推演」「暗线」就是两条通栏的长条，一眼就不对）。
+   色只上胶囊（复核方第二条：彩色只上胶囊与行动条，正文永远素色）。
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-badge {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 100%;
+    height: 20px;
+    padding: 0 8px;
+    border: 1px solid var(--wxg-line);
+    border-radius: 999px;
+    background: transparent;
+    font-size: var(--fs-note);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    opacity: 1;
+    color: var(--wxg-dim);
+}
+
+/* 变体（按语义，⛔ 不按颜色名）：
+   is-ok    ＝好/完成/在场        is-warn ＝要注意/未了结
+   is-info  ＝分类章（中性）      is-off  ＝未启用/未开始（最淡） */
+.wanxiangge .wxg-badge.is-ok {
+    color: var(--wxg-accent-ink, #10201a);
+    background: var(--wxg-accent, #5fbf9b);
+    border-color: var(--wxg-accent, #5fbf9b);
+}
+
+.wanxiangge .wxg-badge.is-warn {
+    color: #e2a33c;
+    border-color: rgba(226, 163, 60, 0.55);
+    background: rgba(226, 163, 60, 0.12);
+}
+
+.wanxiangge .wxg-badge.is-info {
+    color: var(--wxg-text-strong, inherit);
+    border-color: var(--wxg-line);
+    background: rgba(128, 128, 128, 0.14);
+}
+
+.wanxiangge .wxg-badge.is-off {
+    color: var(--wxg-dim);
+    border-color: var(--wxg-line);
+    background: transparent;
+    opacity: 0.75;
+}
+
+/* 旧的 soft/warn 继续能用（别处还在用） */
+.wanxiangge .wxg-badge-soft {
+    opacity: 0.9;
+}
+
+.wanxiangge .wxg-badge-warn {
+    color: #e2a33c;
+    border-color: rgba(226, 163, 60, 0.55);
+    border-style: solid;
+    background: rgba(226, 163, 60, 0.12);
+}
+
+/* ---------------------------------------------------------------------------
+   ② 筛选带（带计数）：`全部 9 ｜ 推演 5 ｜ 暗线 2`
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 0 var(--s3);
+    margin-bottom: var(--s3);
+    border-bottom: 1px solid var(--wxg-line);
+}
+
+.wanxiangge .wxg-filters > .wxg-filter-k {
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+    margin-right: 2px;
+}
+
+.wanxiangge .wxg-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 11px;
+    border: 1px solid var(--wxg-line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--wxg-dim);
+    font-size: var(--fs-note);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.wanxiangge .wxg-filter:hover {
+    background: rgba(128, 128, 128, 0.12);
+}
+
+/* 选中的筛选项：实心（参照观棋大事纪顶部那排） */
+.wanxiangge .wxg-filter.is-on {
+    background: var(--wxg-accent, #5fbf9b);
+    border-color: var(--wxg-accent, #5fbf9b);
+    color: var(--wxg-accent-ink, #10201a);
+    font-weight: 700;
+}
+
+.wanxiangge .wxg-filter .wxg-filter-n {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+}
+
+/* 计数条：`命中 3 · 显示第 1-3 条` */
+.wanxiangge .wxg-hitbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s2);
+    padding: 0 0 var(--s2);
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+}
+
+/* ---------------------------------------------------------------------------
+   ③ 行化列表：一行一件事
+      `编号/时间（骨架列）｜ 主文 ｜ 右侧状态或操作`
+   --------------------------------------------------------------------------- */
+
+/* 分组头：`#11 · 第 11 楼 · 3 条` */
+.wanxiangge .wxg-grouphead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: var(--s3) 0 var(--s1);
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+    border-bottom: 1px solid var(--wxg-line);
+    margin-bottom: 2px;
+}
+
+.wanxiangge .wxg-grouphead > b {
+    color: var(--wxg-text-strong, inherit);
+    font-size: 1.02em;
+}
+
+/* 一行 */
+.wanxiangge .wxg-r {
+    display: grid;
+    grid-template-columns: 5.6em 1fr auto;
+    align-items: baseline;
+    gap: 4px var(--s3);
+    padding: 7px 2px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.14);
+}
+
+.wanxiangge .wxg-r:last-child {
+    border-bottom: 0;
+}
+
+.wanxiangge .wxg-r:hover {
+    background: rgba(128, 128, 128, 0.07);
+}
+
+/* 骨架列：时间/编号（等宽数字 ⇒ 竖着能对齐） */
+.wanxiangge .wxg-r-k {
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* 主文列 */
+.wanxiangge .wxg-r-main {
+    min-width: 0;
+}
+
+.wanxiangge .wxg-r-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.98em;
+    line-height: 1.6;
+}
+
+/* 第二行（灰）：内容/说明，最多两行，超出省略 */
+.wanxiangge .wxg-r-sub {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: var(--fs-note);
+    color: var(--wxg-dim);
+    line-height: 1.7;
+    margin-top: 1px;
+}
+
+/* 右侧：状态胶囊 / 操作（⛔ 不许被主文挤跑） */
+.wanxiangge .wxg-r-act {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+/* 行里的专名：跟正文同色，只加一点重量（⛔ 不染色——彩色只给胶囊） */
+.wanxiangge .wxg-r-who {
+    font-weight: 600;
+    color: var(--wxg-text-strong, inherit);
+}
+
+/* `—` 换成"暂无"用的灰字位（复核方第六条：空值写"暂无"，不隐身） */
+.wanxiangge .wxg-none {
+    color: var(--wxg-dim);
+    opacity: 0.7;
+}
+
+/* ---------------------------------------------------------------------------
+   ④ 引用块：长文段套"左竖线＋浅底"（⛔ 不把长文平铺在正文里）
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-quote {
+    border-left: 3px solid var(--wxg-line);
+    border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+    background: rgba(128, 128, 128, 0.08);
+    padding: var(--s2) var(--s3);
+    margin: var(--s2) 0;
+    font-size: 0.96em;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   ⑤ 等宽数字：凡是"要竖着对齐"的地方都用它
+   --------------------------------------------------------------------------- */
+
+.wanxiangge .wxg-num,
+.wanxiangge .wxg-report-time,
+.wanxiangge .wxg-report-floor {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+}

@@ -1004,6 +1004,34 @@ export function applyCharSearch(root, query) {
     }
 }
 
+/**
+ * ⭐ 编年的筛选（那一排小胶囊）。放在模块级：点一下只重画，不落设置。
+ * （"筛选带计数"是跟参照学的**做法**；文案是我们自己的——⛔ 别照抄别家的字。）
+ */
+let chronFilter = 'all';
+
+/**
+ * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
+ *   推演＝中性分类章 ｜ 暗线＝要注意 ｜ 警戒／越界＝警告 ｜ 其它＝中性
+ */
+function kindTone(kind) {
+    const k = asText(kind);
+    if (k === '暗线') {
+        return 'is-warn';
+    }
+    if (k === '警戒' || k === '越界') {
+        return 'is-warn';
+    }
+    return 'is-info';
+}
+
+/** 只取时分（列表里"哪条新"靠它，日期放到分组头；⛔ 不用完整时间戳占地方） */
+function shortTime(at) {
+    const s = formatStamp(at);
+    const m = s.match(/(\d{1,2}:\d{2})/);
+    return m ? m[1] : s;
+}
+
 function secChronicle(host) {
     const list = getChronicle();
     /*
@@ -1022,26 +1050,90 @@ function secChronicle(host) {
         return;
     }
     // ⭐ 装盒：编年列表一块（体检第一条）
-    const cChron = card('按时间排（最近 ' + String(Math.min(list.length, 120)) + ' 条）');
-    const wrap = el('div', 'wxg-report-list');
-    const recent = list.slice(-120).reverse();
-    for (const c of recent) {
-        const line = el('div', 'wxg-chron');
-        line.appendChild(el('span', 'wxg-report-time', formatStamp(c.at)));
-        if (Number.isFinite(c.floor) && c.floor >= 0) {
-            line.appendChild(el('span', 'wxg-report-floor', floorLabel(c.floor)));
+    /*
+     * ⭐ 行化一切（有数据排版术第七条）：
+     *    `时间（骨架列）｜ 谁 ＋ 正文 ｜ 种类胶囊`，一行一件事；
+     *    按**楼层分组**（数字当骨架），顶部一排**筛选带计数**。
+     * ⚠️ 原来每条摊成 5 行（时间／楼层／胶囊／人／正文），9 条就一屏多——
+     *    真机截图里一排胶囊还被 flex 列拉成了通栏长条（见 CSS 里的说明）。
+     */
+    const KINDS = ['推演', '暗线', '警戒', '越界'];
+    const countOf = (k) => list.filter((c) => String(c.kind || '推演') === k).length;
+    const all = list.slice(-120).reverse();
+    const shown = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演') === chronFilter);
+
+    // ① 筛选胶囊（带计数）——做法学参照，字用我们自己的
+    const bar = el('div', 'wxg-filters');
+    const mkFilter = (key, label, n) => {
+        const b = el('button', 'wxg-filter' + (chronFilter === key ? ' is-on' : ''), label);
+        b.type = 'button';
+        b.setAttribute('data-action', 'chron-filter');
+        b.setAttribute('data-id', key);
+        b.appendChild(el('span', 'wxg-filter-n', String(n)));
+        return b;
+    };
+    bar.appendChild(mkFilter('all', '全部', all.length));
+    for (const k of KINDS) {
+        const n = countOf(k);
+        if (n) {
+            bar.appendChild(mkFilter(k, k, n));
         }
-        line.appendChild(el('span', 'wxg-badge wxg-badge-soft', c.kind || '推演'));
-        if (trimText(c.who)) {
-            line.appendChild(el('span', 'wxg-name', c.who));
-        }
-        if (c.manual) {
-            line.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
-        }
-        line.appendChild(el('div', 'wxg-fact', c.text));
-        wrap.appendChild(line);
     }
-    cChron.appendChild(wrap);
+    if (chronFilter !== 'all' && !countOf(chronFilter)) {
+        // 筛到空的时候也得有路回去（⛔ 不留一个空屏）
+        chronFilter = 'all';
+    }
+    box.appendChild(bar);
+
+    // ② 一行小结：有几条、什么顺序
+    const hit = el('div', 'wxg-hitbar');
+    hit.appendChild(el('span', null, '这里 ' + String(shown.length) + ' 条'
+        + (shown.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
+    hit.appendChild(el('span', null, '新的在上面 · 按楼层分组'));
+    box.appendChild(hit);
+
+    // ③ 按楼层分组，一组一个"行列表"
+    const cChron = card(chronFilter === 'all' ? '一回合一行' : ('只看「' + chronFilter + '」'));
+    const groups = [];
+    for (const c of shown) {
+        const f = Number.isFinite(c.floor) && c.floor >= 0 ? Number(c.floor) : -1;
+        const last = groups[groups.length - 1];
+        if (last && last.floor === f) {
+            last.items.push(c);
+        } else {
+            groups.push({ floor: f, items: [c] });
+        }
+    }
+    for (const g of groups) {
+        const head = el('div', 'wxg-grouphead');
+        head.appendChild(el('b', null, g.floor >= 0 ? floorLabel(g.floor) : '未记楼层'));
+        head.appendChild(el('span', null, String(g.items.length) + ' 条'));
+        cChron.appendChild(head);
+        for (const c of g.items) {
+            const r = el('div', 'wxg-r');
+            // 骨架列：时间（等宽数字，竖着对齐）
+            r.appendChild(el('div', 'wxg-r-k wxg-num', shortTime(c.at)));
+            // 主列：谁（＋已手改）／正文（最多两行）
+            const main = el('div', 'wxg-r-main');
+            const title = el('div', 'wxg-r-title');
+            if (trimText(c.who)) {
+                title.appendChild(el('span', 'wxg-r-who', c.who));
+            } else {
+                title.appendChild(el('span', 'wxg-none', '（没点名）'));
+            }
+            if (c.manual) {
+                title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
+            }
+            main.appendChild(title);
+            main.appendChild(el('div', 'wxg-r-sub', trimText(c.text) || '暂无'));
+            r.appendChild(main);
+            // 右列：种类胶囊（⛔ 彩色只上胶囊）
+            const act = el('div', 'wxg-r-act');
+            act.appendChild(el('span', 'wxg-badge ' + kindTone(c.kind), String(c.kind || '推演')));
+            r.appendChild(act);
+            cChron.appendChild(r);
+        }
+    }
     box.appendChild(cChron);
     box.appendChild(el('div', 'wxg-note', '共 ' + String(list.length) + ' 条，这里显示最近 120 条（更早的仍在账本与世界书归档里）'));
     host.appendChild(box);
@@ -2025,6 +2117,12 @@ export function bindSectionEvents(host, refresh) {
                             target.textContent = openNow ? '明细' : '收起';
                         }
                     }
+                    break;
+                }
+                case 'chron-filter': {
+                    // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
+                    chronFilter = trimText(id) || 'all';
+                    rerender();
                     break;
                 }
                 case 'char-sort':
