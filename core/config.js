@@ -248,8 +248,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
      */
     layoutMode: 'workspace',
 
-    /** 悬浮小框（当前状态）开关与位置 */
-    mini: { show: true, x: null, y: null, collapsed: false },
+    /** 悬浮球（当前状态）开关与位置；平时就是个小球，点一下展开信息面板 */
+    mini: { show: true, x: null, y: null, collapsed: true, pinned: false },
 
     /**
      * ⭐ 外观（**我们自己的配色**，见 ui/theme.js）：

@@ -412,46 +412,94 @@
     background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
 }
 
-/* ============================ 悬浮小框（当前状态） ============================ */
+/* ============================ 悬浮球 ＋ 信息面板 ============================ */
 
 .wxg-mini {
     position: fixed;
     z-index: 30020;
     display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 8px;
+    align-items: flex-start;
+    gap: 8px;
     font-size: 13px;
-    cursor: move;
-    background: var(--wxg-surface, #1d1f23);
     color: var(--wxg-text, #e6e7e4);
+    max-width: min(82vw, 640px);
+}
+
+/* 小球：平时就它一个，拖动它挪位置 */
+.wxg-mini-ball {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    cursor: grab;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
     border: 1px solid var(--wxg-border, #3a3f46);
-    border-radius: 999px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-    max-width: min(70vw, 520px);
+    background: var(--wxg-surface, #1d1f23);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.wxg-mini-ball:active {
+    cursor: grabbing;
+}
+
+.wxg-mini-ball:hover {
+    border-color: var(--wxg-accent, #5fbf9b);
 }
 
 .wxg-mini-dot {
-    width: 8px;
-    height: 8px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
-    flex: 0 0 auto;
     background: var(--wxg-accent, #5fbf9b);
+    box-shadow: 0 0 0 3px var(--wxg-accent-soft, rgba(95, 191, 155, 0.18));
 }
 
 .wxg-mini-dot.is-bad {
     background: #e0654f;
+    box-shadow: 0 0 0 3px rgba(224, 101, 79, 0.22);
 }
 
 .wxg-mini-dot.is-idle {
     background: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+    box-shadow: none;
 }
 
-.wxg-mini-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+/* 展开的信息面板 */
+.wxg-mini-panel {
+    display: none;
+    min-width: 268px;
+    max-width: min(78vw, 400px);
+    padding: 9px 11px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--wxg-border, #3a3f46);
+    background: var(--wxg-surface, #1d1f23);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.wxg-mini.is-open .wxg-mini-panel {
+    display: block;
+}
+
+.wxg-mini-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--wxg-border, #3a3f46);
+}
+
+.wxg-mini-name {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.wxg-mini-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
 }
 
 .wxg-mini-btn {
@@ -471,22 +519,37 @@
     background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
 }
 
-/* ---- 顶部跳转条（浮层面板里画；工作台靠左栏导航，不用它） ---- */
-
-/* 收成一个小点：只留状态点，鼠标放上去再展开 */
-.wxg-mini.is-folded {
-    padding: 6px;
-    gap: 0;
+/* ⭐ 键值**对齐**：左边一列固定宽、右边一列从同一处起（她要求"版块对齐"） */
+.wxg-mini-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
-.wxg-mini.is-folded .wxg-mini-text,
-.wxg-mini.is-folded .wxg-mini-btn {
-    display: none;
+.wxg-mini-row {
+    display: grid;
+    grid-template-columns: 4.6em 1fr;
+    gap: 8px;
+    align-items: baseline;
+    line-height: 1.55;
 }
 
-.wxg-mini.is-folded:hover .wxg-mini-text,
-.wxg-mini.is-folded:hover .wxg-mini-btn {
-    display: inline-block;
+.wxg-mini-k {
+    color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
+    text-align: right;
+    white-space: nowrap;
+}
+
+.wxg-mini-v {
+    min-width: 0;
+    word-break: break-word;
+}
+
+.wxg-mini-bad {
+    color: #e0654f;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
 }
 
 @media (max-width: 700px) {

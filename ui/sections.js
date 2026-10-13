@@ -22,6 +22,7 @@ import { toList, trimText, asText, countChars, floorLabel, FLOOR_NOTE } from '..
 import {
     PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
 } from './theme.js';
+import { questStats } from '../core/summary.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, collectPeopleFromBook } from '../core/worldbook.js';
 import { clockWentBackwards } from '../core/clock.js';
@@ -460,10 +461,18 @@ function secCharacters(host) {
         }
 
         // ⭐ 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
+        //    整理规则（我定的）：**进行中的排前面，完成/搁置的收进折叠里**（不占地方，但一条不丢）
         if (Array.isArray(c.quests) && c.quests.length) {
             const qBox = el('div', 'wxg-list');
-            qBox.appendChild(el('div', 'wxg-report-h', '任务（在追的目标 · ⛔ 不是"下一步做什么"）'));
-            for (const q of c.quests) {
+            const open = c.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
+            const over = c.quests.filter((q) => ['完成', '搁置'].includes(trimText(q.status)));
+            const stat = questStats(c.quests);
+            qBox.appendChild(el('div', 'wxg-report-h',
+                '任务（在追的目标 · ⛔ 不是"下一步做什么"）'
+                + '　主线 ' + String(stat.main) + ' · 支线 ' + String(stat.side)
+                + (over.length ? '（已结束 ' + String(over.length) + '）' : '')));
+
+            const makeQuestRow = (q) => {
                 const row = el('div', 'wxg-rowitem');
                 const head = el('div', 'wxg-rowname');
                 head.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(q.kind) === 'main' ? '主线' : '支线'));
@@ -490,7 +499,23 @@ function secCharacters(host) {
                 if (Array.isArray(q.items) && q.items.length) {
                     row.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
                 }
-                qBox.appendChild(row);
+                return row;
+            };
+
+            if (!open.length) {
+                qBox.appendChild(el('div', 'wxg-empty', '没有在追的任务了（已结束的都收在下面）'));
+            }
+            for (const q of open) {
+                qBox.appendChild(makeQuestRow(q));
+            }
+            if (over.length) {
+                const fold = foldable('已结束 ' + String(over.length) + ' 条（完成／搁置，点开看）', false);
+                const inner = el('div', 'wxg-list');
+                for (const q of over) {
+                    inner.appendChild(makeQuestRow(q));
+                }
+                fold.appendChild(inner);
+                qBox.appendChild(fold);
             }
             body.appendChild(qBox);
         }
