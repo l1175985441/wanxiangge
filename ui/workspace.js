@@ -10,7 +10,7 @@
  *   · 浮层小框（ui/mini.js）是"聊天时瞄一眼"的入口，点它就打开这里。
  */
 
-import { WORKSPACE_ID, SIDEBAR_ICONS } from '../core/config.js';
+import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections } from './sections.js';
 import { applyAppearance } from './theme.js';
@@ -40,6 +40,15 @@ export function closeWorkspace() {
     wsEl = null;
     sideEl = null;
     hostEl = null;
+    // 工作台收起来了 ⇒ 把悬浮球放回来
+    try {
+        const mini = document.getElementById(MINI_ID);
+        if (mini) {
+            mini.style.display = '';
+        }
+    } catch (e) {
+        // 放不回来也不影响别的
+    }
 }
 
 /** 打开工作台（已开就只刷新） */
@@ -104,6 +113,16 @@ export function openWorkspace() {
 
     document.body.appendChild(root);
     wsEl = root;
+    // ⚠️ 真机上验出来的：悬浮球是 fixed 且层级更高，工作台一开它就**压在工作台上挡着点**，
+    //    所以进工作台先把球收起来（关掉工作台再放出来）。
+    try {
+        const mini = document.getElementById(MINI_ID);
+        if (mini) {
+            mini.style.display = 'none';
+        }
+    } catch (e) {
+        // 收不收得起来都不影响工作台本身
+    }
     refreshWorkspace();
     return root;
 }
