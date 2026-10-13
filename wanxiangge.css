@@ -1538,3 +1538,37 @@ body.wxg-dragging {
     background: var(--wxg-accent-soft, var(--wxg-fill-strong));
     border-color: var(--wxg-accent-line, var(--wxg-border));
 }
+
+/* ============================ 勾选框（⛔ 不许被当成文本框拉成整行） ============================ */
+/* 真机上看出来的：我把 `input` 一律 `width:100%` ⇒ **复选框也被拉成 800px 宽**，
+   把同一行的「玩家棋子」文字和「删除」按钮全压住了（截图里就叠在一起）。 */
+
+.wanxiangge input[type='checkbox'],
+.wanxiangge input[type='radio'] {
+    flex: 0 0 auto;
+    width: 1.05em;
+    min-width: 1.05em;
+    height: 1.05em;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.wanxiangge label.checkbox_label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* 名册卡片：一行放不下就换行，⛔ 不许把右边裁掉 */
+.wanxiangge .wxg-char-fields {
+    min-width: 0;
+}
+
+.wanxiangge .wxg-char-fields .wxg-affinity {
+    flex: 0 1 108px;
+    width: 108px;
+    min-width: 88px;
+}
