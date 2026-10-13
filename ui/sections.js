@@ -590,7 +590,7 @@ function secCharacters(host) {
                     { value: '搁置', label: '搁置' },
                 ], trimText(q.status), 'set-quest-status', c.id);
                 st.setAttribute('data-title', trimText(q.title));
-                st.className = 'text_pole wxg-mini';
+                st.className = 'text_pole wxg-btn-sm';
                 head.appendChild(st);
                 if (q.manual) {
                     head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
@@ -966,7 +966,8 @@ function secRoster(host) {
         r.appendChild(fields);
 
         const actions = el('div', 'wxg-char-actions');
-        const playerLabel = el('label', 'checkbox_label wxg-mini');
+        // ⚠️ ⛔ 别借 wxg-mini（那是悬浮球的根，position:fixed）——借了标签就脱离文档流、按钮全叠在一起
+        const playerLabel = el('label', 'checkbox_label wxg-chip-sm');
         const pbox = document.createElement('input');
         pbox.type = 'checkbox';
         pbox.checked = c.isPlayer === true;
