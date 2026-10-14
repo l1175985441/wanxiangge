@@ -3115,3 +3115,28 @@ body.wxg-dragging {
     width: 160px;
     margin-right: 8px;
 }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 空态那个主按钮**不许被挤扁**（真机截图里「立刻更新」被压成一小条、字都断了）
+ *   症状：flex 竖排容器里，按钮作为 flex 项按最小内容宽被压缩 ⇒ 文字换行 + 被裁。
+ *   治法：给它 flex:0 0 auto ＋ width:auto ＋ nowrap ＋ 最小宽度，怎么都不会再扁。
+ * ------------------------------------------------------------------------- */
+.wanxiangge .wxg-empty-act {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+.wanxiangge .wxg-empty .menu_button,
+.wanxiangge .wxg-empty button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 96px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1;
+}
+.wanxiangge .wxg-empty.is-hero .menu_button {
+    min-width: 132px;
+}
