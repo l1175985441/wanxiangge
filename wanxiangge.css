@@ -3140,3 +3140,64 @@ body.wxg-dragging {
 .wanxiangge .wxg-empty.is-hero .menu_button {
     min-width: 132px;
 }
+
+/* ===========================================================================
+ * ⭐ 浮层人物卡（② 名册点开详情）——照目标包 `目标-名册浮层人物卡-目标态.html`
+ *    规矩：实底、细线分节、⛔ 不套虚框；颜色只上胶囊与主按钮；大名字做锚。
+ *    挂在 body 上（真浮层）⇒ 选择器不带 .wanxiangge 前缀，改用自带类名。
+ * ======================================================================== */
+.wxg-pc {
+    position: fixed; right: 46px; top: 96px; width: 592px; max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 120px); overflow: auto; z-index: 30050;
+    background: var(--wxg-card-bg, #fff);
+    color: var(--wxg-text, #1a1d1f);
+    border: 1px solid var(--wxg-border, #d5dade);
+    border-radius: 12px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .18), 0 2px 8px rgba(0, 0, 0, .08);
+    font-size: 13.5px;
+}
+.wxg-pc-head {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 14px 14px 10px; cursor: move; user-select: none;
+}
+.wxg-pc-grip { color: var(--wxg-dim, #6d747a); font-size: 15px; line-height: 24px; letter-spacing: -1px; }
+.wxg-pc-who { flex: 1; min-width: 0; }
+.wxg-pc-name { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.wxg-pc-alias { color: var(--wxg-dim, #6d747a); font-size: 12.5px; margin-top: 5px; }
+.wxg-pc-badges { display: flex; gap: 6px; align-items: center; padding-top: 9px; flex: 0 0 auto; }
+.wxg-pc-kebab, .wxg-pc-x {
+    flex: 0 0 auto; background: transparent; border: 1px solid transparent;
+    color: var(--wxg-dim, #6d747a); border-radius: 6px; padding: 2px 8px; font-size: 15px; cursor: pointer;
+}
+.wxg-pc-kebab:hover, .wxg-pc-x:hover { border-color: var(--wxg-border, #d5dade); color: var(--wxg-text, #1a1d1f); }
+.wxg-pc-sec { padding: 12px 14px 4px; }
+.wxg-pc-sec + .wxg-pc-sec { border-top: 1px solid var(--wxg-line, #e6e8ea); }
+.wxg-pc-sech { color: var(--wxg-dim, #6d747a); font-size: 12px; margin-bottom: 9px; }
+.wxg-pc-kv { display: grid; grid-template-columns: 62px 1fr 62px 1fr; gap: 8px 12px; align-items: center; }
+.wxg-pc-k { color: var(--wxg-dim, #6d747a); font-size: 12px; }
+.wxg-pc-v { min-width: 0; }
+.wxg-pc-v.wxg-pc-full { grid-column: 2 / -1; }
+.wxg-pc-input {
+    width: 100%; padding: 6px 9px; font-size: 13.5px; font-family: inherit;
+    color: var(--wxg-text, #1a1d1f); background: var(--wxg-input-bg, #fff);
+    border: 1px solid var(--wxg-border, #d5dade); border-radius: 7px;
+}
+.wxg-pc-input:focus { outline: none; border-color: var(--wxg-accent, #5ecfa4); }
+.wxg-pc-quote { border-left: 3px solid var(--wxg-accent-line, rgba(94,207,164,.55)); padding: 2px 0 2px 10px; }
+.wxg-pc-quote > div { font-size: 13px; line-height: 1.65; }
+.wxg-pc-quote > div + div { margin-top: 4px; }
+.wxg-pc-when { color: var(--wxg-dim, #6d747a); font-size: 11.5px; margin-right: 6px; }
+.wxg-pc-player { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--wxg-dim, #6d747a); }
+.wxg-pc-foot {
+    display: flex; align-items: center; gap: 9px; padding: 11px 14px 13px;
+    border-top: 1px solid var(--wxg-line, #e6e8ea); background: var(--wxg-fill, rgba(0,0,0,.03));
+}
+.wxg-pc-counter { flex: 1; text-align: center; color: var(--wxg-dim, #6d747a); font-size: 12.5px; }
+.wxg-pc-foot .menu_button, .wxg-pc-foot button {
+    padding: 6px 13px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--wxg-border, #d5dade); background: transparent; color: var(--wxg-text, #1a1d1f);
+}
+.wxg-pc-foot .menu_button:disabled { opacity: .45; cursor: default; }
+.wxg-pc-nav { color: var(--wxg-dim, #6d747a); }
+.wxg-pc-foot .wxg-primary { background: var(--wxg-accent, #5ecfa4); border-color: var(--wxg-accent, #5ecfa4); color: var(--wxg-accent-ink, #101815); font-weight: 700; }
+.wanxiangge .wxg-r-more { margin-left: 4px; }

@@ -13,8 +13,10 @@ import { storageReport, formatStamp, getChat } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
 // ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。
 //    ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
+// ⭐ 浮层人物卡要用 findCharacter（按 id 取那一位；⛔ 不是 findCharacterByName）
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
+    findCharacter,
     applyRosterPreset, describeRoster, describeWorld, recentRecallRecords, getChronicle,
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
@@ -1622,7 +1624,8 @@ function secRoster(host) {
          *    事件的 closest 会先命中它们（点输入框不会把行收起来）。
          */
         const r = el('div', 'wxg-r is-click' + (open ? ' is-open' : ''));
-        r.setAttribute('data-action', 'edit-char');
+        // ⭐ 点一行开**浮层**（照目标包：⏔ 行内展开）
+        r.setAttribute('data-action', 'open-person-card');
         r.setAttribute('data-id', c.id);
         const main = el('div', 'wxg-r-main');
         const title = el('div', 'wxg-r-title');
@@ -1647,6 +1650,15 @@ function secRoster(host) {
 
         const act = el('div', 'wxg-r-act');
         act.appendChild(el('span', 'wxg-r-caret' + (open ? ' is-open' : ''), open ? '⌄' : '›'));
+        /*
+         * ⭐ 行上留一个「⋯」＝还开**老的完整编辑器**（删除／收下／忽略／合并那些都在里头）。
+         *    为什么留：浮层这一版先做"看＋改七格＋别名＋玩家棋子"，老编辑器里还有几样没搬过去；
+         *    ⛔ 不能因为换交互就把她的功能摸不到（audit-3 红了 4 条就是提醒这个）。
+         *    等浮层把老编辑器的活全接手了，再撤这个入口（那时才叫"只删入口"）。
+         */
+        const moreBtn = button('⋯', 'edit-char', 'wxg-btn-xs wxg-r-more', c.id);
+        moreBtn.title = '更多（删除／收下／忽略／合并等）';
+        act.appendChild(moreBtn);
         r.appendChild(act);
 
         // 展开区：别名／好感／玩家棋子／删除（点行才出来）
@@ -2384,6 +2396,251 @@ function secSteps(host, intoBox) {
 /* ------------------------------ 渲染与事件 ------------------------------ */
 
 /** 把整套分节画进宿主 */
+/* ------------------------------ ⭐ 浮层人物卡（② 名册点开详情） ------------------------------ */
+
+/**
+ * 为什么做成浮层（她 2026-10-14 点名的）：
+ *   原来点一行的做法是**行内展开**——一个巨大表单把后面 40 行全推下去，左边还挂个
+ *   「改他的状态」标签跟输入框对不齐（真机截图里很难看）。
+ *   ⇒ 照目标包 `目标-名册浮层人物卡-20261014/目标-名册浮层人物卡-目标态.html` 改成**可拖浮层**：
+ *     覆盖层，表格**原地不动**；大名字做锚；两栏标签值；底部长条换人。
+ *
+ * ⚠️ 关键决定：**沿用同一套控件与动作名**（`set-char-field` / `merge-into` / `data-id` / `data-key`）
+ *   ⇒ 数据层**一行不改**（保存路径、手改锁、快照都还是原来那条），⛔ 不另起一套。
+ */
+let personCardId = null;
+
+export function openPersonCard(id) {
+    personCardId = id || null;
+    renderPersonCard();
+}
+
+export function closePersonCard() {
+    personCardId = null;
+    const old = document.getElementById('wxg-person-card');
+    if (old && typeof old.remove === 'function') {
+        old.remove();
+    }
+}
+
+/** 把浮层画出来（挂在 body 上＝真浮层，⛔ 不塞进段里免得被重画冲掉） */
+function renderPersonCard() {
+    const host = document.getElementById('wxg-person-card');
+    if (host && typeof host.remove === 'function') {
+        host.remove();
+    }
+    if (!personCardId) {
+        return;
+    }
+    const roster = getRoster();
+    const at = roster.findIndex((c) => c.id === personCardId);
+    if (at < 0) {
+        personCardId = null;
+        return;
+    }
+    const c = roster[at];
+    const one = findCharacter(personCardId) || c;
+
+    const pop = el('div', 'wxg-pc wanxiangge');
+    pop.id = 'wxg-person-card';
+    pop.setAttribute('role', 'dialog');
+
+    // ① 标题栏＝拖动把手：⠿ ／ 大名字 ／ 别名 ／ 胶囊 ／ ⋮（她 10-15 01:44 令：⋮＝编辑这一位）
+    const head = el('div', 'wxg-pc-head');
+    head.appendChild(el('span', 'wxg-pc-grip', '⠿'));
+    const who = el('div', 'wxg-pc-who');
+    who.appendChild(el('div', 'wxg-pc-name', c.name || '（没名字）'));
+    who.appendChild(el('div', 'wxg-pc-alias', '别名 · ' + (one.aliases && one.aliases.length ? one.aliases.join('、') : '暂无')));
+    head.appendChild(who);
+    const badges = el('div', 'wxg-pc-badges');
+    if (one.inScene) {
+        badges.appendChild(el('span', 'wxg-badge is-ok', '在场'));
+    }
+    if (one.manual) {
+        badges.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
+    }
+    if (one.isPlayer) {
+        badges.appendChild(el('span', 'wxg-badge is-info', '玩家棋子'));
+    }
+    head.appendChild(badges);
+    const kebab = button('⋮', 'noop', 'wxg-pc-kebab');
+    kebab.title = '编辑这一位（下面就是可改的格）';
+    head.appendChild(kebab);
+    const x = button('×', 'card-close', 'wxg-pc-x');
+    x.title = '关掉（Esc 也行）';
+    head.appendChild(x);
+    pop.appendChild(head);
+
+    // ② 基础信息：两栏「标签（暗）｜值（亮）」，值**就是输入框**（沿用 set-char-field）
+    const sec1 = el('div', 'wxg-pc-sec');
+    sec1.appendChild(el('div', 'wxg-pc-sech', '基础信息'));
+    const kv = el('div', 'wxg-pc-kv');
+    const row2 = (k1, f1, ph1, k2, f2, ph2) => {
+        kv.appendChild(el('div', 'wxg-pc-k', k1));
+        kv.appendChild(fieldBox(c.id, f1, one[f1], ph1));
+        kv.appendChild(el('div', 'wxg-pc-k', k2));
+        kv.appendChild(fieldBox(c.id, f2, one[f2], ph2));
+    };
+    row2('年龄', 'age', '未知', '身份', 'identity', '未知');
+    row2('所在势力', 'faction', '暂无', '好感', 'affinity', '未接入');
+    /*
+     * ⭐ 别名／玩家棋子也放进来。
+     * ⚠️ 它们原来只在**行内展开**里（`set-alias` / `set-player`）——把行改成开浮层之后
+     *    那两个开关就摸不到了（audit-3 当场红了 4 条）⇒ 补进浮层，动作名沿用同一套。
+     */
+    const aliasInput = textInput('wxg-pc-alias-' + c.id, (one.aliases || []).join('、'),
+        '别名／昵称（顿号或逗号分开）', 'set-alias');
+    aliasInput.setAttribute('data-id', c.id);
+    kv.appendChild(el('div', 'wxg-pc-k', '别名'));
+    const aliasWrap = el('div', 'wxg-pc-v');
+    aliasWrap.classList.add('wxg-pc-full');
+    aliasWrap.appendChild(aliasInput);
+    kv.appendChild(aliasWrap);
+    const pbox = el('label', 'wxg-pc-player');
+    const pchk = el('input', null);
+    pchk.type = 'checkbox';
+    pchk.checked = one.isPlayer === true;
+    pchk.setAttribute('data-action', 'set-player');
+    pchk.setAttribute('data-id', c.id);
+    pbox.appendChild(pchk);
+    pbox.appendChild(el('span', null, '这是玩家棋子（⛔ AI 不扮演、不推演）'));
+    kv.appendChild(el('div', 'wxg-pc-k', ''));
+    const pwrap = el('div', 'wxg-pc-v');
+    pwrap.classList.add('wxg-pc-full');
+    pwrap.appendChild(pbox);
+    kv.appendChild(pwrap);
+    kv.appendChild(el('div', 'wxg-pc-k', '时间·地点'));
+    const tp = fieldBox(c.id, 'timePlace', one.timePlace, '未知');
+    tp.classList.add('wxg-pc-full');
+    kv.appendChild(tp);
+    kv.appendChild(el('div', 'wxg-pc-k', '正在经历'));
+    const cur = fieldBox(c.id, 'current', one.current, '本回合没写他');
+    cur.classList.add('wxg-pc-full');
+    kv.appendChild(cur);
+    sec1.appendChild(kv);
+    pop.appendChild(sec1);
+
+    // ③ 过去经历：引文块（绿竖线），旧的自然淡化
+    const sec2 = el('div', 'wxg-pc-sec');
+    sec2.appendChild(el('div', 'wxg-pc-sech', '过去经历（由近到远，旧的自然淡化）'));
+    const past = Array.isArray(one.past) ? one.past.slice(0, 6) : [];
+    if (!past.length) {
+        sec2.appendChild(el('div', 'wxg-empty', '还没有过去经历（更新几轮就有了）'));
+    } else {
+        const q = el('div', 'wxg-pc-quote');
+        for (const p of past) {
+            const line = el('div', null, trimText(p && p.text) || '暂无');
+            if (p && Number.isFinite(Number(p.floor)) && Number(p.floor) >= 0) {
+                line.insertBefore(el('span', 'wxg-pc-when', floorLabel(p.floor)), line.firstChild);
+            }
+            q.appendChild(line);
+        }
+        sec2.appendChild(q);
+    }
+    pop.appendChild(sec2);
+
+    // ④ 底部条：换人（她拍的：上一位｜第几位/共几位｜下一位）＋ 合并 ＋ 保存
+    const foot = el('div', 'wxg-pc-foot');
+    const prev = button('← 上一位', 'card-prev', 'wxg-pc-nav');
+    prev.disabled = at <= 0;
+    const next = button('下一位 →', 'card-next', 'wxg-pc-nav');
+    next.disabled = at >= roster.length - 1;
+    foot.appendChild(prev);
+    foot.appendChild(el('span', 'wxg-pc-counter', '第 ' + String(at + 1) + ' / ' + String(roster.length) + ' 位'));
+    foot.appendChild(next);
+    foot.appendChild(button('按这条合并…', 'merge-into', 'wxg-btn-sm', c.id));
+    const save = button('保存', 'card-save', 'wxg-primary');
+    foot.appendChild(save);
+    pop.appendChild(foot);
+
+    document.body.appendChild(pop);
+    bindPersonCardDrag(pop);
+}
+
+/** 一个可改的格（沿用 `set-char-field` ⇒ 保存路径与手改锁都不变） */
+function fieldBox(charId, field, value, placeholder) {
+    const wrap = el('div', 'wxg-pc-v');
+    const long = field === 'current' || field === 'timePlace';
+    const input = long
+        ? el('textarea', 'wxg-pc-input')
+        : el('input', 'wxg-pc-input');
+    if (!long) {
+        input.type = 'text';
+    }
+    input.value = trimText(value);
+    input.placeholder = placeholder || '未知';
+    input.setAttribute('data-action', 'set-char-field');
+    input.setAttribute('data-id', charId);
+    input.setAttribute('data-key', field);
+    if (long) {
+        input.rows = 2;
+    }
+    wrap.appendChild(input);
+    return wrap;
+}
+
+/** 拖标题栏移浮层（做法跟 mini.js 那套一致：⛔ 不引库） */
+function bindPersonCardDrag(pop) {
+    const grip = pop.querySelector('.wxg-pc-head');
+    if (!grip || typeof grip.addEventListener !== 'function') {
+        return;
+    }
+    let sx = 0;
+    let sy = 0;
+    let ox = 0;
+    let oy = 0;
+    let on = false;
+    const move = (e) => {
+        if (!on) {
+            return;
+        }
+        const t = e.touches ? e.touches[0] : e;
+        pop.style.left = String(ox + (t.clientX - sx)) + 'px';
+        pop.style.top = String(oy + (t.clientY - sy)) + 'px';
+        e.preventDefault();
+    };
+    const up = () => {
+        on = false;
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchend', up);
+    };
+    grip.addEventListener('mousedown', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea')) {
+            return;   // 点按钮／输入框不算拖
+        }
+        const r = pop.getBoundingClientRect ? pop.getBoundingClientRect() : { left: 0, top: 0 };
+        on = true;
+        sx = e.clientX;
+        sy = e.clientY;
+        ox = r.left;
+        oy = r.top;
+        pop.style.left = String(ox) + 'px';
+        pop.style.top = String(oy) + 'px';
+        pop.style.right = 'auto';
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+    grip.addEventListener('touchstart', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea')) {
+            return;
+        }
+        const t = e.touches[0];
+        const r = pop.getBoundingClientRect ? pop.getBoundingClientRect() : { left: 0, top: 0 };
+        on = true;
+        sx = t.clientX;
+        sy = t.clientY;
+        ox = r.left;
+        oy = r.top;
+        pop.style.left = String(ox) + 'px';
+        pop.style.top = String(oy) + 'px';
+        pop.style.right = 'auto';
+        document.addEventListener('touchmove', move);
+        document.addEventListener('touchend', up);
+    });
+}
+
 export function renderSections(host, opts) {
     if (!host) {
         return;
@@ -2959,6 +3216,38 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
+                /*
+                 * ⭐ 名册点一行 ⇒ **开浮层**（她 2026-10-14 点名：⏔ 行内展开把表格推下去）。
+                 *    旧的行内编辑器（case 'edit-char' 那段）**先留着**：
+                 *    等浮层距离验收了再说，⏔ 一步到位地把能用的东西换掉。
+                 */
+                case 'open-person-card':
+                    openPersonCard(id);
+                    break;
+                case 'card-close':
+                    closePersonCard();
+                    break;
+                case 'card-prev':
+                case 'card-next': {
+                    /*
+                     * 上／下一位：按**当前浮层里那位**在名册里的下标推一格。
+                     * ⛔ 别自己造一个 personCardNowId()——`personCardId` 就是模块级那个变量，直接用。
+                     */
+                    const list = getRoster();
+                    const at = list.findIndex((x) => x.id === personCardId);
+                    if (at >= 0) {
+                        const to = action === 'card-next' ? at + 1 : at - 1;
+                        if (to >= 0 && to < list.length) {
+                            openPersonCard(list[to].id);
+                        }
+                    }
+                    break;
+                }
+                case 'card-save':
+                    toast.ok('已保存（改哪格锁哪格，引擎不会冲掉）');
+                    closePersonCard();
+                    rerender();
+                    break;
                 case 'edit-char': {
                     // 名册行上的「改」：展开/收起那个人的三个输入框
                     openChar = String(openChar) === String(id) ? '' : String(id);
