@@ -3130,7 +3130,7 @@ export function bindSectionEvents(host, refresh) {
             toast.fail('打错字了：要一字不差地打「' + CLEAR_WORD + '」才让清');
             break;
         }
-        const counts = clearWorldLedger();
+        const counts = await clearWorldLedger();
         clearWorldOpen = false;
         const parts = Object.keys(counts).map((k) => k + ' ' + String(counts[k]) + ' 条');
         toast.ok('这个聊天的世界已清空：' + parts.join('、') + '（世界书没动）');
@@ -3143,7 +3143,7 @@ export function bindSectionEvents(host, refresh) {
     case 'del-chronicle': {
         // ⚠️ 分发的元素变量叫 `target`（照旁边几条的写法，⛔ 不是我随手起的名）
         const idx = Number(target.getAttribute('data-index'));
-        if (removeChronicleAt(idx)) {
+        if (await removeChronicleAt(idx)) {
             toast.ok('删掉一条编年');
         } else {
             toast.fail('没删掉（下标对不上，可能列表刚刷新过）');
@@ -3164,7 +3164,7 @@ export function bindSectionEvents(host, refresh) {
             + '（只清编年；名册、世界状态、暗线、世界书都不动）\n\n清掉就回不来了。')) {
             break;
         }
-        const done = clearChronicle();
+        const done = await clearChronicle();
         toast.ok('编年已清空（' + String(done) + ' 条）');
         rerender();
         break;

@@ -246,6 +246,23 @@ export function saveState() {
     writeLedger(state);
 }
 
+/**
+ * ⭐ **存完才算数**（别让"删了刷新又回来"这种事再发生）。
+ *
+ * 背景：`saveState()` 是同步的，它里面的 `writeLedger` 是"发了不管"（异步不 await），
+ * 而酒馆那边 `saveMetadata` 本身还带防抖 ⇒ 她**删完马上刷新**时，那笔删除可能还没落地，
+ * 刷新一看东西又回来了（真机实测过）。
+ * ⇒ 删／清空这种**不可逆**的动作，必须等到真存下去再给她"已清空"的回执。
+ */
+export async function flushLedger() {
+    try {
+        return await writeLedger(loadState());
+    } catch (e) {
+        console.warn('[万象阁] 落盘没成：', e);
+        return { ok: false, reason: (e && e.message) || '落盘失败' };
+    }
+}
+
 // 告诉适配层"现在内存里那本账是谁"（换聊天时它要把最新样子留个底）
 setLiveLedgerGetter(() => cache);
 
@@ -785,7 +802,7 @@ export function getChronicle() {
  * @param {number} index 在 `getChronicle()` 里的下标（界面按当前筛选后的行传它拿到的原始下标）
  * @returns {boolean} 真删掉了才 true
  */
-export function removeChronicleAt(index) {
+export async function removeChronicleAt(index) {
     const state = loadState();
     /*
      * ⚠️ 必须**先判类型**再转数字：`Number(null)` 是 **0**（不是 NaN），
@@ -800,15 +817,17 @@ export function removeChronicleAt(index) {
     }
     state.chronicle.splice(index, 1);
     saveState();
+    await flushLedger();   // ⭐ 同上
     return true;
 }
 
 /** 清空编年；返回清掉几条。⛔ 只动编年，别的一律不碰。 */
-export function clearChronicle() {
+export async function clearChronicle() {
     const state = loadState();
     const n = Array.isArray(state.chronicle) ? state.chronicle.length : 0;
     state.chronicle = [];
     saveState();
+    await flushLedger();   // ⭐ 等真存下去再回话（⏔ 她刷新一看又回来）
     return n;
 }
 
@@ -819,7 +838,7 @@ export function clearChronicle() {
  *
  * @returns {object} 每一块清掉多少条（给她看回执，⛔ 不许静默）
  */
-export function clearWorldLedger() {
+export async function clearWorldLedger() {
     const state = loadState();
     const counts = {
         名册: Array.isArray(state.characters) ? state.characters.length : 0,
@@ -850,6 +869,7 @@ export function clearWorldLedger() {
         status: 'idle', step: '', text: '', error: '', tries: 0, cursor: 0, atFloor: -1, cancelRequested: false,
     });
     saveState();
+    await flushLedger();   // ⭐ 同上：不可逆的动作必须等落盘
     return counts;
 }
 
