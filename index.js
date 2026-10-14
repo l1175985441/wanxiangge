@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.47';
+const VERSION = '0.2.48';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -41,6 +41,40 @@ globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, ab
 
 let eventsBound = false;
 let lastUserFloor = -1;
+
+/**
+ * ⭐ 长命监听的"拆卸器"登记处。
+ *
+ * 为什么要有它（两条一起逼出来的）：
+ *   · 扩展契约（TavernWeave 的 sillytavern-extension-dev）原文：
+ *     "Keep every event listener, timer, prompt injection, macro, function tool, DOM mount,
+ *      and media handle paired with **deterministic cleanup**."
+ *   · 她的需求（基础件 #4）原文：「总开关（启用／停用）—— **关掉＝整台歇着**」。
+ * 原来这两条都只做到一半：引擎读设置后会早退（＝不干活），但**订阅还挂在身上**，
+ * 停用之后回调照旧被叫起来。全库挂 33 处监听、只有 12 处局部成对拆（拖拽／滚动／超时那些），
+ * **长命的这些没有归口**。
+ * ⇒ 所有走 `on()` 挂上的事件流订阅，都在这儿登记"怎么拆"；停用时统一跑一遍，
+ *   启用时重新挂上（`eventsBound` 跟着复位）。
+ */
+const disposers = [];
+
+/** 把挂上的长命监听全拆掉；返回拆了几个。⛔ 单个拆失败不许影响拆剩下的。 */
+export function teardownListeners() {
+    let n = 0;
+    while (disposers.length) {
+        const off = disposers.pop();
+        try {
+            if (typeof off === 'function') {
+                off();
+                n += 1;
+            }
+        } catch (e) {
+            console.warn('[' + APP_NAME + '] 拆一个监听时出错（继续拆剩下的）：', e);
+        }
+    }
+    eventsBound = false;
+    return n;
+}
 
 function bindEvents(ctx) {
     if (eventsBound) {
@@ -57,6 +91,17 @@ function bindEvents(ctx) {
     const on = (type, handler) => {
         if (typeof type === 'string' && type) {
             source.on(type, handler);
+            /*
+             * 顺手登记"怎么拆"。真机实测（Tavern 1.18.0）：
+             * `ctx.eventSource` 原型上有 `removeListener`，而且真拆得掉
+             * （挂 h → emit 命中 → removeListener → 再 emit 不命中）。
+             * ⛔ 别自以为有 `off`——它没有；也⛔ 别把没登记的东西留成孤儿。
+             */
+            disposers.push(() => {
+                if (typeof source.removeListener === 'function') {
+                    source.removeListener(type, handler);
+                }
+            });
         }
     };
 
@@ -155,10 +200,24 @@ export function onDelete() {
 
 export function onEnable() {
     console.info('[' + APP_NAME + '] 已启用');
+    // 停用时拆过 ⇒ 启用要把事件挂回去（⛔ 不然启用之后就没反应了）
+    try {
+        const ctx = getCtx();
+        if (ctx && !eventsBound) {
+            bindEvents(ctx);
+        }
+    } catch (e) {
+        console.warn('[' + APP_NAME + '] 启用时重挂事件出错：', e);
+    }
 }
 
 export function onDisable() {
-    console.info('[' + APP_NAME + '] 已停用（数据保留）');
+    /*
+     * ⭐ 停用＝**整台歇着**（她的需求 基础件 #4 原话），不只是"引擎不干活"：
+     * 把长命监听真拆掉。⛔ 数据一个字节都不动（账本照旧在聊天档案与世界书里）。
+     */
+    const n = teardownListeners();
+    console.info('[' + APP_NAME + '] 已停用：拆掉 ' + n + ' 个监听（数据保留）');
 }
 
 /* ---------- 启动 ---------- */
