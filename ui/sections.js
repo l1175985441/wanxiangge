@@ -3292,9 +3292,15 @@ export function bindSectionEvents(host, refresh) {
                      * （原来这里叫 closePersonCard－点一下连卡都没了，下一位都点不到。）
                      */
                     personCardEditing = false;
+                    /*
+                     * ⚠️ 顺序很要紧：浮层是**挂在段容器里**的（为了收得到点击），
+                     *   而 `rerender()` 会重画段 ⇒ **顺手把浮层也冲掉**（真机门当场抓到：
+                     *   点「收起编辑」连卡片一起没了）。
+                     *   ⇒ **先重画段，再把卡片画回来**。
+                     */
+                    rerender();
                     renderPersonCard();
                     toast.ok('已收起编辑（改哪格存哪格，引擎不会冲掉）');
-                    rerender();
                     break;
                 case 'edit-char': {
                     // 名册行上的「改」：展开/收起那个人的三个输入框
