@@ -343,11 +343,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
      * 文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。
      */
     appearance: {
+        // ⭐ 2026-10-15 换皮：全站白底黑字（照 目标-名册浮层人物卡-20261014/00-说明）
         palette: 'ink',
-        accent: '#5fbf9b',
-        surface: '#1d1f23',
-        bg: '#141619',
-        border: '#3a3f46',
+        accent: '#5ecfa4',
+        surface: '#ffffff',
+        bg: '#f4f5f6',
+        border: '#d5dade',
         text: '',
         applyToPanel: true,
     },

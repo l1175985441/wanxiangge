@@ -23,7 +23,13 @@ export const PALETTE_NAMES = {
 
 /** 预设色板（只给四个槽位） */
 export const PALETTES = {
-    ink: { accent: '#5fbf9b', surface: '#1d1f23', bg: '#141619', border: '#3a3f46' },
+    /*
+     * ⭐ 砚墨：**全站白底黑字**那套（照 目标-名册浮层人物卡-20261014/00-说明 里的皮）：
+     *   底 #f4f5f6 ／ 卡 #ffffff ／ 主字 #1a1d1f ／ 次 #6d747a ／ 线 #e6e8ea·#d5dade
+     *   绿点缀 #5ecfa4 **只用于**：全部、保存、在场、选中行浅绿。
+     * ⚠️ 2026-10-15 换的：原来是深灰底（#141619），包里的目标态是浅底 ⇒ 以包为准。
+     */
+    ink: { accent: '#5ecfa4', surface: '#ffffff', bg: '#f4f5f6', border: '#d5dade' },
     /*
      * ⭐ 暖灯（对照 SP 数据库新版那套：奶米黄底＋琥珀重点）。
      * 为什么加：复核方说"暖色可上"——工具型页面不一定非得冷灰；
@@ -37,15 +43,44 @@ export const PALETTES = {
     custom: null,
 };
 
+/** ⚠️ 换皮之前那套「砚墨」的四个槽位（迁移用：只有"原封没动过"的才跟着换） */
+const INK_BEFORE_20261015 = Object.freeze({
+    palette: 'ink', accent: '#5fbf9b', surface: '#1d1f23', bg: '#141619', border: '#3a3f46',
+});
+
 export const DEFAULT_APPEARANCE = Object.freeze({
     palette: 'ink',
-    accent: '#5fbf9b',
-    surface: '#1d1f23',
-    bg: '#141619',
-    border: '#3a3f46',
-    text: '',            // 留空＝按底面亮度自动算
+    accent: '#5ecfa4',
+    surface: '#ffffff',
+    bg: '#f4f5f6',
+    border: '#d5dade',
+    text: '',            // 留空＝按底面亮度自动算（浅底给深字）
     applyToPanel: true,  // 这套配色是否也用在浮层面板／悬浮小框上
 });
+
+/**
+ * ⭐ 换皮迁移：**只把"原封没改过"的那份跟着换**，⛔ 她自己调过的四个槽位一个都不动
+ *   （这正是她定过的"我改过的引擎要认"）。
+ * @returns {object|null} 要写回设置的补丁；不用迁移就返回 null
+ */
+export function migrateInkToLight(app) {
+    const a = app && typeof app === 'object' ? app : null;
+    if (!a || a.palette !== 'ink') {
+        return null;
+    }
+    const same = (k) => String(a[k] || '').toLowerCase() === String(INK_BEFORE_20261015[k]).toLowerCase();
+    // 四个槽位全都还是旧的砚墨值 ⇒ 认定"没动过"
+    if (!same('accent') || !same('surface') || !same('bg') || !same('border')) {
+        return null;
+    }
+    return {
+        palette: 'ink',
+        accent: PALETTES.ink.accent,
+        surface: PALETTES.ink.surface,
+        bg: PALETTES.ink.bg,
+        border: PALETTES.ink.border,
+    };
+}
 
 /* ------------------------------ 颜色小工具 ------------------------------ */
 
@@ -143,13 +178,21 @@ export function appearanceVars(app) {
         '--wxg-surface': a.surface,
         '--wxg-bg': a.bg,
         '--wxg-text': a.text,
-        '--wxg-text-strong': isLightSurface ? '#111317' : '#f3f4f2',
+        /*
+         * ⭐ 浅底那几档照包里的皮钉死（目标-名册浮层人物卡-20261014/00-说明）：
+         *   主字 #1a1d1f ／ 次 #6d747a ／ 线 #e6e8ea ／ 卡底 #ffffff（实底，⛔ 不是半透明）
+         * ⛔ 深底那几档保持原样（暖灯／松烟／靛青／朱砂 都是深底，别被这次换皮带坏）。
+         */
+        '--wxg-text-strong': isLightSurface ? '#1a1d1f' : '#f3f4f2',
         '--wxg-border': a.border,
-        '--wxg-fill': rgba(a.text, 0.07),
-        '--wxg-fill-strong': rgba(a.text, 0.13),
-        '--wxg-dim': rgba(a.text, 0.62),
-        '--wxg-input-bg': isLightSurface ? rgba('#000000', 0.045) : rgba('#000000', 0.22),
-        '--wxg-card-bg': isLightSurface ? rgba('#ffffff', 0.75) : rgba(a.text, 0.045),
+        '--wxg-line': isLightSurface ? '#e6e8ea' : a.border,
+        '--wxg-line-strong': isLightSurface ? '#d5dade' : a.border,
+        '--wxg-fill': rgba(a.text, isLightSurface ? 0.05 : 0.07),
+        '--wxg-fill-strong': rgba(a.text, isLightSurface ? 0.09 : 0.13),
+        '--wxg-dim': isLightSurface ? '#6d747a' : rgba(a.text, 0.62),
+        '--wxg-input-bg': isLightSurface ? '#ffffff' : rgba('#000000', 0.22),
+        '--wxg-card-bg': isLightSurface ? '#ffffff' : rgba(a.text, 0.045),
+        '--wxg-thead-bg': isLightSurface ? '#eceef0' : rgba(a.text, 0.06),
     };
 }
 
