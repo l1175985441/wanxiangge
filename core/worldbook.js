@@ -68,12 +68,34 @@ export function extractNameFromTitle(title) {
         for (const pair of BRACKETS) {
             const open = pair[0];
             const close = pair[1];
-            // 只在"整串被包住"时剥掉最外层
+            // ②a 整串被包住（【露娜】）
             if (t.startsWith(open) && t.endsWith(close) && t.length > open.length + close.length) {
                 const inner = trimText(t.slice(open.length, t.length - close.length));
                 if (inner) {
                     t = inner;
                     changed = true;
+                    continue;
+                }
+            }
+            /*
+             * ②b ⭐ 壳在前、名字在后（【角色】露娜 ／ [角色]月野兔 ／ （角色）亚提密斯）
+             *
+             * ⚠️ 原来只做 ②a（"整串被包住"）⇒ 这类写法**只在带空格时才碰巧过**
+             *    （`[角色] 月野兔` 靠后面第⑥步按空格切才成，`[角色]月野兔` 整条不认）。
+             *    逐条核验 5.5 时实测：`【角色】露娜`／`（角色）亚提密斯`／`[角色]月野兔`
+             *    **全部返回空**。而需求 5.5 明写这几种壳都要认。
+             *    收的条件要严：括号里的词必须是**分类词**（⛔ 不然「月野家（本家）」会被误剥）。
+             */
+            if (t.startsWith(open)) {
+                const closeAt = t.indexOf(close, open.length);
+                if (closeAt > 0 && closeAt <= 8) {
+                    const inner = trimText(t.slice(open.length, closeAt));
+                    const rest = trimText(t.slice(closeAt + close.length));
+                    if (inner && rest && CATEGORY_WORDS.has(matchKey(inner))) {
+                        t = rest;
+                        changed = true;
+                        continue;
+                    }
                 }
             }
         }
