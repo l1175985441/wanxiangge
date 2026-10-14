@@ -403,6 +403,21 @@ function secStatus(host, intoSelf) {
      *   ⏔ 再一堆竖着摆（原来就是一堆，看不出"两件事"）。
      *   ⭐ 存档行与「上次更新」按包里要求**并进左框的框底**。
      */
+    /*
+     * ⭐ 右上「功能 ⋮」（照目标包：状态页页头右上也有一个）。
+     *   跟名册页那颗**同一个做法**（⏔ 两套）。
+     */
+    const sTop = el('div', 'wxg-roster-topbar');
+    const sFunc = button('功能 ⋮', 'status-func', 'wxg-func-btn');
+    sFunc.title = '导出与统计／可撤回的版本（入口位；包里就是这么标的）';
+    sFunc.style.height = '28px';
+    sFunc.style.minHeight = '28px';
+    sFunc.style.lineHeight = '26px';
+    sFunc.style.padding = '0 12px';
+    sFunc.style.whiteSpace = 'nowrap';
+    sTop.appendChild(sFunc);
+    box.appendChild(sTop);
+
     const two = el('div', 'wxg-two');
     const colProg = el('div', 'wxg-col');
     const report = storageReport();
@@ -470,8 +485,20 @@ function secStatus(host, intoSelf) {
      *   世界四值 ⇒ 摆进**右框**；两框并排（照目标包：上排两框）。
      */
     secSteps(host, colProg);
-    colProg.appendChild(line);          // 存档行：包里要它在**进度框的框底**
-    colProg.appendChild(ledgerLine);    // 上次更新：跟存档行一起当小注
+    /*
+     * ⭐ 存档行／上次更新 ⇒ 收进**进度卡里面**（包里要的是「框底一行」，
+     *   ⏔ 只是"跟在卡下面"）。
+     *   做法：`secSteps` 已经把卡挂进 colProg 了 ⇒ 把这两行**挪进那张卡**。
+     *   拿不到卡就退回原样（⏔ 为了排版把信息弄丢）。
+     */
+    const progCard = colProg.querySelector ? colProg.querySelector('.wxg-card') : null;
+    if (progCard) {
+        progCard.appendChild(line);
+        progCard.appendChild(ledgerLine);
+    } else {
+        colProg.appendChild(line);
+        colProg.appendChild(ledgerLine);
+    }
     two.appendChild(colProg);
     const cWorld = el('div', 'wxg-plain');
     cWorld.appendChild(worldNote);
@@ -3412,6 +3439,9 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
+                case 'status-func':
+                    toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
+                    break;
                 case 'roster-func':
                     toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方的筛选里有「我改过的」');
                     break;
