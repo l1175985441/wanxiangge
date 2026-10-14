@@ -69,6 +69,18 @@ export function groupOfSection(name) {
     return SIDEBAR_GROUPS[SIDEBAR_GROUPS.length - 1];
 }
 
+/*
+ * ⭐ 侧栏简称（照目标包：「侧栏沿用模板简称「读取控制（四格）」、**页头用全名**」）。
+ *   原因：侧栏字号小、宽度窄，全名会折成两行（真机截图里看得到）；
+ *   而页头那一行地方够，该给全名。
+ *   ⚠️ 只改**侧栏显示**，⏔ 改段名（段名还被别处引用）。
+ */
+export const SIDEBAR_SHORT = {
+    '读取控制（提取／排除四格）': '读取控制（四格）',
+    '自定义 API（后台推演走这条通道）': '自定义 API',
+    '提示词（可看可改）': '提示词',
+};
+
 export const SIDEBAR_ICONS = [
     'fa-book',            // 状态（账本／进度／每轮记录）
     'fa-earth-asia',      // 世界状态

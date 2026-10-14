@@ -10,7 +10,7 @@
  *   · 浮层小框（ui/mini.js）是"聊天时瞄一眼"的入口，点它就打开这里。
  */
 
-import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, groupOfSection } from '../core/config.js';
+import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, SIDEBAR_SHORT, groupOfSection } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections, bindSectionEvents, fillText } from './sections.js';
 import { applyAppearance } from './theme.js';
@@ -194,6 +194,8 @@ function buildSidebar() {
     secs.forEach((sec, i) => {
         const titleEl = sec.querySelector('.wxg-sec-title');
         const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
+        // ⭐ 侧栏用**简称**（全名会折成两行）；页头那行仍用全名（见 showIndex 里的 data-wxg-sec）。
+        const brief = SIDEBAR_SHORT[name] || name;
         const group = groupOfSection(name);
         if (group && group.key !== lastGroupKey) {
             lastGroupKey = group.key;
@@ -224,7 +226,7 @@ function buildSidebar() {
         ico.innerHTML = iconSvg(iconKey);
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';
-        txt.textContent = name;
+        txt.textContent = brief;   // ⭐ 侧栏用简称（全名会折成两行）；页头仍用全名
         btn.appendChild(ico);
         btn.appendChild(txt);
         sideEl.appendChild(btn);
