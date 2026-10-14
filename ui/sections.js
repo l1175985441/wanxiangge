@@ -24,7 +24,10 @@ import {
 } from './theme.js';
 import { questStats } from '../core/summary.js';
 import { replanCurrentFloor } from '../core/actions.js';
-import { listWorldbookNames, collectPeopleFromBook, getEntries } from '../core/worldbook.js';
+import { listWorldbookNames, getEntries } from '../core/worldbook.js';
+// ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
+import { importBookWiki } from '../core/book-wiki.js';
+import { channelReport } from '../core/wb-channel.js';
 import { clockWentBackwards } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
@@ -1489,6 +1492,18 @@ function secRoster(host) {
     row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
     box.appendChild(cIn);
 
+    /*
+     * ⭐ 世界书**通道**那一行（必须看得见）：
+     *    真机踩过"点读人 → 0 人"，根因是 ST 1.18 原版**没有** `ctx.getLorebookEntries` 那一组，
+     *    而我们只认它 ⇒ 静默读出 0 条、她完全没法自己判断原因。
+     *    现在：走哪条通道、缺什么，直接写在读人按钮旁边。
+     */
+    const chRep = channelReport();
+    const chLine = el('div', 'wxg-store', chRep.text
+        + (chRep.ok ? '' : '　⇒ 装「酒馆助手」扩展就能读；或者直接把书名手填进下面那格也行'));
+    chLine.setAttribute('data-tone', chRep.ok ? 'ok' : 'bad');
+    box.appendChild(chLine);
+
     const cList = card('名册');
     /*
      * ⭐ 行化（有数据排版术第七条）：**一个人一行**。
@@ -2656,15 +2671,28 @@ function patchApi(patch) {
     patchSettings({ api: Object.assign({}, s.api || {}, patch) });
 }
 
+/**
+ * ⭐「从世界书读人」v2：**全读进来 → 模型自己分 → 各归各位**
+ *
+ * 她的口径（2026-10-14 19:3x）：读取世界书**全出来**，写提示词让模型自己分，
+ * ⛔ 别按名单拦着读；人物→名册、势力／局势→世界状态建档。
+ *
+ * ⚠️ 老口径（纯规则剥 `[角色]` 前缀）会把 `[势力][地点]` 当人收、其余前缀全丢，
+ *    所以只在**模型不可用时**当兜底，而且必须明说"这次是规则版、没分类"。
+ */
 async function readFromBook(book) {
     try {
-        const res = await collectPeopleFromBook(book, { onlyEnabled: getSettings().onlyEnabledEntries !== false });
-        if (res.blocked) {
-            toast.warn('这本书在你「排除世界书」名单里，引擎不读它');
+        const res = await importBookWiki(book, { allowRuleFallback: true });
+        if (!res.ok) {
+            toast.fail('读世界书没成：' + (res.reason || '未知原因'));
             return { added: 0, skipped: 0 };
         }
-        const added = addCharacters(res.people.map((p) => p.name));
-        return { added, skipped: res.skipped };
+        if (res.fellBack) {
+            toast.warn('模型这条线没通（' + (res.reason || '') + '）⇒ 只按规则收了名字**没分类**：'
+                + String(res.added) + ' 人。配好 API 再点一次就能分类建档。');
+            return { added: res.added, skipped: 0 };
+        }
+        return res;
     } catch (e) {
         toast.fail('读世界书出错：' + (e && e.message ? e.message : String(e)));
         return null;
@@ -3074,7 +3102,16 @@ export function bindSectionEvents(host, refresh) {
                 case 'read-book': {
                     const res = await readFromBook(trimText(textOf(host, 'wxg-book-name')));
                     if (res) {
-                        toast.ok('从世界书认出 ' + String(res.added) + ' 人（跳过 ' + String(res.skipped) + ' 条不认的）');
+                        if (res.fellBack) {
+                            break;   // 兜底那条已经在 readFromBook 里说过了
+                        }
+                        toast.ok('读进来 ' + String(res.read) + ' 条'
+                            + (res.disabled ? '（另有 ' + String(res.disabled) + ' 条禁用，跳过）' : '')
+                            + ' ⇒ 认出：人 ' + String(res.added)
+                            + ' · 势力 ' + String(res.factions)
+                            + ' · 局势 ' + String(res.situations)
+                            + ' · 地点 ' + String(res.places)
+                            + '（世界状态里现在共 ' + String(res.situationsTotal) + ' 条）');
                     }
                     rerender();
                     break;

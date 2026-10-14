@@ -13,6 +13,8 @@ import { getCtx } from './adapter.js';
 import { loadState, saveState } from './state.js';
 import { getSettings } from './settings.js';
 import { WORLD_BOOK_NAME } from './config.js';
+// ⭐ 世界书**多通道**（酒馆助手／旧通道／新版接口，有哪个用哪个）
+import { listBooks, readBookEntries, channelReport } from './wb-channel.js';
 
 /** 包裹用的括号对（成对剥壳用） */
 const BRACKETS = [
@@ -176,20 +178,21 @@ export async function refreshAffinity() {
         return { ok: false, reason: '名册是空的' };
     }
 
+    /*
+     * ⚠️ `ctx` 这个函数后面还在用（聊天元数据、设置那些）——替换闸门的时候
+     *    别把它一起删了（真踩过：删掉之后整条"读好感"报 `ctx is not defined`）。
+     */
     const ctx = getCtx();
-    if (!ctx || typeof ctx.getLorebookEntries !== 'function') {
-        return { ok: false, reason: '这个世界书版本没给出读条目的接口' };
+
+    // ⭐ 通道探测（⛔ 不再只认 `ctx.getLorebookEntries` 那一组：1.18 原版没有它）
+    const ch = channelReport();
+    if (!ch.canRead) {
+        return { ok: false, reason: ch.text };
     }
 
     // ⭐ 她填的那个词，可能是**书名**，也可能是**条目关键词/条目名**（她那边叫「手机」）。
     //    两种都得认：先看书名里有没有；没有就当成关键词，去候选书里找条目。
-    let books = [];
-    try {
-        const names = typeof ctx.getWorldbookNames === 'function' ? await ctx.getWorldbookNames() : [];
-        books = (Array.isArray(names) ? names : []).map((n) => trimText(n)).filter(Boolean);
-    } catch (e) {
-        books = [];
-    }
+    const books = await listBooks();
     const sourceIsBook = books.some((b) => b === source);
 
     // 一个条目算不算"跟好感有关"
@@ -234,14 +237,10 @@ export async function refreshAffinity() {
     const seenBooks = [];
 
     for (const book of candidates) {
-        let entries = null;
-        try {
-            // eslint-disable-next-line no-await-in-loop
-            entries = await ctx.getLorebookEntries(book);
-        } catch (e) {
-            entries = null;
-        }
-        if (!Array.isArray(entries)) {
+        // ⭐ 走多通道适配层（酒馆助手／旧通道／新版接口，有哪个用哪个）
+        // eslint-disable-next-line no-await-in-loop
+        const entries = await readBookEntries(book);
+        if (!Array.isArray(entries) || !entries.length) {
             continue;
         }
         readAny = true;
@@ -335,14 +334,12 @@ export async function listWorldbookNames() {
     const ctx = getCtx();
     const names = new Set();
 
+    // ⭐ 走多通道（酒馆助手／旧通道／新版）
     try {
-        if (ctx && typeof ctx.getWorldbookNames === 'function') {
-            const list = await ctx.getWorldbookNames();
-            for (const n of Array.isArray(list) ? list : []) {
-                const name = trimText(n);
-                if (name) {
-                    names.add(name);
-                }
+        for (const n of await listBooks()) {
+            const name = trimText(n);
+            if (name) {
+                names.add(name);
             }
         }
     } catch (e) {
@@ -379,19 +376,12 @@ export async function getEntries(bookName) {
         const list = toList(settings.extractBooks);
         name = list.length ? list[0] : '';
     }
-    if (!name || !ctx || typeof ctx.getLorebookEntries !== 'function') {
+    if (!name) {
         return [];
     }
-    let data = [];
-    try {
-        data = await ctx.getLorebookEntries(name);
-    } catch (e) {
-        console.warn('[万象阁] 读世界书条目失败：' + name, e);
-        return [];
-    }
-    if (!Array.isArray(data)) {
-        return [];
-    }
+    // ⭐ 走多通道适配层（里面已经把旧通道的 `{entries:{uid:…}}`
+    //    归一成数组了，⏐ 不用这儿再分辨）
+    const data = await readBookEntries(name);
     // ⭐ 条目级"不读"名单（她在面板上点「看条目」挑的那些）——在这里统一过掉，
     //    ⛔ 不是只存不用；按条目名匹配（她在世界书界面里看到的那一行）。
     const off = settings ? toList(settings.excludeEntries) : [];

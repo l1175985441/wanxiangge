@@ -16,7 +16,8 @@
  */
 
 import { WORLD_BOOK_NAME, BOOK_ENTRY_PREFIX } from './config.js';
-import { getCtx } from './adapter.js';
+import {  } from './adapter.js';
+import { probeChannel } from './wb-channel.js';
 import { loadState } from './state.js';
 import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
@@ -34,18 +35,29 @@ const ENTRY = {
 const CHRONICLE_PAGE = 60;   // 每页多少条
 
 /** 拿写世界书的接口（不同版本名字不完全一样，都试一遍） */
+/*
+ * ⭐ 写入走**多通道**（原来只认 `ctx.getWorldbookNames…` 那一组，
+ *    而 ST 1.18 原版根本没有它 ⇒ 写入一直写不进，跟"读人读出 0 条"同一个根因）。
+ *    这里保持**原来那套名字不变**（list／create／entries／createEntry／setEntries／deleteEntry），
+ *    ⏐ 下游一行都不用改；换的只是"这些函数到底由谁提供"。
+ */
 function bookApi() {
-    const ctx = getCtx();
-    if (!ctx) {
+    const ch = probeChannel();
+    const caps = ch.caps || {};
+    if (ch.channel === 'none') {
         return null;
     }
     return {
-        list: typeof ctx.getWorldbookNames === 'function' ? ctx.getWorldbookNames.bind(ctx) : null,
-        create: typeof ctx.createWorldbook === 'function' ? ctx.createWorldbook.bind(ctx) : null,
-        entries: typeof ctx.getLorebookEntries === 'function' ? ctx.getLorebookEntries.bind(ctx) : null,
-        createEntry: typeof ctx.createWorldInfoEntry === 'function' ? ctx.createWorldInfoEntry.bind(ctx) : null,
-        setEntries: typeof ctx.setLorebookEntries === 'function' ? ctx.setLorebookEntries.bind(ctx) : null,
-        deleteEntry: typeof ctx.deleteLorebookEntry === 'function' ? ctx.deleteLorebookEntry.bind(ctx) : null,
+        channel: ch.channel,
+        list: caps.list || null,
+        create: caps.createBook || null,
+        entries: caps.read || null,
+        // 增：优先逐条接口；旧通道给的是"读-改-写整本"
+        createEntry: caps.create || caps.write || null,
+        // 改：同上
+        setEntries: caps.write || null,
+        remove: caps.remove || null,
+        deleteEntry: caps.remove || null,
     };
 }
 
