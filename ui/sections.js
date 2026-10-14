@@ -11,11 +11,14 @@ import {
 } from '../core/config.js';
 import { storageReport, formatStamp, getChat } from '../core/adapter.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
+// ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。
+//    ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     applyRosterPreset, describeRoster, describeWorld, recentRecallRecords, getChronicle,
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
+    removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
@@ -404,6 +407,42 @@ function secStatus(host, intoSelf) {
     row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
     row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
+    /*
+     * ⭐ 「清空这个世界」——她拍的：①＋② 那一档，就是"这个聊天我确实不要了"。
+     *    规矩：⛔ 不静默毁数据 ⇒ 先铺开**要清哪些、各多少条**，再要她**手打「确认清空」**。
+     *    ⛔ 只清账本，**不碰世界书**（那是她明确选的）；也⛔ 不碰聊天正文。
+     */
+    row(cAct, button('清空这个世界', 'clear-world-open', 'wxg-del'));
+    if (clearWorldOpen) {
+        const prev = ledgerClearPreview();
+        const danger = el('div', 'wxg-danger-box wanxiangge');
+        danger.appendChild(el('div', null, '⚠ 这一步**回不来**。将清掉**这个聊天的世界**：'));
+        const listBox = el('div', 'wxg-danger-list');
+        for (const k of Object.keys(prev)) {
+            listBox.appendChild(el('div', null, '· ' + k + '：' + String(prev[k]) + ' 条'));
+        }
+        listBox.appendChild(el('div', null, '· 世界书《万象阁 · 世界后台》：**不动**（她选的②）'));
+        listBox.appendChild(el('div', null, '· 聊天正文、别的扩展：**不动**'));
+        danger.appendChild(listBox);
+        danger.appendChild(el('div', 'wxg-note', '想留底就先点上面的「导出与统计」导一份，再回来清。'));
+        const typeRow = el('div', 'wxg-card-actions');
+        const tip = el('span', 'wxg-note', '把下面这四个字打进去才能点：');
+        tip.style.marginRight = '6px';
+        typeRow.appendChild(tip);
+        const inp = el('input', 'wxg-danger-typing');
+        inp.type = 'text';
+        inp.id = 'wxg-clear-typing';
+        inp.placeholder = CLEAR_WORD;
+        inp.setAttribute('autocomplete', 'off');
+        typeRow.appendChild(inp);
+        const go = button('确认清空', 'clear-world-do', 'wxg-del');
+        go.id = 'wxg-clear-go';
+        typeRow.appendChild(go);
+        typeRow.appendChild(button('算了', 'clear-world-cancel'));
+        danger.appendChild(typeRow);
+        danger.appendChild(el('div', 'wxg-note', '（打错字点不动；清完会给回执，写清清掉了多少条）'));
+        cNow.appendChild(danger);
+    }
     cNow.appendChild(cAct);
     box.appendChild(cNow);
 
@@ -1220,7 +1259,13 @@ export function applyCharSearch(root, query) {
  * （"筛选带计数"是跟参照学的**做法**；文案是我们自己的——⛔ 别照抄别家的字。）
  */
 let chronFilter = 'all';
-
+/**
+ * ⭐「清空这个世界」的确认盒开着没有。
+ * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
+ */
+let clearWorldOpen = false;
+/** 要她手打的那四个字（打错就点不动） */
+const CLEAR_WORD = '确认清空';
 /** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
 let openSituation = -1;
 
@@ -1378,6 +1423,15 @@ function secChronicle(host) {
     hit.appendChild(el('span', null, '这一筛 ' + String(matched.length) + ' 条'
         + (matched.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
     hit.appendChild(el('span', null, '新的在上面 · 按楼层分组'));
+    /*
+     * ⭐ 「清空编年」放在这一条小结行上（不单开一段，照"一屏一个焦点"）。
+     *    ⛔ 不做成显眼的大按钮——清空是**刻意**才点的操作，点之前会先弹条数给她看。
+     */
+    const clearBtn = el('button', 'wxg-btn-xs wxg-del', '清空编年');
+    clearBtn.type = 'button';
+    clearBtn.setAttribute('data-action', 'clear-chronicle');
+    clearBtn.title = '把编年全部清掉（只清编年，别的都不动）';
+    hit.appendChild(clearBtn);
     box.appendChild(hit);
     if (matched.length > PER_PAGE.chron) {
         box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
@@ -1436,6 +1490,20 @@ function secChronicle(host) {
             // 右列：种类胶囊（⛔ 彩色只上胶囊）
             const act = el('div', 'wxg-r-act');
             act.appendChild(el('span', 'wxg-badge ' + kindTone(c.kind), String(c.kind || '推演')));
+            /*
+             * ⭐ 删这一条。编年原来是**只增不减**的（`addChronicle`／`getChronicle`，没有任何删的口子）
+             *    ⇒ 写错了、或者早期测试数据混进去了，她自己在界面上**删不掉**
+             *      （真机上真卡过一批合成文本）。
+             * ⚠️ 下标按**账本里的原始位置**算：这里渲染的是"最近 120 条倒序＋筛选＋翻页"之后的行，
+             *    ⛔ 不能拿循环下标当账本下标（会删错人）。用对象身份回查最稳。
+             */
+            const at = list.indexOf(c);
+            const del = el('button', 'wxg-btn-xs wxg-del', '删');
+            del.type = 'button';
+            del.setAttribute('data-action', 'del-chronicle');
+            del.setAttribute('data-index', String(at));
+            del.title = '删掉这一条（只删编年这一条，别的不动）';
+            act.appendChild(del);
             r.appendChild(act);
             cChron.appendChild(r);
         }
@@ -3042,6 +3110,65 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 case 'del-char': removeCharacter(id); rerender(); break;
+    /*
+     * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
+     *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
+     */
+    case 'clear-world-open':
+        clearWorldOpen = true;
+        rerender();
+        break;
+    case 'clear-world-cancel':
+        clearWorldOpen = false;
+        toast.info('没清，原样都在');
+        rerender();
+        break;
+    case 'clear-world-do': {
+        const box = document.getElementById('wxg-clear-typing');
+        const typed = box && typeof box.value === 'string' ? box.value.trim() : '';
+        if (typed !== CLEAR_WORD) {
+            toast.fail('打错字了：要一字不差地打「' + CLEAR_WORD + '」才让清');
+            break;
+        }
+        const counts = clearWorldLedger();
+        clearWorldOpen = false;
+        const parts = Object.keys(counts).map((k) => k + ' ' + String(counts[k]) + ' 条');
+        toast.ok('这个聊天的世界已清空：' + parts.join('、') + '（世界书没动）');
+        rerender();
+        break;
+    }
+    /*
+     * ⭐ 删编年一条。⛔ 只删这一条，别的一律不碰；删完给回执（她要知道删掉了什么）。
+     */
+    case 'del-chronicle': {
+        // ⚠️ 分发的元素变量叫 `target`（照旁边几条的写法，⛔ 不是我随手起的名）
+        const idx = Number(target.getAttribute('data-index'));
+        if (removeChronicleAt(idx)) {
+            toast.ok('删掉一条编年');
+        } else {
+            toast.fail('没删掉（下标对不上，可能列表刚刷新过）');
+        }
+        rerender();
+        break;
+    }
+    /*
+     * ⭐ 清空编年：按她的规矩来——**写明条数**再动手，⛔ 不静默。
+     */
+    case 'clear-chronicle': {
+        const n = getChronicle().length;
+        if (!n) {
+            toast.info('编年本来就是空的');
+            break;
+        }
+        if (!window.confirm('要把编年**全部清掉**吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
+            + '（只清编年；名册、世界状态、暗线、世界书都不动）\n\n清掉就回不来了。')) {
+            break;
+        }
+        const done = clearChronicle();
+        toast.ok('编年已清空（' + String(done) + ' 条）');
+        rerender();
+        break;
+    }
                 case 'accept-new': updateCharacter(id, { isNew: false }); toast.ok('收下了'); rerender(); break;
                 case 'accept-new-all': {
                     const st = loadState();

@@ -776,6 +776,97 @@ export function getChronicle() {
     return loadState().chronicle;
 }
 
+/* ------------------------------ 删／清空（她自己按的，⛔ 不静默） ------------------------------ */
+
+/**
+ * 删掉编年里的一条。
+ * ⚠️ 编年原来是**只增不减**的（`addChronicle` / `getChronicle`，没有任何删的口子）
+ *    ⇒ 写错了、或早期测试数据混进去了，她自己在界面上**删不掉**（真机上就卡过一批）。
+ * @param {number} index 在 `getChronicle()` 里的下标（界面按当前筛选后的行传它拿到的原始下标）
+ * @returns {boolean} 真删掉了才 true
+ */
+export function removeChronicleAt(index) {
+    const state = loadState();
+    /*
+     * ⚠️ 必须**先判类型**再转数字：`Number(null)` 是 **0**（不是 NaN），
+     *    `Number('')` 也是 0 ⇒ 光判 `Number.isInteger` 会把 null／空串当成"删第 0 条"，
+     *    那就成了"默默删到别人"（用例抓到过）。
+     */
+    if (typeof index !== 'number' || !Number.isInteger(index)) {
+        return false;
+    }
+    if (!Array.isArray(state.chronicle) || index < 0 || index >= state.chronicle.length) {
+        return false;
+    }
+    state.chronicle.splice(index, 1);
+    saveState();
+    return true;
+}
+
+/** 清空编年；返回清掉几条。⛔ 只动编年，别的一律不碰。 */
+export function clearChronicle() {
+    const state = loadState();
+    const n = Array.isArray(state.chronicle) ? state.chronicle.length : 0;
+    state.chronicle = [];
+    saveState();
+    return n;
+}
+
+/**
+ * 清空**这个聊天的世界**（＝账本那一份）。
+ * ⛔ **不碰世界书**（那本《万象阁 · 世界后台》原样留着）——那是她明确选的②。
+ * ⛔ 也不碰聊天正文／她的其他扩展。
+ *
+ * @returns {object} 每一块清掉多少条（给她看回执，⛔ 不许静默）
+ */
+export function clearWorldLedger() {
+    const state = loadState();
+    const counts = {
+        名册: Array.isArray(state.characters) ? state.characters.length : 0,
+        世界状态: Array.isArray(state.world && state.world.situations) ? state.world.situations.length : 0,
+        暗线: Array.isArray(state.world && state.world.hidden) ? state.world.hidden.length : 0,
+        编年: Array.isArray(state.chronicle) ? state.chronicle.length : 0,
+        回执: Array.isArray(state.recallRecords) ? state.recallRecords.length : 0,
+        世界事件: Array.isArray(state.events) ? state.events.length : 0,
+        快照: Array.isArray(state.snapshots) ? state.snapshots.length : 0,
+    };
+    state.characters = [];
+    state.world = Object.assign({}, state.world, {
+        bigPicture: '',
+        situations: [],
+        hidden: [],
+        clock: '',
+        place: '',
+        updatedAt: now(),
+        manual: false,
+    });
+    state.events = [];
+    state.chronicle = [];
+    state.recallRecords = [];
+    // ⚠️ 快照也清：留着的话"撤回上一次"能把数据拉回来 ⇒ 她说的是"真的不需要了"
+    state.snapshots = [];
+    state.lastUpdate = { at: 0, status: 'idle', note: '', floor: -1 };
+    state.pipeline = Object.assign({}, state.pipeline, {
+        status: 'idle', step: '', text: '', error: '', tries: 0, cursor: 0, atFloor: -1, cancelRequested: false,
+    });
+    saveState();
+    return counts;
+}
+
+/** 清空**之前**给她看的账（要清哪些、各多少条）——⛔ 不许静默毁数据 */
+export function ledgerClearPreview() {
+    const state = loadState();
+    return {
+        名册: Array.isArray(state.characters) ? state.characters.length : 0,
+        世界状态: Array.isArray(state.world && state.world.situations) ? state.world.situations.length : 0,
+        暗线: Array.isArray(state.world && state.world.hidden) ? state.world.hidden.length : 0,
+        编年: Array.isArray(state.chronicle) ? state.chronicle.length : 0,
+        回执: Array.isArray(state.recallRecords) ? state.recallRecords.length : 0,
+        世界事件: Array.isArray(state.events) ? state.events.length : 0,
+        快照: Array.isArray(state.snapshots) ? state.snapshots.length : 0,
+    };
+}
+
 /* ------------------------------ 召回记录 ------------------------------ */
 
 export function putRecallRecord(record) {

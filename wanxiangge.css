@@ -3084,3 +3084,34 @@ body.wxg-dragging {
     font-size: 1.02em;
     color: var(--wxg-text-strong, inherit);
 }
+
+/* ---------------------------------------------------------------------------
+ * ⑩ 删除类小按钮（.wxg-del）＋「清空这个世界」的确认盒
+ *    她拍的：清空要**写明条数**＋**手打「确认清空」**才让点（不可逆操作的防误点）。
+ *    颜色只上按钮与警示条，⛔ 不铺到整块面板。
+ * ------------------------------------------------------------------------- */
+.wanxiangge .wxg-btn-xs.wxg-del {
+    color: #b4453c;
+    border-color: rgba(180, 69, 60, 0.38);
+}
+.wanxiangge .wxg-btn-xs.wxg-del:hover {
+    background: rgba(180, 69, 60, 0.12);
+    border-color: #b4453c;
+}
+.wanxiangge .wxg-danger-box {
+    margin: 8px 0 2px;
+    padding: 10px 12px;
+    border-left: 3px solid #b4453c;
+    background: rgba(180, 69, 60, 0.06);
+    border-radius: 4px;
+}
+.wanxiangge .wxg-danger-box .wxg-danger-list {
+    margin: 6px 0 8px;
+    font-size: 12px;
+    line-height: 1.7;
+    opacity: 0.92;
+}
+.wanxiangge .wxg-danger-box input.wxg-danger-typing {
+    width: 160px;
+    margin-right: 8px;
+}
