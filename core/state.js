@@ -384,8 +384,20 @@ export function updateCharacter(id, patch) {
     const fieldSet = new Set(Array.isArray(prev.manualFields) ? prev.manualFields : []);
     if (patch && typeof patch === 'object') {
         for (const k of STATUS_MANUAL_KEYS) {
-            if (Object.hasOwn(patch, k)) {
+            if (!Object.hasOwn(patch, k)) {
+                continue;
+            }
+            /*
+             * ⭐ 锁的规则要和 `normalizeCharacter` 的兜底（`state.js:29`）**一致**：
+             *    那边是"**非空**的格才算她锁着"，这边原来却是"**碰过就锁**、只加不减"。
+             *    两条打架的后果：你把某格**清空**（意思就是"这格我说了不算，引擎你填"）
+             *    之后锁还在 ⇒ 引擎永远不敢填那格。
+             *    ⇒ 统一成"填了才锁、清空即放手"。
+             */
+            if (trimText(merged[k])) {
                 fieldSet.add(k);
+            } else {
+                fieldSet.delete(k);
             }
         }
     }
