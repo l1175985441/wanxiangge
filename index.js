@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.51';
+const VERSION = '0.2.52';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -194,8 +194,15 @@ export function onUpdate() {
 }
 
 export function onDelete() {
-    // 卸载不毁数据：这里什么都不删（账本在聊天档案与世界书里，插件删了也还在）
-    console.info('[' + APP_NAME + '] 已卸载，数据原样留着');
+    /*
+     * 卸载：⛔ **一个字节的数据都不删**（账本在聊天档案与世界书里，插件删了也还在）；
+     * 但**挂在宿主身上的东西要摘干净** —— 这正是扩展契约要求的
+     * "Pair listeners … with deterministic cleanup"（卸载不许留脏摊子）。
+     * ⚠️ 2026-10-15 真机 live gate 抓到的：原来这里只有一行 console.info，
+     *    卸载之后监听**一个都没拆**（sent 6→6、recv 16→16）⇒ 现在跟停用一样拆。
+     */
+    const n = teardownListeners();
+    console.info('[' + APP_NAME + '] 已卸载：拆掉 ' + n + ' 个监听，数据原样留着');
 }
 
 export function onEnable() {
