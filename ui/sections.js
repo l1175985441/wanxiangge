@@ -398,30 +398,29 @@ function secStatus(host, intoSelf) {
      *     · 世界四值（局势／暗线／编年／可撤回）—— 将来是「世界」那个框
      *   ⇒ 先只把**外壳**去掉（不再是一张叫「现在怎么样」的卡），行原地留着。
      */
-    const cNow = el('div', 'wxg-plain');
+    /*
+     * ⭐ 两框布局（照目标包：上排两框「进度｜世界」，下排整条「每轮记录」）。
+     *   ⏔ 再一堆竖着摆（原来就是一堆，看不出"两件事"）。
+     *   ⭐ 存档行与「上次更新」按包里要求**并进左框的框底**。
+     */
+    const two = el('div', 'wxg-two');
+    const colProg = el('div', 'wxg-col');
     const report = storageReport();
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
-    cNow.appendChild(line);
-    cNow.appendChild(el('div', 'wxg-ledger', '上次更新：' + ledgerText()));
+    const ledgerLine = el('div', 'wxg-ledger', '上次更新：' + ledgerText());
     const world = describeWorld();
-    cNow.appendChild(el('div', 'wxg-note',
+    const worldNote = el('div', 'wxg-note',
         '世界钟：' + world.clock
         + (world.place ? ' · ' + world.place : '')
         + ' ｜ 局势 ' + String(world.situations)
         + ' ｜ 暗线 ' + String(world.hidden) + '（在走 ' + String(world.advancing) + '）'
         + ' ｜ 编年 ' + String(world.chronological)
-        + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版'));
-    const cAct = el('div', 'wxg-card-actions');
-    row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
-    row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
-        button('补推历史', 'backfill'));
+        + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版');
     /*
-     * ⭐ 「清空这个世界」——她拍的：①＋② 那一档，就是"这个聊天我确实不要了"。
-     *    规矩：⛔ 不静默毁数据 ⇒ 先铺开**要清哪些、各多少条**，再要她**手打「确认清空」**。
-     *    ⛔ 只清账本，**不碰世界书**（那是她明确选的）；也⛔ 不碰聊天正文。
+     * ⚠️ 这段原来是「现在怎么样」卡里那组操作钮（`cAct`）——**已经没人挂它了**
+     *   （操作改挂总控页操作卡 ＋ 悬浮球）⇒ 留着就是**死代码**（每次重画白拼一遍）。删掉。
      */
-    row(cAct, button('清空这个世界', 'clear-world-open', 'wxg-del'));
     if (clearWorldOpen) {
         const prev = ledgerClearPreview();
         const danger = el('div', 'wxg-danger-box wanxiangge');
@@ -450,20 +449,34 @@ function secStatus(host, intoSelf) {
         typeRow.appendChild(button('算了', 'clear-world-cancel'));
         danger.appendChild(typeRow);
         danger.appendChild(el('div', 'wxg-note', '（打错字点不动；清完会给回执，写清清掉了多少条）'));
-        cNow.appendChild(danger);
+        /*
+         * ⚠️ 确认盒挂在**这一页的最下面**（⛔ 不塞进两框里）：
+         *   它在总控／悬浮球点了「清空这个世界」之后才出现，是**独立一件事**，
+         *   摆进"进度框"或"世界框"都会被误读成那个框的一部分。
+         */
+        box.appendChild(danger);
     }
     /*
-     * ⭐ 「操作」卡**撕了**（照状态页目标态的 ⏔ 清单：「操作卡」✔️ 已移出）。
+     * ⭐ 「操作」卡**撕了**（照状态页目标态的 ⛔ 清单：「操作卡」✔️ 已移出）。
      *   它改挂到**两处**，两处合起来就是原来那 7 钮、**一处不差**：
      *     · 总控页 →「操作」卡（v0.2.71）
      *     · 悬浮球 → 头部「更新」＋操作区 6 钮（v0.2.72）
      *   她 2026-10-15 00:45「设置加操作，悬浮球也加上，**双重保险**」——
-     *   ⚠️ **先接住、再撕**：那两处都做好了才能撕这里（⏔ 先撕＝她摸不到）。
+     *   ⚠️ **先接住、再撕**：那两处都做好了才能撕这里（⛔ 先撕＝她摸不到）。
      */
-    box.appendChild(cNow);
 
-    // ⭐ 进度（原「现在的进度」那一整块）直接摆进这一页
-    secSteps(host, box);
+    /*
+     * ⭐ 进度（原「现在的进度」那一整块）⇒ 摆进**左框**；
+     *   世界四值 ⇒ 摆进**右框**；两框并排（照目标包：上排两框）。
+     */
+    secSteps(host, colProg);
+    colProg.appendChild(line);          // 存档行：包里要它在**进度框的框底**
+    colProg.appendChild(ledgerLine);    // 上次更新：跟存档行一起当小注
+    two.appendChild(colProg);
+    const cWorld = el('div', 'wxg-plain');
+    cWorld.appendChild(worldNote);
+    two.appendChild(cWorld);
+    box.appendChild(two);
 
     const p = loadState().pipeline || {};
     /*

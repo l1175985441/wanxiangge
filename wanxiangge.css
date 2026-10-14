@@ -3422,3 +3422,19 @@ body.wxg-dragging {
     border: 1px solid var(--wxg-line, #e6e8ea);
     border-radius: var(--r-ctl, 10px);
 }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 状态页两框布局（照目标包：上排两框「进度｜世界」，下排整条「每轮记录」）
+ * ------------------------------------------------------------------------- */
+.wxg-ws-main .wxg-two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s3, 12px);
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .wxg-ws-main .wxg-two { grid-template-columns: minmax(0, 1fr); }
+}
+.wxg-ws-main .wxg-two .wxg-col { min-width: 0; }
+/* 状态页标题也居中（跟名册页一个规矩；靠 workspace 盖的 data-wxg-sec 钩子） */
+.wxg-ws-pagehead[data-wxg-sec="状态"] { text-align: center; }
