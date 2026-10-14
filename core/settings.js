@@ -15,6 +15,8 @@ import {
 import { getExtensionSettings, persistSettings } from './adapter.js';
 import { clampNumber, toList, trimText, asText } from './utils.js';
 import { setLimits } from './state.js';
+// ⭐ 换皮迁移要用（2026-10-15 全站改白底黑字）：只迁"原封没动过"的旧砚墨
+import { migrateInkToLight } from '../ui/theme.js';
 
 let settings = null;
 let loadedWithStore = false;
@@ -76,6 +78,18 @@ function loadSettings() {
         : {};
 
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved);
+
+    /*
+     * ⭐ 换皮迁移（2026-10-15）：全站改成**白底黑字**（照目标包）。
+     *    ⚠️ 光改默认值不够用——她设置里存着旧的深色四个槽位，`Object.assign` 会让**存的值盖住默认**
+     *      ⇒ 真机上换了皮跟没换一样（截图逐字节相同，我踩过）。
+     *    ⇒ 在**读设置这一步**把"原封没动过的旧砚墨"迁到新砚墨；
+     *      ⛔ 她自己调过的四个槽位一个都不动（"我改过的引擎要认"）。
+     */
+    const migratedLook = migrateInkToLight(merged.appearance);
+    if (migratedLook) {
+        merged.appearance = Object.assign({}, merged.appearance || {}, migratedLook);
+    }
 
     // 补齐缺键（升级后新增的设置项不会缺）
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
