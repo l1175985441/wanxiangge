@@ -3334,3 +3334,23 @@ body.wxg-dragging {
 .wanxiangge .wxg-func-btn:hover { color: var(--wxg-text, #1a1d1f); }
 /* 分页贴页底：给它一条上分隔线，视觉上"到底了" */
 .wxg-ws-main .wxg-roster-pager { border-top: 1px solid var(--wxg-line, #e6e8ea); padding-top: 10px; margin-top: 4px; }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 名册 · 第 6 轮量出来的两处（真机量：行高 63px 该 ≈40；功能⋮ 按钮 48×36 ⇒ 字被挤换行）
+ * ------------------------------------------------------------------------- */
+/* 「功能 ⋮」⛔ 不许换行、按内容撑开 */
+.wanxiangge .wxg-func-btn,
+.wxg-ws-main .wxg-roster-topbar .menu_button {
+    white-space: nowrap;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    line-height: 1.5;
+    padding: 5px 12px;
+}
+.wxg-ws-main .wxg-roster-topbar { flex: 1 1 auto; }
+/* 行收紧：行高由格子撑，格子只留一行的高度 */
+.wxg-ws-main .wxg-roster .wxg-r { min-height: 0; line-height: 1.35; }
+.wxg-ws-main .wxg-roster .wxg-r .wxg-td { padding: 6px 12px; line-height: 1.35; }
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-title { flex-wrap: nowrap; overflow: hidden; }
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
