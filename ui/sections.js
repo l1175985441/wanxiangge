@@ -390,8 +390,15 @@ function secStatus(host, intoSelf) {
         '账本存没存、引擎跑到哪楼、每轮到底送进去什么——'
         + '原来分三页，其实是同一件事。',
         { open: true });
-    // ⭐ 装盒：现在怎么样 一块、动作 一块（体检第一条）
-    const cNow = card('现在怎么样');
+    /*
+     * ⭐ 「现在怎么样」这张卡**壳撕了**（照状态页目标态的 ⏔ 清单：
+     *   它的信息＝每轮记录最新一条，重复）。
+     *   ⚠️ 但里面那几行**一条都没丢**：
+     *     · 存档行（✓ 已存进聊天档…）—— 目标包要它并进「进度」框的框底（下一步做）
+     *     · 世界四值（局势／暗线／编年／可撤回）—— 将来是「世界」那个框
+     *   ⇒ 先只把**外壳**去掉（不再是一张叫「现在怎么样」的卡），行原地留着。
+     */
+    const cNow = el('div', 'wxg-plain');
     const report = storageReport();
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
@@ -460,7 +467,14 @@ function secStatus(host, intoSelf) {
 
     const p = loadState().pipeline || {};
     if (p.status && p.status !== 'idle') {
-        const cRun = card('更新流水');
+        /*
+         * ⭐ 「更新流水」这张卡的**壳也撕了**（同上 ⏔ 清单）。
+         *   ⚠️ 但它**不是纯重复**：它报的是「正在跑／失败／与手改冲突」
+         *   ——那是她定的红线「**失败必须可见**」。所以**一行都不删**，
+         *   只把卡壳去掉（它本来就只在 status ≠ idle 时才出现）。
+         *   下一步：把这几行并进「每轮记录」的顶上。
+         */
+        const cRun = el('div', 'wxg-plain');
         const tone = p.status === 'failed' ? 'bad' : (p.status === 'running' ? 'idle' : 'ok');
         const msg = el('div', 'wxg-store', (p.text || p.status)
             + (p.error ? '（' + p.error + '）' : '')

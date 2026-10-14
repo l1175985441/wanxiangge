@@ -3413,3 +3413,12 @@ body.wxg-dragging {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* 撤了卡壳之后剩下的那几行（存档行/上次更新/世界四值/更新流水）：仍要有卡的样子，⛔ 不许裸着 */
+.wanxiangge .wxg-plain {
+    margin: 0 0 var(--s3);
+    padding: var(--s3);
+    background: var(--wxg-card-bg, #fff);
+    border: 1px solid var(--wxg-line, #e6e8ea);
+    border-radius: var(--r-ctl, 10px);
+}
