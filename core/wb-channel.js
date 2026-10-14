@@ -20,6 +20,8 @@
 
 import { getCtx } from './adapter.js';
 import { trimText } from './utils.js';
+// ⭐ 阶段 2 接线：新族读回来的嵌套形状要过转换层，下游才看得到同一套字段名
+import { worldbookToNative } from './wb-shape.js';
 
 /** 通道名（给人看的） */
 export const CHANNEL_LABEL = {
@@ -62,8 +64,23 @@ export function probeChannel() {
     const h = helper();
 
     // ① 酒馆助手
+    /*
+     * ⭐ 阶段 2：助手这一层里**先看新一代 `WorldbookEntry` 那族**，没有再退回旧族。
+     *
+     * 为什么（照抄自装好的声明，⛔ 不是凭记忆）：旧族每一个函数都标着 @deprecated
+     * 并指名了替代 —— getLorebookEntries→getWorldbook、setLorebookEntries→replaceWorldbook、
+     * createLorebookEntries→createWorldbookEntries、deleteLorebookEntries→deleteWorldbookEntries。
+     * 而两族**形状不同**（旧的平铺 comment／keys／position 字符串，新的嵌套
+     * name／strategy／position 对象／recursion／effect）⇒ 新族读回来的要**过转换层**
+     * （`worldbookToNative`）再交给下游，⛔ 不然下游看到的字段名全变了。
+     *
+     * ⚠️ 这一阶段**只动读**：写仍走原来那条（我们的内部形状本来就是旧族那套，
+     *    写回去正好对得上）。写路径换新族是阶段 3 的事。
+     * ⚠️ 新族 `getWorldbook` **书不存在会抛**（旧族不会）⇒ 下面读的时候要兜住。
+     */
     const hList = fn(h, 'getWorldbookNames');
-    const hRead = fn(h, 'getLorebookEntries');
+    const hReadNew = fn(h, 'getWorldbook');
+    const hRead = hReadNew || fn(h, 'getLorebookEntries');
     const hSet = fn(h, 'setLorebookEntries');
     const hCreateOne = fn(h, 'createLorebookEntries');
     const hDelete = fn(h, 'deleteLorebookEntries');
@@ -73,10 +90,22 @@ export function probeChannel() {
             channel: 'helper',
             label: CHANNEL_LABEL.helper,
             caps: {
-                list: hList, read: hRead, write: hSet, create: hCreateOne,
+                list: hList,
+                // 新族读回来的是嵌套形状 ⇒ 过转换层，让下游拿到的仍是同一套字段名
+                read: hReadNew
+                    ? async (name) => {
+                        const list = await hReadNew(name);
+                        return Array.isArray(list) ? list.map(worldbookToNative) : [];
+                    }
+                    : hRead,
+                write: hSet, create: hCreateOne,
                 remove: hDelete, createBook: hCreateBook,
             },
-            detail: { 建书: !!hCreateBook, 读条目: !!hRead, 写条目: !!hSet, 增条目: !!hCreateOne, 删条目: !!hDelete },
+            detail: {
+                读用新族: !!hReadNew,
+                建书: !!hCreateBook, 读条目: !!hRead, 写条目: !!hSet,
+                增条目: !!hCreateOne, 删条目: !!hDelete,
+            },
         };
         return cached;
     }
