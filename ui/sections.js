@@ -2409,6 +2409,14 @@ function secSteps(host, intoBox) {
  *   ⇒ 数据层**一行不改**（保存路径、手改锁、快照都还是原来那条），⛔ 不另起一套。
  */
 let personCardId = null;
+/*
+ * ⭐ 浮层要挂在**段容器里**而不是 body：
+ *   点击处理器只绑在段容器上（`bindSectionEvents(host)`）⇒
+ *   挂 body 上的话，浮层里的「下一位」「×」「保存」「改字」**全都点不动**
+ *   （真机门当场抓到：下一位没反应、关不掉）。
+ *   用 `position: fixed` 照样浮在最上层，不受宿主滚动影响。
+ */
+let lastSectionsHost = null;
 
 export function openPersonCard(id) {
     personCardId = id || null;
@@ -2553,7 +2561,7 @@ function renderPersonCard() {
     foot.appendChild(save);
     pop.appendChild(foot);
 
-    document.body.appendChild(pop);
+    (lastSectionsHost || document.body).appendChild(pop);
     bindPersonCardDrag(pop);
 }
 
@@ -2642,6 +2650,7 @@ function bindPersonCardDrag(pop) {
 }
 
 export function renderSections(host, opts) {
+    lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
     if (!host) {
         return;
     }
