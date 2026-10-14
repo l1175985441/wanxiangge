@@ -3369,3 +3369,6 @@ body.wxg-dragging {
     font-size: 13px;
 }
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-act { padding: 4px 12px; }
+
+/* 名册页：标题**居中**（照包）。靠 workspace 盖的 `data-wxg-sec` 钩子 ⇒ 只影响这一页 */
+.wxg-ws-pagehead[data-wxg-sec="人物名册"] { text-align: center; }

@@ -1619,6 +1619,12 @@ function secRoster(host) {
     // ⭐ 右上「功能 ⋮」（照包：去重合并／删除／清空的入口位）
     const topbar = el('div', 'wxg-roster-topbar');
     const funcBtn = button('功能 ⋮', 'roster-func', 'wxg-func-btn');
+    // 同上：它也是 `menu_button`，不内联就会被撑到 36px（真机量到）
+    funcBtn.style.height = '28px';
+    funcBtn.style.minHeight = '28px';
+    funcBtn.style.lineHeight = '26px';
+    funcBtn.style.padding = '0 12px';
+    funcBtn.style.whiteSpace = 'nowrap';
     funcBtn.title = '去重合并／删除／清空（入口位；包里就是这么标的）';
     topbar.appendChild(funcBtn);
     cList.appendChild(topbar);

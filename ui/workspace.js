@@ -293,6 +293,15 @@ export function showIndex(i, scroll) {
             b.classList.toggle('is-on', k === activeIndex);
         }
     });
+    /*
+     * ⭐ 给页头盖一个"当前是哪一页"的钩子（`data-wxg-sec`）。
+     *   为什么：工作台页头是**一个共用的**（每页换字），
+     *   而目标包要“**名册页的标题居中**”——没这个钩子就只能让**所有页**都居中
+     *   （或都不居中）。CSS 里用 `.wxg-ws-pagehead[data-wxg-sec="人物名册"]` 就能**只**管那一页。
+     */
+    if (pageHeadEl && pageHeadEl.setAttribute && items[activeIndex]) {
+        pageHeadEl.setAttribute('data-wxg-sec', String(items[activeIndex].textContent || '').trim());
+    }
     // 内容区只显示当前那一段（其余藏起来）——像页签一样，一屏只说一件事
     const secs = asArray(hostEl.querySelectorAll('.wxg-sec'));
     secs.forEach((sec, k) => {
