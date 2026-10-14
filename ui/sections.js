@@ -1684,6 +1684,16 @@ function secRoster(host) {
          */
         const moreBtn = button('⋯', 'edit-char', 'wxg-btn-xs wxg-r-more', c.id);
         moreBtn.title = '更多（删除／收下／忽略／合并等）';
+        /*
+         * ⭐ 行高真凶（第 6 轮真机量出来的）：这颗按钮被酒馆全局 `.menu_button`
+         *   撑到 **36px**，而同行别的格子才 30～35 ⇒ 行高 = max + 内边距 = 63px。
+         *   屝过两回 CSS 都压不过（它是酒馆自己的类）⇒ **直接写内联**（内联必胜，且只影响这一颗）。
+         */
+        moreBtn.style.height = '22px';
+        moreBtn.style.minHeight = '22px';
+        moreBtn.style.lineHeight = '20px';
+        moreBtn.style.padding = '0 7px';
+        moreBtn.style.fontSize = '13px';
         act.appendChild(moreBtn);
         r.appendChild(act);
 
