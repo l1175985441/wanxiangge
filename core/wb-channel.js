@@ -1,7 +1,7 @@
 /**
  * 万象阁 · 世界书**多通道**适配层（读写都走这儿）
  *
- * ⭐ 为什么必须做（阿砚真机核验 2026-10-14）：
+ * ⭐ 为什么必须做（复核方真机核验 2026-10-14）：
  *    ST 1.18.0 原版**没有** `ctx.getLorebookEntries / createWorldbook / setLorebookEntries…` 这一组
  *    （运行时 `typeof` = undefined；`public/` 里也搜不到；对照同一台机器，
  *    这组名字在「酒馆助手」`window.TavernHelper` 上**全部可用**）。
