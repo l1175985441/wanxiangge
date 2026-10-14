@@ -693,7 +693,16 @@ function secWorld(host) {
         // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
         // ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
         w.situations.forEach((item, idx) => {
-            const r = el('div', 'wxg-r');
+            const r = el('div', 'wxg-r is-click');
+            /*
+             * ⭐ 点行开浮层（照目标包）。
+             *   ⏔ 行内展开编辑了（她 01:33 划：那种"连框都没有"的行内小控件不要）
+             *   —— 编辑一律从浮层右上 ⋮ 进。
+             *   ⚠️ 行里的下拉/按钮各自有 data-action ⇒ closest 会先命中它们（点控件不会误开浮层）。
+             */
+            r.setAttribute('data-action', 'open-world-entry');
+            r.setAttribute('data-kind', 'situation');
+            r.setAttribute('data-index', String(idx));
             const tierW = el('span', 'wxg-badge ' + (trimText(item.tier) === '立刻' ? 'is-warn' : 'is-info'),
                 trimText(item.tier) || '慢慢来');
             r.appendChild(tierW);
@@ -708,33 +717,17 @@ function secWorld(host) {
             r.appendChild(main);
 
             const act = el('div', 'wxg-r-act');
-            const editBtn = button('改', 'edit-situation', 'wxg-btn-xs');
-            editBtn.setAttribute('data-index', String(idx));
-            act.appendChild(editBtn);
+            /*
+             * ⛔ 行内那颗「改」**撤了**（照目标包：她 01:33 划的原则——那种"连框都没有"的
+             *   行内小控件不要；**编辑一律从浮层右上 ⋮ 进**）。
+             *   行本身可点（`open-world-entry`）⇒ 点一下弹浮层，那里改。
+             * ✅ 只留「删」：它是**减少**类操作，摆行上最直接，且浮层里再放一个反而绕。
+             */
             const del = button('删', 'del-situation', 'wxg-btn-xs');
             del.setAttribute('data-index', String(idx));
             act.appendChild(del);
             r.appendChild(act);
 
-            // 「改」展开的编辑行（默认收起，⛔ 不占地方）
-            if (String(openSituation) === String(idx)) {
-                const line = el('div', 'wxg-row');
-                const title2 = textInput('wxg-sit-title-' + String(idx), item.title, '这一条局势是什么', 'set-situation', 'wxg-short');
-                title2.setAttribute('data-index', String(idx));
-                title2.setAttribute('data-key', 'title');
-                line.appendChild(title2);
-                const sides2 = textInput('wxg-sit-sides-' + String(idx), item.sides, '哪几方', 'set-situation', 'wxg-short');
-                sides2.setAttribute('data-index', String(idx));
-                sides2.setAttribute('data-key', 'sides');
-                line.appendChild(sides2);
-                const tierSel = select('wxg-sit-tier-' + String(idx),
-                    [{ value: '', label: '（火候）' }].concat(TIERS.map((x) => ({ value: x, label: x }))),
-                    item.tier, 'set-situation');
-                tierSel.setAttribute('data-index', String(idx));
-                tierSel.setAttribute('data-key', 'tier');
-                line.appendChild(tierSel);
-                r.appendChild(line);
-            }
             sit.appendChild(r);
         });
     }
@@ -762,8 +755,13 @@ function secWorld(host) {
          * ⚠️ 原来每个字段各占一行（到点条件一行、现在到哪一步一行、下拉一行）
          *    ⇒ 6 条暗线就是一屏半。
          */
-        for (const h of w.hidden) {
-            const r = el('div', 'wxg-r');
+        for (let hidIdx = 0; hidIdx < w.hidden.length; hidIdx += 1) {
+                const h = w.hidden[hidIdx];
+            const r = el('div', 'wxg-r is-click');
+                // ⭐ 点行开浮层（同局势）；行内下拉与「删」各自有 data-action。
+                r.setAttribute('data-action', 'open-world-entry');
+                r.setAttribute('data-kind', 'hidden');
+                r.setAttribute('data-index', String(hidIdx));
             r.appendChild(el('span', 'wxg-badge ' + stageTone(h.stage), trimText(h.stage) || '萌芽'));
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
@@ -3015,6 +3013,173 @@ function renderRecordCard(rec, body, idx, total, statusText, tone, shownChars) {
     bindPersonCardDrag(pop);
 }
 
+/*
+ * ⭐ 世界状态页的「点条目弹浮层」（照目标包 目标-世界状态页-20261015）。
+ *
+ * 包里要的：
+ *   · 点**局势行／暗线行** ⇒ 弹白卡浮层（跟名册"点行开卡片"**同一套手法**）
+ *   · 头部：大标题＋「世界账 · 局势／暗线」＋当前胶囊＋**⋮＝编辑**＋✕
+ *   · 信息区（键值两栏）：局势＝`哪几方／火候`；暗线＝`到点／走到／火候`
+ *   · **「因果」区**：**来路＝上承（向更早）**（这条从哪来）／**牵动＝下沿（向未来）**（它的走向）
+ *     节点小徽章 `源`（淡青）／`进·走向`（灰）；小标题注明「**照世界账的记录摆·不另编**」
+ *   · 底部：`关闭 ｜ 来自世界账 · 改动走右上 ⋮ → 编辑`
+ *   · ⛔ 行内不再有展开编辑（编辑一律从浮层右上 ⋮ 进）
+ */
+let openWorldEntry = null;      // { kind: 'situation' | 'hidden', idx }
+/** 这个浮层在编辑态吗（默认 false＝只读） */
+let openWorldEntryEditing = false;
+
+export function closeWorldEntryCard() {
+    openWorldEntry = null;
+    const old = document.getElementById('wxg-world-entry');
+    if (old && typeof old.remove === 'function') {
+        old.remove();
+    }
+}
+
+export function openWorldEntryCard(kind, idx) {
+    openWorldEntry = { kind: kind === 'hidden' ? 'hidden' : 'situation', idx: Math.max(0, Math.round(Number(idx) || 0)) };
+    renderWorldEntryCard();
+}
+
+/** 世界账里跟这一条有关的记录（⛔ 一个字都不另编：只在账里找） */
+function entryCausalRows(label) {
+    const want = trimText(label);
+    if (!want) {
+        return [];
+    }
+    const chron = typeof getChronicle === 'function' ? getChronicle() : [];
+    const list = Array.isArray(chron) ? chron : [];
+    return list
+        .filter((c) => {
+            const t = String((c && c.text) || '') + ' ' + String((c && c.who) || '');
+            return t.includes(want);
+        })
+        .sort((a, b) => Number(a.at || 0) - Number(b.at || 0));
+}
+
+function renderWorldEntryCard() {
+    const old = document.getElementById('wxg-world-entry');
+    if (old && typeof old.remove === 'function') {
+        old.remove();
+    }
+    if (!openWorldEntry) {
+        return;
+    }
+    const w = describeWorld();
+    const isHidden = openWorldEntry.kind === 'hidden';
+    const raw = isHidden ? (loadState().hidden || []) : (loadState().situations || []);
+    const item = Array.isArray(raw) ? raw[openWorldEntry.idx] : null;
+    if (!item) {
+        openWorldEntry = null;
+        return;
+    }
+    const title = isHidden ? trimText(item.name) : trimText(item.title);
+    const pillText = isHidden ? (trimText(item.stage) || '萌芽') : (trimText(item.tier) || '慢慢来');
+    const pillCls = isHidden ? stageTone(item.stage) : (pillText === '立刻' ? 'is-warn' : 'is-info');
+
+    const pop = el('div', 'wxg-pc wanxiangge');
+    pop.id = 'wxg-world-entry';
+    pop.setAttribute('role', 'dialog');
+
+    // ① 头部
+    const head = el('div', 'wxg-pc-head');
+    head.appendChild(el('span', 'wxg-pc-grip', '⠿'));
+    const who = el('div', 'wxg-pc-who');
+    who.appendChild(el('div', 'wxg-pc-name', title || '（没名字）'));
+    who.appendChild(el('div', 'wxg-pc-alias', '世界账 · ' + (isHidden ? '暗线' : '局势')));
+    head.appendChild(who);
+    const badges = el('div', 'wxg-pc-badges');
+    badges.appendChild(el('span', 'wxg-badge ' + (pillCls || ''), pillText));
+    head.appendChild(badges);
+    const kebab = button('⋮', 'we-edit', 'wxg-pc-kebab');
+    kebab.title = openWorldEntryEditing ? '正在编辑（点一下收起）' : '编辑这一条（点了才可改，不点只读）';
+    head.appendChild(kebab);
+    head.appendChild(button('✕', 'we-close', 'wxg-pc-x'));
+    pop.appendChild(head);
+
+    // ② 信息区（键值两栏）
+    const sec1 = el('div', 'wxg-pc-sec');
+    sec1.appendChild(el('div', 'wxg-pc-sech', '这一条'));
+    const kv = el('div', 'wxg-pc-kv');
+    const put = (k, v, empty) => {
+        kv.appendChild(el('div', 'wxg-pc-k', k));
+        const box2 = el('div', 'wxg-pc-v');
+        /*
+         * ⚠️ 暗线**没有"改名字/改到点/改走到"的已有动作**（现有的只有 `set-hidden-stage` 与 `del-hidden`）
+         *   ⇒ ⏔ 给它造一个不存在的 action（那样点了没反应）：暗线的可改项就是底部那个**阶段下拉**（已接）。
+         *   ❌ 不能只图"看着像可改"而摆一个点不动的框。
+         */
+        if (openWorldEntryEditing && !isHidden) {
+            const inp = el('input', 'wxg-pc-input');
+            inp.type = 'text';
+            inp.value = trimText(v);
+            inp.setAttribute('data-action', 'set-situation');
+            inp.setAttribute('data-index', String(openWorldEntry.idx));
+            inp.setAttribute('data-key', k === '哪几方' ? 'sides' : (k === '火候' ? 'tier' : (k === '到点' ? 'condition' : (k === '走到' ? 'detail' : 'title'))));
+            box2.appendChild(inp);
+        } else {
+            const txt = trimText(v);
+            box2.appendChild(el('div', 'wxg-pc-text' + (txt ? '' : ' is-empty'), txt || (empty || '未知')));
+        }
+        kv.appendChild(box2);
+    };
+    if (isHidden) {
+        put('到点', item.trigger, '未定时间');
+        put('走到', item.note, '还没走到');
+        put('火候', item.stage, '萌芽');
+    } else {
+        put('哪几方', item.sides, '未写');
+        put('火候', item.tier, '慢慢来');
+    }
+    sec1.appendChild(kv);
+    pop.appendChild(sec1);
+
+    // ③ 因果区（照世界账摆，⛔ 不另编）
+    const sec2 = el('div', 'wxg-pc-sec');
+    sec2.appendChild(el('div', 'wxg-pc-sech', '因果（照世界账的记录摆 · 不另编）'));
+    const rows = entryCausalRows(title);
+    if (!rows.length) {
+        sec2.appendChild(el('div', 'wxg-empty', '世界账里还没记到这一条（更新几轮就有了）'));
+    } else {
+        const first = rows[0];
+        const rest = rows.slice(1);
+        const up = el('div', 'wxg-pc-quote');
+        const t1 = el('div', null, trimText(first.text) || '（没写字）');
+        t1.insertBefore(el('span', 'wxg-pc-when', '▲ 来路 · ' + shortTime(first.at)), t1.firstChild);
+        up.appendChild(t1);
+        sec2.appendChild(el('div', 'wxg-pc-k', '上承（向更早）'));
+        sec2.appendChild(up);
+        if (rest.length) {
+            const down = el('div', 'wxg-pc-quote');
+            for (const r of rest.slice(-3)) {
+                const line2 = el('div', null, trimText(r.text) || '（没写字）');
+                line2.insertBefore(el('span', 'wxg-pc-when', '▼ ' + shortTime(r.at) + ' · ' + (trimText(r.kind) || '记录')), line2.firstChild);
+                down.appendChild(line2);
+            }
+            sec2.appendChild(el('div', 'wxg-pc-k', '下沿（向未来）'));
+            sec2.appendChild(down);
+        }
+    }
+    pop.appendChild(sec2);
+
+    // ④ 底部
+    const foot = el('div', 'wxg-pc-foot');
+    foot.appendChild(button('关闭', 'we-close', 'wxg-pc-nav'));
+    foot.appendChild(el('span', 'wxg-pc-counter', '来自世界账 · 改动走右上 ⋮ → 编辑'));
+    if (isHidden) {
+        const sel = select('wxg-we-stage-' + String(openWorldEntry.idx),
+            (item.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
+            item.stage, 'set-hidden-stage', item.id);
+        sel.className = 'text_pole wxg-btn-sm';
+        foot.appendChild(sel);
+    }
+    pop.appendChild(foot);
+
+    (lastSectionsHost || document.body).appendChild(pop);
+    bindPersonCardDrag(pop);
+}
+
 export function renderSections(host, opts) {
     lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
     if (!host) {
@@ -3089,6 +3254,14 @@ export function renderSections(host, opts) {
         secExtract(stageEl);
         secApi(stageEl);
         secPrompts(stageEl);
+
+        /*
+         * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
+         *   ⏔ 写在每个动作里（那样漏一个就没了）。
+         */
+        if (openWorldEntry) {
+            renderWorldEntryCard();
+        }
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
@@ -3623,6 +3796,19 @@ export function bindSectionEvents(host, refresh) {
                         if (openRecordAt < 0) { openRecordAt = 0; }
                     }
                     rerender();
+                    break;
+                case 'open-world-entry':
+                    openWorldEntryCard(
+                        target.getAttribute('data-kind') || 'situation',
+                        target.getAttribute('data-index') || '0');
+                    break;
+                case 'we-close':
+                    openWorldEntryEditing = false;
+                    closeWorldEntryCard();
+                    break;
+                case 'we-edit':
+                    openWorldEntryEditing = !openWorldEntryEditing;
+                    renderWorldEntryCard();
                     break;
                 case 'world-func':
                     toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑走那儿的 ⋮（浮层还在做）');
