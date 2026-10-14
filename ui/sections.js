@@ -537,6 +537,47 @@ function secGeneral(host) {
         (s.mini && s.mini.show) === true, 'toggle-mini-show'));
     box.appendChild(cUi);
 
+    /*
+     * ⭐ ③ 操作（目标包「总控页」第三张卡）。
+     *   她 2026-10-15 00:45 令：「设置加操作，悬浮球也加上，**双重保险**」——本卡＝双重保险的一半。
+     *   ⚠️ 这 7 钮＝**从状态页移出的那一组**：先在本页**接住**，
+     *     等悬浮球也接上了，才能把状态页那张卡撕掉（⏔ 先撕＝她就摸不到了）。
+     */
+    const cOps = card('操作');
+    const opsRow = el('div', 'wxg-card-actions');
+    row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'),
+        button('重算本楼', 'replan'));
+    row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
+        button('补推历史', 'backfill'));
+    row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));
+    cOps.appendChild(opsRow);
+    if (clearWorldOpen) {
+        const prevG = ledgerClearPreview();
+        const dangerG = el('div', 'wxg-danger-box wanxiangge');
+        dangerG.appendChild(el('div', null, '⚠ 这一步**回不来**。将清掉**这个聊天的世界**：'));
+        const listG = el('div', 'wxg-danger-list');
+        for (const k of Object.keys(prevG)) {
+            listG.appendChild(el('div', null, '· ' + k + '：' + String(prevG[k]) + ' 条'));
+        }
+        listG.appendChild(el('div', null, '· 世界书《万象阁 · 世界后台》：**不动**（她选的②）'));
+        dangerG.appendChild(listG);
+        const typeRowG = el('div', 'wxg-card-actions');
+        typeRowG.appendChild(el('span', 'wxg-note', '把下面这四个字打进去才能点：'));
+        const inpG = el('input', 'wxg-danger-typing');
+        inpG.type = 'text';
+        // ⚠️ ⏔ 跟状态页那份撞 id（撞了就读到错的那个输入框）
+        inpG.id = 'wxg-clear-typing-general';
+        inpG.placeholder = CLEAR_WORD;
+        inpG.setAttribute('autocomplete', 'off');
+        typeRowG.appendChild(inpG);
+        typeRowG.appendChild(button('确认清空', 'clear-world-do', 'wxg-del'));
+        typeRowG.appendChild(button('算了', 'clear-world-cancel'));
+        dangerG.appendChild(typeRowG);
+        cOps.appendChild(dangerG);
+    }
+    cOps.appendChild(el('div', 'wxg-note', '这些操作在悬浮球上也有（聊天时不用进工作台）。'));
+    box.appendChild(cOps);
+
     box.appendChild(saveBar('general'));
     host.appendChild(box);
 }
@@ -3604,7 +3645,16 @@ export function bindSectionEvents(host, refresh) {
         rerender();
         break;
     case 'clear-world-do': {
-        const box = document.getElementById('wxg-clear-typing');
+        /*
+         * ⭐ 从**点击按钮所在的那个确认盒**里读输入框。
+         *   为什么：「清空这个世界」现在**总控与状态页各有一份**（她要的"双重保险"），
+         *   而原来是按**写死的 id** 取 ⇒ 两份在一起时会读到**错的那个输入框**
+         *   （`getElementById` 只给文档里第一个）⇒ 她打了字却被判"打错字了"。
+         */
+        const near = target && typeof target.closest === 'function'
+            ? target.closest('.wxg-danger-box') : null;
+        const box = (near && typeof near.querySelector === 'function'
+            ? near.querySelector('input') : null) || document.getElementById('wxg-clear-typing');
         const typed = box && typeof box.value === 'string' ? box.value.trim() : '';
         if (typed !== CLEAR_WORD) {
             toast.fail('打错字了：要一字不差地打「' + CLEAR_WORD + '」才让清');
