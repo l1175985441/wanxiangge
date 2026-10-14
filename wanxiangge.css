@@ -3441,3 +3441,8 @@ body.wxg-dragging {
 
 /* 世界状态页标题居中（照包；靠 workspace 盖的 data-wxg-sec 钩子） */
 .wxg-ws-pagehead[data-wxg-sec="世界状态"] { text-align: center; }
+
+/* 世界状态页「点行开浮层」的行：只要一个"能点"的样子，⛔ 不蹭 `.is-click`（它带两列规矩） */
+.wxg-ws-main .wxg-r.is-rowlink { cursor: pointer; }
+.wxg-ws-main .wxg-r.is-rowlink:hover { background: var(--wxg-fill, rgba(0, 0, 0, .03)); }
+.wxg-ws-main .wxg-r.is-rowlink .wxg-badge { align-self: center; }

@@ -693,9 +693,14 @@ function secWorld(host) {
         // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
         // ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
         w.situations.forEach((item, idx) => {
-            const r = el('div', 'wxg-r is-click');
+            const r = el('div', 'wxg-r is-rowlink');
             /*
              * ⭐ 点行开浮层（照目标包）。
+             *   ⚠️ 用**自己的类名** `is-rowlink`，⏔ 蹭 `.is-click`：
+             *     `.wxg-r.is-click` 带着一条老规矩 `grid-template-columns: 1fr auto`
+             *     （那是给名册行用的两列）⇒ 套上它会把本行变成两列
+             *     （胶囊被拉成通栏、「删」掉到下一行）——真机截图里我看到了。
+             */
              *   ⏔ 行内展开编辑了（她 01:33 划：那种"连框都没有"的行内小控件不要）
              *   —— 编辑一律从浮层右上 ⋮ 进。
              *   ⚠️ 行里的下拉/按钮各自有 data-action ⇒ closest 会先命中它们（点控件不会误开浮层）。
@@ -757,8 +762,9 @@ function secWorld(host) {
          */
         for (let hidIdx = 0; hidIdx < w.hidden.length; hidIdx += 1) {
                 const h = w.hidden[hidIdx];
-            const r = el('div', 'wxg-r is-click');
+            const r = el('div', 'wxg-r is-rowlink');
                 // ⭐ 点行开浮层（同局势）；行内下拉与「删」各自有 data-action。
+                // ⚠️ 用**自己的类名** `is-rowlink`，⛔ 蹭 `.is-click`（它带着两列的规矩）
                 r.setAttribute('data-action', 'open-world-entry');
                 r.setAttribute('data-kind', 'hidden');
                 r.setAttribute('data-index', String(hidIdx));
