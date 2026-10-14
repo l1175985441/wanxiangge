@@ -3201,3 +3201,62 @@ body.wxg-dragging {
 .wxg-pc-nav { color: var(--wxg-dim, #6d747a); }
 .wxg-pc-foot .wxg-primary { background: var(--wxg-accent, #5ecfa4); border-color: var(--wxg-accent, #5ecfa4); color: var(--wxg-accent-ink, #101815); font-weight: 700; }
 .wanxiangge .wxg-r-more { margin-left: 4px; }
+
+/* ===========================================================================
+ * ⭐ 浮层人物卡 · 照包校正（2026-10-15 第 3 轮）
+ *    对着 `目标-名册浮层人物卡-20261014/目标-截图.png` 量的：
+ *      浮层宽 ≈795px、起点 x≈424、顶 ≈150px；底栏三块**一律不换行**；
+ *      两栏是「标签 值 标签 值」四列，值列要宽。
+ *    ⚠️ 这一版把上一版那条 592px / 贴右 的规矩**覆盖掉**（后写的赢）。
+ * ======================================================================== */
+.wxg-pc {
+    left: 424px; right: auto; top: 150px;
+    width: 795px; max-width: calc(100vw - 48px);
+    background: #ffffff;
+}
+.wxg-pc-head { padding: 16px 18px 12px; gap: 12px; }
+.wxg-pc-name { font-size: 27px; letter-spacing: .01em; overflow-wrap: anywhere; }
+.wxg-pc-alias { font-size: 13px; margin-top: 6px; }
+.wxg-pc-badges { padding-top: 10px; }
+.wxg-pc-sec { padding: 14px 18px 6px; }
+.wxg-pc-sech { margin-bottom: 10px; }
+
+/* 两栏＝「标签 值 标签 值」四列（值列宽、标签列固定且不换行） */
+.wxg-pc-kv {
+    grid-template-columns: 74px minmax(0, 1fr) 74px minmax(0, 1fr);
+    gap: 10px 16px;
+}
+.wxg-pc-k { white-space: nowrap; font-size: 12.5px; }
+.wxg-pc-v.wxg-pc-full { grid-column: 2 / -1; }
+.wxg-pc-input { padding: 7px 10px; font-size: 13.5px; }
+
+/* 底栏：三块横排，⛔ 一律不换行（上一版"上一位"被压成竖排就是这个没写） */
+.wxg-pc-foot {
+    flex-wrap: nowrap;
+    padding: 12px 18px 14px;
+    gap: 10px;
+}
+.wxg-pc-counter { flex: 1 1 auto; min-width: 64px; white-space: nowrap; }
+.wxg-pc-foot .menu_button,
+.wxg-pc-foot button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 7px 15px;
+}
+.wxg-pc-nav { min-width: 92px; }
+
+/* ---- 名册表：四列 ＋ **竖分隔线**（包里"看得见的实线"）---- */
+.wxg-ws-main .wxg-table-4 {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, .9fr) minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.wxg-ws-main .wxg-table-4 > * + * { border-left: 1px solid var(--wxg-line, #e6e8ea); }
+.wxg-ws-main .wxg-table-4 .wxg-th {
+    background: var(--wxg-thead-bg, #eceef0);
+    color: var(--wxg-dim, #6d747a);
+    font-size: 12.5px;
+    padding: 9px 12px;
+}
+.wxg-ws-main .wxg-table-4 .wxg-td { padding: 10px 12px; min-width: 0; }
+/* 被点开那一行：浅绿选中（包里 trow sel） */
+.wxg-ws-main .wxg-r.is-sel { background: var(--wxg-accent-soft, rgba(94, 207, 164, .14)); }
