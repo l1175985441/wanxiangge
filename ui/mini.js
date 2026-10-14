@@ -14,7 +14,11 @@ import { MINI_ID } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { floorLabel } from '../core/utils.js';
 import { buildStateSummary } from '../core/summary.js';
-import { runUpdate } from '../core/pipeline.js';
+import { runUpdate, runReconcile } from '../core/pipeline.js';
+// ⭐ 操作组（目标包「悬浮球」）——跟总控操作卡**同一套函数**，⏔ 各算一套
+import { rollbackLast } from '../core/state.js';
+import { replanCurrentFloor } from '../core/actions.js';
+import { publishToBook } from '../core/book.js';
 import { applyAppearance } from './theme.js';
 import { openWorkspace } from './workspace.js';
 import { toast } from './toast.js';
@@ -212,6 +216,27 @@ export function refreshMini() {
         row.appendChild(elText('span', 'wxg-mini-v', v));
         body.appendChild(row);
     }
+
+    /*
+     * ⭐「操作」区（目标包「悬浮球」：6 钮两列）。
+     *   她 2026-10-15 00:45：「设置加操作，悬浮球也加上，**双重保险**」。
+     *   本区 ＋ 总控操作卡 ＋ 头部那颗「更新」＝ 包里那 7 钮**一处不差**。
+     */
+    body.appendChild(elText('div', 'wxg-mini-sech', '操作'));
+    const ops = document.createElement('div');
+    ops.className = 'wxg-mini-ops';
+    const mkOp = (text, action, title) => {
+        const b = elBtn(text, action, title);
+        b.classList.add('wxg-mini-op');
+        ops.appendChild(b);
+    };
+    mkOp('撤回上一次', 'op-rollback', '撤回上一次更新');
+    mkOp('重算本楼', 'op-replan', '重算本楼');
+    mkOp('对账（账与楼对齐）', 'op-reconcile', '把账与楼对齐');
+    mkOp('写入世界书', 'op-publish', '把账写进世界书');
+    mkOp('补推历史', 'op-backfill', '补推历史（分批跑）');
+    mkOp('清空这个世界', 'op-clear', '清空这个聊天的世界（会开工作台让你确认）');
+    body.appendChild(ops);
     // 球的颜色：失败红、没跑过灰、其余强调色
     const dot = ballEl && ballEl.querySelector('.wxg-mini-dot');
     if (dot && dot.classList) {
@@ -279,6 +304,58 @@ function onMiniClick(e) {
         runUpdate({ manual: true });
         toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
         refreshMini();
+        return;
+    }
+    /*
+     * ⭐ 操作组（跟工作台走同一套函数 ⏔ 另写实现）。
+     *   「清空这个世界」刻意**不在小框里直接清**：它是不可逆的，
+     *   而工作台那份会**先铺开各多少条、再要她手打「确认清空」**；
+     *   ⇒ 小框这颗把她**带到工作台并把确认盒打开**，⏔ 在这里绕过那道门。
+     */
+    if (action === 'op-rollback') {
+        const snap = rollbackLast();
+        toast.ok(snap ? '已撤回上一次更新（撤回前那一版也留着，能再撤回来）' : '没有可撤回的版本');
+        refreshMini();
+        return;
+    }
+    if (action === 'op-replan') {
+        replanCurrentFloor();
+        toast.info('本楼重新算好了');
+        refreshMini();
+        return;
+    }
+    if (action === 'op-reconcile') {
+        const res = runReconcile();
+        toast.ok('对账完成：清了 ' + String(res.removed) + ' 条对不上的账');
+        refreshMini();
+        return;
+    }
+    if (action === 'op-publish') {
+        publishToBook({ force: true }).then((res) => {
+            if (res && res.ok) {
+                toast.ok('已写进世界书《' + res.book + '》：' + String(res.entries) + ' 条');
+            } else {
+                toast.fail('世界书没写成：' + ((res && res.reason) || '未知原因'));
+            }
+        });
+        return;
+    }
+    if (action === 'op-backfill') {
+        import('../core/pipeline.js').then(({ runBackfill }) => {
+            runBackfill();
+            toast.info('开始补推历史（分批跑，可随时取消）');
+        });
+        return;
+    }
+    if (action === 'op-clear') {
+        openWorkspace();
+        // 等工作台挂上了，再把「清空」的确认盒点开（她在那里看数量、手打确认）
+        setTimeout(() => {
+            const btn = document.querySelector('[data-action="clear-world-open"]');
+            if (btn) {
+                btn.click();
+            }
+        }, 600);
         return;
     }
     if (action === 'collapse') {

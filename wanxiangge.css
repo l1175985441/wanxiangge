@@ -3388,3 +3388,28 @@ body.wxg-dragging {
 .wanxiangge .wxg-searchbox:focus { outline: none; border-color: var(--wxg-accent, #5ecfa4); }
 /* 没有计数的胶囊（创建时间/修改时间/名字）：不留空位 */
 .wxg-ws-main .wxg-filter-n:empty { display: none; }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 悬浮球「操作」区（照目标包 目标-悬浮球-20261015）：6 钮两列
+ * ------------------------------------------------------------------------- */
+.wanxiangge .wxg-mini-sech,
+.wxg-mini .wxg-mini-sech {
+    margin: 8px 0 5px;
+    color: var(--wxg-dim, #6d747a);
+    font-size: 12px;
+}
+.wanxiangge .wxg-mini-ops,
+.wxg-mini .wxg-mini-ops {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.wanxiangge .wxg-mini-op,
+.wxg-mini .wxg-mini-op {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
