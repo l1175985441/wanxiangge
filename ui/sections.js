@@ -1612,7 +1612,14 @@ function secRoster(host) {
     if (shownRoster.length > PER_PAGE.roster) {
         cList.appendChild(pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length));
     }
-    const list = el('div', 'wxg-roster');
+    const list = el('div', 'wxg-roster wxg-table-4');
+    // ⭐ 表头（照包：浅灰底，四列名：角色名称｜好感｜身份｜势力）
+    const rhead = el('div', 'wxg-thead wxg-table-4');
+    rhead.appendChild(el('div', 'wxg-th', '角色名称'));
+    rhead.appendChild(el('div', 'wxg-th', '好感'));
+    rhead.appendChild(el('div', 'wxg-th', '身份'));
+    rhead.appendChild(el('div', 'wxg-th', '势力'));
+    list.appendChild(rhead);
     for (const c of pageList) {
         const open = String(openChar) === String(c.id);
         /*
@@ -1627,7 +1634,13 @@ function secRoster(host) {
         // ⭐ 点一行开**浮层**（照目标包：⏔ 行内展开）
         r.setAttribute('data-action', 'open-person-card');
         r.setAttribute('data-id', c.id);
-        const main = el('div', 'wxg-r-main');
+        /*
+         * ⭐ 照目标包改成**四列表**：`角色名称｜好感｜身份｜势力`，列间**竖实线**，空值写 `—`。
+         *    为什么：原来是"名字 + 一行灰字（别名/好感）"，48 个人扫不动；
+         *    包里是列对齐的账本样子（四列等宽、看得见的竖线）。
+         *    ⚠️ 别名没丢：它在浮层里（点开就看得到）。
+         */
+        const main = el('div', 'wxg-td wxg-c-name');
         const title = el('div', 'wxg-r-title');
         title.appendChild(el('span', 'wxg-r-who', c.name));
         if (c.isYou || c.isPlayer) {
@@ -1641,12 +1654,15 @@ function secRoster(host) {
             title.appendChild(el('span', 'wxg-badge is-info', '已手改'));
         }
         main.appendChild(title);
-        // 第二行（灰）：别名 · 好感（空值写"暂无"，⛔ 不隐身）
-        const bits = [];
-        bits.push('别名：' + (c.aliases && c.aliases.length ? c.aliases.join('、') : '暂无'));
-        bits.push('好感：' + (trimText(c.affinity) || '暂无'));
-        main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ')));
         r.appendChild(main);
+        // ⭐ 后三列（照包）：好感 ｜ 身份 ｜ 势力 —— 空值一律 `—`（⛔ 不写"暂无一堆"）
+        r.appendChild(el('div', 'wxg-td wxg-c-aff', trimText(c.affinity) || '—'));
+        r.appendChild(el('div', 'wxg-td wxg-c-id', trimText(c.identity) || '—'));
+        r.appendChild(el('div', 'wxg-td wxg-c-fac', trimText(c.faction) || '—'));
+        // ⭐ 被点开那一行：浅绿选中（包里 trow sel）
+        if (open) {
+            r.classList.add('is-sel');
+        }
 
         const act = el('div', 'wxg-r-act');
         act.appendChild(el('span', 'wxg-r-caret' + (open ? ' is-open' : ''), open ? '⌄' : '›'));
