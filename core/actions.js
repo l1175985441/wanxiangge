@@ -12,7 +12,7 @@ import { putRecallRecord, dropRecallRecord, pruneRecallRecords, getRecallRecord,
 import { commitLedger } from './ledger.js';
 import { trimText } from './utils.js';
 import { mountAllCards, refreshCardOnFloor, renderPanel } from '../ui/render.js';
-import { runUpdate, shouldUpdateNow, isRunning as isUpdating } from './pipeline.js';
+import { runUpdate, shouldUpdateNow, isRunning as isUpdating, runReconcile } from './pipeline.js';
 import { refreshAffinity } from './worldbook.js';
 import { markBookDirty } from './book.js';
 
@@ -140,10 +140,11 @@ export function onChatSwitched() {
     });
 }
 
-/** 楼层删掉：账跟着对账（软保护） */
+/** 楼层删掉：账跟着对账（重定位楼号＋软保护） */
 export function reconcileAfterDelete() {
     return enqueue(() => {
         const chat = getChat();
+        runReconcile();
         pruneRecallRecords(chat.length);
         mountAllCards();
         renderPanel();

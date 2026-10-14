@@ -7,21 +7,21 @@
 
 /* ------------------------------- 卡片 ------------------------------- */
 
-.wxg-card {
+.wxg-mes-card {
     margin-top: 8px;
     font-size: 0.9em;
     line-height: 1.55;
     opacity: 0.96;
 }
 
-.wxg-card > details {
+.wxg-mes-card > details {
     border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
     border-radius: 8px;
     background: rgba(128, 128, 128, 0.08);
     overflow: hidden;
 }
 
-.wxg-card > details > summary {
+.wxg-mes-card > details > summary {
     cursor: pointer;
     padding: 5px 10px;
     display: flex;
@@ -32,11 +32,11 @@
     user-select: none;
 }
 
-.wxg-card > details > summary::-webkit-details-marker {
+.wxg-mes-card > details > summary::-webkit-details-marker {
     display: none;
 }
 
-.wxg-card > details > summary:hover {
+.wxg-mes-card > details > summary:hover {
     background: rgba(128, 128, 128, 0.12);
 }
 
@@ -55,7 +55,7 @@
     transition: transform 0.15s ease;
 }
 
-.wxg-card > details[open] .wxg-card-chevron {
+.wxg-mes-card > details[open] .wxg-card-chevron {
     transform: rotate(180deg);
 }
 
@@ -330,12 +330,12 @@
     line-height: 1.35;
 }
 
-/* 右侧内容：一屏只说一件事（当前段） */
+/* 右侧内容：一屏只说一件事（当前段）；内边距统一交给 pagehead 与 sec-body，消除 20px 错位 */
 .wxg-ws-main {
     flex: 1 1 auto;
     min-width: 0;
     overflow: auto;
-    padding: 16px 20px 28px;
+    padding: 0;
 }
 
 /* 工作台里：段壳不要边框与标题（左栏已经是导航），只留内容 */
@@ -731,7 +731,7 @@
 }
 
 .wanxiangge .wxg-store[data-tone="ok"] {
-    border-left: 3px solid var(--SmartThemeUnderlineColor, rgba(120, 200, 150, 0.9));
+    border-left: 0;
 }
 
 .wanxiangge .wxg-store[data-tone="ok"]::before {
@@ -740,7 +740,7 @@
 }
 
 .wanxiangge .wxg-store[data-tone="bad"] {
-    border-left: 3px solid var(--SmartThemeQuoteColor, rgba(225, 138, 36, 0.9));
+    border-left: 0;
 }
 
 .wanxiangge .wxg-store[data-tone="bad"]::before {
@@ -1131,6 +1131,17 @@
     background: var(--wxg-fill-strong);
 }
 
+.wanxiangge .wxg-fold-chevron {
+    margin-left: auto;
+    opacity: 0.65;
+    transition: transform 0.15s ease;
+    flex: 0 0 auto;
+}
+
+.wanxiangge .wxg-report[open] > summary > .wxg-fold-chevron {
+    transform: rotate(180deg);
+}
+
 .wanxiangge .wxg-report-time {
     opacity: 0.7;
     font-size: 0.9em;
@@ -1394,9 +1405,9 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-cname-cell {
     display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
 }
 
 .wanxiangge .wxg-cname {
@@ -1628,19 +1639,23 @@ body.wxg-dragging {
     text-align: center;
 }
 
-/* ---- 勾选项：一条一行（⛔ 别三个挤在一行，看着像没排过） ---- */
+/* ---- 勾选项：一条一行（含装进 .wxg-card 后的开关，⛔ 不许同行相撞；名册行内小开关除外） ---- */
 .wxg-ws .wxg-sec-body > label.checkbox_label,
-.wxg-ws .wxg-sec-body > label {
+.wxg-ws .wxg-sec-body > label,
+.wxg-ws .wxg-card > label.checkbox_label {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 3px 0;
+    gap: 10px;
+    padding: 6px 0;
+    margin: 2px 0;
     white-space: normal;
-    line-height: 1.5;
+    line-height: 1.55;
+    width: 100%;
 }
 
 /* 勾选项的说明文字太长时能换行（原来一行硬挤） */
-.wxg-ws .wxg-sec-body > label.checkbox_label span {
+.wxg-ws .wxg-sec-body > label.checkbox_label span,
+.wxg-ws .wxg-card > label.checkbox_label span {
     min-width: 0;
     overflow-wrap: anywhere;
 }
@@ -1748,26 +1763,18 @@ body.wxg-dragging {
     box-shadow: 0 1px 2px var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.06));
 }
 
-/* 左侧主色竖条：这一块的"锚"（用主题强调色，⛔ 不自定品牌色） */
+/* 去掉满屏重复的 4px 粗绿竖条，靠圆角底色与细描边分层 */
 .wanxiangge .wxg-card::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    border-radius: var(--r) 0 0 var(--r);
-    background: var(--wxg-accent-soft-strong, var(--wxg-accent-line, var(--wxg-line)));
+    display: none;
 }
 
-/* 卡片头：一行小字，用**主色**（它是小标题，不是灰说明）
-   ⚠️ 原来和说明文字一个色一个号 ⇒ 看不出哪是标题 */
+/* 卡片头：素色加粗小标题（主色留给按钮与状态胶囊） */
 .wanxiangge .wxg-card-h {
     display: block;
     font-size: var(--fs-head);
     font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--wxg-accent, var(--wxg-dim));
+    letter-spacing: 0.02em;
+    color: var(--wxg-text-strong, inherit);
     margin: 0 0 var(--s2);
     padding-bottom: var(--s2);
     border-bottom: 1px solid var(--wxg-line);
@@ -1850,20 +1857,32 @@ body.wxg-dragging {
     overflow: auto;
 }
 
-/* ---- 卡片里的下拉框：按内容宽（⛔ 不占满整行） ---- */
+/* ---- 卡片里的下拉框：按内容舒展 ---- */
 .wxg-ws .wxg-card > .wxg-row > select.text_pole,
 .wxg-ws .wxg-card .wxg-row > select.text_pole {
     flex: 0 1 auto;
     width: auto;
-    max-width: 22em;
-    min-width: 8em;
+    max-width: 26em;
+    min-width: 9em;
 }
 
-/* 卡片里"文字＋输入框"的行：输入框给个舒服宽度，别把行撑满 */
-.wxg-ws .wxg-card .wxg-row > input.text_pole {
-    flex: 0 1 auto;
-    width: 18em;
-    max-width: 100%;
+/* 卡片里"文字＋输入框"的行：给足舒展宽度 */
+.wxg-ws .wxg-card .wxg-row > input.text_pole:not([type="number"]) {
+    flex: 1 1 20em;
+    max-width: 32em;
+}
+
+/* 规整两列（.wxg-line）右列里的文本输入框与下拉框：参照 Anima / SP 舒展铺开 */
+.wxg-ws .wxg-line > .wxg-line-v > input.text_pole:not([type="number"]),
+.wxg-ws .wxg-line > .wxg-line-v > textarea.text_pole {
+    flex: 1 1 24em;
+    max-width: 42em;
+}
+
+.wxg-ws .wxg-line > .wxg-line-v > select.text_pole {
+    flex: 0 1 28em;
+    min-width: 14em;
+    max-width: 42em;
 }
 
 /* ============================================================================
@@ -1875,16 +1894,25 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-line {
     display: grid;
-    grid-template-columns: 11em 1fr;
+    grid-template-columns: 9.5em 1fr;
     align-items: center;
     gap: var(--s2) var(--s3);
     padding: var(--s1) 0;
 }
 
-/* 左列：标签右对齐，读起来是一条干净的竖线 */
+/* 含多行文本框时顶对齐，避免标签掉在左下角 */
+.wanxiangge .wxg-line:has(textarea) {
+    align-items: start;
+}
+
+.wanxiangge .wxg-line:has(textarea) > .wxg-line-k {
+    padding-top: 8px;
+}
+
+/* 左列：与同卡片内的开关行保持左边缘对齐，不再左右乱跳 */
 .wanxiangge .wxg-line > .wxg-line-k {
-    justify-self: end;
-    text-align: right;
+    justify-self: start;
+    text-align: left;
     font-size: var(--fs-note);
     color: var(--wxg-dim);
     line-height: 1.5;
@@ -1932,18 +1960,19 @@ body.wxg-dragging {
 
 .wanxiangge,
 .wxg-ws {
-    /* 控件尺度：参照 Anima / SP 的输入框与按钮 */
+    /* 控件尺度：参照 Anima / SP 的输入框与按钮（大而圆：36-40px 高、9-12px 圆角） */
     --ctl-h: 38px;
-    --ctl-h-sm: 30px;
-    --r-ctl: 8px;
-    --r-card: 10px;
+    --ctl-h-btn: 36px;
+    --ctl-h-sm: 32px;
+    --r-ctl: 9px;
+    --r-card: 12px;
     /* 间距再加两档（留白要够） */
-    --s5: 24px;
-    --s6: 34px;
-    /* 字号：页级大标题 / 卡头 / 标签 */
-    --fs-h1: 1.5em;
-    --fs-h2: 1.1em;
-    --fs-label: 0.86em;
+    --s5: 28px;
+    --s6: 40px;
+    /* 字号：页级大标题（22px+） / 卡头 / 标签 */
+    --fs-h1: 1.52em;
+    --fs-h2: 1.08em;
+    --fs-label: 0.88em;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1961,9 +1990,16 @@ body.wxg-dragging {
 .wxg-ws-pagehead {
     flex: 0 0 auto;
     padding: var(--s5) var(--s5) 0;
-    max-width: 1120px;
+    max-width: 1160px;
     width: 100%;
+    margin: 0 auto;
     box-sizing: border-box;
+}
+
+.wxg-ws-main > .wxg-sec {
+    max-width: 1160px;
+    width: 100%;
+    margin: 0 auto;
 }
 
 .wxg-ws-h1 {
@@ -1993,12 +2029,11 @@ body.wxg-dragging {
     border: 0;
     background: transparent;
     padding: 0;
-    margin: 0;
+    margin: 0 auto;
 }
 
 .wxg-ws .wxg-sec-body {
     padding: var(--s4) var(--s5) var(--s6);
-    max-width: 1120px;
     box-sizing: border-box;
 }
 
@@ -2016,13 +2051,29 @@ body.wxg-dragging {
    --------------------------------------------------------------------------- */
 
 .wxg-ws .wxg-ws-side-ico {
-    flex: 0 0 auto;
-    width: 1.15em;
-    text-align: center;
-    font-size: 0.95em;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--wxg-dim);
-    opacity: 0.9;
+    opacity: 0.88;
     transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* 屏蔽 FontAwesome 实心字体伪元素，只渲染本地单色线条 SVG */
+.wxg-ws .wxg-ws-side-ico::before {
+    content: none !important;
+    display: none !important;
+}
+
+.wxg-ws .wxg-ws-side-ico svg {
+    width: 17px;
+    height: 17px;
+    display: block;
+    stroke: currentColor;
+    flex: 0 0 auto;
 }
 
 .wxg-ws .wxg-ws-side-item.is-on .wxg-ws-side-ico {
@@ -2033,13 +2084,16 @@ body.wxg-dragging {
 /* 侧栏条：选中的那条＝主色薄底 ＋ 左侧主色竖条（参照 Anima 的左栏选中态） */
 .wxg-ws .wxg-ws-side-item {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     border: 0;
     background: transparent;
     border-radius: var(--r-ctl);
-    padding: 9px 10px;
-    margin-bottom: 2px;
+    padding: 9px 12px;
+    margin-bottom: 3px;
     height: auto;
-    min-height: 36px;
+    min-height: 38px;
     text-align: left;
     justify-content: flex-start;
 }
@@ -2071,53 +2125,63 @@ body.wxg-dragging {
 
 .wanxiangge button.menu_button,
 .wanxiangge .menu_button {
-    height: var(--ctl-h);
+    height: var(--ctl-h-btn, 36px);
     line-height: 1;
-    padding: 0 14px;
+    padding: 0 16px;
     border-radius: var(--r-ctl);
-    border: 1px solid var(--wxg-line);
-    background: transparent;
-    font-size: 0.95em;
+    border: 1px solid var(--wxg-border, var(--wxg-line));
+    background: rgba(128, 128, 128, 0.06);
+    font-size: 0.94em;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
 .wanxiangge button.menu_button:hover,
 .wanxiangge .menu_button:hover {
-    background: rgba(128, 128, 128, 0.14);
+    background: rgba(128, 128, 128, 0.15);
+    border-color: var(--wxg-accent-line, var(--wxg-line));
 }
 
-/* 主按钮：实心主色 ＋ 深色字（参照 Anima 的紫/绿、SP 的青绿、构画的黑） */
+/* 主按钮：实心主色 ＋ 自动对比字色（参照 Anima 的紫/绿、SP 的青绿、构画的黑） */
 .wanxiangge button.wxg-primary,
 .wanxiangge .menu_button.wxg-primary {
     background: var(--wxg-accent, #5fbf9b);
     border-color: var(--wxg-accent, #5fbf9b);
-    color: var(--wxg-accent-ink, #10201a);
+    color: var(--wxg-accent-ink, #101815);
     font-weight: 700;
-    box-shadow: 0 1px 2px var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.12));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 .wanxiangge button.wxg-primary:hover,
 .wanxiangge .menu_button.wxg-primary:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.07);
     background: var(--wxg-accent, #5fbf9b);
+    border-color: var(--wxg-accent, #5fbf9b);
 }
 
-/* 小号按钮：只缩高度，⛔ 不再缩成一个竖条（以前踩过 flex 收缩） */
+/* 小号按钮：高度 32px，保持圆润 */
 .wanxiangge .wxg-btn-sm {
-    height: var(--ctl-h-sm);
-    padding: 0 10px;
+    height: var(--ctl-h-sm, 32px);
+    padding: 0 12px;
     font-size: 0.86em;
     flex: 0 0 auto;
     white-space: nowrap;
 }
 
-/* 按钮之间的间距（参照图里都拉得比较开） */
+/* 按钮与行内控件之间的间距拉开（参照图里都拉得比较开） */
 .wanxiangge .wxg-row {
-    gap: var(--s2);
+    gap: 10px;
+    margin: 7px 0;
+}
+
+/* 卡片底部的内嵌动作区（如状态页、提示词页合并后的操作条） */
+.wanxiangge .wxg-card-actions {
+    margin-top: var(--s3);
+    padding-top: var(--s3);
+    border-top: 1px dashed var(--wxg-border, var(--wxg-line));
 }
 
 /* ---------------------------------------------------------------------------
@@ -2233,39 +2297,70 @@ body.wxg-dragging {
    --------------------------------------------------------------------------- */
 
 .wanxiangge .wxg-empty {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     min-height: 0;
-    padding: 10px 14px;
-    border: 1px dashed var(--wxg-line);
+    padding: 20px 18px;
+    border: 1px dashed var(--wxg-border, var(--wxg-line));
     border-radius: var(--r-ctl);
-    background: transparent;
+    background: rgba(128, 128, 128, 0.035);
     color: var(--wxg-dim);
     font-size: var(--fs-label);
     line-height: 1.7;
     text-align: center;
+    font-style: normal;
 }
 
-/* 整页空：这才是"当作品做"的那一档 */
+.wanxiangge .wxg-empty-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: var(--wxg-accent, var(--wxg-dim));
+    opacity: 0.65;
+}
+
+.wanxiangge .wxg-empty-ico svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    stroke: currentColor;
+}
+
+/* 整页空：对标构画与千千结（居中单色大图标＋一句话＋实心主按钮＋大片留白） */
 .wanxiangge .wxg-empty.is-hero {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--s3);
-    min-height: 280px;
+    gap: 14px;
+    min-height: 300px;
     padding: var(--s6) var(--s5);
     border-radius: var(--r-card);
+    background: var(--wxg-card-bg, rgba(128, 128, 128, 0.05));
     font-size: 1.02em;
-    line-height: 1.9;
+    line-height: 1.85;
 }
 
+/* 屏蔽旧的 FontAwesome 伪元素，防止与内联 SVG 双图标重叠 */
 .wanxiangge .wxg-empty.is-hero::before {
-    content: '\f49e'; /* fa-box-open：一个空盒子 */
-    font-family: 'Font Awesome 6 Free', 'FontAwesome';
-    font-weight: 900; /* ⚠️ 实心图标必须 900，写 400 会回退成别的字体（出过彩色怪字） */
-    font-size: 2.1em;
-    opacity: 0.28;
-    margin-bottom: var(--s1);
+    content: none !important;
+    display: none !important;
+}
+
+.wanxiangge .wxg-empty.is-hero .wxg-empty-ico {
+    width: 44px;
+    height: 44px;
+    opacity: 0.78;
+    margin-bottom: 2px;
+}
+
+.wanxiangge .wxg-empty-act {
+    margin-top: 6px;
 }
 
 /* 整页空态里那个主按钮：再大一点、字重再加一点（它是**唯一**该点的东西） */
@@ -2678,6 +2773,53 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-r.is-click {
     cursor: pointer;
+    grid-template-columns: 1fr auto;
+}
+
+/* 只读锁状态下隐藏 textarea 右下角的拉伸斜杠 */
+.wanxiangge .wxg-card.is-locked textarea.text_pole:not(.wxg-add-row *) {
+    resize: none;
+}
+
+/* 外观页：颜色选择器与实时预览盒 */
+.wanxiangge input[type="color"].wxg-color {
+    width: 44px;
+    height: 32px;
+    padding: 2px 3px;
+    border-radius: var(--r-ctl);
+    border: 1px solid var(--wxg-line);
+    background: var(--wxg-fill);
+    cursor: pointer;
+}
+
+.wanxiangge .wxg-app-preview {
+    margin: var(--s2) 0;
+    padding: var(--s3) var(--s4);
+    border-radius: var(--r-card);
+    border: 1px solid var(--wxg-border, var(--wxg-line));
+    background: var(--wxg-surface, var(--wxg-fill));
+    color: var(--wxg-text, inherit);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+}
+
+.wanxiangge .wxg-app-pv-name {
+    font-weight: 700;
+    font-size: var(--fs-head);
+    color: var(--wxg-accent, inherit);
+}
+
+.wanxiangge .wxg-advice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--r-ctl);
+    border: 1px dashed rgba(226, 163, 60, 0.55);
+    background: rgba(226, 163, 60, 0.08);
 }
 
 .wanxiangge .wxg-r.is-click:hover {
@@ -2728,9 +2870,9 @@ body.wxg-dragging {
     gap: var(--s3);
 }
 
-.wanxiangge .wxg-card.is-locked input.text_pole,
-.wanxiangge .wxg-card.is-locked textarea.text_pole,
-.wanxiangge .wxg-card.is-locked select.text_pole {
+.wanxiangge .wxg-card.is-locked input.text_pole:not(.wxg-add-row *),
+.wanxiangge .wxg-card.is-locked textarea.text_pole:not(.wxg-add-row *),
+.wanxiangge .wxg-card.is-locked select.text_pole:not(.wxg-add-row *) {
     border-color: transparent;
     background: transparent;
     box-shadow: none;
@@ -2739,17 +2881,24 @@ body.wxg-dragging {
     color: var(--wxg-text-strong, inherit);
 }
 
-/* 下拉没有 readonly 属性 ⇒ 只能用指针封住（不能点开） */
-.wanxiangge .wxg-card.is-locked select.text_pole {
+/* 下拉没有 readonly 属性 ⇒ 只能用指针封住（不能点开；新增行除外） */
+.wanxiangge .wxg-card.is-locked select.text_pole:not(.wxg-add-row *) {
     pointer-events: none;
     appearance: none;
     -webkit-appearance: none;
 }
 
-/* 空值：锁着的时候占位符那些「例：…」不该像正在等她填 */
-.wanxiangge .wxg-card.is-locked ::placeholder {
+/* 空值：锁着的时候占位符那些「例：…」不该像正在等她填（新增行除外） */
+.wanxiangge .wxg-card.is-locked :not(.wxg-add-row) > ::placeholder {
     color: var(--wxg-dim);
     opacity: 0.55;
+}
+
+/* 新增行（data-no-lock / .wxg-add-row）：即便所在卡片处于只读态，也保持完整输入外观与交互 */
+.wanxiangge .wxg-card.is-locked .wxg-add-row {
+    margin-top: var(--s2);
+    padding-top: var(--s2);
+    border-top: 1px dashed var(--wxg-line);
 }
 
 /* 「编辑」那颗按钮：平时不抢眼，悬停才亮（卡头上不需要一个一直在叫的按钮） */

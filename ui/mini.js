@@ -35,6 +35,9 @@ export function miniRoot() {
 
 export function closeMini() {
     if (wrapEl) {
+        if (typeof wrapEl.__wxgDragCleanup === 'function') {
+            wrapEl.__wxgDragCleanup();
+        }
         wrapEl.remove();
     }
     wrapEl = null;
@@ -303,7 +306,10 @@ function makeDraggable(root, handle) {
     let oy = 0;
 
     const down = (e) => {
-        const pt = e.touches ? e.touches[0] : e;
+        const pt = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0]) || e;
+        if (!pt) {
+            return;
+        }
         dragging = true;
         moved = false;
         sx = pt.clientX;
@@ -315,7 +321,10 @@ function makeDraggable(root, handle) {
         if (!dragging) {
             return;
         }
-        const pt = e.touches ? e.touches[0] : e;
+        const pt = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0]) || e;
+        if (!pt) {
+            return;
+        }
         const dx = pt.clientX - sx;
         const dy = pt.clientY - sy;
         if (Math.abs(dx) + Math.abs(dy) > 4) {
@@ -347,7 +356,16 @@ function makeDraggable(root, handle) {
 
     if (handle && typeof handle.addEventListener === 'function') {
         handle.addEventListener('mousedown', down);
+        handle.addEventListener('touchstart', down, { passive: true });
         document.addEventListener('mousemove', move);
+        document.addEventListener('touchmove', move, { passive: false });
         document.addEventListener('mouseup', up);
+        document.addEventListener('touchend', up);
+        root.__wxgDragCleanup = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('touchmove', move);
+            document.removeEventListener('mouseup', up);
+            document.removeEventListener('touchend', up);
+        };
     }
 }

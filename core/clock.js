@@ -138,6 +138,14 @@ export function parseClock(text) {
         }
     }
 
+    // 有钟点但没写时段词（例："20:00"）⇒ 按 PERIODS 区间反推时段
+    if (!out.period && out.hour !== null && out.hour >= 0 && out.hour <= 24) {
+        const matched = PERIODS.find((x) => out.hour >= x.from && (out.hour < x.to || (x.to === 24 && out.hour === 24)));
+        if (matched) {
+            out.period = matched.key;
+        }
+    }
+
     if (out.hour !== null && out.hour >= 0 && out.hour <= 24) {
         out.minutesOfDay = out.hour * 60 + (out.minute || 0);
         out.has = true;
@@ -234,15 +242,33 @@ export function isLineDue(line, clockText) {
         };
     }
 
-    // 时段类：条件的时段与现在的时段对上才算到点
+    // 时段类：条件的时段与现在的时段对上、或同日之内已越过目标时段，即算到点
     for (const p of PERIODS) {
         if (t.includes(p.key)) {
-            const ok = clock.period === p.key;
-            return { due: ok, why: ok ? ('钟走到「' + p.key + '」了') : ('现在是' + (clock.period || clock.raw) + '，还没到「' + p.key + '」') };
+            const nowMin = clock.minutesOfDay !== null ? clock.minutesOfDay : -1;
+            const sinceAbs = Number(line && line.sinceMinutes);
+            const nowDay = clock.day === null ? 1 : clock.day;
+            const sinceDay = Number.isFinite(Number(line && line.sinceDay))
+                ? Number(line.sinceDay)
+                : (Number.isFinite(sinceAbs) ? Math.floor(sinceAbs / 1440) : null);
+            const sinceMinOfDay = Number.isFinite(sinceAbs) ? (sinceAbs % 1440) : null;
+            // 同日内若建线时刻已晚于目标时段末尾，则需等次日，不算当日已越过
+            const createdAfterTargetSameDay = sinceDay !== null && nowDay === sinceDay
+                && sinceMinOfDay !== null && sinceMinOfDay >= p.to * 60;
+            const passedSameDay = p.key !== '凌晨'
+                && nowMin >= p.from * 60
+                && !createdAfterTargetSameDay;
+            const ok = clock.period === p.key || passedSameDay;
+            return {
+                due: ok,
+                why: ok
+                    ? (clock.period === p.key ? ('钟走到「' + p.key + '」了') : ('钟已走到' + (clock.period || clock.raw) + '（已过「' + p.key + '」）'))
+                    : ('现在是' + (clock.period || clock.raw) + '，还没到「' + p.key + '」'),
+            };
         }
     }
     if (/(放学|下课)/.test(t)) {
-        const ok = clock.period === '下午' || clock.period === '傍晚' || clock.period === '晚上';
+        const ok = clock.period === '下午' || clock.period === '傍晚' || clock.period === '晚上' || clock.period === '深夜';
         return { due: ok, why: ok ? '钟走到放学后了' : '还没放学（现在' + (clock.period || clock.raw) + '）' };
     }
     if (/(天亮|清晨|早晨)/.test(t)) {

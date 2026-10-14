@@ -8,7 +8,7 @@
  * 合并前自动留一版快照（能撤回）。
  */
 
-import { loadState, saveState, takeSnapshot, addChronicle } from './state.js';
+import { loadState, saveState, takeSnapshot, addChronicle, LIMITS } from './state.js';
 import { trimText, uniqueBy, asText } from './utils.js';
 
 /** 合并两条角色记录：把 fromName 并进 keepId */
@@ -27,7 +27,7 @@ export function mergeCharacters(keepId, fromName) {
 
     takeSnapshot('合并前（' + keep.name + ' ⇄ ' + from.name + '）');
 
-    const report = { aliases: [], fields: [], past: 0, steps: 0, schedule: 0 };
+    const report = { aliases: [], fields: [], past: 0, steps: 0, schedule: 0, quests: 0 };
 
     /* ① 别名合并：另一条的名字与别名都归到保留这条名下 */
     const aliasSet = new Set((keep.aliases || []).concat([keep.name]).filter(Boolean));
@@ -62,14 +62,25 @@ export function mergeCharacters(keepId, fromName) {
         }
     }
 
-    // 过去经历：合并 + 去重（按文本）+ **按时间从新到旧重排**
-    // ⚠️ 自审修正·条 20：两条各自"由近到远"，直接拼接会整体乱序；
-    //    而且 slice 时会把 from 那边的（可能更新的）记录整批丢掉。
+    // 过去经历：合并 + 去重（按文本）+ **按时间从新到旧重排** + 超上限淡化进编年
     const pastAll = (keep.past || []).concat(from.past || []);
     const pastUnique = uniqueBy(pastAll.filter((p) => p && trimText(p.text)), (p) => trimText(p.text));
     pastUnique.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));   // 新的在前；老数据 at=0 排尾
     report.past = pastAll.length - pastUnique.length;
-    keep.past = pastUnique.slice(0, Math.max(pastUnique.length, 5));
+    const pastCap = Number(LIMITS && LIMITS.capPast) > 0 ? Math.trunc(Number(LIMITS.capPast)) : 5;
+    if (pastUnique.length > pastCap) {
+        for (const f of pastUnique.slice(pastCap)) {
+            state.chronicle.push({
+                at: f.at || Date.now(),
+                floor: Number.isFinite(Number(f.fromFloor)) ? Number(f.fromFloor) : keep.lastSeenFloor,
+                kind: '过去经历·淡化',
+                who: keep.name,
+                text: trimText(f.text),
+                manual: f.manual === true,
+            });
+        }
+    }
+    keep.past = pastUnique.slice(0, pastCap);
 
     // 这一步的记录：合并 + 去重
     const stepsAll = (keep.steps || []).concat(from.steps || []);
@@ -82,6 +93,58 @@ export function mergeCharacters(keepId, fromName) {
     const schUnique = uniqueBy(schAll.filter((s) => s && trimText(s.what)), (s) => trimText(s.what));
     report.schedule = schAll.length - schUnique.length;
     keep.schedule = schUnique;
+
+    // 任务（主线／支线）：按标题去重＋子项与备注互补（⛔ 不丢任务）
+    const keepQuests = Array.isArray(keep.quests) ? keep.quests.filter((q) => q && trimText(q.title)) : [];
+    const fromQuests = Array.isArray(from.quests) ? from.quests.filter((q) => q && trimText(q.title)) : [];
+    const questMap = new Map();
+    for (const q of keepQuests) {
+        const key = trimText(q.title);
+        questMap.set(key, Object.assign({}, q, {
+            items: Array.isArray(q.items) ? q.items.slice() : [],
+        }));
+    }
+    let questDupes = 0;
+    for (const q of fromQuests) {
+        const key = trimText(q.title);
+        const existing = questMap.get(key);
+        if (!existing) {
+            questMap.set(key, Object.assign({}, q, {
+                items: Array.isArray(q.items) ? q.items.slice() : [],
+            }));
+        } else {
+            questDupes += 1;
+            if (!trimText(existing.note) && trimText(q.note)) {
+                existing.note = trimText(q.note);
+            }
+            if (trimText(q.kind) === 'main') {
+                existing.kind = 'main';
+            }
+            const itemMap = new Map();
+            for (const it of existing.items || []) {
+                if (it && trimText(it.text)) {
+                    itemMap.set(trimText(it.text), Object.assign({}, it));
+                }
+            }
+            for (const it of q.items || []) {
+                const itKey = trimText(it && it.text);
+                if (!itKey) {
+                    continue;
+                }
+                const oldIt = itemMap.get(itKey);
+                if (!oldIt) {
+                    itemMap.set(itKey, Object.assign({}, it));
+                } else if (it.done === true) {
+                    oldIt.done = true;
+                }
+            }
+            existing.items = Array.from(itemMap.values());
+            existing.manual = existing.manual === true || q.manual === true;
+            existing.updatedAt = Math.max(Number(existing.updatedAt) || 0, Number(q.updatedAt) || 0);
+        }
+    }
+    report.quests = questDupes;
+    keep.quests = Array.from(questMap.values());
 
     // 其它标记：任何一个为真就为真
     keep.isPlayer = keep.isPlayer === true || from.isPlayer === true;
@@ -101,7 +164,7 @@ export function mergeCharacters(keepId, fromName) {
         who: keep.name,
         text: '把「' + from.name + '」并进「' + keep.name + '」：别名 +' + String(report.aliases.length)
             + '、字段补 ' + String(report.fields.length)
-            + '、历史去重 ' + String(report.past + report.steps + report.schedule) + ' 条',
+            + '、历史去重 ' + String(report.past + report.steps + report.schedule + report.quests) + ' 条',
     });
     saveState();
 
@@ -155,7 +218,7 @@ export function autoDetectDuplicates() {
     return groups;
 }
 
-/** 手动改字：把一条角色字段盖掉并打"已手动修改"（引擎下轮要认） */
+/** 手动改字：把一条角色字段盖掉并打"已手动修改"（按字段记入 manualFields，引擎下轮只护这一格） */
 export function markManual(state, characterId, key, value) {
     const c = (state.characters || []).find((x) => x.id === characterId);
     if (!c) {
@@ -163,6 +226,11 @@ export function markManual(state, characterId, key, value) {
     }
     c[key] = trimText(value);
     c.manual = true;
+    const fields = Array.isArray(c.manualFields) ? c.manualFields.slice() : [];
+    if (key && !fields.includes(key)) {
+        fields.push(key);
+    }
+    c.manualFields = fields;
     c.updatedAt = Date.now();
     return true;
 }

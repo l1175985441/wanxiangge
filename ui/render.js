@@ -11,7 +11,7 @@
 import { APP_NAME, CARD_ATTR, CARD_CLASS, ROOT_ID, PANEL_ID } from '../core/config.js';
 import { getChat, getCtx } from '../core/adapter.js';
 import { getSettings } from '../core/settings.js';
-import { loadState, getRecallRecord } from '../core/state.js';
+import { loadState, saveState, getRecallRecord } from '../core/state.js';
 import { receiptText } from '../core/ledger.js';
 import { trimText, asText, asArray } from '../core/utils.js';
 import { renderSections, bindSectionEvents } from './sections.js';
@@ -170,14 +170,26 @@ function buildCard(rec) {
     card.appendChild(details);
 
     details.addEventListener('toggle', () => {
-        const state = loadState();
-        const target = state.recallRecords.find((r) => r && r.floor === rec.floor);
-        if (target) {
-            target.shown = details.open;
+        const want = details.open === true;
+        const target = getRecallRecord(rec.floor);
+        if (target && Boolean(target.shown) !== want) {
+            target.shown = want;
+            scheduleCardToggleSave();
         }
     });
 
     return card;
+}
+
+let cardToggleTimer = null;
+function scheduleCardToggleSave() {
+    if (cardToggleTimer) {
+        clearTimeout(cardToggleTimer);
+    }
+    cardToggleTimer = setTimeout(() => {
+        cardToggleTimer = null;
+        saveState();
+    }, 300);
 }
 
 /** 有卡片就刷、没有就挂（同一楼只留一张；顺手清掉重复与挂错楼的） */

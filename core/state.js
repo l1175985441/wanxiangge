@@ -18,9 +18,15 @@ import { parseClock } from './clock.js';
 
 /* ------------------------------ 人物 ------------------------------ */
 
+/** 角色身上支持按格锁定保护的状态字段 */
+const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current'];
+
 /** 人物记录的标准结构（缺键补齐，多余的键保留） */
 export function normalizeCharacter(raw) {
     const c = raw && typeof raw === 'object' ? raw : {};
+    const manualFields = Array.isArray(c.manualFields)
+        ? c.manualFields.map(trimText).filter((k) => STATUS_MANUAL_KEYS.includes(k))
+        : (c.manual === true ? STATUS_MANUAL_KEYS.filter((k) => Boolean(trimText(c[k]))) : []);
     return {
         id: trimText(c.id) || makeId('wxg'),
         name: trimText(c.name),
@@ -69,6 +75,7 @@ export function normalizeCharacter(raw) {
         playerOff: c.playerOff === true,
         isNew: c.isNew === true,
         manual: c.manual === true,           // 用户手改过（引擎要认）
+        manualFields,                        // 具体手改过哪几格（只护手改过的格，不冻全身）
         ignored: c.ignored === true,
         steps: Array.isArray(c.steps) ? c.steps.map((s) => ({
             text: trimText(s && s.text),
@@ -162,7 +169,7 @@ function emptyState() {
         },
         events: [],              // 召回用的世界事件（由世界状态派生，带有效期）
         chronicle: [],           // 编年：只给她看，不注入、不喂模型
-        lastUpdate: { at: 0, status: 'idle', note: '' },
+        lastUpdate: { at: 0, status: 'idle', note: '', floor: -1 },
         pipeline: {              // 更新流水（失败可见＋重试上限）
             kind: '',
             status: 'idle',      // idle｜running｜ok｜failed｜cancelled
@@ -316,6 +323,10 @@ export function addCharacter(name, extra) {
     if (!c.name) {
         return null;
     }
+    const existing = state.characters.find((x) => x && x.name === c.name);
+    if (existing) {
+        return existing;
+    }
     state.characters.push(c);
     saveState();
     return c;
@@ -358,19 +369,38 @@ export function findCharacterByName(name) {
         || c.aliases.some((a) => a.toLowerCase() === key)) || null;
 }
 
-/** 改一个人物（手改自动打"已手动修改"标记） */
+/** 改一个人物（手改状态格自动记入 manualFields，改哪格护哪格） */
 export function updateCharacter(id, patch) {
     const state = loadState();
     const idx = state.characters.findIndex((c) => c.id === id);
     if (idx < 0) {
         return null;
     }
-    const merged = Object.assign({}, state.characters[idx], patch || {});
+    const prev = state.characters[idx];
+    const merged = Object.assign({}, prev, patch || {});
     if (patch && Object.hasOwn(patch, 'aliases')) {
         merged.aliases = toList(patch.aliases);
     }
+    const fieldSet = new Set(Array.isArray(prev.manualFields) ? prev.manualFields : []);
+    if (patch && typeof patch === 'object') {
+        for (const k of STATUS_MANUAL_KEYS) {
+            if (Object.hasOwn(patch, k)) {
+                fieldSet.add(k);
+            }
+        }
+    }
+    if (patch && Object.hasOwn(patch, 'manual') && patch.manual === false) {
+        merged.manual = false;
+        merged.manualFields = [];
+    } else {
+        merged.manualFields = patch && Array.isArray(patch.manualFields)
+            ? patch.manualFields
+            : Array.from(fieldSet);
+        merged.manual = patch && Object.hasOwn(patch, 'manual')
+            ? patch.manual === true
+            : (prev.manual === true || merged.manualFields.length > 0);
+    }
     merged.updatedAt = now();
-    merged.manual = patch && Object.hasOwn(patch, 'manual') ? patch.manual === true : true;
     state.characters[idx] = normalizeCharacter(merged);
     saveState();
     return state.characters[idx];
@@ -535,13 +565,16 @@ export function pushPast(characterId, text, cap, fromFloor) {
         return false;
     }
     const floor = Number(fromFloor);
+    const existing = c.past.find((p) => p && trimText(p.text) === body);
     const entry = {
         text: body,
-        injected: false,
-        at: now(),
-        manual: false,
+        injected: existing ? existing.injected === true : false,
+        at: existing && existing.at ? existing.at : now(),
+        manual: existing ? existing.manual === true : false,
     };
-    if (Number.isFinite(floor) && floor >= 0) {
+    if (existing && Number.isFinite(Number(existing.fromFloor))) {
+        entry.fromFloor = Number(existing.fromFloor);   // 保留最初产生的楼层号，⛔ 不被后续轮次刷成新楼
+    } else if (Number.isFinite(floor) && floor >= 0) {
         entry.fromFloor = Math.trunc(floor);
     }
     c.past = c.past.filter((p) => p.text !== body);
@@ -777,7 +810,20 @@ export function putRecallRecord(record) {
 }
 
 export function getRecallRecord(floor) {
-    return loadState().recallRecords.find((r) => r && r.floor === floor) || null;
+    const list = loadState().recallRecords;
+    let best = null;
+    let bestAt = -1;
+    for (let i = 0; i < list.length; i += 1) {
+        const r = list[i];
+        if (r && r.floor === floor) {
+            const at = Math.max(Number(r.injectedAt || 0), Number(r.at || 0));
+            if (!best || at >= bestAt) {
+                best = r;
+                bestAt = at;
+            }
+        }
+    }
+    return best;
 }
 
 export function getRecallRecordById(mesId) {
@@ -837,7 +883,7 @@ function snapshotPayload(state) {
         characters: state.characters,
         world: state.world,
         events: state.events,
-        chronicle: state.chronicle.slice(-120),
+        chronicle: state.chronicle,
         newPeople: state.newPeople,   // 自审修正·条 25：新认的人也要能撤回（否则徽章残留）
         stat: state.stat,
     });

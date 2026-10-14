@@ -1,7 +1,8 @@
 /**
  * 万象阁 · 更新流水（世界状态＋角色七格＋平行事件＋编年）
  *
- * 一次更新＝**一个请求**（十几个角色合并成一次结构化输出），⛔ 不许一轮各发一个请求。
+ * 一次更新＝**两小步请求**（世界状态 1 次 ＋ 十几个角色合并成 1 次结构化输出，由 callBudget 把关上限），
+ * ⛔ 不许十几个角色一轮各发一个请求。
  * 规矩都写在这里：
  *   · 单请求 ≤ 2 分钟（超时如实报错）；
  *   · 失败看得见、重试有**上限**（⛔ 不无限重试）；
@@ -309,6 +310,17 @@ function applyCharacter(raw, material, conflicts) {
     patch.lastSeenFloor = material.floor;
     patch.inScene = onStage;
 
+    // 按字段粒度判断是否手改过（若直写 c.manual=true 且未经 normalize 初始化 manualFields，则兜底视非空字段为锁定）
+    const isFieldLocked = (fieldKey) => {
+        if (!c.manual) {
+            return false;
+        }
+        if (Array.isArray(c.manualFields)) {
+            return c.manualFields.includes(fieldKey);
+        }
+        return true;
+    };
+
     const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
     for (const f of textFields) {
         const incoming = trimText(raw && raw[f]);
@@ -316,7 +328,7 @@ function applyCharacter(raw, material, conflicts) {
             continue;
         }
         const old = trimText(c[f]);
-        if (old && c.manual && old !== incoming) {
+        if (old && isFieldLocked(f) && old !== incoming) {
             conflicts.push(c.name + ' 的「' + f + '」她手改过，保留她的版本（模型想改成：' + incoming.slice(0, 40) + '）');
             continue;
         }
@@ -327,7 +339,7 @@ function applyCharacter(raw, material, conflicts) {
     const incomingAff = trimText(raw && raw.affinity);
     if (incomingAff && incomingAff !== '未知' && !trimText(c.affinitySource)) {
         const old = trimText(c.affinity);
-        if (!(old && c.manual && old !== incomingAff)) {
+        if (!(old && isFieldLocked('affinity') && old !== incomingAff)) {
             patch.affinity = incomingAff;
         }
     }
@@ -444,9 +456,23 @@ async function stepCharacters(material) {
     const onStageIds = new Set(onStage.map((c) => c.id));
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
+    // ⭐ 现场保护（protectedBypass）：同楼已算过的不再重推；上一轮刚在现场演过（inScene）的排到轮转队尾，优先推久未露面的人
     const maxParallel = clampNumber(settings.maxParallelChars, 0, 12, 6);
-    const bench = roster.filter((c) => !onStageIds.has(c.id) && !c.isPlayer);
-    const rotated = bench.slice().sort((a, b) => (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0));
+    const bench = roster.filter((c) => {
+        if (onStageIds.has(c.id) || c.isPlayer) {
+            return false;
+        }
+        if (settings.protectedBypass && Number.isFinite(material.floor) && material.floor >= 0 && c.lastSeenFloor === material.floor && trimText(c.current)) {
+            return false;
+        }
+        return true;
+    });
+    const rotated = bench.slice().sort((a, b) => {
+        if (settings.protectedBypass && (a.inScene === true) !== (b.inScene === true)) {
+            return a.inScene === true ? 1 : -1;
+        }
+        return (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0);
+    });
     const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
 
     // "我"（玩家棋子）**不建自己的推演行**——他的存在由**别人**的行侧面承载
@@ -746,28 +772,35 @@ export async function runUpdate(opts) {
     }
     setPipeline({ step: '读世界状态', text: '正在算世界状态（' + floorLabel(floor) + '）' });
 
+    const budget = callBudget();
+    let stepsUsed = 0;
     let lastError = '';
     let worldRes = { ok: false, reason: '没跑' };
     let charRes = { ok: false, reason: '没跑' };
 
-    // 世界这一步：带重试上限
-    for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
-        if (cancelRequested) {
-            break;
-        }
-        setPipeline({ tries: attempt });
-        worldRes = await stepWorld(material);
-        if (worldRes.ok) {
-            break;
-        }
-        lastError = worldRes.reason;
-        if (attempt < RETRY_LIMIT) {
-            setPipeline({ text: '世界状态这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次（最多 ' + String(RETRY_LIMIT) + ' 次）' });
-            await sleep(800);
+    // 世界这一步（占 1 步预算）：带重试上限
+    if (stepsUsed < budget) {
+        stepsUsed += 1;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
+            if (cancelRequested) {
+                break;
+            }
+            setPipeline({ tries: attempt });
+            worldRes = await stepWorld(material);
+            if (worldRes.ok) {
+                break;
+            }
+            lastError = worldRes.reason;
+            if (attempt < RETRY_LIMIT) {
+                setPipeline({ text: '世界状态这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次（最多 ' + String(RETRY_LIMIT) + ' 次）' });
+                await sleep(800);
+            }
         }
     }
 
-    if (!cancelRequested && worldRes.ok) {
+    // 角色这一步（占 1 步预算，十几个角色合并成一次算）：带重试上限
+    if (!cancelRequested && worldRes.ok && stepsUsed < budget) {
+        stepsUsed += 1;
         setPipeline({ step: '读角色状态与平行事件', text: '正在算角色状态与平行事件' });
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
             if (cancelRequested) {
@@ -831,6 +864,7 @@ export async function runUpdate(opts) {
         at: Date.now(),
         status: failed ? 'failed' : 'ok',
         note: text,
+        floor: Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1,
     };
     saveState();
     markBookDirty();
@@ -954,13 +988,17 @@ export function runReconcile() {
     }
 
     const before = state.recallRecords.length;
-    // ⭐ 对账要按 **mesId 重新定位**（自审修正）：光过滤不重排的话，
+    // ⭐ 对账要按 **mesId 优先、发言文本兜底** 重新定位：光过滤不重排的话，
     //    中间删一楼会让其后所有记录的 floor 全部错位，下一次对账把它们**误删**（雪崩）。
     const byMesId = new Map();
+    const userFloors = [];
     chat.forEach((m, idx) => {
-        const id = trimText(m && m.mesId);
-        if (id && m && m.is_user && !m.is_system) {
-            byMesId.set(id, idx);
+        if (m && m.is_user && !m.is_system) {
+            const id = trimText(m.mesId);
+            if (id) {
+                byMesId.set(id, idx);
+            }
+            userFloors.push({ idx, text: trimText(m.mes) });
         }
     });
 
@@ -969,7 +1007,7 @@ export function runReconcile() {
             return false;
         }
         const mesId = trimText(r.mesId);
-        if (mesId) {
+        if (mesId && byMesId.size > 0) {
             const at = byMesId.get(mesId);
             if (at === undefined) {
                 return false;   // 这条记录对应的那条发言真的没了
@@ -979,8 +1017,30 @@ export function runReconcile() {
             }
             return true;
         }
-        // 没有身份证的老记录：只能按楼层号核对
+        // 没有 mesId（或酒馆消息对象未带 mesId）：先核对原楼层，错位时按发言文本 lead 就近重定位
+        const lead = trimText(r.lead);
         const m = chat[r.floor];
+        if (m && m.is_user && !m.is_system && (!lead || trimText(m.mes) === lead)) {
+            return true;
+        }
+        if (lead) {
+            let bestIdx = -1;
+            let bestDist = Infinity;
+            for (const u of userFloors) {
+                if (u.text === lead) {
+                    const dist = Math.abs(u.idx - (Number(r.floor) || 0));
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestIdx = u.idx;
+                    }
+                }
+            }
+            if (bestIdx >= 0) {
+                r.floor = bestIdx;
+                return true;
+            }
+            return false;
+        }
         return !!(m && m.is_user && !m.is_system);
     });
     const removed = before - state.recallRecords.length;
@@ -996,6 +1056,23 @@ export function runReconcile() {
         }
     }
 
+    // 更新锚点若指向已不存在的楼层，退回到现存最后一次有效更新的楼号（没有就归 -1），防删楼后自动更新停摆
+    const atFloor = Number(state.pipeline && state.pipeline.atFloor);
+    if (Number.isFinite(atFloor) && atFloor >= chat.length) {
+        let lastValidFloor = -1;
+        for (const c of state.chronicle) {
+            const f = Number(c && c.floor);
+            if (c && !c.floorGone && Number.isFinite(f) && f >= 0 && f < chat.length && f > lastValidFloor) {
+                lastValidFloor = f;
+            }
+        }
+        state.pipeline.atFloor = lastValidFloor;
+        if (state.lastUpdate && typeof state.lastUpdate === 'object') {
+            state.lastUpdate.floor = lastValidFloor;
+        }
+        notes.push('更新锚点已从 ' + floorLabel(atFloor) + ' 对齐到 ' + (lastValidFloor >= 0 ? floorLabel(lastValidFloor) : '未更新状态'));
+    }
+
     saveState();
     if (removed > 0) {
         notes.push('清了 ' + String(removed) + ' 条对不上的召回账');
@@ -1009,24 +1086,32 @@ export function runReconcile() {
 /* ------------------------------ 频率控制 ------------------------------ */
 
 /**
- * 到该更新的回合了吗（每 N 回合）。
- * ⚠️ 注意：频率只影响"多久更新一次"，⛔ 不影响暗线推进（那个只看世界钟）。
+ * 到该更新的时刻了吗（按推进楼层差判；自动更新在 MESSAGE_RECEIVED 时传 floor - 1 留一层缓冲）。
+ * ⚠️ 注意：
+ *   ① 同一楼号（或更早楼号）绝不重复跑——重 roll／swipe 多少次都拦住，防白烧额度；
+ *   ② 1 回合＝2 层楼（你一楼＋AI 一楼），every=1 或 2 均为每推进一轮更新一次（停在上一层已落定的楼），
+ *      every>2 则隔相应楼层步长才触发；
+ *   ③ 频率只影响"多久更新一次"，⛔ 不影响暗线推进（那个只看世界钟）。
  */
 export function shouldUpdateNow(floor) {
     const settings = getSettings();
     const every = clampNumber(settings.updateEvery, 1, 10, 1);
-    if (every <= 1) {
-        return true;
-    }
     const state = loadState();
     const last = Number(state.pipeline && state.pipeline.atFloor);
     if (!Number.isFinite(last) || last < 0) {
         return true;
     }
-    return (floor - last) >= every;
+    const cur = Number(floor);
+    if (!Number.isFinite(cur)) {
+        return every <= 1;
+    }
+    if (cur <= last) {
+        return false;   // 这一楼（或更早的楼）已经算过了，重 roll 多少次都不重烧
+    }
+    return (cur - last) >= every;
 }
 
-/** 一轮最多发几次请求（预算，省额度） */
+/** 单轮更新最多发几次模型请求（世界状态 1 次 ＋ 角色合并推演 1 次，省额度） */
 export function callBudget() {
-    return CALLS_PER_TURN + 1;   // 更新那一次 ＋ 打杂（挑拣／摘要，可不用）
+    return CALLS_PER_TURN + 1;
 }

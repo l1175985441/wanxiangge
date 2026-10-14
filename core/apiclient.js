@@ -16,7 +16,41 @@ import { getSettings } from './settings.js';
 import { getCtx } from './adapter.js';
 import { trimText, asText } from './utils.js';
 
-/** 从模型输出里抠出 JSON（容错：```json 包裹、前后废话、尾随文字、截断收尾） */
+/** 从 start 位置起用栈扫描与首括号配对的闭合位置（忽略字符串内的括号；未闭合返回 -1） */
+function findBalancedEnd(str, start) {
+    let inStr = false;
+    let esc = false;
+    const stack = [];
+    for (let i = start; i < str.length; i += 1) {
+        const ch = str[i];
+        if (inStr) {
+            if (esc) {
+                esc = false;
+            } else if (ch === '\\') {
+                esc = true;
+            } else if (ch === '"') {
+                inStr = false;
+            }
+            continue;
+        }
+        if (ch === '"') {
+            inStr = true;
+        } else if (ch === '{' || ch === '[') {
+            stack.push(ch);
+        } else if (ch === '}' || ch === ']') {
+            const last = stack[stack.length - 1];
+            if ((ch === '}' && last === '{') || (ch === ']' && last === '[')) {
+                stack.pop();
+                if (stack.length === 0) {
+                    return i;
+                }
+            }
+        }
+    }
+    return -1;
+}
+
+/** 从模型输出里抠出 JSON（容错：```json 包裹、前后带 [标签] 废话、尾随文字、截断收尾） */
 export function extractJson(text) {
     const raw = asText(text);
     if (!raw.trim()) {
@@ -26,25 +60,55 @@ export function extractJson(text) {
     const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
     const body = fence ? fence[1] : raw;
 
-    // ② 从第一个 { 或 [ 开始（⛔ 到结尾是不够的：模型爱在 JSON 后面加一句"祝您游戏愉快"）
+    // ② 收集候选起点（优先尝试完整配对的 {…} 或 [… ]，跳过像 [结果] 这种非 JSON 方括号前缀）
     const firstBrace = body.search(/[[{]/);
     if (firstBrace < 0) {
         return { ok: false, reason: '模型输出里没有 JSON', value: null, text: raw };
     }
-    // ⭐ 再找**最后一个** } 或 ] 收尾：中间的废话与尾随文字都切掉
-    const lastBrace = Math.max(body.lastIndexOf('}'), body.lastIndexOf(']'));
-    const candidate = lastBrace > firstBrace ? body.slice(firstBrace, lastBrace + 1) : body.slice(firstBrace);
+    const starts = [];
+    const firstObj = body.indexOf('{');
+    const firstArr = body.indexOf('[');
+    if (firstArr >= 0 && firstArr < firstObj) {
+        starts.push(firstArr);
+    }
+    if (firstObj >= 0) {
+        starts.push(firstObj);
+    }
+    if (firstArr >= 0 && !starts.includes(firstArr)) {
+        starts.push(firstArr);
+    }
+
+    for (const st of starts) {
+        const balancedEnd = findBalancedEnd(body, st);
+        if (balancedEnd > st) {
+            const span = body.slice(st, balancedEnd + 1);
+            try {
+                return { ok: true, value: JSON.parse(span), text: raw };
+            } catch (e) {
+                const rep = repairJson(span);
+                try {
+                    return { ok: true, value: JSON.parse(rep), text: raw, repaired: true };
+                } catch (e2) {
+                    // 继续试下一个起点
+                }
+            }
+        }
+    }
+
+    // ③ 截断收尾兜底：按与首括号同类的闭合符截取并补全（优先 {…}，防被前缀 [标签] 带偏）
+    const mainStart = firstObj >= 0 ? firstObj : firstBrace;
+    const closeCh = body[mainStart] === '{' ? '}' : ']';
+    const lastClose = body.lastIndexOf(closeCh);
+    const candidate = lastClose > mainStart ? body.slice(mainStart, lastClose + 1) : body.slice(mainStart);
 
     try {
         return { ok: true, value: JSON.parse(candidate), text: raw };
     } catch (e) {
-        // ③ 截断收尾：补齐括号再试
         const repaired = repairJson(candidate);
         try {
             return { ok: true, value: JSON.parse(repaired), text: raw, repaired: true };
         } catch (e2) {
-            // ④ 最后再试一次"从第一个 { 到最后一个 }"的极端兜底
-            const loose = repairJson(String(body.slice(firstBrace)).trim());
+            const loose = repairJson(String(body.slice(mainStart)).trim());
             try {
                 return { ok: true, value: JSON.parse(loose), text: raw, repaired: true };
             } catch (e3) {
@@ -250,7 +314,8 @@ async function callViaServer(url, key, model, body, signal, cheap) {
     if (!res.ok) {
         let detail = '';
         try {
-            detail = asText((await res.json()).error && (await res.json()).error.message);
+            const err = await res.json();
+            detail = asText(err && err.error && (typeof err.error === 'string' ? err.error : err.error.message));
         } catch (e) {
             detail = '';
         }

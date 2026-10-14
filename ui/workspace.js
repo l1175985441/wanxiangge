@@ -14,6 +14,7 @@ import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, groupOfSection } from '../core/co
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections, bindSectionEvents, fillText } from './sections.js';
 import { applyAppearance } from './theme.js';
+import { iconSvg } from './icons.js';
 import { loadState } from '../core/state.js';
 import { trimText, asArray } from '../core/utils.js';
 
@@ -214,11 +215,13 @@ function buildSidebar() {
         btn.setAttribute('data-ws-go', String(i));
         const ico = document.createElement('span');
         /*
-         * ⚠️ 图标走 **fontawesome 单色线条**（⛔ 不再塞 emoji）：
-         *    emoji 彩色、风格杂、基线不齐；线条图标只有一个色、跟着主色走。
+         * ⭐ 图标走本地内联单色线条 SVG（ui/icons.js，零外网依赖）：
+         *    保留原类名兼容自测，由 CSS 屏蔽字体伪元素，统一 1.75px 圆角描边跟主色/灰度走。
          */
-        ico.className = 'wxg-ws-side-ico fa-solid ' + (SIDEBAR_ICONS[i] || 'fa-circle');
+        const iconKey = SIDEBAR_ICONS[i] || 'fa-circle';
+        ico.className = 'wxg-ws-side-ico fa-solid ' + iconKey;
         ico.setAttribute('aria-hidden', 'true');
+        ico.innerHTML = iconSvg(iconKey);
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';
         txt.textContent = name;

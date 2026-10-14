@@ -165,29 +165,29 @@ export function cleanMessageText(raw) {
     let text = original;
     let removed = 0;
 
-    // ① 用户点名的排除标签
+    // ① 提取标签（留空＝读整条；先提取目标块，免得目标块本身被后面的结构剥壳提前吞掉）
+    const picked = pickNamedBlocks(text, settings.extractTags);
+    if (trimText(picked)) {
+        text = picked;
+    }
+
+    // ② 用户点名的排除标签
     const excl = stripNamedBlocks(text, settings.excludeTags);
     text = excl.text;
     removed += excl.removed;
 
-    // ② 结构剥成对机器块（总开关）
+    // ③ 结构剥成对机器块（总开关）
     if (settings.stripPairedBlocks !== false) {
         const paired = stripPairedBlocks(text);
         text = paired.text;
         removed += paired.removed;
     }
 
-    // ③ 剥 HTML 注释（总开关）
+    // ④ 剥 HTML 注释（总开关）
     if (settings.stripHtmlComments !== false) {
         const cmt = stripHtmlComments(text);
         text = cmt.text;
         removed += cmt.removed;
-    }
-
-    // ④ 提取标签（留空＝读整条）
-    const picked = pickNamedBlocks(text, settings.extractTags);
-    if (trimText(picked)) {
-        text = picked;
     }
 
     // ⑤ 剥完为空 ⇒ 退回原文（⛔ 不比剥之前更坏）

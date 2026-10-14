@@ -8,11 +8,17 @@
 
 import { formatStamp, formatClock, now } from './adapter.js';
 import { loadState, saveState } from './state.js';
+import { getSettings } from './settings.js';
 import { trimText, countChars, floorLabel } from './utils.js';
 
-/** 把一批"已推送"的经历标记掉（只有真进了主模型眼前的才算推过） */
-export function markCarried(items) {
+/** 把一批"已推送"的经历标记掉（只有通过了楼层裁、真进了主模型眼前的才算推过） */
+export function markCarried(items, opts) {
     const state = loadState();
+    const o = opts || {};
+    const anchorFloor = Number(o.anchorFloor);
+    const hasAnchor = Number.isFinite(anchorFloor) && anchorFloor >= 0;
+    const cut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
+    const injectedText = trimText(o.injectedText);
     let marked = 0;
     for (const item of Array.isArray(items) ? items : []) {
         const ch = item && item.character;
@@ -24,10 +30,21 @@ export function markCarried(items) {
             continue;
         }
         for (const p of target.past) {
-            if (p && p.text && !p.injected) {
-                p.injected = true;
-                marked += 1;
+            if (!p || !p.text || p.injected) {
+                continue;
             }
+            // 被"楼层裁"挡在最近 N 楼内的，本轮并没端出去 ⇒ ⛔ 不标 injected
+            if (cut > 0 && hasAnchor && Number.isFinite(Number(p.fromFloor))) {
+                if ((anchorFloor - Number(p.fromFloor)) < cut) {
+                    continue;
+                }
+            }
+            // 若给了本轮实际注入正文，还要确认这句经历真在里面（防篇幅截断误标）
+            if (injectedText && !injectedText.includes(trimText(p.text))) {
+                continue;
+            }
+            p.injected = true;
+            marked += 1;
         }
     }
     if (marked) {
@@ -75,16 +92,18 @@ export function commitLedger(justNow) {
         who.push('事 ' + String(latest.events.length) + ' 条');
     }
 
+    const prevFloor = Number.isFinite(Number((state.lastUpdate || {}).floor)) ? Number(state.lastUpdate.floor) : -1;
     state.lastUpdate = {
         at: latest.at || now(),
         status: latest.injectStatus === 'ok'
             ? 'ok'
             : (latest.injectStatus === 'empty' ? 'idle' : (latest.injectStatus === 'error' ? 'failed' : 'pending')),
         note: floorLabel(latest.floor) + '：' + statusText + (who.length ? '（' + who.join('；') + '）' : ''),
+        floor: prevFloor,
     };
 
     if (latest.injectStatus === 'ok') {
-        markCarried(latest.items);
+        markCarried(latest.items, { anchorFloor: latest.floor, injectedText: latest.injectedText });
     }
     saveState();
 }

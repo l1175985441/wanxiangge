@@ -32,6 +32,7 @@ import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
 import { mountMini, closeMini } from './mini.js';
+import { iconSvg } from './icons.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
@@ -51,11 +52,18 @@ const FMT_SPLIT = /\*\*([^*]+)\*\*/g;
  */
 export function fillText(node, text) {
     const s = asText(text);
+    node.textContent = '';
+    if (typeof node.removeChild === 'function') {
+        while (node.firstChild) {
+            node.removeChild(node.firstChild);
+        }
+    }
     if (s.indexOf('**') < 0) {
         node.textContent = s;
         return;
     }
     let last = 0;
+    FMT_SPLIT.lastIndex = 0;
     let m = FMT_SPLIT.exec(s);
     while (m) {
         if (m.index > last) {
@@ -82,6 +90,41 @@ function el(tag, cls, text) {
         fillText(node, text);
     }
     return node;
+}
+
+/** 列表内空态块：带单色线条空盒 SVG 图标与一句话说明 */
+function emptyBlock(text) {
+    const box = el('div', 'wxg-empty', text);
+    const ico = document.createElement('span');
+    ico.className = 'wxg-empty-ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.innerHTML = iconSvg('empty-box');
+    if (box.firstChild) {
+        box.insertBefore(ico, box.firstChild);
+    } else {
+        box.appendChild(ico);
+    }
+    return box;
+}
+
+/** 整页作品化空态（参照构画／千千结）：单色线条图标 ＋ 一句话 ＋ 一个实心主按钮，居中留白 */
+function heroEmpty(text, btnLabel, btnAction) {
+    const box = el('div', 'wxg-empty is-hero', text);
+    const ico = document.createElement('span');
+    ico.className = 'wxg-empty-ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.innerHTML = iconSvg('empty-box');
+    if (box.firstChild) {
+        box.insertBefore(ico, box.firstChild);
+    } else {
+        box.appendChild(ico);
+    }
+    if (btnLabel && btnAction) {
+        const act = el('div', 'wxg-empty-act');
+        act.appendChild(button(btnLabel, btnAction, 'wxg-primary'));
+        box.appendChild(act);
+    }
+    return box;
 }
 
 /**
@@ -314,6 +357,11 @@ function foldable(summaryText, open) {
     d.className = 'wxg-report';
     const s = document.createElement('summary');
     s.appendChild(el('span', null, summaryText));
+    if (summaryText) {
+        const chev = el('span', 'wxg-card-chevron wxg-fold-chevron', '▾');
+        chev.setAttribute('aria-hidden', 'true');
+        s.appendChild(chev);
+    }
     d.appendChild(s);
     if (open) {
         d.open = true;
@@ -349,16 +397,15 @@ function secStatus(host, intoSelf) {
         + ' ｜ 暗线 ' + String(world.hidden) + '（在走 ' + String(world.advancing) + '）'
         + ' ｜ 编年 ' + String(world.chronological)
         + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版'));
+    const cAct = el('div', 'wxg-card-actions');
+    row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
+    row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
+        button('补推历史', 'backfill'));
+    cNow.appendChild(cAct);
     box.appendChild(cNow);
 
     // ⭐ 进度（原「现在的进度」那一整块）直接摆进这一页
     secSteps(host, box);
-
-    const cAct = card('动作');
-    row(cAct, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'), button('重算本楼', 'replan'));
-    row(cAct, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
-        button('补推历史', 'backfill'));
-    box.appendChild(cAct);
 
     const p = loadState().pipeline || {};
     if (p.status && p.status !== 'idle') {
@@ -408,12 +455,14 @@ function secGeneral(host) {
     const SECID = 'general';
     const s = getSettings();
     const box = section('总控', '整台怎么跑：自动更新、频率、启动行为。'
-        + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里⛔ 不再放第二个总闸）',
+        + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里不再放第二个总闸）',
         { open: true });
-    box.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'stage-auto-update'));
-    line(box, '更新频率',
-        numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every'),
-        el('span', 'wxg-note', '回合更新一次（1＝每回合都在动；2＝两格停在上一轮）'));
+
+    const cRun = card('更新与节流');
+    cRun.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'stage-auto-update'));
+    row(cRun,
+        field('更新频率', numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every')),
+        el('span', 'wxg-note', '楼推进一次（1回合＝2楼；自动更新默认留一层缓冲只算已落定的楼，重 roll 同楼不重跑；想当场算最新楼点「立刻更新」）'));
     /*
      * ⭐ 自动 + 频率 1 ⇒ 明确提示"建议停在上一轮"（复核方问的就是这个）。
      *    为什么建议：新楼一出现就算它，可那时你还能改／能重 roll／能撤回，
@@ -425,20 +474,25 @@ function secGeneral(host) {
         tip.appendChild(el('span', null, '⚠ 自动更新 + 频率 1 ⇒ 你刚发出去那楼会被**立刻**算一遍；'
             + '但那时你还能改、能重 roll、能撤回，引擎这一趟会白烧额度。建议改成 2（停在上一轮，只算落定的楼）。'));
         tip.appendChild(button('改成 2（推荐）', 'use-hold-one', 'wxg-btn-xs'));
-        box.appendChild(tip);
+        cRun.appendChild(tip);
     }
-    box.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
-    box.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
-    box.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
+    cRun.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
+    cRun.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
+    box.appendChild(cRun);
+
+    const cUi = card('入口与启动');
+    cUi.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
     /*
      * ⭐「把悬浮小框叫回来」——补一个**早就该有**的开关：
      *    小框上那颗 ✕ 的提示一直写着"藏起来（「总控」里能再叫出来）"，
      *    但总控里根本没这个控件 ⇒ 藏了就再也回不来，
      *    连带"手动更新"也失去了唯一的就近入口（复核方问的正是这个）。
-     * ⚠️ 它不在 saveBar 那一批里：勾了要**立刻挂载/收起**，⛔ 不等"保存这一段"。
+     * ⚠️ 它不在 saveBar 那一批里：勾了要**立刻挂载/收起**，⛔ 不等"保存"。
      */
-    box.appendChild(checkbox('wxg-ball-show', '显示悬浮小框（聊天时常驻，点一下进工作台；手动更新也在它上面）',
+    cUi.appendChild(checkbox('wxg-ball-show', '显示悬浮小框（聊天时常驻，点一下进工作台；手动更新也在它上面）',
         (s.mini && s.mini.show) === true, 'toggle-mini-show'));
+    box.appendChild(cUi);
+
     box.appendChild(saveBar('general'));
     host.appendChild(box);
 }
@@ -465,7 +519,7 @@ function secWorld(host) {
     const state = loadState();
     const w = state.world;
     const box = section('世界状态',
-        '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（⛔ 不按回合数推，世界钟没到点不许提前冒头）。',
+        '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（不按回合数推，世界钟没到点不许提前冒头）。',
         { open: true, summary: trimText(w.clock) || '世界钟未知' });
 
     // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
@@ -480,7 +534,7 @@ function secWorld(host) {
     const cSit = lockable(card('局势（势力的碰撞）'), 'world-situations');
     const sit = el('div', 'wxg-list');
     if (!w.situations.length) {
-        sit.appendChild(el('div', 'wxg-empty', '还没有局势记录（点「立刻更新」让引擎算一次）'));
+        sit.appendChild(emptyBlock('还没有局势记录（点「立刻更新」让引擎算一次）'));
     } else {
         // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
         // ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
@@ -531,15 +585,21 @@ function secWorld(host) {
         });
     }
     cSit.appendChild(sit);
-    row(cSit,
+    const addSitRow = row(cSit,
         textInput('wxg-new-situation', '', '自己加一条局势（例：商会与教会在争港口税）', 'noop', 'wxg-short'),
-        button('加一条局势', 'add-situation'));
+        button('加一条局势', 'add-situation', 'wxg-primary'));
+    if (addSitRow.classList && typeof addSitRow.classList.add === 'function') {
+        addSitRow.classList.add('wxg-add-row');
+    } else {
+        addSitRow.className += ' wxg-add-row';
+    }
+    addSitRow.setAttribute('data-no-lock', '1');
     box.appendChild(cSit);
 
     const cHid = lockable(card('暗线（自己有时间表，到点才动）'), 'world-hidden');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
-        hid.appendChild(el('div', 'wxg-empty', '还没有暗线（引擎会在更新时排出来）'));
+        hid.appendChild(emptyBlock('还没有暗线（引擎会在更新时排出来）'));
     } else {
         /*
          * ⭐ 行化（有数据排版术第七条）：一行一条暗线
@@ -577,7 +637,7 @@ function secWorld(host) {
     }
     cHid.appendChild(hid);
 
-    row(cHid,
+    const addHidRow = row(cHid,
         textInput('wxg-new-hidden', '', '新暗线名字', 'noop', 'wxg-short'),
         textInput('wxg-new-hidden-trigger', '', '挂在什么时间／条件（例：晚上／三天后）', 'noop', 'wxg-short'),
         // ⭐ 火候与族类**给她选**（原来写死"几天内／冲突型"）——近的快推、远的慢炖，是她自己的节奏
@@ -586,7 +646,13 @@ function secWorld(host) {
             { value: 'conflict', label: '冲突型（萌芽→发酵→逼近→爆发→消散）' },
             { value: 'progress', label: '推进型（筹备→执行→关键→完成）' },
         ], 'conflict', 'noop'),
-        button('加一条暗线', 'add-hidden'));
+        button('加一条暗线', 'add-hidden', 'wxg-primary'));
+    if (addHidRow.classList && typeof addHidRow.classList.add === 'function') {
+        addHidRow.classList.add('wxg-add-row');
+    } else {
+        addHidRow.className += ' wxg-add-row';
+    }
+    addHidRow.setAttribute('data-no-lock', '1');
     box.appendChild(cHid);
     host.appendChild(box);
 }
@@ -605,7 +671,7 @@ function secCharacters(host) {
     const box = section('角色状态', null, { open: true });
 
     if (!state.characters.length) {
-        box.appendChild(el('div', 'wxg-empty is-hero', '名册还是空的：下面「人物名册」里加人，或点「一键盘入预设名册」。'));
+        box.appendChild(heroEmpty('名册还是空的：去「人物名册」从世界书读人，或点下面一键立起预设名册。', '一键盘入预设名册', 'preset-roster'));
         host.appendChild(box);
         return;
     }
@@ -900,9 +966,9 @@ function secCharacters(host) {
     twrap.appendChild(table);
     box.appendChild(twrap);
     box.appendChild(el('div', 'wxg-note',
-        '一行一个人：名字／年龄／身份／所在势力／好感／时间・地点／正在经历，格子里直接改字；'
-        + '改过的会显示「已手动修改」，下一轮更新⛔ 不许冲掉。点「明细」看过去经历、日程与任务。'
-        + '搜索只筛显示，⛔ 不动数据。'));
+        '一行一个人：名字／年龄／身份／所在势力／好感／时间・地点／正在经历，点行展开明细即可修改；'
+        + '改过的会显示「已手动修改」，下一轮更新不许冲掉。'
+        + '搜索只筛显示，不动数据。'));
     host.appendChild(box);
 
     // 按当前的搜索词先筛一遍
@@ -915,13 +981,13 @@ function secCharacters(host) {
  * 为什么要这样：原来一个段里散着好几个"保存"（提取名单／排除名单／条目名单…），
  * 点一下还立刻生效 ⇒ 点错、面板跳、按钮一片。现在：
  *   · 段里所有改动先落进**这一段的草稿**（`staging[段] = {键: 值}`）；
- *   · 段底**一个**「保存这一段」把它整段提交；旁边显示"改了几处"；
- *   · 想退回 ⇒「撤销这一段」把草稿丢掉（回到已存的）。
+ *   · 段底**一个**「保存」把它整段提交；旁边显示"改了几处"；
+ *   · 想退回 ⇒「撤销」把草稿丢掉（回到已存的）。
  */
 /*
  * ⚠️ 草稿**按宿主各存一份**（'workspace' / 'panel' / 'settings'）。
  *    原来是全局共用一个 staging ⇒ 工作台和浮层面板**互相冲**：
- *    在工作台填好地址、却点了面板那份「保存这一段」⇒ 面板那份草稿是空的，
+ *    在工作台填好地址、却点了面板那份「保存」⇒ 面板那份草稿是空的，
  *    提交下去就把刚填的**冲成空值**（真机上量到过 api.url 变 ""）。
  */
 const stagingByMode = {};
@@ -959,7 +1025,7 @@ function stagedValue(secId, key, fallback) {
 /**
  * 段底那条"保存"（每段都有）。
  * @param {string} secId 段的标识（见各段自己的 id）
- * @param {string} label 按钮文字（默认"保存这一段"）
+ * @param {string} label 按钮文字（默认"保存"）
  */
 function saveBar(secId, label) {
     const n = stagedCount(secId);
@@ -969,9 +1035,9 @@ function saveBar(secId, label) {
         n ? ('改了 ' + String(n) + ' 处（还没保存）') : '这一段没有未保存的改动');
     bar.appendChild(note);
     if (n) {
-        bar.appendChild(button('撤销这一段', 'discard-section', 'wxg-btn-sm', secId));
+        bar.appendChild(button('撤销', 'discard-section', 'wxg-btn-sm', secId));
     }
-    bar.appendChild(button(label || '保存这一段', 'save-section', (n ? '' : 'wxg-btn-sm ') + 'wxg-primary', secId));
+    bar.appendChild(button(label || '保存', 'save-section', n ? 'wxg-primary' : 'wxg-btn-sm', secId));
     return bar;
 }
 
@@ -1085,7 +1151,7 @@ function refreshToastSection(secId, n) {
 
 /**
  * 只把"保存这条"就地重画一下（⛔ 不整页重画 ⇒ 她还能接着点）。
- * ⚠️ 要整条重画：改动数一变，「撤销这一段」这颗按钮也得跟着出现／消失。
+ * ⚠️ 要整条重画：改动数一变，「撤销」这颗按钮也得跟着出现／消失。
  */
 function refreshSaveBar(host, secId) {
     const bar = host && host.querySelector ? host.querySelector('.wxg-savebar[data-id="' + secId + '"]') : null;
@@ -1232,10 +1298,10 @@ function clampPage(target, total, per) {
  */
 function kindTone(kind) {
     const k = asText(kind);
-    if (k === '暗线') {
+    if (k.includes('暗线')) {
         return 'is-warn';
     }
-    if (k === '警戒' || k === '越界') {
+    if (k.includes('警戒') || k.includes('越界') || k.includes('退化')) {
         return 'is-warn';
     }
     return 'is-info';
@@ -1258,10 +1324,10 @@ function secChronicle(host) {
      */
     const box = section('编年',
         '每回合推演出来的东西**全部按时间攒在这里**（过去经历／正在经历是滚动更新的，旧的只有这儿能回看）。'
-        + '⭐ 编年**只给你看**：不注入、不喂模型。',
+        + '编年**只给你看**：不注入、不喂模型。',
         { open: true });
     if (!list.length) {
-        box.appendChild(el('div', 'wxg-empty is-hero', '还没有记录（更新几轮就有了）'));
+        box.appendChild(heroEmpty('还没有记录（更新几轮就有了）', '立刻更新', 'update-now'));
         host.appendChild(box);
         return;
     }
@@ -1274,9 +1340,9 @@ function secChronicle(host) {
      *    真机截图里一排胶囊还被 flex 列拉成了通栏长条（见 CSS 里的说明）。
      */
     const KINDS = ['推演', '暗线', '警戒', '越界'];
-    const countOf = (k) => list.filter((c) => String(c.kind || '推演') === k).length;
+    const countOf = (k) => list.filter((c) => String(c.kind || '推演').includes(k)).length;
     const all = list.slice(-120).reverse();
-    const matched = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演') === chronFilter);
+    const matched = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演').includes(chronFilter));
     // ⭐ 翻页：只画当前页（编年是越攒越多的，一长条滚不到头）
     chronPage = clampPage(chronPage, matched.length, PER_PAGE.chron);
     const shown = matched.slice((chronPage - 1) * PER_PAGE.chron, chronPage * PER_PAGE.chron);
@@ -1314,18 +1380,33 @@ function secChronicle(host) {
         box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
     }
 
-    // ③ 按楼层分组，一组一个"行列表"
+    // ③ 按楼层分组，一组一个"行列表"（先按 floor 归桶、组内按时间从新到旧、组间按 floor 从大到小）
     const cChron = card(chronFilter === 'all' ? '按回合攒的' : ('只看「' + chronFilter + '」'));
-    const groups = [];
+    const byFloor = new Map();
     for (const c of shown) {
         const f = Number.isFinite(c.floor) && c.floor >= 0 ? Number(c.floor) : -1;
-        const last = groups[groups.length - 1];
-        if (last && last.floor === f) {
-            last.items.push(c);
-        } else {
-            groups.push({ floor: f, items: [c] });
+        if (!byFloor.has(f)) {
+            byFloor.set(f, []);
         }
+        byFloor.get(f).push(c);
     }
+    const groups = Array.from(byFloor.entries())
+        .map(([floor, items]) => ({
+            floor,
+            items: items.slice().sort((a, b) => (Number(b && b.at) || 0) - (Number(a && a.at) || 0)),
+        }))
+        .sort((a, b) => {
+            if (a.floor === b.floor) {
+                return 0;
+            }
+            if (a.floor < 0) {
+                return 1;
+            }
+            if (b.floor < 0) {
+                return -1;
+            }
+            return b.floor - a.floor;
+        });
     for (const g of groups) {
         const head = el('div', 'wxg-grouphead');
         head.appendChild(el('b', null, g.floor >= 0 ? floorLabel(g.floor) : '未记楼层'));
@@ -1396,11 +1477,11 @@ function secRoster(host) {
         inTarget = foldable('展开录入（加人／导入／从世界书读人）', false);
         cIn.appendChild(inTarget);
     }
-    row(inTarget, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char'), button('一键盘入预设名册', 'preset-roster'));
+    row(inTarget, textInput('wxg-new-name', '', '新人物名字', 'noop'), button('加入名册', 'add-char', 'wxg-primary'), button('一键盘入预设名册', 'preset-roster'));
     row(inTarget, textInput('wxg-import-roster', '', '批量导入：名字一行一个（也认逗号、顿号）', 'noop'), button('批量导入', 'import-roster'));
     row(inTarget,
         textInput('wxg-book-name', '', '从世界书读人：填世界书名（留空＝角色卡绑定那本）', 'noop', 'wxg-short'),
-        button('从世界书读人', 'read-book'),
+        button('从世界书读人', 'read-book', 'wxg-primary'),
         button('列出世界书', 'list-books'));
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
@@ -1460,7 +1541,6 @@ function secRoster(host) {
         const r = el('div', 'wxg-r is-click' + (open ? ' is-open' : ''));
         r.setAttribute('data-action', 'edit-char');
         r.setAttribute('data-id', c.id);
-        r.appendChild(el('span', 'wxg-r-k', ''));
         const main = el('div', 'wxg-r-main');
         const title = el('div', 'wxg-r-title');
         title.appendChild(el('span', 'wxg-r-who', c.name));
@@ -1527,25 +1607,26 @@ function secAppearance(host) {
     const s = getSettings();
     const app = resolveAppearance(s.appearance || {});
     const box = section('外观（工作台配色）',
-        '工作台是**我们自己的整页窗口**，配色自己定，⛔ 不用迁就酒馆主题；'
+        '工作台是**我们自己的整页窗口**，配色自己定，不用迁就酒馆主题；'
         + '设置抽屉那边仍跟随酒馆主题。文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。',
         { open: false, summary: PALETTE_NAMES[app.palette] || '' });
 
-    row(box, field('色板', select('wxg-app-palette',
+    const cTheme = card('色板与颜色槽');
+    row(cTheme, field('色板', select('wxg-app-palette',
         PALETTE_KEYS.map((k) => ({ value: k, label: PALETTE_NAMES[k] })),
         app.palette, 'stage-appearance')));
 
-    row(box,
+    row(cTheme,
         field('强调色', colorInput('wxg-app-accent', app.accent, 'stage-appearance')),
         field('底面', colorInput('wxg-app-surface', app.surface, 'stage-appearance')),
         field('页面底色', colorInput('wxg-app-bg', app.bg, 'stage-appearance')));
-    row(box,
+    row(cTheme,
         field('描边', colorInput('wxg-app-border', app.border, 'stage-appearance')),
         field('文字（可留空）', colorInput('wxg-app-text', app.text, 'stage-appearance')));
-    row(box,
+    row(cTheme,
         button('恢复这个色板', 'reset-appearance'),
         el('span', 'wxg-note', '（只把四个槽位退回所选色板；你手改的颜色会被覆盖）'));
-    box.appendChild(checkbox('wxg-app-to-panel', '浮层面板与悬浮小框也用这套配色（不勾＝它们跟随酒馆主题）',
+    cTheme.appendChild(checkbox('wxg-app-to-panel', '浮层面板与悬浮小框也用这套配色（不勾＝它们跟随酒馆主题）',
         app.applyToPanel, 'stage-app-to-panel'));
 
     // 实时预览：四个槽位长什么样，直接给她看
@@ -1561,13 +1642,16 @@ function secAppearance(host) {
     pvRow.appendChild(pvBtn);
     pv.appendChild(pvRow);
     pv.appendChild(el('div', 'wxg-fact', '这一块用的是你选的配色——不用打开工作台就能看出效果。'));
-    box.appendChild(pv);
+    cTheme.appendChild(pv);
+    box.appendChild(cTheme);
 
-    row(box, field('打开方式', select('wxg-layout-mode', [
+    const cMode = card('打开方式');
+    row(cMode, field('打开方式', select('wxg-layout-mode', [
         { value: 'workspace', label: '整页工作台（推荐：自己的配色＋左栏导航）' },
         { value: 'panel', label: '浮层面板（老样子，能拖能缩放）' },
     ], s.layoutMode, 'stage-layout-mode')));
-    box.appendChild(el('div', 'wxg-note', '悬浮小框的开关在「总控」里；它在聊天时常驻，点一下就进工作台。'));
+    cMode.appendChild(el('div', 'wxg-note', '悬浮小框的开关在「总控」里；它在聊天时常驻，点一下就进工作台。'));
+    box.appendChild(cMode);
 
     box.appendChild(saveBar('appearance'));
     host.appendChild(box);
@@ -1616,10 +1700,10 @@ function secExtract(host) {
     const SECID = 'extract';
     const s = getSettings();
     const box = section('读取控制（提取／排除四格）',
-        '改完按段底那颗「保存这一段」——⛔ 不用一处一处点保存，也不会点一下就跳。'
+        '文本名单与点选的世界书／条目改完按段底那颗「保存」一起存（三个规则开关拨动即生效）。'
         + '世界书这一块不用手打书名：点下面的书名就进名单（再点＝排除、再点＝拿掉），'
         + '点「看条目」能一条条挑。标签那一块默认按结构剥掉成对的机器块与 HTML 注释——'
-        + '剥完为空会自动退回原文，⛔ 不会比剥之前更坏。',
+        + '剥完为空会自动退回原文，不会比剥之前更坏。',
         { open: false });
     // ⭐ 装盒：标签与剥壳 一块、世界书名单 一块、好感来源 一块（体检第一条）
     const cTag = card('标签与剥壳');
@@ -1639,10 +1723,10 @@ function secExtract(host) {
 
     const pick = el('div', 'wxg-pickwrap');
     pick.id = 'wxg-bookpick';
-    pick.appendChild(el('div', 'wxg-pick-head', '世界书（点一下＝进「提取」；再点＝进「排除」；再点＝拿掉。⛔ 都不立刻生效，最后按段底的保存）'));
+    pick.appendChild(el('div', 'wxg-pick-head', '世界书（点一下＝进「提取」；再点＝进「排除」；再点＝拿掉；最后按段底的保存）'));
     cBook.appendChild(pick);
     row(cBook,
-        button('读世界书列表', 'list-books'),
+        button('读世界书列表', 'list-books', 'wxg-primary'),
         el('span', 'wxg-note', '（没读到就手填；有些酒馆版本没开这个接口）'));
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
@@ -1656,13 +1740,10 @@ function secExtract(host) {
     cBook.appendChild(entNote);
 
     cBook.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
-    box.appendChild(cBook);
-
-    const cAff = card('好感来源（"手机"那套）');
-    line(cAff, '书名或关键词',
+    line(cBook, '好感来源（"手机"）',
         textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'),
         el('span', 'wxg-note', '留空＝不接（界面如实写"未接入"）'));
-    box.appendChild(cAff);
+    box.appendChild(cBook);
     box.appendChild(saveBar(SECID));
     host.appendChild(box);
 }
@@ -1672,7 +1753,7 @@ function secApi(host) {
     const s = getSettings();
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
-        '⛔ 不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
+        '不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
         { open: false });
     // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
     // ⭐ 第三层：这条通道也排成规整两列
@@ -1689,14 +1770,14 @@ function secApi(host) {
         numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
         el('span', 'wxg-note', '单次最多输出'),
         numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
-    row(cCh, button('测一下连接', 'test-api'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
+    row(cCh, button('测一下连接', 'test-api', 'wxg-primary'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
     box.appendChild(cCh);
 
     /* ⭐ 书签（她点名要的："加一个保存 API／另存为，我可以设定好几个 API 转"） */
     const cProf = card('书签（存好几套通道，一键切）');
     const profs = Array.isArray(api.profiles) ? api.profiles : [];
     if (!profs.length) {
-        cProf.appendChild(el('div', 'wxg-empty', '还没有书签。上面填好一套，起个名字点「另存为书签」，以后一键切回来。'));
+        cProf.appendChild(emptyBlock('还没有书签。上面填好一套，起个名字点「另存为书签」，以后一键切回来。'));
     } else {
         const listEl = el('div', 'wxg-prof-list');
         for (const p of profs) {
@@ -1708,7 +1789,7 @@ function secApi(host) {
                 + ' · ' + (p.mode === 'direct' ? '直连' : '走酒馆转发')));
             r.appendChild(info);
             const acts = el('div', 'wxg-row');
-            const use = button('切到这套', 'apply-profile', 'wxg-btn-sm', trimText(p.nick));
+            const use = button('切到这套', 'apply-profile', 'wxg-btn-sm wxg-primary', trimText(p.nick));
             acts.appendChild(use);
             acts.appendChild(button('删', 'del-profile', 'wxg-btn-sm', trimText(p.nick)));
             r.appendChild(acts);
@@ -1718,7 +1799,7 @@ function secApi(host) {
     }
     row(cProf,
         textInput('wxg-profile-nick', '', '书签名（例：主站／备用站）', 'noop', 'wxg-short'),
-        button('另存为书签', 'save-profile'));
+        button('另存为书签', 'save-profile', 'wxg-primary'));
     cProf.appendChild(el('div', 'wxg-note', '书签存的是**整套**：连接方式／地址／密钥／模型／温度／输出上限。'
         + '书签名一样就更新那一条（不会越存越多）；想现在就用它，点上面那颗「切到这套」。'));
     box.appendChild(cProf);
@@ -1783,6 +1864,21 @@ export function applyLocks(root) {
             if (f.type === 'color' || f.type === 'checkbox') {
                 continue;
             }
+            // 新增行（data-no-lock）不参与只读锁，随时可填可点
+            let noLock = typeof f.closest === 'function' && !!f.closest('[data-no-lock]');
+            if (!noLock) {
+                for (let p = f.parentNode; p && p !== cardEl; p = p.parentNode) {
+                    if (typeof p.getAttribute === 'function' && p.getAttribute('data-no-lock')) {
+                        noLock = true;
+                        break;
+                    }
+                }
+            }
+            if (noLock) {
+                f.removeAttribute('readonly');
+                f.removeAttribute('tabindex');
+                continue;
+            }
             if (locked) {
                 f.setAttribute('readonly', 'readonly');
                 f.setAttribute('tabindex', '-1');
@@ -1820,41 +1916,39 @@ function secPrompts(host) {
      *    四块内容差不多、都很长 ⇒ 全摊开就是"一屏四张卡"，正是他说要避免的。
      *    收起不等于藏起来：卡头那行字还在，点一下就展开（⛔ 不丢任何东西）。
      */
-    const one = (title, keyVal, kind, id, rows, hint, folded) => {
-        const c = card(title);
-        c.appendChild(el('div', 'wxg-note', hint));
-        // 当前用的那份（就是"留空＝内置"的那一份）
-        const cur = el('pre', 'wxg-prompt-cur', effectivePrompt(kind));
-        // 改的地方：默认收起
+    // 第一块（主焦点卡）：直接摊开
+    const cHead = card('注入块开头那句');
+    cHead.appendChild(el('div', 'wxg-note', '每轮注入的最前面那一行，声明"这是引擎附注"。'));
+    cHead.appendChild(el('pre', 'wxg-prompt-cur', effectivePrompt('header')));
+    const editHead = foldable('改这套（留空＝用内置）', false);
+    editHead.appendChild(textarea('wxg-inject-header', s.injectHeader, '（留空＝用内置那份）', 'stage-inject-header', 3));
+    cHead.appendChild(editHead);
+    box.appendChild(cHead);
+
+    // 其余三套长提示词 ＋ 恢复默认：收拢进同一张卡，告别 5 张大卡满屏堆叠
+    const cMore = card('后台推演与破限提示词（按需展开）');
+    const addFoldedPrompt = (title, keyVal, kind, id, rows, hint) => {
+        const fold = foldable(title + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
+        const body = el('div', 'wxg-report-body');
+        body.appendChild(el('div', 'wxg-note', hint));
+        body.appendChild(el('pre', 'wxg-prompt-cur', effectivePrompt(kind)));
         const edit = foldable('改这套（留空＝用内置）', false);
-        const area = textarea(id, keyVal, '（留空＝用内置那份）', 'stage-' + id.replace('wxg-', ''), rows);
-        edit.appendChild(area);
-        if (folded) {
-            // 次要块：预览与输入框一起收进一个折叠条里
-            const fold = foldable('展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
-            fold.appendChild(cur);
-            fold.appendChild(edit);
-            c.appendChild(fold);
-        } else {
-            c.appendChild(cur);
-            c.appendChild(edit);
-        }
-        return c;
+        edit.appendChild(textarea(id, keyVal, '（留空＝用内置那份）', 'stage-' + id.replace('wxg-', ''), rows));
+        body.appendChild(edit);
+        fold.appendChild(body);
+        cMore.appendChild(fold);
     };
-
-    box.appendChild(one('注入块开头那句', s.injectHeader, 'header', 'wxg-inject-header', 3,
-        '每轮注入的最前面那一行，声明"这是引擎附注"。', false));
-    box.appendChild(one('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
-        '让模型推"世界现在什么样"时用的那套规矩。', true));
-    box.appendChild(one('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
-        '让模型写每个角色的平行线时用的那套规矩。', true));
-    box.appendChild(one('破限词', s.jailbreak, 'jailbreak', 'wxg-jailbreak', 6,
-        '模型有时候"不填东西"——这一段是逼它老实填字段用的。', true));
-
-    const c = card('动作');
-    row(c, button('全部恢复内置默认', 'reset-prompts'),
+    addFoldedPrompt('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
+        '让模型推"世界现在什么样"时用的那套规矩。');
+    addFoldedPrompt('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
+        '让模型写每个角色的平行线时用的那套规矩。');
+    addFoldedPrompt('破限词', s.jailbreak, 'jailbreak', 'wxg-jailbreak', 6,
+        '模型有时候"不填东西"——这一段是逼它老实填字段用的。');
+    const resetRow = el('div', 'wxg-card-actions');
+    row(resetRow, button('全部恢复内置默认', 'reset-prompts'),
         el('span', 'wxg-note', '（只清提示词，不动你的开关）'));
-    box.appendChild(c);
+    cMore.appendChild(resetRow);
+    box.appendChild(cMore);
     box.appendChild(saveBar('prompts'));
     host.appendChild(box);
 }
@@ -1867,9 +1961,8 @@ function secReport(host, intoBox) {
     // 摘要只留一句（标题行是 nowrap 的，太长会被裁）；完整口径放正文
     const box = intoBox || section('过程报告 · 每轮到底注入了什么', '每轮注入了什么，可回看',
         { open: false });
-    box.appendChild(el('div', 'wxg-note',
-        '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
-        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）'));
+    const noteText = '按时间从新到旧：① 怎么挑的 ② 实际送进请求的内容一字不差（可复制）'
+        + '③ 回执（成没成、多少字、什么身份、为什么没注入）。（' + FLOOR_NOTE + '）';
     if (!list.length) {
         /*
          * ⚠️ 空的时候**也要有标题**（并页之后更明显）：原来整块都不画 ⇒
@@ -1877,6 +1970,7 @@ function secReport(host, intoBox) {
          *    现在就一句「还没有记录」，标题留着。
          */
         const cEmpty = card('每轮记录');
+        cEmpty.appendChild(el('div', 'wxg-note', noteText));
         cEmpty.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
         box.appendChild(cEmpty);
         if (!intoBox) {
@@ -1910,9 +2004,10 @@ function secReport(host, intoBox) {
             fbar.appendChild(mkF(st, st, n));
         }
     }
-    box.appendChild(fbar);
 
     const cRep = card('每轮记录（从新到旧）');
+    cRep.appendChild(el('div', 'wxg-note', noteText));
+    cRep.appendChild(fbar);
     for (const rec of shownList) {
         const shownChars = countChars(rec.injectedText);
         const statusText = statusOf(rec);
@@ -2098,10 +2193,9 @@ function secSteps(host, intoBox) {
      * ⭐ 统计表（自家面板那张真机图的排法）：
      *    第一行先单独一句「总共 N 楼」，下面才是一行一类的「已 X｜没 X」。
      */
-    box.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
-
-    // ⭐ 统计表（一行一类）
+    // ⭐ 统计表（一行一类，总共 N 楼与逐楼清单都收在同一张「进度」卡里）
     const cStat = card('进度');
+    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
     const addStat = (label, doneN, totalN, extra) => {
         const line = el('div', 'wxg-stat-line');
         line.appendChild(el('span', 'wxg-stat-k', label));
@@ -2134,7 +2228,6 @@ function secSteps(host, intoBox) {
     cStat.appendChild(track);
     cStat.appendChild(el('div', 'wxg-note', '走了 ' + String(pct) + '%（'
         + (total - doneCount ? '再更新 ' + num(total - doneCount) + '就追平正文' : '已经追平正文') + '）'));
-    box.appendChild(cStat);
 
     /*
      * ⭐ 逐楼清单**收进折叠条**（照"一屏一个焦点"）：主画面就是上面那张统计表，
@@ -2198,7 +2291,8 @@ function secSteps(host, intoBox) {
         row.appendChild(main);
         detail.appendChild(row);
     }
-    box.appendChild(detail);
+    cStat.appendChild(detail);
+    box.appendChild(cStat);
     if (!intoBox) {
         host.appendChild(box);
     }
@@ -2229,7 +2323,8 @@ export function renderSections(host, opts) {
      *    并且 `children` 是 **HTMLCollection**（真 DOM），⛔ 没有 .slice()/.includes()，
      *    一律 `Array.from(...)` 转成数组再用（假环境把它做成数组，所以自审没抓住，已修 shim）。
      */
-    // ⭐ 草稿按宿主分开（见 stagingOf）：这一段画的是哪个宿主，就只碰那个宿主的草稿
+    // ⭐ 草稿按宿主分开（见 stagingOf）：渲染期间切到当前宿主 mode，画完恢复原值，防后台重画篡改当前打开的工作台 mode
+    const prevStagingMode = stagingMode;
     stagingMode = mode;
     const stageEl = el('div', 'wxg-stage');
     try {
@@ -2286,6 +2381,8 @@ export function renderSections(host, opts) {
         console.warn('[万象阁] 画面板出错：', e);
         console.error('[万象阁] 画面板出错（照抄这句反馈即可）：' + String((e && e.message) || e));
         drawFailure(host, e);
+    } finally {
+        stagingMode = prevStagingMode;
     }
 }
 
@@ -2340,7 +2437,7 @@ export function renderEntryPick(host, offList) {
     }
     if (note) {
         note.textContent = '「' + pickBook + '」共 ' + String(pickEntries.length)
-            + ' 条：点一下＝不读这一条（⛔ 不立刻保存，按上面「保存条目名单」才生效）；⛔ 不改你的世界书。';
+            + ' 条：点一下＝不读这一条（⛔ 不立刻保存，按段底那颗「保存」才生效）；⛔ 不改你的世界书。';
     }
     for (const e of pickEntries.slice(0, 200)) {
         const title = trimText(e && (e.comment || e.key || e.name || e.title));
@@ -2683,6 +2780,8 @@ export function bindSectionEvents(host, refresh) {
         const id = target.getAttribute('data-id') || '';
         const key = target.getAttribute('data-key') || '';
         const isChange = e.type === 'change';
+        // 事件触发时一律以当前宿主容器自己的 data-wxg-mode 为准，隔离不同面板的草稿池
+        stagingMode = (host && typeof host.getAttribute === 'function' && host.getAttribute('data-wxg-mode')) || 'settings';
 
         try {
             // ⭐ 通用草稿入口：凡是 `stage-*` 的控件，一律只进草稿（段底一起保存）
@@ -3212,7 +3311,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'stage-max-parallel': if (isChange) { patchSettings({ maxParallelChars: target.value }); rerender(); } break;
 
                 /* ---- 四格 ---- */
-                /* ⭐ 先进草稿（等段底那颗「保存这一段」一起存），⛔ 不再改一处存一处 */
+                /* ⭐ 先进草稿（等段底那颗「保存」一起存），⛔ 不再改一处存一处 */
 
 
 
@@ -3399,7 +3498,7 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'toggle-mini-show': {
                     /*
-                     * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存这一段"）——
+                     * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存"）——
                      *    她是看着球在不在来判断勾没勾上的，要等保存才生效会以为没反应。
                      */
                     const on = target.checked === true;

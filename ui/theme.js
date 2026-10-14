@@ -133,17 +133,23 @@ export function palettePatch(key) {
  */
 export function appearanceVars(app) {
     const a = resolveAppearance(app);
+    const isLightSurface = luminance(a.surface) > 0.5;
+    const isLightAccent = luminance(a.accent) > 0.42;
     return {
         '--wxg-accent': a.accent,
-        '--wxg-accent-soft': rgba(a.accent, 0.18),
+        '--wxg-accent-ink': isLightAccent ? '#101815' : '#f7f8f7',
+        '--wxg-accent-soft': rgba(a.accent, isLightSurface ? 0.14 : 0.18),
         '--wxg-accent-line': rgba(a.accent, 0.55),
         '--wxg-surface': a.surface,
         '--wxg-bg': a.bg,
         '--wxg-text': a.text,
+        '--wxg-text-strong': isLightSurface ? '#111317' : '#f3f4f2',
         '--wxg-border': a.border,
         '--wxg-fill': rgba(a.text, 0.07),
         '--wxg-fill-strong': rgba(a.text, 0.13),
         '--wxg-dim': rgba(a.text, 0.62),
+        '--wxg-input-bg': isLightSurface ? rgba('#000000', 0.045) : rgba('#000000', 0.22),
+        '--wxg-card-bg': isLightSurface ? rgba('#ffffff', 0.75) : rgba(a.text, 0.045),
     };
 }
 

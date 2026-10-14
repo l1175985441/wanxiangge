@@ -112,8 +112,9 @@ export function buildStateSummary(opts) {
             status: rec ? trimText(rec.injectStatus) : '',
         },
         lastUpdate: {
-            floor: state.lastUpdate && Number.isFinite(Number(state.lastUpdate.floor))
-                ? Number(state.lastUpdate.floor) : -1,
+            floor: state.lastUpdate && Number.isFinite(Number(state.lastUpdate.floor)) && Number(state.lastUpdate.floor) >= 0
+                ? Number(state.lastUpdate.floor)
+                : (Number.isFinite(Number(p.atFloor)) && Number(p.atFloor) >= 0 ? Number(p.atFloor) : -1),
             at: state.lastUpdate && Number(state.lastUpdate.at) ? Number(state.lastUpdate.at) : 0,
             status: trimText(p.status) || 'idle',
             error: trimText(p.error),

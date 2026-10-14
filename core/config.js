@@ -86,8 +86,8 @@ export const SIDEBAR_ICONS = [
 /** 卡片挂载用的消息标记属性 */
 export const CARD_ATTR = 'data-wxg-card';
 
-/** 卡片样式类名前缀 */
-export const CARD_CLASS = 'wxg-card';
+/** 卡片样式类名前缀（与工作台内 .wxg-card 区分开，免得同名撞车） */
+export const CARD_CLASS = 'wxg-mes-card';
 
 /** 全局设置键（存在酒馆的扩展设置里，随账号持久化） */
 export const SETTINGS_KEY = 'wanxiangge';
@@ -125,7 +125,7 @@ export const REQUEST_TIMEOUT_MS = 100000;
 /** 重试上限（⛔ 不许无限重试） */
 export const RETRY_LIMIT = 2;
 
-/** 单轮最多发几次模型请求（省额度：一轮一个请求，最多再加一次打杂） */
+/** 单轮基础请求步数（配合 callBudget：世界状态 1 步 ＋ 角色合并推演 1 步 ＝ 单轮最多 2 次请求） */
 export const CALLS_PER_TURN = 1;
 
 /** 阶段名（冲突型 / 推进型） */
@@ -135,7 +135,7 @@ export const STAGES_PROGRESS = ['筹备', '执行', '关键', '完成'];
 /** 三层火候：近的快推、远的慢炖 */
 export const TIERS = ['身边即时', '几天内', '长线大势'];
 
-/** 预设人物名册（一键盘入用） */
+/** 预设人物名册（仅在用户主动点「一键盘入预设名册」快速体验时作为占位示例，常规使用建议点「从世界书读人」） */
 export const ROSTER_PRESET = [
     '吉尔伯特·冯·海姆',
     '塞西莉亚',
@@ -270,13 +270,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
     /* 更新 */
     /*
-     * ⭐ 默认 **2＝停在上一轮**（复核方问："自动的情况不让他保留一层吗？"——对，该保留）。
-     *    为什么：`updateEvery = 1` 会在新楼一出现就算它，可那时你还能改、能重 roll、能撤回，
-     *    引擎先算一遍是**白烧额度**，算出来的状态还可能对应一版不存在的正文。
-     *    = 2 的语义见 `pipeline.shouldUpdateNow`：`floor - 上次算过的楼 >= 2` 才动，
-     *    也就是"只算已经落定的那些楼"。
+     * ⭐ 默认 **2＝每推进一轮（2 层楼）自动更新一次，且留一层缓冲停在上一轮已落定的楼**。
+     *    为什么：新楼刚生成时你还能改、能重 roll、能撤回；自动更新在 MESSAGE_RECEIVED 时
+     *    只算到 `floor - 1`（上一层已落定的楼），且 `shouldUpdateNow` 要求楼层推进 `>= updateEvery`
+     *    才触发（同楼重 roll 绝不重复跑）。想当场算刚生成的最新楼，点「立刻更新」即可。
      */
-    updateEvery: 2,         // 每 N 回合更新一次（2＝停在上一轮，推荐）
+    updateEvery: 2,         // 推进几层楼自动更新一次（1回合=2楼；2＝每轮更新且停在上一轮，推荐）
     protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
     maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
     autoUpdate: true,       // 新楼生成后自动更新

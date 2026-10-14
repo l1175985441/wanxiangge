@@ -345,12 +345,7 @@ function mirrorBoxHasKey() {
 
 /** 账本里有没有东西（只看有没有，不碰内容） */
 function liveHasContent(s) {
-    if (!s || typeof s !== 'object') {
-        return false;
-    }
-    const recs = Array.isArray(s.recallRecords) ? s.recallRecords.length : 0;
-    const chars = Array.isArray(s.characters) ? s.characters.length : 0;
-    return recs + chars > 0;
+    return hasContent(s);
 }
 
 /** 这本账盖的章（属于哪个聊天） */
@@ -387,6 +382,19 @@ function hasContent(state) {
     }
     if (Array.isArray(state.characters) && state.characters.length > 0) {
         return true;
+    }
+    if (Array.isArray(state.chronicle) && state.chronicle.length > 0) {
+        return true;
+    }
+    const w = state.world && typeof state.world === 'object' ? state.world : null;
+    if (w) {
+        if ((w.clock && String(w.clock).trim())
+            || (w.place && String(w.place).trim())
+            || (w.bigPicture && String(w.bigPicture).trim())
+            || (Array.isArray(w.situations) && w.situations.length > 0)
+            || (Array.isArray(w.hidden) && w.hidden.length > 0)) {
+            return true;
+        }
     }
     if (state.lastUpdate && state.lastUpdate.at) {
         return true;
@@ -528,25 +536,51 @@ function flushMirror() {
     persistSettings();
 }
 
-/** 两份账哪份更全（记账条数、人物数、召回过没有） */
+/** 两份账哪份更全（记账条数、已注入回执、人物数、世界状态、编年、召回过没有） */
 function score(s) {
     if (!s || typeof s !== 'object') {
         return -1;
     }
-    return (Array.isArray(s.recallRecords) ? s.recallRecords.length * 100 : 0)
+    const recs = Array.isArray(s.recallRecords) ? s.recallRecords : [];
+    let okPts = 0;
+    for (const r of recs) {
+        if (r && r.injectStatus === 'ok') {
+            okPts += 2;
+        }
+    }
+    const w = s.world && typeof s.world === 'object' ? s.world : {};
+    const worldPts = (Array.isArray(w.situations) ? w.situations.length * 5 : 0)
+        + (Array.isArray(w.hidden) ? w.hidden.length * 5 : 0)
+        + ((w.clock && String(w.clock).trim()) || (w.place && String(w.place).trim()) || (w.bigPicture && String(w.bigPicture).trim()) ? 2 : 0);
+    const chronPts = Array.isArray(s.chronicle) ? s.chronicle.length * 2 : 0;
+    return (recs.length * 100)
+        + okPts
         + (Array.isArray(s.characters) ? s.characters.length * 10 : 0)
+        + worldPts
+        + chronPts
         + (Number((s.stat || {}).recalled || 0) > 0 ? 1 : 0);
 }
 
-/** 账本有多新（取里面最新的时刻） */
+/** 账本有多新（取里面最新的时刻：含注入完成时刻、世界更新时刻与角色修改时刻） */
 function freshness(s) {
     if (!s || typeof s !== 'object') {
         return 0;
     }
-    let latest = Number((s.lastUpdate || {}).at || 0);
+    let latest = Math.max(
+        Number((s.lastUpdate || {}).at || 0),
+        Number((s.world || {}).updatedAt || 0),
+    );
     if (Array.isArray(s.recallRecords)) {
         for (const r of s.recallRecords) {
-            const at = Number((r && r.at) || 0);
+            const at = Math.max(Number((r && r.at) || 0), Number((r && r.injectedAt) || 0));
+            if (at > latest) {
+                latest = at;
+            }
+        }
+    }
+    if (Array.isArray(s.characters)) {
+        for (const c of s.characters) {
+            const at = Number((c && c.updatedAt) || 0);
             if (at > latest) {
                 latest = at;
             }

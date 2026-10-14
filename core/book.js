@@ -128,6 +128,23 @@ async function upsertEntries(api, wanted) {
             problems.push(item.title + '：' + (e && e.message ? e.message : String(e)));
         }
     }
+
+    // 清理已从名册删除或被合并掉的旧人物条目（⛔ 只清「人物/」前缀且仅当名册非空时执行；编年归档绝不删）
+    const wantedTitles = new Set(wanted.map((w) => w.title));
+    const hasWantedChars = wanted.some((w) => w.title.indexOf(ENTRY.charPrefix) === 0);
+    if (api.deleteEntry && hasWantedChars) {
+        for (const old of existing) {
+            const t = entryTitle(old);
+            if (t && t.indexOf(ENTRY.charPrefix) === 0 && !wantedTitles.has(t)) {
+                try {
+                    const keyOrUid = old.uid !== undefined ? old.uid : t;
+                    await api.deleteEntry(WORLD_BOOK_NAME, keyOrUid);
+                } catch (e) {
+                    // 清理失败不影响主流程写入
+                }
+            }
+        }
+    }
     return { written, problems };
 }
 

@@ -31,10 +31,13 @@ export function findLastUserFloor(chat) {
     return -1;
 }
 
-/** 聊天里最后一条消息的标识（卡片挂载用） */
-export function findLastMesId(chat) {
+/** 聊天里锚点楼（含）之前最近一条消息的标识（卡片挂载用；不传 maxFloor 则从末尾找） */
+export function findLastMesId(chat, maxFloor) {
     const list = Array.isArray(chat) ? chat : [];
-    for (let i = list.length - 1; i >= 0; i -= 1) {
+    const start = Number.isFinite(Number(maxFloor)) && Number(maxFloor) >= 0
+        ? Math.min(list.length - 1, Math.trunc(Number(maxFloor)))
+        : list.length - 1;
+    for (let i = start; i >= 0; i -= 1) {
         const m = list[i];
         if (m && trimText(m.mesId)) {
             return trimText(m.mesId);
@@ -226,9 +229,7 @@ function personBlock(item, opts) {
         lines.push('  时间·地点：' + trimText(c.timePlace));
     }
 
-    if (item.inScene && item.protected) {
-        lines.push('  正在经历：（本轮正文已演，不重复列出）');
-    } else if (trimText(c.current)) {
+    if (trimText(c.current)) {
         // ⭐ 引擎自己标了"这条不牢"的，注入时也要带着标——⛔ 不能被下一轮当成既定事实
         lines.push('  正在经历：' + trimText(c.current)
             + (c.currentSuspect ? '　⚠（引擎判定这条不可靠：' + (trimText(c.currentSuspectWhy) || '疑似越界') + '，别当事实用）' : ''));
@@ -453,7 +454,7 @@ export function buildRecall(input) {
     const notes = [];
     const result = {
         floor: leadFloor,
-        mesId: findLastMesId(chat),
+        mesId: findLastMesId(chat, leadFloor),
         lead: leadText,
         from: '',
         at: Date.now(),
