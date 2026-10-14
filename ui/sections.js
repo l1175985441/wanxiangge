@@ -2779,6 +2779,73 @@ function renderPersonCard() {
     pop.appendChild(sec2);
 
     // ④ 底部条：换人（她拍的：上一位｜第几位/共几位｜下一位）＋ 合并 ＋ 保存
+﻿    /*
+     * ⭐「不可靠」提醒（原本**只在角色状态页**）——她点名的污染就是这个，得当场说出来。
+     *   它本来就是"某个人的某一格不可靠" ⇒ 摆进**这个人的卡片**最合适。
+     */
+    if (one.currentSuspect) {
+        const warnBox = el('div', 'wxg-pc-sec');
+        const w = el('div', 'wxg-store', '⚠ 这条「正在经历」引擎判定**不可靠**：'
+            + (trimText(one.currentSuspectWhy) || '疑似越界'));
+        w.setAttribute('data-tone', 'bad');
+        warnBox.appendChild(w);
+        pop.appendChild(warnBox);
+    }
+    /*
+     * ⭐「任务」块（原本**只在角色状态页**）。
+     *   任务是**挂在人身上**的（`c.quests`）⇒ 跟着人走才对。
+     *   ⛔ 丢下它：她要能看到"他在追什么"、能改状态、能删。
+     */
+    if (Array.isArray(one.quests) && one.quests.length) {
+        const qSec = el('div', 'wxg-pc-sec');
+        const qOpen = one.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
+        const qOver = one.quests.filter((q) => ['完成', '搁置'].includes(trimText(q.status)));
+        const qStat = questStats(one.quests);
+        qSec.appendChild(el('div', 'wxg-pc-sech', '任务（在追的目标）　主线 '
+            + String(qStat.main) + ' · 支线 ' + String(qStat.side)
+            + (qOver.length ? '（已结束 ' + String(qOver.length) + '）' : '')));
+        const mkQ = (q) => {
+            const qr = el('div', 'wxg-rowitem');
+            const qh = el('div', 'wxg-rowname');
+            qh.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(q.kind) === 'main' ? '主线' : '支线'));
+            qh.appendChild(el('span', 'wxg-name', trimText(q.title)));
+            const st = select('wxg-pcq-' + one.id + '-' + trimText(q.title), [
+                { value: '活跃', label: '活跃' },
+                { value: '完成', label: '完成' },
+                { value: '搁置', label: '搁置' },
+            ], trimText(q.status), 'set-quest-status', one.id);
+            st.setAttribute('data-title', trimText(q.title));
+            st.className = 'text_pole wxg-btn-sm';
+            qh.appendChild(st);
+            const qd = button('删', 'del-quest', 'wxg-btn-sm', one.id);
+            qd.setAttribute('data-title', trimText(q.title));
+            qh.appendChild(qd);
+            qr.appendChild(qh);
+            if (trimText(q.note)) {
+                qr.appendChild(el('div', 'wxg-fact', trimText(q.note)));
+            }
+            if (Array.isArray(q.items) && q.items.length) {
+                qr.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
+            }
+            return qr;
+        };
+        if (!qOpen.length) {
+            qSec.appendChild(el('div', 'wxg-empty', '没有在追的任务了（已结束的收在下面）'));
+        }
+        for (const q of qOpen) {
+            qSec.appendChild(mkQ(q));
+        }
+        if (qOver.length) {
+            const fold = foldable('已结束 ' + String(qOver.length) + ' 条（完成／搁置，点开看）', false);
+            const inner = el('div', 'wxg-list');
+            for (const q of qOver) {
+                inner.appendChild(mkQ(q));
+            }
+            fold.appendChild(inner);
+            qSec.appendChild(fold);
+        }
+        pop.appendChild(qSec);
+    }
     const foot = el('div', 'wxg-pc-foot');
     const prev = button('← 上一位', 'card-prev', 'wxg-pc-nav');
     prev.disabled = at <= 0;
