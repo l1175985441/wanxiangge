@@ -1608,10 +1608,20 @@ function secRoster(host) {
     rosterPage = clampPage(rosterPage, shownRoster.length, PER_PAGE.roster);
     const pageList = shownRoster.slice((rosterPage - 1) * PER_PAGE.roster,
         rosterPage * PER_PAGE.roster);
-    // ⭐ 翻页条放**列表上方**（参照就是这么放的）：20 行之后再放一颗，等于没有
-    if (shownRoster.length > PER_PAGE.roster) {
-        cList.appendChild(pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length));
-    }
+    /*
+     * ⭐ 翻页条：**挪到页底**（照目标包：分页贴页底）。
+     *    原来放在**列表上方**——那是早期参照的做法；包里明确要"贴页底"。
+     *    ⏔ 改回上面（虽然长列表里"翻页在下头"要滑到底才看得到）——**以包为准**。
+     */
+    const pagerAtBottom = shownRoster.length > PER_PAGE.roster
+        ? () => pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length)
+        : null;
+    // ⭐ 右上「功能 ⋮」（照包：去重合并／删除／清空的入口位）
+    const topbar = el('div', 'wxg-roster-topbar');
+    const funcBtn = button('功能 ⋮', 'roster-func', 'wxg-func-btn');
+    funcBtn.title = '去重合并／删除／清空（入口位；包里就是这么标的）';
+    topbar.appendChild(funcBtn);
+    cList.appendChild(topbar);
     const list = el('div', 'wxg-roster wxg-table-4');
     // ⭐ 表头（照包：浅灰底，四列名：角色名称｜好感｜身份｜势力）
     const rhead = el('div', 'wxg-thead wxg-table-4');
@@ -1705,6 +1715,11 @@ function secRoster(host) {
         list.appendChild(r);
     }
     cList.appendChild(list);
+    if (pagerAtBottom) {
+        const pw = el('div', 'wxg-roster-pager');
+        pw.appendChild(pagerAtBottom());
+        cList.appendChild(pw);
+    }
     box.appendChild(cList);
     host.appendChild(box);
 }
@@ -3260,6 +3275,9 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
+                case 'roster-func':
+                    toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方的筛选里有「我改过的」');
+                    break;
                 case 'roster-page': {
                     // 翻页：这里只存目标页；**夹取在渲染时按筛完的数量做**（见 secRoster）
                     rosterPage = Math.max(1, Math.round(Number(id) || 1));

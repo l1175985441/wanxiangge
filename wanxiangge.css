@@ -3301,3 +3301,36 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-roster .wxg-r.is-sel { background: var(--wxg-accent-soft, rgba(94, 207, 164, .14)); }
 /* 右侧动作列：⛔ 竖线不要画在它左边两次 */
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-act { padding: 6px 10px; }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 名册 · 照包收尾（2026-10-15 第 6 轮）
+ *   ① 行收紧（原来一行 ≈78px，48 人要滚很久；包里是"放松但紧"）
+ *   ② 右侧动作列收拾干净（原来 › 与 ⋯ 挤在一起、⋯ 还带个圆角框）
+ *   ③ 标题**居中**（包里居中，右上另有「功能 ⋮」）
+ * ------------------------------------------------------------------------- */
+.wxg-ws-main .wxg-roster .wxg-r .wxg-td { padding: 8px 12px; }
+.wxg-ws-main .wxg-roster .wxg-th { padding: 8px 12px; }
+/* 最后一列：只要一个 › 和一个 ⋯，⛔ 不要框 */
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-act {
+    display: flex; align-items: center; justify-content: flex-end; gap: 2px;
+    padding: 4px 12px; border-left: none;
+}
+.wxg-ws-main .wxg-roster .wxg-r-caret { color: var(--wxg-dim, #6d747a); font-size: 13px; }
+.wanxiangge .wxg-r-more {
+    background: transparent; border: 1px solid transparent; color: var(--wxg-dim, #6d747a);
+    padding: 1px 6px; font-size: 14px; line-height: 1.2;
+}
+.wanxiangge .wxg-r-more:hover { border-color: var(--wxg-border, #d5dade); color: var(--wxg-text, #1a1d1f); }
+
+/* ③ 名册页头：标题居中（只居中这一页，⛔ 不波及别页） */
+.wxg-ws-main .wxg-sec:has(.wxg-roster) .wxg-sec-title { text-align: center; }
+.wxg-ws-main .wxg-sec:has(.wxg-roster) .wxg-sec-sub { text-align: center; }
+/* 「功能 ⋮」：右上角一条 */
+.wxg-roster-topbar { display: flex; justify-content: flex-end; margin: -4px 0 6px; }
+.wanxiangge .wxg-func-btn {
+    background: transparent; border: 1px solid var(--wxg-border, #d5dade);
+    color: var(--wxg-dim, #6d747a); border-radius: 7px; padding: 4px 11px; font-size: 12.5px;
+}
+.wanxiangge .wxg-func-btn:hover { color: var(--wxg-text, #1a1d1f); }
+/* 分页贴页底：给它一条上分隔线，视觉上"到底了" */
+.wxg-ws-main .wxg-roster-pager { border-top: 1px solid var(--wxg-line, #e6e8ea); padding-top: 10px; margin-top: 4px; }
