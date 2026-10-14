@@ -297,11 +297,20 @@ function eventBlock(ev) {
         return '';
     }
     const bits = [];
-    if (trimText(ev.text)) {
-        bits.push(trimText(ev.text));
+    const text = trimText(ev.text);
+    const sides = trimText(ev.sides);
+    /*
+     * ⚠️ 去重（逐条核验 4.7 时看出来的）：事件是更新那一步派生的，
+     *    `text` 与 `sides` **大多数时候是同一个值** ⇒ 原来会输出
+     *    「教会在争港口税：教会／商会 ｜ 各方：教会／商会 ｜ 火候：几天内」
+     *    —— 同一串字在一行里出现两遍。这段是**模型每轮都要读**的，
+     *    重复＝纯浪费上下文（4.7「⛔ 不要全量灌」）。
+     */
+    if (text) {
+        bits.push(text);
     }
-    if (trimText(ev.sides)) {
-        bits.push('各方：' + trimText(ev.sides));
+    if (sides && sides !== text) {
+        bits.push('各方：' + sides);
     }
     if (trimText(ev.stage)) {
         bits.push('阶段：' + trimText(ev.stage));
