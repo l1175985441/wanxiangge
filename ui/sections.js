@@ -466,37 +466,28 @@ function secStatus(host, intoSelf) {
     secSteps(host, box);
 
     const p = loadState().pipeline || {};
-    if (p.status && p.status !== 'idle') {
-        /*
-         * ⭐ 「更新流水」这张卡的**壳也撕了**（同上 ⏔ 清单）。
-         *   ⚠️ 但它**不是纯重复**：它报的是「正在跑／失败／与手改冲突」
-         *   ——那是她定的红线「**失败必须可见**」。所以**一行都不删**，
-         *   只把卡壳去掉（它本来就只在 status ≠ idle 时才出现）。
-         *   下一步：把这几行并进「每轮记录」的顶上。
-         */
-        const cRun = el('div', 'wxg-plain');
-        const tone = p.status === 'failed' ? 'bad' : (p.status === 'running' ? 'idle' : 'ok');
-        const msg = el('div', 'wxg-store', (p.text || p.status)
-            + (p.error ? '（' + p.error + '）' : '')
-            + (p.tries ? ' · 已试 ' + String(p.tries) + ' 次' : '')
-            + (p.cursor ? ' · 进度 ' + String(p.cursor) : ''));
-        msg.setAttribute('data-tone', tone);
-        cRun.appendChild(msg);
-
-        // ⭐ 与"她手改过的版本"冲突时，把那几条**具体写出来**（自审修正·条 16）
-        //    原来只报"有 N 处冲突"，她看不到到底哪儿冲突、引擎保留了哪个版本。
-        if (Array.isArray(p.conflicts) && p.conflicts.length) {
-            const warn = el('div', 'wxg-store', '与你的手改冲突（引擎**按你的版本保留**，内容没被冲掉）：');
-            warn.setAttribute('data-tone', 'bad');
-            cRun.appendChild(warn);
-            for (const c of p.conflicts) {
-                cRun.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
-            }
+    /*
+     * ⭐⭐「更新流水」**整块删了**（2026-10-15 她亲口定的：「那个每轮记录那里也能体现出失败的那个呀，
+     *   更新流水的确重复了」）。
+     *
+     * ⚠️ 我上一轮多虑了：我以为它"报的是正在跑／失败／与手改冲突"、删了就违反"失败必须可见"。
+     *   查证结果——**每轮记录本来就报失败**：
+     *     · `statusOf()` 里就有「失败」这一档（`injectStatus === 'error'`）
+     *     · 筛选胶囊里也摆着「失败」
+     *   ⇒ 失败**在两处可见**，这里确实是重复的。以她的话为准。
+     *
+     * ⭐ 只留一样东西：**与她的手改冲突那几句**——那不是"流水"，
+     *   那是"你手改的版本被保住了"的提醒，删了才是真丢信息。
+     */
+    if (Array.isArray(p.conflicts) && p.conflicts.length) {
+        const cWarn = el('div', 'wxg-plain');
+        const warn = el('div', 'wxg-store', '与你的手改冲突（引擎**按你的版本保留**，内容没被冲掉）：');
+        warn.setAttribute('data-tone', 'bad');
+        cWarn.appendChild(warn);
+        for (const c of p.conflicts) {
+            cWarn.appendChild(el('div', 'wxg-fact', '· ' + asText(c)));
         }
-        row(cRun,
-            p.status === 'running' ? button('取消这次更新', 'cancel-update') : null,
-            p.status === 'failed' ? button('重试（有上限）', 'update-now') : null);
-        box.appendChild(cRun);
+        box.appendChild(cWarn);
     }
     /*
      * ⭐「每轮记录」（原「过程报告」）也并进这一页——它就是"一行一楼"那张表，
