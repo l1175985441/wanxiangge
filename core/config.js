@@ -72,7 +72,8 @@ export function groupOfSection(name) {
 export const SIDEBAR_ICONS = [
     'fa-book',            // 状态（账本／进度／每轮记录）
     'fa-earth-asia',      // 世界状态
-    'fa-user',            // 角色状态
+    'fa-user',            // 角色状态（⚠️ 待搬完再撕：她说过撕，但边界是"只删目录入口、内容 0 动"，
+                          //    而该页还担着七列表格／任务／不可靠提醒，那些还没搬走）
     'fa-scroll',          // 编年
     'fa-address-book',    // 人物名册
     'fa-sliders',         // 总控

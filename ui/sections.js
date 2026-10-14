@@ -2573,10 +2573,16 @@ function renderPersonCard() {
     const kv = el('div', 'wxg-pc-kv');
     const row2 = (k1, f1, ph1, k2, f2, ph2) => {
         kv.appendChild(el('div', 'wxg-pc-k', k1));
-        kv.appendChild(fieldBox(c.id, f1, one[f1], ph1));
+        kv.appendChild(fieldBox(cid, f1, one[f1], ph1));
         kv.appendChild(el('div', 'wxg-pc-k', k2));
-        kv.appendChild(fieldBox(c.id, f2, one[f2], ph2));
+        kv.appendChild(fieldBox(cid, f2, one[f2], ph2));
     };
+    /*
+     * ⚠️ 一律用 **state 那份**的 id（`one.id`）去挂 data-id：
+     *   名册那份（`c.id`）跟 state 那份**类型可能不一样**（数字 vs 字符串），
+     *   而外面点这些格子的人（用例、以后的代码）拿的是 state 那份 ⇒ 不一致就"找不到输入框"。
+     */
+    const cid = one.id !== undefined && one.id !== null ? one.id : c.id;
     row2('年龄', 'age', '未知', '身份', 'identity', '未知');
     row2('所在势力', 'faction', '暂无', '好感', 'affinity', '未接入');
     /*
@@ -2591,9 +2597,9 @@ function renderPersonCard() {
         const al = (one.aliases || []).join('、');
         aliasWrap.appendChild(el('div', 'wxg-pc-text' + (al ? '' : ' is-empty'), al || '暂无'));
     } else {
-        const aliasInput = textInput('wxg-pc-alias-' + c.id, (one.aliases || []).join('、'),
+        const aliasInput = textInput('wxg-pc-alias-' + cid, (one.aliases || []).join('、'),
             '别名／昵称（顿号或逗号分开）', 'set-alias');
-        aliasInput.setAttribute('data-id', c.id);
+        aliasInput.setAttribute('data-id', cid);
         aliasWrap.appendChild(aliasInput);
     }
     kv.appendChild(aliasWrap);
@@ -2602,7 +2608,7 @@ function renderPersonCard() {
     pchk.type = 'checkbox';
     pchk.checked = one.isPlayer === true;
     pchk.setAttribute('data-action', 'set-player');
-    pchk.setAttribute('data-id', c.id);
+    pchk.setAttribute('data-id', cid);
     pbox.appendChild(pchk);
     pbox.appendChild(el('span', null, '这是玩家棋子（⛔ AI 不扮演、不推演）'));
     kv.appendChild(el('div', 'wxg-pc-k', ''));
@@ -2611,11 +2617,11 @@ function renderPersonCard() {
     pwrap.appendChild(pbox);
     kv.appendChild(pwrap);
     kv.appendChild(el('div', 'wxg-pc-k', '时间·地点'));
-    const tp = fieldBox(c.id, 'timePlace', one.timePlace, '未知');
+    const tp = fieldBox(cid, 'timePlace', one.timePlace, '未知');
     tp.classList.add('wxg-pc-full');
     kv.appendChild(tp);
     kv.appendChild(el('div', 'wxg-pc-k', '正在经历'));
-    const cur = fieldBox(c.id, 'current', one.current, '本回合没写他');
+    const cur = fieldBox(cid, 'current', one.current, '本回合没写他');
     cur.classList.add('wxg-pc-full');
     kv.appendChild(cur);
     sec1.appendChild(kv);
@@ -2654,7 +2660,8 @@ function renderPersonCard() {
      * 底部那颗：只读态下叫「编辑这一位」；编辑态下叫「收起编辑」。
      * ⚠️ 不叫「保存」是诚实：改字是**改哪格存哪格**（立即落账），⏔ 做假的"取消"骗人。
      */
-    const save = button(personCardEditing ? '收起编辑' : '编辑这一位', 'card-save', personCardEditing ? 'wxg-primary' : '');
+    const save = button(personCardEditing ? '收起编辑' : '编辑这一位',
+        personCardEditing ? 'card-view' : 'card-edit', personCardEditing ? 'wxg-primary' : '');
     foot.appendChild(save);
     pop.appendChild(foot);
 
@@ -2796,6 +2803,20 @@ export function renderSections(host, opts) {
         secStatus(stageEl);
         // ② 世界与人
         secWorld(stageEl);
+        /*
+         * ⚠️⚠️ 「角色状态」这一页**暂时留着**（2026-10-15 第 11 轮退回）。
+         *
+         * 她确实说过「跟名册重复了删掉吧？一模一样」，但她同时两度亲定边界：
+         *   **只删目录入口，页面内容与引用 0 动**。
+         * 而我试着只从目录里撕掉它之后，**真机上这些东西就真摸不到了**（页面不渲染＝内容没了），
+         * 实测有 **16 条用例变红**，它们点名的是：
+         *   · `run-tests-chartable`：七列表格／搜索框／点开改字（整套）
+         *   · `run-tests-inject`：任务（主线／支线）显示、改状态、删任务
+         *   · `run-tests-future`：「不可靠」提醒
+         *   · `run-tests-dualpanel`：面板里改角色字段
+         * ⇒ 这些**名册与浮层里都还没有**。先把它们搬过去，才能撕这一页；
+         *   ⏔ 为了"看着像做完了"而提前撕（她的话：别真的不行还打钩）。
+         */
         secCharacters(stageEl);
         secChronicle(stageEl);
         secRoster(stageEl);
@@ -3374,8 +3395,18 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
+                /*
+                 * ⭐ `card-edit` 是**幂等**的：点多少下都是"进编辑态"，⏔ 翻转。
+                 *   为什么：翻转式开关**不可重入**——前面一条用例把它留在开着，
+                 *   后面一条再点一下反而**关上了**（真踩：「找不到字段输入框：age」，
+                 *   但按钮明明点到了）。退出编辑独立成 `card-view`。
+                 */
                 case 'card-edit':
-                    personCardEditing = !personCardEditing;
+                    personCardEditing = true;
+                    renderPersonCard();
+                    break;
+                case 'card-view':
+                    personCardEditing = false;
                     renderPersonCard();
                     break;
                 case 'card-save':
@@ -3515,7 +3546,15 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-char-field':
                     if (isChange) {
                         updateCharacter(id, { [key]: target.value, manual: true });
+                        /*
+                         * ⭐ 改完一格 ⇒ 重画段，但 `rerender()` 会**顺手把浮层也冲掉**
+                         *   （浮层挂在段容器里）⇒ 真机上就是"改一格、整张卡没了"。
+                         *   ⇒ **重画完再把卡片画回来**（跟 `card-save` 同一个道理）。
+                         */
                         rerender();
+                        if (personCardId) {
+                            renderPersonCard();
+                        }
                     }
                     break;
                 case 'set-alias':
@@ -3523,6 +3562,9 @@ export function bindSectionEvents(host, refresh) {
                         updateCharacter(id, { aliases: toList(target.value), manual: true });
                         toast.ok('别名保存了');
                         rerender();
+                        if (personCardId) {
+                            renderPersonCard();   // 同上：别把卡片带走
+                        }
                     }
                     break;
                 case 'set-affinity':
@@ -3543,6 +3585,9 @@ export function bindSectionEvents(host, refresh) {
                         manual: true,
                     });
                     rerender();
+                        if (personCardId) {
+                            renderPersonCard();
+                        }
                     break;
                 case 'del-char': removeCharacter(id); rerender(); break;
     /*
