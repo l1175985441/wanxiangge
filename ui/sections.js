@@ -161,6 +161,14 @@ function section(title, hint, opts) {
             + typeof hint);
     }
     const drawer = el('div', 'wxg-sec inline-drawer');
+    /*
+     * ⭐ 「调设置」那五页（外观／召回／读取控制／自定义 API／提示词）盖个标记：
+     *   包里这五页的版式共同点是「**卡标题居中** ＋ 保存靠右下**」。
+     *   ⏔ 给所有段都上：数据页（状态／世界／名册…）的卡标题居中反而难扫。
+     */
+    if (o.five) {
+        drawer.setAttribute('data-wxg-five', '1');
+    }
     const head = el('div', 'wxg-sec-head inline-drawer-toggle inline-drawer-header');
     const titleWrap = el('div', 'wxg-sec-titlewrap');
     titleWrap.appendChild(el('b', 'wxg-sec-title', title));
@@ -1899,7 +1907,7 @@ function secAppearance(host) {
     const box = section('外观（工作台配色）',
         '工作台是**我们自己的整页窗口**，配色自己定，不用迁就酒馆主题；'
         + '设置抽屉那边仍跟随酒馆主题。文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。',
-        { open: false, summary: PALETTE_NAMES[app.palette] || '' });
+        { open: false, summary: PALETTE_NAMES[app.palette] || '', five: true });
 
     const cTheme = card('色板与颜色槽');
     row(cTheme, field('色板', select('wxg-app-palette',
@@ -1952,7 +1960,7 @@ function secRecall(host) {
     const s = getSettings();
     const box = section('召回',
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
-        { open: false });
+        { open: false, five: true });
     // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
     // ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
     const cPick = card('每一轮怎么挑');
@@ -1994,7 +2002,7 @@ function secExtract(host) {
         + '世界书这一块不用手打书名：点下面的书名就进名单（再点＝排除、再点＝拿掉），'
         + '点「看条目」能一条条挑。标签那一块默认按结构剥掉成对的机器块与 HTML 注释——'
         + '剥完为空会自动退回原文，不会比剥之前更坏。',
-        { open: false });
+        { open: false, five: true });
     // ⭐ 装盒：标签与剥壳 一块、世界书名单 一块、好感来源 一块（体检第一条）
     const cTag = card('标签与剥壳');
     line(cTag, '提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short'));
@@ -2044,7 +2052,7 @@ function secApi(host) {
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
         '不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
-        { open: false });
+        { open: false, five: true });
     // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
     // ⭐ 第三层：这条通道也排成规整两列
     const cCh = card('通道');
@@ -2199,7 +2207,7 @@ function secPrompts(host) {
     const box = section('提示词（可看可改）',
         '留空＝用内置默认；填了＝原样用你写的。破限词同理。'
         + '下面每块先显示**当前实际用的那份**（留空就是内置的），想改再点「改这套」。',
-        { open: false });
+        { open: false, five: true });
 
     /*
      * ⭐ 一屏一个焦点（复核方第一条）：**只把第一块摊开**，其余三块收起。

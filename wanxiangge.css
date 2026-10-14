@@ -3446,3 +3446,22 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-r.is-rowlink { cursor: pointer; }
 .wxg-ws-main .wxg-r.is-rowlink:hover { background: var(--wxg-fill, rgba(0, 0, 0, .03)); }
 .wxg-ws-main .wxg-r.is-rowlink .wxg-badge { align-self: center; }
+
+/* ===========================================================================
+ * ⭐「调设置」五页 · 照包（目标-五页-20261015）
+ *   包里这五页的版式共同点：① 页标题居中 ② **卡标题也居中** ③ 保存按钮靠**右下**
+ *   （内容与功能一个不少，只是摆法；⛔ 不动任何控件）
+ * ======================================================================== */
+.wxg-ws-pagehead[data-wxg-sec="外观（工作台配色）"],
+.wxg-ws-pagehead[data-wxg-sec="召回"],
+.wxg-ws-pagehead[data-wxg-sec="读取控制（提取／排除四格）"],
+.wxg-ws-pagehead[data-wxg-sec="自定义 API（后台推演走这条通道）"],
+.wxg-ws-pagehead[data-wxg-sec="提示词（可看可改）"] { text-align: center; }
+
+/* ② 卡标题居中（只这五页；数据页的卡标题⛔ 不动——那些是列表，居中反而难扫） */
+.wxg-ws-main .wxg-sec[data-wxg-five] .wxg-card-h,
+.wxg-ws-main .wxg-sec[data-wxg-five] .wxg-card-title { text-align: center; }
+
+/* ③ 保存条靠右下 */
+.wxg-ws-main .wxg-sec[data-wxg-five] .wxg-savebar,
+.wxg-ws-main .wxg-sec[data-wxg-five] .wxg-save-bar { justify-content: flex-end; text-align: right; }
