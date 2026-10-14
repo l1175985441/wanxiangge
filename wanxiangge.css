@@ -3354,3 +3354,18 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-roster .wxg-r .wxg-td { padding: 6px 12px; line-height: 1.35; }
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-title { flex-wrap: nowrap; overflow: hidden; }
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------------------------------------------------------------------------
+ * ⭐ 行高真凶（第 6 轮真机量出来）：最后那格里的 `⋯` 按钮被全局 `menu_button` 撑到 **36px**，
+ *    而其余格子才 30～35 ⇒ 行高 = max + 内边距 = 63px。
+ *    ⇒ 把 `⋯` 压回行内高度（它只是个行内小动作，⛔ 不该有按钮那么大）。
+ * ------------------------------------------------------------------------- */
+.wanxiangge .wxg-r-more,
+.wanxiangge .wxg-btn-xs {
+    height: 22px;
+    min-height: 22px;
+    line-height: 20px;
+    padding: 0 7px;
+    font-size: 13px;
+}
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-act { padding: 4px 12px; }
