@@ -3260,3 +3260,7 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-table-4 .wxg-td { padding: 10px 12px; min-width: 0; }
 /* 被点开那一行：浅绿选中（包里 trow sel） */
 .wxg-ws-main .wxg-r.is-sel { background: var(--wxg-accent-soft, rgba(94, 207, 164, .14)); }
+
+/* 只读态的值（不是输入框）：亮字；空值用暗字（照包里的 "未接入 / —"） */
+.wxg-pc-text { font-size: 14px; line-height: 1.5; padding: 3px 0; overflow-wrap: anywhere; }
+.wxg-pc-text.is-empty { color: var(--wxg-dim, #6d747a); }

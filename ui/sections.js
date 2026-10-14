@@ -2417,14 +2417,21 @@ let personCardId = null;
  *   用 `position: fixed` 照样浮在最上层，不受宿主滚动影响。
  */
 let lastSectionsHost = null;
+/**
+ * 浮层在**编辑态**吗？默认 false＝**只读**；点右上「⋮」才进编辑。
+ * （她的原话：不点是只读改不了免得弄错；目标包：⋮点开＝编辑这一位）
+ */
+let personCardEditing = false;
 
 export function openPersonCard(id) {
     personCardId = id || null;
+    personCardEditing = false;   // 开卡／换人：一律先回到**只读**态
     renderPersonCard();
 }
 
 export function closePersonCard() {
     personCardId = null;
+    personCardEditing = false;
     const old = document.getElementById('wxg-person-card');
     if (old && typeof old.remove === 'function') {
         old.remove();
@@ -2471,8 +2478,8 @@ function renderPersonCard() {
         badges.appendChild(el('span', 'wxg-badge is-info', '玩家棋子'));
     }
     head.appendChild(badges);
-    const kebab = button('⋮', 'noop', 'wxg-pc-kebab');
-    kebab.title = '编辑这一位（下面就是可改的格）';
+    const kebab = button('⋮', 'card-edit', 'wxg-pc-kebab');
+    kebab.title = personCardEditing ? '正在编辑（点一下收起）' : '编辑这一位（点了才可改，不点只读）';
     head.appendChild(kebab);
     const x = button('×', 'card-close', 'wxg-pc-x');
     x.title = '关掉（Esc 也行）';
@@ -2496,13 +2503,18 @@ function renderPersonCard() {
      * ⚠️ 它们原来只在**行内展开**里（`set-alias` / `set-player`）——把行改成开浮层之后
      *    那两个开关就摸不到了（audit-3 当场红了 4 条）⇒ 补进浮层，动作名沿用同一套。
      */
-    const aliasInput = textInput('wxg-pc-alias-' + c.id, (one.aliases || []).join('、'),
-        '别名／昵称（顿号或逗号分开）', 'set-alias');
-    aliasInput.setAttribute('data-id', c.id);
     kv.appendChild(el('div', 'wxg-pc-k', '别名'));
     const aliasWrap = el('div', 'wxg-pc-v');
     aliasWrap.classList.add('wxg-pc-full');
-    aliasWrap.appendChild(aliasInput);
+    if (!personCardEditing) {
+        const al = (one.aliases || []).join('、');
+        aliasWrap.appendChild(el('div', 'wxg-pc-text' + (al ? '' : ' is-empty'), al || '暂无'));
+    } else {
+        const aliasInput = textInput('wxg-pc-alias-' + c.id, (one.aliases || []).join('、'),
+            '别名／昵称（顿号或逗号分开）', 'set-alias');
+        aliasInput.setAttribute('data-id', c.id);
+        aliasWrap.appendChild(aliasInput);
+    }
     kv.appendChild(aliasWrap);
     const pbox = el('label', 'wxg-pc-player');
     const pchk = el('input', null);
@@ -2557,7 +2569,11 @@ function renderPersonCard() {
     foot.appendChild(el('span', 'wxg-pc-counter', '第 ' + String(at + 1) + ' / ' + String(roster.length) + ' 位'));
     foot.appendChild(next);
     foot.appendChild(button('按这条合并…', 'merge-into', 'wxg-btn-sm', c.id));
-    const save = button('保存', 'card-save', 'wxg-primary');
+    /*
+     * 底部那颗：只读态下叫「编辑这一位」；编辑态下叫「收起编辑」。
+     * ⚠️ 不叫「保存」是诚实：改字是**改哪格存哪格**（立即落账），⏔ 做假的"取消"骗人。
+     */
+    const save = button(personCardEditing ? '收起编辑' : '编辑这一位', 'card-save', personCardEditing ? 'wxg-primary' : '');
     foot.appendChild(save);
     pop.appendChild(foot);
 
@@ -2565,13 +2581,27 @@ function renderPersonCard() {
     bindPersonCardDrag(pop);
 }
 
-/** 一个可改的格（沿用 `set-char-field` ⇒ 保存路径与手改锁都不变） */
+/**
+ * 一个格：**默认只读文本**，点 ⋮ 进了编辑态才变输入框。
+ *
+ * 为什么（她自己说过两回，目标包里也写着）：
+ *   · 她：「为什么现在每个页面的内容比如这个都是直接就能按的，而不是旁边有一个编辑按钮，
+ *     点了才能按，不点是只读改不了免得弄错」
+ *   · 目标包说明：「浮层右上 ⋮（三个点，**点开＝编辑这一位**）」
+ *   ⇒ 默认**只读**；⋮ 就是那个“编辑按钮”。
+ *
+ * ⚠️ 编辑态里改字是**改哪格存哪格**（沿用 `set-char-field` ⇒ 保存路径与手改锁都不变），
+ *   ⏔ 做假“取消”骗人（改了就已经落账了）。底部那颗叫「收起编辑」。
+ */
 function fieldBox(charId, field, value, placeholder) {
     const wrap = el('div', 'wxg-pc-v');
     const long = field === 'current' || field === 'timePlace';
-    const input = long
-        ? el('textarea', 'wxg-pc-input')
-        : el('input', 'wxg-pc-input');
+    if (!personCardEditing) {
+        const txt = trimText(value);
+        wrap.appendChild(el('div', 'wxg-pc-text' + (txt ? '' : ' is-empty'), txt || (placeholder || '未知')));
+        return wrap;
+    }
+    const input = long ? el('textarea', 'wxg-pc-input') : el('input', 'wxg-pc-input');
     if (!long) {
         input.type = 'text';
     }
@@ -3252,9 +3282,18 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
+                case 'card-edit':
+                    personCardEditing = !personCardEditing;
+                    renderPersonCard();
+                    break;
                 case 'card-save':
-                    toast.ok('已保存（改哪格锁哪格，引擎不会冲掉）');
-                    closePersonCard();
+                    /*
+                     * ⏔ 关掉浮层！她要的是"改完收起来"，不是"把卡片也关了"。
+                     * （原来这里叫 closePersonCard－点一下连卡都没了，下一位都点不到。）
+                     */
+                    personCardEditing = false;
+                    renderPersonCard();
+                    toast.ok('已收起编辑（改哪格存哪格，引擎不会冲掉）');
                     rerender();
                     break;
                 case 'edit-char': {
