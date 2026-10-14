@@ -3068,7 +3068,13 @@ function renderWorldEntryCard() {
     }
     const w = describeWorld();
     const isHidden = openWorldEntry.kind === 'hidden';
-    const raw = isHidden ? (loadState().hidden || []) : (loadState().situations || []);
+    /*
+     * ⚠️ 字段在 **`state.world.*`**，⏔ `state.*`（我写错过：取不到 ⇒
+     *   被下面那句防御性 `return` **静静吃掉**：不报错、也不弹。）
+     */
+    const raw = isHidden
+        ? ((loadState().world || {}).hidden || [])
+        : ((loadState().world || {}).situations || []);
     const item = Array.isArray(raw) ? raw[openWorldEntry.idx] : null;
     if (!item) {
         openWorldEntry = null;
