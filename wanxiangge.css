@@ -3438,3 +3438,6 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-two .wxg-col { min-width: 0; }
 /* 状态页标题也居中（跟名册页一个规矩；靠 workspace 盖的 data-wxg-sec 钩子） */
 .wxg-ws-pagehead[data-wxg-sec="状态"] { text-align: center; }
+
+/* 世界状态页标题居中（照包；靠 workspace 盖的 data-wxg-sec 钩子） */
+.wxg-ws-pagehead[data-wxg-sec="世界状态"] { text-align: center; }

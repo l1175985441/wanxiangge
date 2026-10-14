@@ -661,6 +661,16 @@ function secWorld(host) {
 
     // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
     // ⭐ 数据卡：默认只读（复核方第四条）——点「编辑」才能改
+    // ⭐ 页头：右上「功能 ⋮」（照包；跟状态页、名册页同一个做法）
+    const wTop = el('div', 'wxg-roster-topbar');
+    const wFunc = button('功能 ⋮', 'world-func', 'wxg-func-btn');
+    wFunc.style.height = '28px';
+    wFunc.style.minHeight = '28px';
+    wFunc.style.lineHeight = '26px';
+    wFunc.style.padding = '0 12px';
+    wFunc.style.whiteSpace = 'nowrap';
+    wTop.appendChild(wFunc);
+    box.appendChild(wTop);
     const cWorld = lockable(card('世界钟・地点'), 'world-clock');
     line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'));
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
@@ -668,7 +678,14 @@ function secWorld(host) {
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     box.appendChild(cWorld);
 
-    const cSit = lockable(card('局势（势力的碰撞）'), 'world-situations');
+    /*
+     * ⭐ 局势／暗线这两张卡**不套 `lockable`**（照目标包的 ⏔ 规矩：
+     *   「**有悬浮框的旁边不留编辑**」——她 10-15 01:34 划的原则）。
+     *   `lockable` 会在卡头右上加一颗「编辑」并把卡标成 `is-locked`；
+     *   不套它 ⇒ 无那颗钮、也没有 `is-locked`（**内容照常可见**，⏔ 会被锁死）。
+     *   ⚙️ 编辑将来走**点行弹出的浮层 ⋮**（尚未做）。
+     */
+    const cSit = card('局势（势力的碰撞）');
     const sit = el('div', 'wxg-list');
     if (!w.situations.length) {
         sit.appendChild(emptyBlock('还没有局势记录（点「立刻更新」让引擎算一次）'));
@@ -733,7 +750,8 @@ function secWorld(host) {
     addSitRow.setAttribute('data-no-lock', '1');
     box.appendChild(cSit);
 
-    const cHid = lockable(card('暗线（自己有时间表，到点才动）'), 'world-hidden');
+    // 同上：暗线卡也不套 `lockable`（⏔ 卡头留一颗「编辑」）
+    const cHid = card('暗线（自己有时间表，到点才动）');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
         hid.appendChild(emptyBlock('还没有暗线（引擎会在更新时排出来）'));
@@ -3524,6 +3542,9 @@ export function bindSectionEvents(host, refresh) {
                         if (openRecordAt < 0) { openRecordAt = 0; }
                     }
                     rerender();
+                    break;
+                case 'world-func':
+                    toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑走那儿的 ⋮（浮层还在做）');
                     break;
                 case 'status-func':
                     toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
