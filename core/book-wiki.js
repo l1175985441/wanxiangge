@@ -224,7 +224,18 @@ function dedupe(list, keyOf) {
  * @returns {{people: number, factions: number, situations: number, places: number, situationsTotal: number}}
  */
 export function applyWiki(wiki) {
-    const w = wiki || emptyWiki();
+    /*
+     * ⚠️ 必须**容忍缺键**：`applyWiki` 是公开函数，调用方给的可能是"只有人物"的半截对象
+     *    （模型有时也只回其中几类）——第一版少一个键就抛 `list is not iterable`，
+     *    整条建档当场断掉。真踩过（逐条核验 1.2 时抓到的）。
+     */
+    const src = wiki || {};
+    const w = {
+        characters: Array.isArray(src.characters) ? src.characters : [],
+        factions: Array.isArray(src.factions) ? src.factions : [],
+        situations: Array.isArray(src.situations) ? src.situations : [],
+        places: Array.isArray(src.places) ? src.places : [],
+    };
     const chars = dedupe(w.characters, (c) => c.name);
     const facs = dedupe(w.factions, (f) => f.name);
     const sits = dedupe(w.situations, (s) => s.title);
