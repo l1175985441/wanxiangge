@@ -1281,6 +1281,9 @@ let stepPage = 1;
 /** 名册的筛选：全部／玩家棋子／新认的／我改过的 */
 let rosterFilter = 'all';
 
+    /** 名册的搜索词（搜“名字或别名”；⏔ 落设置，只是看的姿势） */
+    let rosterSearch = '';
+
 /** 名册里哪一个人正展开着编辑（''＝都没展开） */
 let openChar = '';
 
@@ -1583,25 +1586,56 @@ function secRoster(host) {
      *    正好撞在验收口径上（三秒要能抓住有哪些人）。
      * 改/删都在行上；点「改」才展开三个输入框（⛔ 不用为编辑把每行都撑开）。
      */
-    // 筛选胶囊（带计数）
+    /*
+     * ⭐ 筛选行 —— **照目标包**：`全部｜创建时间｜修改时间｜玩家棋子｜名字` ＋ 右侧**搜索框**（搜“名字或别名”）。
+     *   原来是“全部／玩家棋子／新认的／我改过的”四个胶囊（那是早期自己想的）。
+     *   ⚠️ “我改过的”这个**筛选**去了，但它的信息没丢：行上的「已手改」辨识还在（新认的人也还有那条提示带）。
+     */
     const isFresh = (c) => fresh.some((n) => trimText(n) === trimText(c.name));
-    const shownRoster = rosterFilter === 'all' ? roster
-        : (rosterFilter === 'player' ? roster.filter((c) => c.isPlayer)
-            : (rosterFilter === 'new' ? roster.filter((c) => isFresh(c) || c.isNew)
-                : roster.filter((c) => c.manual)));
+    const kw = trimText(rosterSearch).toLowerCase();
+    const hitKw = (c) => !kw
+        || String(c.name || '').toLowerCase().includes(kw)
+        || (Array.isArray(c.aliases) ? c.aliases.some((a) => String(a || '').toLowerCase().includes(kw)) : false);
+    let shownRoster = roster.filter(hitKw);
+    if (rosterFilter === 'player') {
+        shownRoster = shownRoster.filter((c) => c.isPlayer);
+    }
+    // 排序（创建时间／修改时间／名字）：⏔ 改原数组，拷一份再排
+    if (rosterFilter === 'created' || rosterFilter === 'changed' || rosterFilter === 'name') {
+        const key = rosterFilter === 'created' ? 'createdAt' : (rosterFilter === 'changed' ? 'updatedAt' : '');
+        shownRoster = shownRoster.slice();
+        if (key) {
+            shownRoster.sort((a, b) => Number(b[key] || 0) - Number(a[key] || 0));
+        } else {
+            shownRoster.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
+        }
+    }
     const rf = el('div', 'wxg-filters');
     const mkR = (key, label, n) => {
         const b = el('button', 'wxg-filter' + (rosterFilter === key ? ' is-on' : ''), label);
         b.type = 'button';
         b.setAttribute('data-action', 'roster-filter');
         b.setAttribute('data-id', key);
-        b.appendChild(el('span', 'wxg-filter-n', String(n)));
+        if (n !== null) {
+            b.appendChild(el('span', 'wxg-filter-n', String(n)));
+        }
         return b;
     };
     rf.appendChild(mkR('all', '全部', roster.length));
+    rf.appendChild(mkR('created', '创建时间', null));
+    rf.appendChild(mkR('changed', '修改时间', null));
     rf.appendChild(mkR('player', '玩家棋子', roster.filter((c) => c.isPlayer).length));
-    rf.appendChild(mkR('new', '新认的', roster.filter((c) => isFresh(c) || c.isNew).length));
-    rf.appendChild(mkR('manual', '我改过的', roster.filter((c) => c.manual).length));
+    rf.appendChild(mkR('name', '名字', null));
+    // 右侧搜索框（内嵌放大镜）
+    const sw = el('div', 'wxg-searchwrap');
+    sw.appendChild(el('span', 'wxg-searchico', '⌕'));
+    const si = el('input', 'wxg-searchbox');
+    si.type = 'search';
+    si.placeholder = '搜：名字 或 别名';
+    si.value = rosterSearch;
+    si.setAttribute('data-action', 'roster-search');
+    sw.appendChild(si);
+    rf.appendChild(sw);
     cList.appendChild(rf);
 
     // ⚠️ 按**筛完的数量**夹页（换筛选后可能只剩几条，别停在一个空页上）
@@ -3293,6 +3327,14 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'roster-func':
                     toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方的筛选里有「我改过的」');
+                    break;
+                case 'roster-search':
+                    // 边打边筛（change 才重画，⏔ 每敲一个字都重画整页）
+                    if (isChange) {
+                        rosterSearch = trimText(target.value);
+                        rosterPage = 1;
+                        rerender();
+                    }
                     break;
                 case 'roster-page': {
                     // 翻页：这里只存目标页；**夹取在渲染时按筛完的数量做**（见 secRoster）

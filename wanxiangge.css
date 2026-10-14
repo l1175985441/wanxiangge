@@ -3372,3 +3372,19 @@ body.wxg-dragging {
 
 /* 名册页：标题**居中**（照包）。靠 workspace 盖的 `data-wxg-sec` 钩子 ⇒ 只影响这一页 */
 .wxg-ws-pagehead[data-wxg-sec="人物名册"] { text-align: center; }
+
+/* 筛选行：左边一排胶囊、右边一个搜索框（照包） */
+.wxg-ws-main .wxg-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.wxg-ws-main .wxg-filters .wxg-searchwrap { margin-left: auto; position: relative; display: flex; align-items: center; }
+.wxg-ws-main .wxg-searchico {
+    position: absolute; left: 9px; color: var(--wxg-dim, #6d747a); font-size: 13px; pointer-events: none;
+}
+.wanxiangge .wxg-searchbox,
+.wxg-ws-main .wxg-searchbox {
+    width: 220px; padding: 6px 10px 6px 26px; font-size: 13px; font-family: inherit;
+    color: var(--wxg-text, #1a1d1f); background: var(--wxg-input-bg, #fff);
+    border: 1px solid var(--wxg-border, #d5dade); border-radius: 8px;
+}
+.wanxiangge .wxg-searchbox:focus { outline: none; border-color: var(--wxg-accent, #5ecfa4); }
+/* 没有计数的胶囊（创建时间/修改时间/名字）：不留空位 */
+.wxg-ws-main .wxg-filter-n:empty { display: none; }
