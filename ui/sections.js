@@ -2277,7 +2277,8 @@ function secReport(host, intoBox) {
     const cRep = card('每轮记录（从新到旧）');
     cRep.appendChild(el('div', 'wxg-note', noteText));
     cRep.appendChild(fbar);
-    for (const rec of shownList) {
+    for (let idx = 0; idx < shownList.length; idx += 1) {
+        const rec = shownList[idx];
         const shownChars = countChars(rec.injectedText);
         const statusText = statusOf(rec);
         const det = foldable('', false);
@@ -2365,7 +2366,21 @@ function secReport(host, intoBox) {
             body.appendChild(el('div', 'wxg-notes', '触发方式：' + trimText(rec.injectType)));
         }
         det.appendChild(body);
-        cRep.appendChild(det);
+        /*
+         * ⭐ 点行弹浮层（照目标包：跟名册那件**同一套手法**）。
+         *   做法刻意保守：**正文那 ①②③ 一个字没改**——原来拼进 `det`（行内折叠条），
+         *   现在**把它整块搬进浮层**（DOM 搬移），所以不存在"浮层里跟行内不一样"。
+         *   ⏔ 没开任何一条时，行为跟以前一模一样（照旧挂回列表）。
+         */
+        if (openRecordAt === idx) {
+            renderRecordCard(rec, body, idx, shownList.length, statusText, statusTone(rec), shownChars);
+        } else {
+            if (sum) {
+                sum.setAttribute('data-action', 'open-record');
+                sum.setAttribute('data-id', String(idx));
+            }
+            cRep.appendChild(det);
+        }
     }
     box.appendChild(cRep);
     if (!intoBox) {
@@ -2596,6 +2611,12 @@ let lastSectionsHost = null;
  * （她的原话：不点是只读改不了免得弄错；目标包：⋮点开＝编辑这一位）
  */
 let personCardEditing = false;
+
+/**
+ * ⭐ 「每轮记录」点开的是第几条（-1＝都没开）。
+ *   照目标包：点行弹浮层，**跟名册那件同一套手法**（⏔ 行内展开）。
+ */
+let openRecordAt = -1;
 
 export function openPersonCard(id) {
     personCardId = id || null;
@@ -2858,6 +2879,55 @@ function bindPersonCardDrag(pop) {
         document.addEventListener('touchmove', move);
         document.addEventListener('touchend', up);
     });
+}
+
+/**
+ * ⭐ 「每轮记录」的浮层（照目标包：跟名册人物卡**同一套手法**）。
+ *   标题栏＝⏿ 把手＋标题＋状态胶囊＋✕；
+ *   正文＝已经拼好的那三块（①怎么挑的 ②实际送进请求的内容 ③回执）**原样搬过来**；
+ *   底部＝关闭｜第 N 条 / 共 M 条｜下一条 ›。
+ *   ⏔ 重写一份正文构造（那样两边会分叉）。
+ */
+function renderRecordCard(rec, body, idx, total, statusText, tone, shownChars) {
+    const host = document.getElementById('wxg-record-card');
+    if (host && typeof host.remove === 'function') {
+        host.remove();
+    }
+    const pop = el('div', 'wxg-pc wanxiangge');
+    pop.id = 'wxg-record-card';
+    pop.setAttribute('role', 'dialog');
+
+    const head = el('div', 'wxg-pc-head');
+    head.appendChild(el('span', 'wxg-pc-grip', '⏿'));
+    const who = el('div', 'wxg-pc-who');
+    who.appendChild(el('div', 'wxg-pc-name', shortTime(rec.at) + ' · ' + floorLabel(rec.floor)));
+    who.appendChild(el('div', 'wxg-pc-alias', rec.injectStatus === 'ok'
+        ? ('已注入 ' + String(shownChars) + ' 字')
+        : '这一轮没注入'));
+    head.appendChild(who);
+    const badges = el('div', 'wxg-pc-badges');
+    badges.appendChild(el('span', 'wxg-badge ' + (tone || ''), statusText));
+    head.appendChild(badges);
+    head.appendChild(button('✕', 'record-close', 'wxg-pc-x'));
+    pop.appendChild(head);
+
+    const sec = el('div', 'wxg-pc-sec');
+    sec.appendChild(body);
+    pop.appendChild(sec);
+
+    const foot = el('div', 'wxg-pc-foot');
+    foot.appendChild(button('关闭', 'record-close', 'wxg-pc-nav'));
+    foot.appendChild(el('span', 'wxg-pc-counter', '第 ' + String(idx + 1) + ' 条 / 共 ' + String(total) + ' 条'));
+    const prev = button('‹ 上一条', 'record-prev', 'wxg-pc-nav');
+    prev.disabled = idx <= 0;
+    foot.appendChild(prev);
+    const next = button('下一条 ›', 'record-next', 'wxg-pc-nav');
+    next.disabled = idx >= total - 1;
+    foot.appendChild(next);
+    pop.appendChild(foot);
+
+    (lastSectionsHost || document.body).appendChild(pop);
+    bindPersonCardDrag(pop);
 }
 
 export function renderSections(host, opts) {
@@ -3439,6 +3509,22 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
+                case 'open-record':
+                    openRecordAt = Math.max(0, Math.round(Number(id) || 0));
+                    rerender();
+                    break;
+                case 'record-close':
+                    openRecordAt = -1;
+                    rerender();
+                    break;
+                case 'record-prev':
+                case 'record-next':
+                    if (openRecordAt >= 0) {
+                        openRecordAt = action === 'record-next' ? openRecordAt + 1 : openRecordAt - 1;
+                        if (openRecordAt < 0) { openRecordAt = 0; }
+                    }
+                    rerender();
+                    break;
                 case 'status-func':
                     toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
                     break;
