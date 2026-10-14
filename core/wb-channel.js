@@ -20,8 +20,9 @@
 
 import { getCtx } from './adapter.js';
 import { trimText } from './utils.js';
-// ⭐ 阶段 2 接线：新族读回来的嵌套形状要过转换层，下游才看得到同一套字段名
-import { worldbookToNative } from './wb-shape.js';
+// ⭐ 阶段 2／3 接线：新族读回来的是嵌套形状 ⇒ 过转换层；
+//    新族新增条目时，我们内部形状要转成它要的形状
+import { worldbookToNative, nativeToWorldbook } from './wb-shape.js';
 
 /** 通道名（给人看的） */
 export const CHANNEL_LABEL = {
@@ -85,6 +86,67 @@ export function probeChannel() {
     const hCreateOne = fn(h, 'createLorebookEntries');
     const hDelete = fn(h, 'deleteLorebookEntries');
     const hCreateBook = fn(h, 'createWorldbook');
+
+    /*
+     * ⭐ 阶段 3：写路径也优先走新一代那族。技能原话：
+     *   "Prefer updater functions or entry-level helpers over whole-object replacement.
+     *    Preserve unknown fields, entry identity, unrelated user content…"
+     * ⇒ 用 `updateWorldbookWith` 做**字段级**写入：
+     *   ⭐ 先摊平原条目（`Object.assign({}, cur)`），**只盖我们真正管的那三个字段**
+     *     （名字／正文／开关）—— 我们不管的（strategy／position／recursion／effect／extra…）
+     *     原样留住，⛔ 一个都不碰。
+     */
+    const hUpdateNew = fn(h, 'updateWorldbookWith');
+    const hCreateNew = fn(h, 'createWorldbookEntries');
+    const hDeleteNew = fn(h, 'deleteWorldbookEntries');
+
+    const writeViaUpdater = hUpdateNew ? async (bookName, entries) => {
+        const want = new Map();
+        for (const e of (Array.isArray(entries) ? entries : [])) {
+            if (e && e.uid !== undefined) {
+                want.set(Number(e.uid), e);
+            }
+        }
+        return hUpdateNew(bookName, (current) => (Array.isArray(current) ? current : []).map((cur) => {
+            const w = want.get(Number(cur && cur.uid));
+            if (!w) {
+                return cur;   // 不在这次要写的范围 ⇒ 原样还回去（⛔ 不动别人的东西）
+            }
+            const out = Object.assign({}, cur);   // ⭐ 摊平原条目 ⇒ 我们不管的字段全留住
+            if (w.comment !== undefined) {
+                out.name = String(w.comment);
+            }
+            if (w.content !== undefined) {
+                out.content = String(w.content);
+            }
+            if (w.enabled !== undefined) {
+                out.enabled = w.enabled !== false;
+            }
+            return out;
+        }));
+    } : null;
+
+    const createViaNew = hCreateNew ? async (bookName, entry) => {
+        const r = await hCreateNew(bookName, [nativeToWorldbook(entry || {})]);
+        return r && Array.isArray(r.new_entries) ? r.new_entries[0] : r;
+    } : null;
+
+    const removeViaNew = hDeleteNew ? async (bookName, keyOrUid) => {
+        const id = Number(keyOrUid);
+        const asText = trimText(keyOrUid);
+        return hDeleteNew(bookName, (e) => {
+            if (!e) {
+                return false;
+            }
+            if (Number.isFinite(id) && Number(e.uid) === id) {
+                return true;
+            }
+            // 也可能是按"名字/标题"删的（旧接口两种都收）
+            const nm = trimText(e.name);
+            return !!asText && nm === asText;
+        });
+    } : null;
+
     if (hList || hRead) {
         cached = {
             channel: 'helper',
@@ -98,11 +160,16 @@ export function probeChannel() {
                         return Array.isArray(list) ? list.map(worldbookToNative) : [];
                     }
                     : hRead,
-                write: hSet, create: hCreateOne,
-                remove: hDelete, createBook: hCreateBook,
+                write: writeViaUpdater || hSet,
+                create: createViaNew || hCreateOne,
+                remove: removeViaNew || hDelete,
+                createBook: hCreateBook,
             },
             detail: {
                 读用新族: !!hReadNew,
+                写用新族: !!writeViaUpdater,
+                增用新族: !!createViaNew,
+                删用新族: !!removeViaNew,
                 建书: !!hCreateBook, 读条目: !!hRead, 写条目: !!hSet,
                 增条目: !!hCreateOne, 删条目: !!hDelete,
             },
