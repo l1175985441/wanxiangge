@@ -78,8 +78,18 @@ export function planRecall(options) {
         const leadText = trimText(opts.leadText) || trimText(chat[floor] && chat[floor].mes);
 
         // 顺手把"手机"里的好感读一遍（源更新了，读到的就是新的）
+        let affinityNote = '';
         try {
-            await refreshAffinity();
+            const aff = await refreshAffinity();
+            /*
+             * ⭐ 她口味（条目可选、⛔ 别自作主张）：**只指出**"手机里有、名册里没有"的人
+             *   —— 实据：她的「春菜老师」（正文露面 11 次）和**黑暗王国四天王**都没有书条目
+             *   ⇒ 引擎看不见他们 ⇒ 她的总结／推演整块是空的。**⛔ 引擎不替你建人**，只报出来。
+             */
+            if (aff && Array.isArray(aff.unmatched) && aff.unmatched.length) {
+                affinityNote = '「手机」里还有 ' + aff.unmatched.join('、')
+                    + ' —— 名册（世界书）里没有他们的条目 ⇒ 引擎看不见他们（要不要读人时补上；⛔ 不替你建人）';
+            }
         } catch (e) {
             console.warn('[万象阁] 读好感出错：', e);
         }
@@ -100,7 +110,7 @@ export function planRecall(options) {
             items: recall.items,
             events: recall.events,
             chars: recall.chars,
-            notes: recall.notes,
+            notes: [].concat(recall.notes || []).concat(affinityNote ? [affinityNote] : []),
             injectedText: text,
             injectedChars: injectSize(text),
             injectedAt: 0,
