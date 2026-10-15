@@ -38,6 +38,38 @@ const PAIR_RULES = [
     { open: new RegExp('【(' + TAG_CHARS + ')】', 'g'), closeOf: (n) => '【/' + n + '】' },
 ];
 
+/**
+ * ⭐⭐ 10-16 拿她 **11 层真语料**跑出来的根治：**这个块是“台账”还是“正文”**。
+ *   她那张卡把**正文整个包在成对块里** ⇒ 旧逻辑"见块就整块剥"
+ *   把正文也剥了（**6675 字 → 30 字**）。而她 §8 要剥的是“**机器块**”，⏔叙述正文。
+ *   判据（两边都不误伤）：
+ *     · 整块**大多数行是「名字：值」**（且没句读）⇒ **台账块** ⇒ 剥；
+ *     · 整块**长且有句读**（，。！？）⇒ **叙述块** ⇒ **留**；
+ *     · 拿不准 ⇒ 按老规矩当机器块（保守，⏔ 把不该留的留下来）。
+ */
+export function looksLikeMachineBlock(inner) {
+    const t = asText(inner).trim();
+    if (!t) {
+        return true;                       // 空块 ⇒ 当机器块
+    }
+    const hasSentence = /[，。！？；…]/.test(t);
+    const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+    let ledger = 0;
+    for (const ln of lines) {
+        if (/^[^\s：:]{1,20}\s*[：:＝=]\s*\S{0,24}$/.test(ln)) {
+            ledger += 1;
+        }
+    }
+    const ratio = lines.length ? (ledger / lines.length) : 0;
+    if (ratio >= 0.6 && !hasSentence) {
+        return true;                       // 台账
+    }
+    if (hasSentence && (t.length >= 60 || lines.length >= 2)) {
+        return false;                      // 叙述
+    }
+    return true;
+}
+
 export function stripPairedBlocks(text) {
     let out = asText(text);
     let removed = 0;
@@ -56,6 +88,15 @@ export function stripPairedBlocks(text) {
                 const from = m.index + m[0].length;
                 const at = out.indexOf(closeTag, from);
                 if (at >= 0) {
+                    /*
+                     * ⭐她 11 层真语料：**台账块才剥，叙述正文块要留**
+                     *   ← 旧逻辑“见块就整块剥”把她那张卡的**正文**也剥了（6675 字 → 30 字）。
+                     */
+                    const inner = out.slice(from, at);
+                    if (!looksLikeMachineBlock(inner)) {
+                        m = rx.exec(out);
+                        continue;   // 叙述块：留着（⏔ 再往下找别的块）
+                    }
                     out = out.slice(0, m.index) + out.slice(at + closeTag.length);
                     removed += 1;
                     again = true;
