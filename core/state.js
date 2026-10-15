@@ -11,6 +11,7 @@
 
 import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
+    ARRIVE_MISS_LIMIT,
 } from './config.js';
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey } from './utils.js';
@@ -902,6 +903,80 @@ export function ledgerClearPreview() {
 
 /* ------------------------------ 召回记录 ------------------------------ */
 
+/**
+ * ⭐ 补② 「送达回执」：对着**新正文**核上一轮注入的条目——到底接没接。
+ *
+ * 她定的规矩：
+ *   · 写进了 ⇒ 标「**已进正文（第 N 楼）**」
+ *   · 没进 ⇒ 留候补；**连续 3 轮**都没进 ⇒ **转进编年留档**，⏔ 再占注入位、⏔ 再强塞。
+ *
+ * 怎么判"写进了"：拿**这一条当时带的人名与事件名**去新正文里找——
+ *   名字出现了就算"接到了"。⚠️ 这是**有限但诚实**的判法（我不假装能读懂语义）：
+ *   名字不出现也可能是"用代词写了"——那种会被当成没接，所以我们**只记、不惩罚**（到 3 轮只是转编年留档，不删任何东西）。
+ *
+ * @param {string} bodyText 这一轮的新正文
+ * @param {number} floor 这一轮的楼层
+ * @returns {{arrived:number, missed:number, archived:number}}
+ */
+export function markArrivals(bodyText, floor) {
+    const state = loadState();
+    const text = asText(bodyText);
+    const at = Number.isFinite(Number(floor)) ? Number(floor) : -1;
+    const out = { arrived: 0, missed: 0, archived: 0 };
+    if (!text || at < 0) {
+        return out;
+    }
+    const list = Array.isArray(state.recallRecords) ? state.recallRecords : [];
+    for (const rec of list) {
+        if (!rec || rec.injectStatus !== 'ok' || rec.archived === true || rec.arrivedAt >= 0) {
+            continue;
+        }
+        // 只核"之前那几轮"的：本楼刚发出去的还没来得及被写进去
+        if (Number(rec.floor) >= at) {
+            continue;
+        }
+        const tokens = []
+            .concat(Array.isArray(rec.chars) ? rec.chars : [])
+            .concat(Array.isArray(rec.events) ? rec.events : [])
+            .map((x) => trimText(x))
+            .filter((x) => x.length >= 2);
+        const hit = tokens.some((tk) => text.includes(tk));
+        if (hit) {
+            rec.arrivedAt = at;
+            rec.arrivedNote = '已进正文（' + '#' + String(at) + '）';
+            out.arrived += 1;
+            continue;
+        }
+        rec.missRounds = (Number(rec.missRounds) || 0) + 1;
+        if (rec.missRounds >= ARRIVE_MISS_LIMIT) {
+            rec.archived = true;
+            rec.arrivedNote = '已转编年（连续 ' + String(ARRIVE_MISS_LIMIT) + ' 轮没进正文，不再占注入位）';
+            out.archived += 1;
+        } else {
+            rec.arrivedNote = '候补（第 ' + String(rec.missRounds) + '/' + String(ARRIVE_MISS_LIMIT) + ' 轮没进）';
+            out.missed += 1;
+        }
+    }
+    /*
+     * 转编年的那几条：单独留一笔账（她能回查"它们去哪了"）。
+     * ⏔ 放在循环里逐条写（那样会反复读写整本账）；汇总一条。
+     */
+    if (out.archived > 0) {
+        state.chronicle = Array.isArray(state.chronicle) ? state.chronicle : [];
+        state.chronicle.push({
+            at: now(),
+            floor: at,
+            kind: '候补转编年',
+            who: '',
+            text: '有 ' + String(out.archived) + ' 条带进去的东西连续 ' + String(ARRIVE_MISS_LIMIT)
+                + ' 轮没被写进正文，已收进编年（不再占注入位）。',
+            manual: false,
+        });
+    }
+    saveState();
+    return out;
+}
+
 export function putRecallRecord(record) {
     const state = loadState();
     const rec = Object.assign({
@@ -922,6 +997,17 @@ export function putRecallRecord(record) {
         injectType: '',
         injectAs: '',
         shown: false,
+        /*
+         * ⭐ 补②「送达回执」：注入**发出去了**，还要看**正文到底接没接**。
+         *   · `arrivedAt`＝在**第几楼**的正文里见到了它（-1＝还没见到）
+         *   · `missRounds`＝**连续几轮**没进正文（到 3 就转编年，⛔ 不再占注入位）
+         *   · `arrivedNote`＝给人看的一句话（"已进正文 #13"／"候补（第 2/3 轮）"）
+         *   · `archived`＝已转编年留档（转了就⛔ 不再强塞）
+         */
+        arrivedAt: -1,
+        missRounds: 0,
+        arrivedNote: '',
+        archived: false,
     }, record || {});
 
     const mesId = trimText(rec.mesId);

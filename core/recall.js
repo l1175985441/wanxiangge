@@ -515,7 +515,31 @@ export function buildRecall(input) {
 
     // 世界事件：按她最新发言相关度筛
     const evRes = pickEvents(leadText, ctxText, loadState().events || [], settings.maxEvents);
-    result.events = evRes.picked;
+    /*
+     * ⭐ 补②：**转入编年的条目 ⛔ 不再塞进去**（她：「连续 3 轮没进 ⇒ 转编年留档、不再占注入位、不再强塞」）。
+     *   为什么在这一层做：这里才是"这一轮到底带什么进去"的**唯一出口**；
+     *   在别处过滤都会漏（这也是唯一能被用例验到的地方）。
+     *   ⚠️ 只挡**事件**这一路：人物是按"她这条发言里点到谁"挑的，
+     *     若因为"转过编年"就把人挡掉，那她真点到时反而召回不上来 —— 那是帮倒忙。
+     */
+    const archivedTitles = new Set(
+        (loadState().recallRecords || [])
+            .filter((r) => r && r.archived === true)
+            .reduce((acc, r) => acc.concat(Array.isArray(r.events) ? r.events : []), [])
+            .map((x) => trimText(x))
+            .filter(Boolean)
+    );
+    const pickedEvents = Array.isArray(evRes.picked)
+        ? evRes.picked.filter((e) => {
+            const title = trimText(e && (e.title || e.text || e));
+            return !title || !archivedTitles.has(title);
+        })
+        : evRes.picked;
+    result.events = pickedEvents;
+    const heldBack = (Array.isArray(evRes.picked) ? evRes.picked.length : 0) - pickedEvents.length;
+    if (heldBack > 0) {
+        notes.push('有 ' + String(heldBack) + ' 条世界事件连续几轮没进正文，已转编年留档 ⇒ 这轮不再带它们');
+    }
     if (evRes.dropped > 0) {
         notes.push('世界事件共 ' + String((loadState().events || []).length) + ' 条，按相关度取了 ' + String(evRes.picked.length) + ' 条，其余排后台');
     }

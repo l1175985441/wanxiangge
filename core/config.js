@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.2.89';
+export const APP_VERSION = '0.2.90';
 
 export const LEDGER_VERSION = 3;
 
@@ -142,6 +142,13 @@ export const REQUEST_TIMEOUT_MS = 100000;
 
 /** 重试上限（⛔ 不许无限重试） */
 export const RETRY_LIMIT = 2;
+
+/*
+ * ⭐ 补②「送达回执」：注入发出去了，但正文连续几轮都没接，
+ *   就**转进编年留档、⏔ 再占注入位**（她：「三轮没时机就转编年、不再强塞」）。
+ *   她说"数字先按 3，做在可改的地方" ⇒ 就是这一行。
+ */
+export const ARRIVE_MISS_LIMIT = 3;
 
 /** 单轮基础请求步数（配合 callBudget：世界状态 1 步 ＋ 角色合并推演 1 步 ＝ 单轮最多 2 次请求） */
 export const CALLS_PER_TURN = 1;

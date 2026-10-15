@@ -43,9 +43,11 @@ function retryTokens(base, attempt) {
 }
 import { getChat } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
+// ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
 import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
     updateWorld, upsertQuest,
+    markArrivals,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
@@ -859,6 +861,17 @@ export async function runUpdate(opts) {
         messages: msgs,
         fellBack: cleaned.fellBack,
     };
+    /*
+     * ⭐ 补②：材料到手了 ⇒ **先对着新正文核上一轮注入的条目**（到底接没接）。
+     *   放在这里的理由：此刻新正文已经在手，而且**还没开始推演**（核完再推）。
+     *   ⚠️ 它只读与标记，⏔ 改推演结果；出错也⏔ 影响主流程。
+     */
+    try {
+        markArrivals(material.rawText || material.recentText, floor);
+    } catch (e) {
+        console.warn('[万象阁] 送达回执没算成：', e);
+    }
+
     if (!trimText(material.recentText)) {
         setPipeline({ status: 'failed', step: '取材料', error: '这一楼附近没有可读的正文', endedAt: Date.now(), text: '没材料可推' });
         running = false;

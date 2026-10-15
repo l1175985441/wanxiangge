@@ -2415,6 +2415,20 @@ function secReport(host, intoBox) {
         if (trimText(rec.injectType)) {
             body.appendChild(el('div', 'wxg-notes', '触发方式：' + trimText(rec.injectType)));
         }
+        /*
+         * ⭐ 补②「送达回执」：**发出去了 ≠ 正文接到了**。这一行就是那后半句。
+         *   · 已进正文（#N）／候补（第 k/3 轮没进）／已转编年（不再占注入位）
+         *   ⛔ 只如实报，不替正文辩解；没标记的老记录就写「还没核过」。
+         */
+        const arriveLine = trimText(rec.arrivedNote)
+            || (rec.injectStatus === 'ok' ? '还没核过（下次更新时会对着正文核一遍）' : '');
+        if (arriveLine) {
+            const aRow = el('div', 'wxg-notes', '送达：' + arriveLine);
+            if (rec.archived === true) {
+                aRow.setAttribute('data-tone', 'bad');
+            }
+            body.appendChild(aRow);
+        }
         det.appendChild(body);
         /*
          * ⭐ 点行弹浮层（照目标包：跟名册那件**同一套手法**）。
