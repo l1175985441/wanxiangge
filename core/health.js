@@ -16,7 +16,7 @@ import { LEDGER_VERSION, APP_VERSION } from './config.js';
 import { loadState } from './state.js';
 import { getSettings } from './settings.js';
 import { buildStateSummary } from './summary.js';
-import { floorLabel } from './utils.js';
+import { floorLabel, trimText } from './utils.js';
 
 /** 有没有值（⛔ 只回答"有没有"，绝不回显内容） */
 function has(v) {
@@ -168,6 +168,58 @@ export function buildHealthReport(opts) {
             }
         }
         lines.push('（合计 ' + String(total) + ' 次，只留最近 30 条）');
+    }
+
+    /*
+     * ⭐⭐ 把她点名的那几条"真机复看"做成**体检里的一键自检**（点一下就能看，不用来问我）：
+     *   · 好感到底读到没读到（她 [2]）
+     *   · 名册里的别名／身份有没有落上（她 [18]：一人一条、身份带上）
+     *   · 上一轮读到的正文多长（她那条卡把正文包在成对块里，读不到就什么都白搭）
+     * ⚠️ 全部**同步**（这个函数是同步的、调用方也是同步的——⛔ 不许在这里 await，今晚踩过）
+     * ⚠️ 全部 **try/catch**：体检本身绝不能被探针弄挂（否则本末倒置）
+     */
+    try {
+        const st = loadState();
+        const roster = Array.isArray(st.characters) ? st.characters : [];
+        lines.push('');
+        lines.push('【验收自检】（她点名要看的，点一下就有）');
+
+        // ① 好感：从状态里已经读到的数值看（每回合 refreshAffinity 会写进来）
+        try {
+            const withAff = roster.filter((c) => trimText(c.affinity));
+            lines.push('· 好感：名册 ' + String(roster.length) + ' 人里，'
+                + String(withAff.length) + ' 个有数值'
+                + (withAff.length
+                    ? '（例：' + withAff.slice(0, 4).map((c) => c.name + ' ' + trimText(c.affinity)).join('、') + '）'
+                    : ' ⇒ ⚠ 一个都没有：看一下你那条「手机」里有没有 名字/数字，或「好感数据源」那格填没填'));
+        } catch (e) {
+            lines.push('· 好感：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
+        }
+
+        // ② 名册：别名／身份落上没有（她 [18] 的"一人一条、身份带上"）
+        try {
+            const withAlias = roster.filter((c) => Array.isArray(c.aliases) && c.aliases.length);
+            const withIdent = roster.filter((c) => trimText(c.identity));
+            lines.push('· 名册：带别名 ' + String(withAlias.length) + ' 个、身份非空 ' + String(withIdent.length) + ' 个'
+                + (withAlias.length
+                    ? '（例：' + withAlias.slice(0, 3).map((c) => c.name + '=' + c.aliases.join('／')).join('、') + '）'
+                    : ''));
+        } catch (e) {
+            lines.push('· 名册：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
+        }
+
+        // ③ 正文：上一轮引擎实际读到多少字（读不到＝引擎在瞎干）
+        try {
+            const lg = (st.ledger && Array.isArray(st.ledger.records)) ? st.ledger.records : [];
+            const last = lg.length ? lg[lg.length - 1] : null;
+            const n = last && last.lead ? String(last.lead).length : 0;
+            lines.push('· 正文：上一轮读到的原文 ' + String(n) + ' 字'
+                + (n >= 200 ? ' ✓（正常）' : ' ⇒ ⚠ 偏少：可能被「四格」剥太狠，去读取控制看看'));
+        } catch (e) {
+            lines.push('· 正文：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
+        }
+    } catch (e) {
+        lines.push('· 验收自检整体没跑成：' + String(e && e.message ? e.message : e));
     }
 
     return { text: lines.join('\n'), rows, fails };
