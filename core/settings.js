@@ -108,6 +108,12 @@ function loadSettings() {
     merged.capChronicle = clampNumber(merged.capChronicle, 100, 5000, DEFAULT_SETTINGS.capChronicle);
     merged.capHidden = clampNumber(merged.capHidden, 5, 200, DEFAULT_SETTINGS.capHidden);
     merged.capPast = clampNumber(merged.capPast, 2, 20, DEFAULT_SETTINGS.capPast);
+    /*
+     * ⭐ L2：**load 这边也夹一下**。
+     *   常规写入走 patchSettings（那边 NUM 表里有它），
+     *   但**直接改过设置文件的旧档**读进来时没人夹 ⇒ 超大值会一路带进渲染（低危但不该）。
+     */
+    merged.pastFloorCut = clampNumber(merged.pastFloorCut, 0, 50, DEFAULT_SETTINGS.pastFloorCut);
 
     merged.sortMode = merged.sortMode === 'name' ? 'name' : 'related';
     merged.enabled = merged.enabled !== false;

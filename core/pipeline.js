@@ -916,7 +916,14 @@ export async function runUpdate(opts) {
     }
 
     running = true;
-    cancelRequested = false;
+    /*
+     * ⭐ L3（防御性）：**补批调进来时⏔ 重置取消标记**。
+     *   她按取消后，补批循环会在**每楼开跑前**检查一次（当前路径靠那个检查兜住，所以现在不可达）；
+     *   但只要将来有人在入口前面加一个 await，这里就会**把那次取消吞掉**。
+     */
+    if (o.keepCancel !== true) {
+        cancelRequested = false;
+    }
     const chat = getChat();
     const floor = Number.isFinite(o.floor) && o.floor >= 0 ? o.floor : chat.length - 1;
 
@@ -1215,7 +1222,8 @@ export async function runBackfill(opts) {
         setPipeline({ text: '补推中：' + floorLabel(floor) + '（' + String(done + 1) + '/' + String(todo.length) + '）', cursor: done });
         // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
         // eslint-disable-next-line no-await-in-loop
-        const res = await runUpdate({ manual: true, floor });
+        // ⭐ L3：补批循环**传 keepCancel** ⇒ 入口不会把她刚按的"取消"吞掉（防御性）
+        const res = await runUpdate({ manual: true, floor, keepCancel: true });
         if (!res.ok) {
             failedAt = floorLabel(floor) + '：' + (res.reason || '失败');
             break;

@@ -11,7 +11,8 @@
  *   另：失败只记**类别**（网络／超时／截断／格式／其它），⛔ 不记 error 原文。
  */
 
-import { LEDGER_VERSION } from './config.js';
+// ⭐ L1：版本兜底用它（调用方不传 opts.version 时，不该报「未知」）
+import { LEDGER_VERSION, APP_VERSION } from './config.js';
 import { loadState } from './state.js';
 import { getSettings } from './settings.js';
 import { buildStateSummary } from './summary.js';
@@ -109,7 +110,8 @@ export function buildHealthReport(opts) {
     const fails = kinds.map((k) => [k, log.filter((x) => x && x.kind === k).length]);
 
     const rows = [
-        ['插件版本', String(o.version || '未知')],
+        /* ⭐ L1：调用方没传就用自己的版本号（防御） */
+        ['插件版本', String(o.version || APP_VERSION || '未知')],
         ['数据版本', 'v' + String(LEDGER_VERSION)],
         ['—— 开关 ——', ''],
         ['新楼生成后自动更新', s.autoUpdate ? '开' : '关'],
