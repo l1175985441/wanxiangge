@@ -528,7 +528,13 @@ function applyCharacter(raw, material, conflicts) {
         let why = '';
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
-        } else if (onStage && !textAppearsIn(cur, material.recentText || material.rawText)) {
+        } else if (onStage && material.fellBack !== true && !textAppearsIn(cur, material.recentText || material.rawText)) {
+            /*
+             * ⭐ 10-16 真语料教训：**清洗失败时⏔ 下“编造”判词**。
+             *   她那张卡把正文整个包在成对块里 ⇒ 四格清洗把正文也剥了（只剩 30 字）
+             *   ⇒ 这时“正文里找不到”**不能说明任何事**（我们压根没读到正文）
+             *   ⇒ **⏔ 献上一排“越界·现场编造”**（那正是她 04:20 那屏噪音）。读不到就不指控。
+             */
             /*
              * ⭐ 她 [5]/[7] 的原话：她叫"编造"的是**"正文没有描写的事"**，
              *   ⏔"把正文有的事换个说法"** ⇒ 分两档：
@@ -640,7 +646,21 @@ async function stepCharacters(material, attempt) {
      *   ⚠️ 原注释担心"清洗会把明明写到的人判成不在场"——四格默认只剥"成对机器块＋HTML注释"，
      *     她的正文不在那两类里 ⇒ 不会误判；万一她自己把正文也列进了排除，才会退到 rawText（保底）。
      */
-    const onStage = whoIsOnStage(material.recentText || material.rawText, roster);
+    /*
+     * ⭐ 10-16 拿她 **11 层真语料**端到端跑出来的坑：
+     *   她那条消息**原文 6675 字，四格清洗后只剩 30 字**（`【未定位】`）
+     *   —— 她那张卡把**正文整个包在成对块里**（需求书 §8 早提过这种卡，还说要留总开关）。
+     *   ⇒ 若直接拿清洗后的去判“谁在场”，**一个人都判不出来** ⇒ 那 6 方全被当“不在场”、该做总结的没做总结。
+     *   ⇒ **兜底**：清洗后**一个名字都没了**就退回原文（宁可多算、⏔ 全判不在场）。
+     */
+    const bodyForStage = (() => {
+        const cleaned = material.recentText || '';
+        if (!trimText(cleaned)) {
+            return material.rawText || '';
+        }
+        return whoIsOnStage(cleaned, roster).length ? cleaned : (material.rawText || cleaned);
+    })();
+    const onStage = whoIsOnStage(bodyForStage, roster);
     const onStageIds = new Set(onStage.map((c) => c.id));
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）

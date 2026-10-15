@@ -190,8 +190,17 @@ export function cleanMessageText(raw) {
         removed += cmt.removed;
     }
 
-    // ⑤ 剥完为空 ⇒ 退回原文（⛔ 不比剥之前更坏）
-    if (!trimText(text)) {
+    /*
+     * ⑤ 剥完（几乎）为空 ⇒ 退回原文（⛔ 不比剥之前更坏）
+     *
+     * ⭐ 10-16 **拿她 11 层真语料跑出来的坑**：那条消息**原文 6675 字、剥完只剩 30 字**（`【未定位】`）
+     *   —— 她那张卡把**正文整个包在成对块里**（§8 早提过这种卡、还说要留总开关）。
+     *   原来只判"**全空**"才退回 ⇒ **剩 30 字不算空、兜底不触发** ⇒ 引擎拿 30 个字干活（等于没读到）。
+     *   ⇒ 改成"**剩得太少也算被剥没**"：剥完不足原文的 **15%**（且原文够长 ≥200 字）就退回原文。
+     */
+    const leftLen = trimText(text).length;
+    const origLen = trimText(original).length;
+    if (!leftLen || (origLen >= 200 && leftLen < origLen * 0.15)) {
         return { text: original, removed, fellBack: true };
     }
 
