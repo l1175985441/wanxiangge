@@ -85,6 +85,37 @@ export function cancelUpdate() {
 const PREDICT_PAT = /下一步|接下来(?:要|会|去|就)|后续(?:预测|会|将)|准备(?:去|要|着)|即将(?:去|要|会)|打算(?:去|要)|等下(?:要|去)|待会儿(?:要|去)|然后(?:就)?(?:去|要)|明天(?:要|会|去)|稍后(?:要|会)/;
 
 /** 文案里是否含"下一步／预判" */
+/**
+ * ⭐⭐ 她 [18]/[3] ＋ 10-16 实锤：**暗线 note 的核闸**。
+ *   她报的原句：「露娜因额头被恶作剧划上创口贴而丧失说话与变身指引能力，
+ *   **正被困于学校围墙外的空草地中急待解救**」
+ *   —— 书里、正文里：「困／解救／围墙／恶作剧」**四词零出处**；
+ *   正文里露娜是**主动潜伏、正面接近**（方向正好相反）。
+ *   她的口径：暗线**只该写"谁在什么方向上活动、挂在什么时间条件"**，
+ *   ⏔ 许发明**具体事件／处境**（⏔"被困在…待解救"式事故叙述）。
+ *   ⚠️ 只拦**事故／待救／未来态**；正常的冲突（对峙／较量／追查）不拦。
+ * @returns 空串＝没问题；非空＝拦下来的理由
+ */
+export function looksLikeFabricatedTrouble(text) {
+    const t = trimText(text);
+    if (!t) {
+        return '';
+    }
+    const FUTURE = ['待解救', '等待解救', '急待', '即将', '准备去', '下一步', '将会', '明天要'];
+    const ACCIDENT = ['被困', '困于', '被绑架', '遭绑架', '昏迷', '重伤', '奄奄一息', '命悬一线', '急需救助'];
+    for (const w of FUTURE) {
+        if (t.indexOf(w) >= 0) {
+            return '写到了"未来／待救"（' + w + '）——暗线只写现在的动向';
+        }
+    }
+    for (const w of ACCIDENT) {
+        if (t.indexOf(w) >= 0) {
+            return '发明了具体事故处境（' + w + '）——暗线只写"谁在什么方向上活动"';
+        }
+    }
+    return '';
+}
+
 export function looksLikePrediction(text) {
     return PREDICT_PAT.test(asText(text));
 }
@@ -230,6 +261,8 @@ async function stepWorld(material, attempt) {
     const hiddenIn = Array.isArray(v.hidden) ? v.hidden : [];
     let advanced = 0;
     let blocked = 0;
+    // ⭐ 她 [18]/[3]：暗线里"发明具体事件／处境、写到未来态"被核闸拦下的条数
+    let flagged = 0;
     const currentClock = loadState().world.clock;
     for (const raw of hiddenIn) {
         const name = trimText(raw && raw.name);
@@ -246,13 +279,30 @@ async function stepWorld(material, attempt) {
                 existing.note = trimText(raw.note) || existing.note;
                 continue;   // 没到点：⛔ 不许提前冒头
             }
+            /*
+             * ⭐ 她 [18]/[3]：**推进时也过核闸**（⏔ 只拦新建那一条）。
+             */
+            const noteUp = trimText(raw.note) || existing.note;
+            const badUp = looksLikeFabricatedTrouble(noteUp);
             upsertHidden({
                 name,
                 stage: stageIn || (wantsAdvance ? nextStage(existing.stage, existing.kind) : existing.stage),
                 trigger: trimText(raw.trigger) || existing.trigger,
                 tier: trimText(raw.tier) || existing.tier,
-                note: trimText(raw.note) || existing.note,
+                note: noteUp,
+                suspect: !!badUp || existing.suspect === true,
+                suspectWhy: badUp || existing.suspectWhy || '',
             });
+            if (badUp) {
+                flagged += 1;
+                addChronicle({
+                    floor: material.floor,
+                    kind: '⚠ 越界·暗线编造',
+                    who: name,
+                    text: noteUp.slice(0, 80) + '（' + badUp + '）',
+                    clock: currentClock,
+                });
+            }
             if (wantsAdvance && due.due) {
                 advanced += 1;
                 addChronicle({
@@ -264,14 +314,28 @@ async function stepWorld(material, attempt) {
                 });
             }
         } else {
+            const noteNew = trimText(raw.note);
+            const badNew = looksLikeFabricatedTrouble(noteNew);
             const fresh = upsertHidden({
                 name,
                 stage: stageIn || '萌芽',
                 trigger: trimText(raw.trigger),
                 tier: trimText(raw.tier) || '几天内',
-                note: trimText(raw.note),
+                note: noteNew,
                 kind: trimText(raw.kind),
+                suspect: !!badNew,
+                suspectWhy: badNew,
             });
+            if (badNew) {
+                flagged += 1;
+                addChronicle({
+                    floor: material.floor,
+                    kind: '⚠ 越界·暗线编造',
+                    who: name,
+                    text: noteNew.slice(0, 80) + '（' + badNew + '）',
+                    clock: currentClock,
+                });
+            }
             if (fresh) {
                 addChronicle({
                     floor: material.floor,
