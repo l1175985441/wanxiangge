@@ -189,12 +189,24 @@ export function buildHealthReport(opts) {
 
         // ① 好感：从状态里已经读到的数值看（每回合 refreshAffinity 会写进来）
         try {
+            /*
+             * ⭐ 10-16 真机实测（她那台酒馆）：好感那格里**混着文字** ——
+             *   「月野兔 = 未接入」「月野兔 = 本人」「杰戴特 = 敌对」⇒ 那不是数值，读不进注入。
+             *   ⛔ 不擅自改她的数据；**把是文字的那几个点名报出来**，她自己定。
+             */
             const withAff = roster.filter((c) => trimText(c.affinity));
+            const numAff = withAff.filter((c) => /^-?\d+(\.\d+)?$/.test(trimText(c.affinity)));
+            const txtAff = withAff.filter((c) => !/^-?\d+(\.\d+)?$/.test(trimText(c.affinity)));
             lines.push('· 好感：名册 ' + String(roster.length) + ' 人里，'
-                + String(withAff.length) + ' 个有数值'
-                + (withAff.length
-                    ? '（例：' + withAff.slice(0, 4).map((c) => c.name + ' ' + trimText(c.affinity)).join('、') + '）'
-                    : ' ⇒ ⚠ 一个都没有：看一下你那条「手机」里有没有 名字/数字，或「好感数据源」那格填没填'));
+                + String(numAff.length) + ' 个是**数字**'
+                + (numAff.length
+                    ? '（例：' + numAff.slice(0, 4).map((c) => c.name + ' ' + trimText(c.affinity)).join('、') + '）'
+                    : ' ⇒ ⚠ 一个数字都没有：看一下你那条「手机」里有没有 名字/数字，或「好感数据源」那格填没填'));
+            if (txtAff.length) {
+                lines.push('   ⚠ 另有 ' + String(txtAff.length) + ' 个格子里是**文字不是数字**（不是数值、进不了注入）：'
+                    + txtAff.slice(0, 6).map((c) => c.name + ' = ' + trimText(c.affinity)).join('、')
+                    + ' ⇒ 要么手工改成数字，要么让「手机」那条读一遍覆盖掉（⛔ 引擎不擅自改）');
+            }
         } catch (e) {
             lines.push('· 好感：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
         }
