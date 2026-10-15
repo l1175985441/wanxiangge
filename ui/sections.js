@@ -2575,7 +2575,8 @@ function secSteps(host, intoBox) {
      */
     // ⭐ 统计表（一行一类，总共 N 楼与逐楼清单都收在同一张「进度」卡里）
     const cStat = card('进度');
-    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'   // ⚠️ num() 自带" 楼"，⏔ 再加));
+    // ⚠️ `num()` 自带" 楼"（它是 `String(n) + ' 楼'`）——这里⏔ 再加单位
+    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
     /*
      * ⭐ 目标核对 1（目标：状态页）：**三行胶囊 ⇒ 两列小表**。
      *   她 2026-10-15 00:22 亲手给的目标图里，这一格是一张表：
