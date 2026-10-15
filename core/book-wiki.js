@@ -18,10 +18,10 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState, saveState } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
-import { getEntries, extractNameFromTitle, resolveBookName } from './worldbook.js';
+import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner, extractFormNames } from './worldbook.js';
 
 /** 一次最多送多少条给模型（太长就分片；⛔ 不是"过滤掉"，是分批读完） */
 const CHUNK = 40;
@@ -316,7 +316,7 @@ export function applyWiki(wiki) {
  */
 export function ruleBasedPeople(entries) {
     const people = [];
-    const seen = new Set();
+    const seen = new Map();
     let skipped = 0;
     for (const e of Array.isArray(entries) ? entries : []) {
         const raw = trimText(e && (e.comment || e.name || e.key || e.keys));
@@ -331,12 +331,40 @@ export function ruleBasedPeople(entries) {
             skipped += 1;
             continue;
         }
-        const k = matchKey(person);
-        if (seen.has(k)) {
+        /*
+         * ⭐⭐ 她原话 [18]：「同一角色**被拆成两条记录**？合并一键解决」
+         *   —— 她 10-16 首夜实测：名册里「月野兔」与「水手月亮」被当两个人（**全表 6 组同型**）。
+         *   而书里**自己写着属主**：`[角色] 水手月亮` 的内容头＝「【角色档案：月野兔】…」。
+         *   ⇒ **规则兜底这条真路也要认属主**（⛔ 不能只在 worldbook.js 那个没人调的函数里认）。
+         *   ⚠️ 防误并：`水手小月亮` 的属主是**小小兔**（真另一人）——照它自己写的属主走。
+         */
+        const body = trimText(e && e.content);
+        const owner = extractArchiveOwner(body);
+        const isPart = !!owner && matchKey(owner) !== matchKey(person);
+        const realName = isPart ? owner : person;
+        const k = matchKey(realName);
+        if (!k) {
+            skipped += 1;
             continue;
         }
-        seen.add(k);
-        people.push({ name: person });
+        let rec = seen.get(k);
+        if (!rec) {
+            rec = { name: realName, aliases: [], identityHint: '' };
+            seen.set(k, rec);
+            people.push(rec);
+        }
+        if (isPart && rec.aliases.indexOf(person) < 0) {
+            rec.aliases.push(person);
+        }
+        {
+            const forms = extractFormNames(body);
+            const cand = forms.concat(isPart ? [person] : []);
+            for (const f of cand) {
+                if (f && !rec.identityHint) {
+                    rec.identityHint = f;
+                }
+            }
+        }
     }
     return { people, skipped };
 }
@@ -357,6 +385,43 @@ export async function importBookWiki(bookName, opts) {
         if (opts && opts.allowRuleFallback) {
             const rb = ruleBasedPeople(read.entries);
             const added = addCharacters(rb.people.map((p) => p.name));
+    /*
+     * ⭐⭐ 她原话 [18]：分条归位**落到人身上**。
+     *   ← 光认属主（不新建人）只做了一半：别名与身份还得**写进那个人**，
+     *     否则"水手月亮"这个名字就没了留档（她："合并成名字有个毛线用"——别名也得留）。
+     *   ⚠️ 身份：**只在格空、且没被手改过**时才写（她 §10：手改的不许冲）。
+     */
+    try {
+        for (const pp of rb.people) {
+            if (!pp.aliases.length && !pp.identityHint) {
+                continue;
+            }
+            const c = findCharacterByName(pp.name);
+            if (!c) {
+                continue;
+            }
+            const patch = {};
+            const have = new Set((Array.isArray(c.aliases) ? c.aliases : []).map((x) => String(x)));
+            const merged = (Array.isArray(c.aliases) ? c.aliases : []).slice();
+            for (const a of pp.aliases) {
+                if (!have.has(String(a))) {
+                    merged.push(a);
+                }
+            }
+            if (merged.length !== (Array.isArray(c.aliases) ? c.aliases : []).length) {
+                patch.aliases = merged;
+            }
+            const manual = Array.isArray(c.manualFields) && c.manualFields.indexOf('identity') >= 0;
+            if (pp.identityHint && !trimText(c.identity) && !manual) {
+                patch.identity = pp.identityHint;
+            }
+            if (Object.keys(patch).length) {
+                updateCharacter(c.id, patch);
+            }
+        }
+    } catch (e) {
+        console.warn('[万象阁] 分条归位没落上：', e);
+    }
             return {
                 ok: true, fellBack: true, reason: cls.reason,
                 read: read.entries.length, total: read.total, disabled: read.disabled,
