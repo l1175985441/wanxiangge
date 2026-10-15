@@ -15,6 +15,8 @@ import { getSettings } from './settings.js';
 import { WORLD_BOOK_NAME } from './config.js';
 // ⭐ 世界书**多通道**（酒馆助手／旧通道／新版接口，有哪个用哪个）
 import { listBooks, readBookEntries, channelReport } from './wb-channel.js';
+// ⭐ 她 [2]：好感从正文标签读（标签块的抽取用现成的）
+import { pickNamedBlocks } from './extract.js';
 
 /** 包裹用的括号对（成对剥壳用） */
 const BRACKETS = [
@@ -221,16 +223,88 @@ function findStandaloneName(line, forms, allForms) {
  *   · 在每个条目里，找"跟这个角色名在同一段话里"的分数；
  *   · 找到就写进角色的 affinity 字段并注明来源；**找不到就留着不动**（⛔ 不编、不清零）。
  */
+/**
+ * ⭐⭐ 她原话 [2]（她 10-16 亲口）：「**手机你就让他读标签吧，这个随便能读正文的标签就行**」
+ *   ⇒ 好感＝从**正文里的标签块**读（⏔ 只认她配的那个世界书条目）；
+ *     **⏔ 自己算、⏔ 自己编、⏔ 另存一份**——只“读进来”。
+ *   「随便…就行」的落法：**先按她填的名字找那块标签；找不到就扫正文里任何标签块**。
+ *   ⚠️ 只收**名字能对上名册（含别名）**的那些——⏔ 把世界里别的数字当成好感。
+ * @returns {Array<{name:string, value:string}>}
+ */
+export function affinityFromText(text, roster, sourceTag) {
+    const src = trimText(text);
+    const tag = trimText(sourceTag);
+    if (!src) {
+        return [];
+    }
+    // ① 先试她填的那个标签名（名字在正文里出现才算）
+    let body = '';
+    if (tag) {
+        const picked = pickNamedBlocks(src, [tag]);
+        if (trimText(picked) && trimText(picked) !== src) {
+            body = picked;
+        }
+    }
+    // ② "随便…就行"：没那块标签就**扫全文**（名字能对上名册的才收）
+    const hay = body || src;
+    const out = [];
+    for (const c of (Array.isArray(roster) ? roster : [])) {
+        const names = [trimText(c && c.name)].concat(toList(c && c.aliases)).filter(Boolean);
+        for (const nm of names) {
+            /*
+             * 只认"名字 紧跟着 分隔符 紧跟着 数字"这种写法（她那边就是这样的账）。
+             * ⏔ 把只是提到名字的别的句子也当成好感。
+             */
+            const re = new RegExp(nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[：:]\\s*(-?\\d+(?:\\.\\d+)?)');
+            const m = hay.match(re);
+            if (m) {
+                out.push({ name: trimText(c.name), value: trimText(m[1]) });
+                break;
+            }
+        }
+    }
+    return out;
+}
+
 export async function refreshAffinity() {
     const settings = getSettings();
     const source = trimText(settings.affinitySource);
-    if (!source) {
-        return { ok: false, reason: '没配好感数据源' };
-    }
     const state = loadState();
     const roster = state.characters || [];
     if (!roster.length) {
         return { ok: false, reason: '名册是空的' };
+    }
+    /*
+     * ⭐⭐ 她 [2]（她 10-16 亲口）：「**手机你就让他读标签吧，这个随便能读正文的标签就行**」
+     *   ⇒ **先从正文的标签块读**（读到就用，⏔ 非得先去世界书找条目）；
+     *     **一条都没读到** ⇒ **照旧往下走世界书那条路**（⏔ 老账不许炸）。
+     *   ⚠️ 只“读进来”：⏔ 自算、⏔ 自编、⏔ 另存一份（她的原话）。
+     */
+    try {
+        const ctx0 = getCtx();
+        const msgs = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat.slice(-8) : [];
+        const text = msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n');
+        const hit = affinityFromText(text, roster, source);
+        if (hit.length) {
+            let wrote = 0;
+            for (const h of hit) {
+                const c = roster.filter((x) => matchKey(x.name) === matchKey(h.name))[0];
+                if (c && trimText(c.affinity) !== h.value) {
+                    c.affinity = h.value;
+                    c.affinitySource = '正文标签' + (source ? '（' + source + '）' : '');
+                    wrote += 1;
+                }
+            }
+            if (wrote) {
+                saveState();
+            }
+            return { ok: true, reason: '从正文标签读到 ' + String(hit.length) + ' 个好感', from: 'text', wrote };
+        }
+    } catch (e) {
+        console.warn('[万象阁] 从正文标签读好感没成：', e);
+    }
+    if (!source) {
+        return { ok: false, reason: '正文里没找到好感标签，也没配好感数据源' };
     }
 
     /*
