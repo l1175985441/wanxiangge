@@ -20,7 +20,8 @@ import { rollbackLast } from '../core/state.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { publishToBook } from '../core/book.js';
 import { applyAppearance } from './theme.js';
-import { openWorkspace } from './workspace.js';
+// ⭐ 修复单 #26：清空那颗要能切到「总控」页并在**工作台根里**找按钮
+import { openWorkspace, showIndex, workspaceRoot, refreshWorkspace } from './workspace.js';
 import { toast } from './toast.js';
 
 let ballEl = null;      // 小球
@@ -315,7 +316,16 @@ function onMiniClick(e) {
      *    免得两边行为分叉）。
      */
     if (action === 'update') {
-        runUpdate({ manual: true });
+        /*
+         * ⭐ 修复单 #26：**跑完了要再刷一次**。
+         *   原来只在"开始"时刷一下 ⇒ 它跑完了小框里还是**旧数据**（要手动点一下才变）。
+         */
+        runUpdate({ manual: true }).then(() => {
+            refreshMini();
+            if (typeof refreshWorkspace === 'function') {
+                try { refreshWorkspace(); } catch (e) { /* 工作台没开就算了 */ }
+            }
+        }).catch(() => {});
         toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
         refreshMini();
         return;
@@ -356,7 +366,10 @@ function onMiniClick(e) {
     }
     if (action === 'op-backfill') {
         import('../core/pipeline.js').then(({ runBackfill }) => {
-            runBackfill();
+            // ⭐ #26：同上——补推是分批跑的，跑完也该再刷一次
+            Promise.resolve(runBackfill()).then(() => {
+                refreshMini();
+            }).catch(() => {});
             toast.info('开始补推历史（分批跑，可随时取消）');
         });
         return;
@@ -365,10 +378,27 @@ function onMiniClick(e) {
         openWorkspace();
         // 等工作台挂上了，再把「清空」的确认盒点开（她在那里看数量、手打确认）
         setTimeout(() => {
-            const btn = document.querySelector('[data-action="clear-world-open"]');
-            if (btn) {
-                btn.click();
+            /*
+             * ⭐ 修复单 #26：**先切到「总控」页**。
+             *   为什么：那个 `clear-world-open` 入口**只在总控页**上（sections 里只有那一处），
+             *   她停在别的页（名册／状态／世界状态…）时 `querySelector` **什么都找不到**
+             *   ⇒ 点了没反应（她报的正是这个）。
+             *   ⚠️ 也⏔ 在整份 document 里找：只在**她工作台根**里找（⏔ 抓到抽屉里那份旧副本）。
+             */
+            try {
+                showIndex(4, true);   // 4 = 总控页（跟工作台左栏同一份顺序）
+            } catch (e) {
+                console.warn('[万象阁] 切总控页没成：', e);
             }
+            setTimeout(() => {
+                const root = workspaceRoot() || document;
+                const btn = root.querySelector('[data-action="clear-world-open"]');
+                if (btn) {
+                    btn.click();
+                } else {
+                    toast.info('工作台里的「清空这个世界」在「总控」页，你点一下就能看到');
+                }
+            }, 250);
         }, 600);
         return;
     }

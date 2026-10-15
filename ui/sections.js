@@ -459,41 +459,13 @@ function secStatus(host, intoSelf) {
      * ⚠️ 这段原来是「现在怎么样」卡里那组操作钮（`cAct`）——**已经没人挂它了**
      *   （操作改挂总控页操作卡 ＋ 悬浮球）⇒ 留着就是**死代码**（每次重画白拼一遍）。删掉。
      */
-    if (clearWorldOpen) {
-        const prev = ledgerClearPreview();
-        const danger = el('div', 'wxg-danger-box wanxiangge');
-        danger.appendChild(el('div', null, '⚠ 这一步**回不来**。将清掉**这个聊天的世界**：'));
-        const listBox = el('div', 'wxg-danger-list');
-        for (const k of Object.keys(prev)) {
-            listBox.appendChild(el('div', null, '· ' + k + '：' + String(prev[k]) + ' 条'));
-        }
-        listBox.appendChild(el('div', null, '· 世界书《万象阁 · 世界后台》：**不动**（她选的②）'));
-        listBox.appendChild(el('div', null, '· 聊天正文、别的扩展：**不动**'));
-        danger.appendChild(listBox);
-        danger.appendChild(el('div', 'wxg-note', '想留底就先点上面的「导出与统计」导一份，再回来清。'));
-        const typeRow = el('div', 'wxg-card-actions');
-        const tip = el('span', 'wxg-note', '把下面这四个字打进去才能点：');
-        tip.style.marginRight = '6px';
-        typeRow.appendChild(tip);
-        const inp = el('input', 'wxg-danger-typing');
-        inp.type = 'text';
-        inp.id = 'wxg-clear-typing';
-        inp.placeholder = CLEAR_WORD;
-        inp.setAttribute('autocomplete', 'off');
-        typeRow.appendChild(inp);
-        const go = button('确认清空', 'clear-world-do', 'wxg-del');
-        go.id = 'wxg-clear-go';
-        typeRow.appendChild(go);
-        typeRow.appendChild(button('算了', 'clear-world-cancel'));
-        danger.appendChild(typeRow);
-        danger.appendChild(el('div', 'wxg-note', '（打错字点不动；清完会给回执，写清清掉了多少条）'));
-        /*
-         * ⚠️ 确认盒挂在**这一页的最下面**（⛔ 不塞进两框里）：
-         *   它在总控／悬浮球点了「清空这个世界」之后才出现，是**独立一件事**，
-         *   摆进"进度框"或"世界框"都会被误读成那个框的一部分。
-         */
-        box.appendChild(danger);
-    }
+    /*
+     * ⭐ 修复单 #31(b)：这里原来还有**一份重复的「清空确认盒」**（id `wxg-clear-typing`）——
+     *   但它的**入口只在总控页**（`clear-world-open` 全库只有那一处）
+     *   ⇒ 状态页这份**永远没有人能点出来**（死代码），
+     *   而且它那个写死的 id 还把事件处理的 fallback **引到了旧份**上（已一并修）。
+     *   ⇒ 整块撕掉；她要的那份在**总控页**（输入框 id = `wxg-clear-typing-general`）。
+     */
     /*
      * ⭐ 「操作」卡**撕了**（照状态页目标态的 ⛔ 清单：「操作卡」✔️ 已移出）。
      *   它改挂到**两处**，两处合起来就是原来那 7 钮、**一处不差**：
@@ -523,7 +495,14 @@ function secStatus(host, intoSelf) {
         colProg.appendChild(ledgerLine);
     }
     two.appendChild(colProg);
-    const cWorld = el('div', 'wxg-plain');
+    /*
+     * ⭐ 修复单 #31(a)：右框补**对称的标题结构**。
+     *   原来它只是 `wxg-plain` 里孤零零一行小灰字，而左框是**一张带标题的卡** ⇒
+     *   上排两框看着不像一对（真机截图 01-状态 可证：右上只有两条小灰字、没卡片标题）。
+     *   ⇒ 用跟左框**同一个** `.wxg-card`＋`.wxg-card-h` 结构（⏔ 自己发明新样式）。
+     *   ⚠️ 标题用她熟的叫法「世界四值」（跟页内其他地方一致）。
+     */
+    const cWorld = card('世界四值');
     cWorld.appendChild(worldNote);
     two.appendChild(cWorld);
     box.appendChild(two);
@@ -4374,7 +4353,7 @@ export function bindSectionEvents(host, refresh) {
         const near = target && typeof target.closest === 'function'
             ? target.closest('.wxg-danger-box') : null;
         const box = (near && typeof near.querySelector === 'function'
-            ? near.querySelector('input') : null) || document.getElementById('wxg-clear-typing');
+            ? near.querySelector('input') : null) || document.getElementById('wxg-clear-typing-general');
         const typed = box && typeof box.value === 'string' ? box.value.trim() : '';
         if (typed !== CLEAR_WORD) {
             toast.fail('打错字了：要一字不差地打「' + CLEAR_WORD + '」才让清');
