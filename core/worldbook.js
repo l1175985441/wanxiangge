@@ -257,7 +257,20 @@ export function ledgerNamesMissingFromRoster(text, roster) {
     while (m) {
         const nm = trimText(m[1]);
         const k = matchKey(nm);
-        if (k && !have.has(k) && out.indexOf(nm) < 0) {
+        /*
+         * ⚠️ 跟读好感那边**同一套口径**：台账写全名、名册是简称（`大阪奈鲁` vs `奈鲁`）也算**能对上**
+         *   ⇒ 否则回执里会**误报**"名册里没有他"，她照着去加人 ⇒ 白加一场。
+         */
+        let known = have.has(k);
+        if (!known && k.length >= 2) {
+            for (const h of have) {
+                if (h.length >= 2 && (h.indexOf(k) >= 0 || k.indexOf(h) >= 0)) {
+                    known = true;
+                    break;
+                }
+            }
+        }
+        if (k && !known && out.indexOf(nm) < 0) {
             out.push(nm);
         }
         m = re.exec(src);
@@ -294,12 +307,34 @@ export function affinityFromText(text, roster, sourceTag) {
             continue;
         }
         const anchor = '人物/' + nm;
-        const at = hay.indexOf(anchor);
+        let at = hay.indexOf(anchor);
+        /*
+         * ⭐ 10-16 她真数据：**台账写全名、书里条目是简称**
+         *   （台账 `人物/大阪奈鲁`、名册里叫「奈鲁」）⇒ 直接找找不到
+         *   ⇒ 她的奈鲁／海野好感**永远是空的** ✗
+         *   ⇒ 退一步：直接扫台账里每个 `人物/XXX`，找一个**互相包含**的（≥2 字，⏔ 单字误配）。
+         *   ⚠️ 这种情形下，“取值起点”要算在**匹配到的那个名字之后**（⏔ 按 anchor 长度算）。
+         */
+        let tailFrom = at >= 0 ? at + anchor.length : -1;
+        if (at < 0 && nm.length >= 2) {
+            let q = hay.indexOf('人物/');
+            while (q >= 0) {
+                const rest = hay.slice(q + 3, q + 3 + 24);
+                const mm = rest.match(/^([^"]{1,20})/);
+                const cand = mm ? mm[1] : '';
+                if (cand.length >= 2 && (cand.indexOf(nm) >= 0 || nm.indexOf(cand) >= 0)) {
+                    at = q;
+                    tailFrom = q + 3 + cand.length;
+                    break;
+                }
+                q = hay.indexOf('人物/', q + 3);
+            }
+        }
         if (at < 0) {
             continue;
         }
         // 在名字后面的 60 个字符内找最近的 "value":数字
-        const tail = hay.slice(at + anchor.length, at + anchor.length + 60);
+        const tail = hay.slice(tailFrom, tailFrom + 60);
         const vm = tail.match(/"value"\s*:\s*(-?\d+(?:\.\d+)?)/);
         // 也认“名字紧跟着分隔符紧跟着数字”那种（非 JSON）
         const pm = vm || hay.slice(at, at + anchor.length + 20).match(/[\uff1a:]\s*(-?\d+(?:\.\d+)?)/);
