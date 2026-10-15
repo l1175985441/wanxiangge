@@ -2155,6 +2155,14 @@ function secApi(host) {
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short'));
     line(cCh, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
+    /*
+     * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
+     *   点一下拉回来 ⇒ 列成一排可点的小片 ⇒ 点一个就填进「推演模型」（走同一条草稿，照旧要点段底保存）。
+     *   ⚠️ 拉不到就**如实说原因**，**⏔ 影响手输**。
+     */
+    line(cCh, '', button('拉取模型列表', 'fetch-models', 'wxg-btn-sm'),
+        el('span', 'wxg-note', '（向地址 + /models 要一份清单；拉不到也可以自己填）'));
+    cCh.appendChild(el('div', 'wxg-chipwrap', '')).id = 'wxg-api-modellist';
     line(cCh, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
     line(cCh, '温度',
         numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
@@ -4962,6 +4970,48 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 case 'set-api-model-cheap': if (isChange) { patchApi({ modelCheap: target.value }); } break;
                 case 'set-api-temp': if (isChange) { patchApi({ temperature: target.value }); } break;
                 case 'set-api-maxtok': if (isChange) { patchApi({ maxTokens: target.value }); } break;
+                case 'fetch-models': {
+                    toast.info('正在拉模型列表…');
+                    const apiMod = await import('../core/apiclient.js');
+                    const boxEl = host.querySelector('#wxg-api-modellist');
+                    if (boxEl) {
+                        while (boxEl.firstChild) {
+                            boxEl.removeChild(boxEl.firstChild);
+                        }
+                    }
+                    const res = await apiMod.fetchModels({});
+                    if (!res.ok) {
+                        toast.fail('没拉到：' + res.reason + '（你仍可以自己填模型名）');
+                        break;
+                    }
+                    const chipRow = el('div', 'wxg-chiprow');
+                    for (const nm of res.list.slice(0, 80)) {
+                        const chip = el('button', 'wxg-chip', nm);
+                        chip.type = 'button';
+                        chip.setAttribute('data-action', 'pick-model');
+                        chip.setAttribute('data-name', nm);
+                        chipRow.appendChild(chip);
+                    }
+                    if (boxEl) {
+                        boxEl.appendChild(chipRow);
+                    }
+                    toast.ok('拉到 ' + String(res.list.length) + ' 个模型，点一个就填上');
+                    break;
+                }
+                case 'pick-model': {
+                    const name = trimText(target.getAttribute('data-name'));
+                    const inp = host.querySelector('#wxg-api-model');
+                    if (inp && name) {
+                        inp.value = name;
+                        // 走同一条草稿（⏔ 直接 patch：她还要点段底保存）
+                        const which = stageOne('stage-api-model', inp);
+                        if (which) {
+                            refreshSaveBar(host, which);
+                        }
+                        toast.ok('已填上：' + name + '（记得点下面的保存）');
+                    }
+                    break;
+                }
                 case 'test-api': {
                     toast.info('正在测连接…');
                     const res = await testApi();

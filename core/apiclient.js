@@ -334,6 +334,55 @@ export async function callModel(opts) {
  *      · 结尾是别的 .html（例如 login 页）⇒ 退回上一级；
  *      · 推不出来（拿不到 location）⇒ 退回绝对路径，跟以前一样。
  */
+
+/**
+ * ⭐ 目标核对 3①：**拉取模型列表**。
+ *   她原话："这个 api 没有拉取模型的键，只能自己输名字太麻烦"。
+ *   做法照酒馆连接页：向 `<url>/models` 要一份清单（带上密钥）。
+ *   ⚠️ 拉不到（站不通／没开这个接口／没埋地址）⇒ **如实说原因**，且**不影响手输**（她随时可以自己填）。
+ *   ⚠️ 这条路**不走酒馆转发**（ST 那个端口是聊天用的，没有 models）⇒ 只能直连拉。
+ */
+export async function fetchModels(opts) {
+    const api = (opts && opts.api) || (getSettings().api || {});
+    const url = trimText(api.url);
+    if (!url) {
+        return { ok: false, reason: '没填接口地址（先把地址填上才能拉）' };
+    }
+    const base = url.replace(/\/+$/, '');
+    const key = trimText(api.key);
+    // ⚠️ 不能跟用户填的 `…/chat/completions` 拼错：把尾部那段切掉再接 `/models`
+    const root = base.replace(/\/(chat\/)?completions$/i, '');
+    const ep = root + '/models';
+    try {
+        const res = await fetch(ep, {
+            method: 'GET',
+            headers: key ? { Authorization: 'Bearer ' + key } : {},
+        });
+        const rawText = await res.text().catch(() => '');
+        if (!res.ok) {
+            return {
+                ok: false,
+                reason: 'HTTP ' + String(res.status) + '｜' + rawText.slice(0, 200),
+            };
+        }
+        let data = null;
+        try {
+            data = JSON.parse(rawText);
+        } catch (e) {
+            return { ok: false, reason: '回的不是 JSON (' + rawText.slice(0, 120) + ')' };
+        }
+        const arr = data && (data.data || data.models);
+        const list = (Array.isArray(arr) ? arr : []).map((m) => trimText(m && (m.id || m.name)))
+            .filter(Boolean);
+        if (!list.length) {
+            return { ok: false, reason: '拉到了但里面一个模型名都没有' };
+        }
+        return { ok: true, list };
+    } catch (e) {
+        return { ok: false, reason: '连不上：' + String((e && e.message) || e).slice(0, 160) };
+    }
+}
+
 export function tavernApiPath() {
     const fallback = '/api/backends/chat-completions/generate';
     let loc = null;
