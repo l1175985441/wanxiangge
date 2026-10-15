@@ -82,6 +82,20 @@ export function normalizeCharacter(raw) {
          */
         noBench: c.noBench === true,
         /*
+         * ⭐ 补③ 「认知账」（最小形态）：他**该知道的**清单。
+         *   她定的：只收**发生过的、他碰得到的**（他经历的／被告知的／公开渠道的）；
+         *   每条＝一句话 ＋ 来源（亲眼／被告知／公开）＋ 来源楼层；**只增不编**；拿不准的不进。
+         *   ⚠️ 必须在**白名单里**（这里是挑字段的，不写就会被洗掉）。
+         */
+        knows: Array.isArray(c.knows) ? c.knows.filter(Boolean).map((k) => ({
+            text: trimText(k && k.text),
+            // 来源只认这三类（她定的）；认不出的归"公开"——⏔ 自己造第四类
+            source: ['亲眼', '被告知', '公开'].includes(trimText(k && k.source)) ? trimText(k.source) : '公开',
+            floor: Number.isFinite(Number(k && k.floor)) ? Number(k.floor) : -1,
+            at: Number((k && k.at) || 0),
+            manual: (k && k.manual) === true,
+        })).filter((k) => k.text) : [],
+        /*
          * ⚠️ 这个字段必须在**白名单里**：`normalizeCharacter` 是挑字段的，
          *    不写进来就会被洗掉——那"她取消勾玩家棋子"这件事下次读档就没了，
          *    自动识别又会把它勾回来（跟当初 `infer` 被洗掉是同一类坑，⛔ 别删）。
@@ -401,6 +415,60 @@ export function findCharacterByName(name) {
 }
 
 /** 改一个人物（手改状态格自动记入 manualFields，改哪格护哪格） */
+/**
+ * ⭐ 补③ 认知账：给某人**追一条**"他该知道的"。
+ *
+ * 她定的规矩：**只增不编**；**拿不准的不进**（延续"不存推断"的定例）。
+ *   ⇒ 所以这个函数**只会追加**，⏔ 修改也⏔ 删除已有的；要改走界面上的「删」。
+ *   ⇒ 而且要求**必须有来源与来源楼层**（没来源＝拿不准 ⇒ 不收）。
+ *
+ * @returns {object|null} 收下去的那一条；没收（没文字／没来源）返回 null
+ */
+export function addKnow(id, item) {
+    const text = trimText(item && item.text);
+    const from = trimText(item && item.source);
+    const floor = Number.isFinite(Number(item && item.floor)) ? Number(item.floor) : -1;
+    // 没文字 ／ 没来源 ⇒ 不收（她：拿不准的不进）
+    if (!text || !['亲眼', '被告知', '公开'].includes(from)) {
+        return null;
+    }
+    const state = loadState();
+    const c = state.characters.find((x) => x && x.id === id);
+    if (!c) {
+        return null;
+    }
+    c.knows = Array.isArray(c.knows) ? c.knows : [];
+    // 同一句话不重复收（只增不编 ⏔ 收成一堆重复的）
+    if (c.knows.some((k) => trimText(k && k.text) === text)) {
+        return null;
+    }
+    const row = {
+        text,
+        source: from,
+        floor,
+        at: now(),
+        manual: item && item.manual === true,
+    };
+    c.knows.push(row);
+    saveState();
+    return row;
+}
+
+/** 删一条认知（她在界面上手删；⏔ 让引擎自己删） */
+export function removeKnow(id, index) {
+    const state = loadState();
+    const c = state.characters.find((x) => x && x.id === id);
+    if (!c || !Array.isArray(c.knows)) {
+        return false;
+    }
+    if (typeof index !== 'number' || !Number.isInteger(index) || index < 0 || index >= c.knows.length) {
+        return false;
+    }
+    c.knows.splice(index, 1);
+    saveState();
+    return true;
+}
+
 export function updateCharacter(id, patch) {
     const state = loadState();
     const idx = state.characters.findIndex((c) => c.id === id);

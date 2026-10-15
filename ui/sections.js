@@ -21,6 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
+    addKnow, removeKnow,
 } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
@@ -2859,6 +2860,49 @@ function renderPersonCard() {
         pop.appendChild(warnBox);
     }
     /*
+     * ⭐ 补③ 认知账（最小形态・第一步）：他**该知道的**清单。
+     *   她当初只能靠提示词纪律（"每个角色只知道他自己该知道的"），现在**落成账**。
+     *   ⚠️ 本步只做「清单 ＋ 界面可见＋能手加能手删」；
+     *     "推演时只喂清单里的"是**第二步**（她允许分两步）。
+     */
+    const kSec = el('div', 'wxg-pc-sec');
+    kSec.appendChild(el('div', 'wxg-pc-sech', '他知道什么（只收发生过的、他碰得到的；⏔ 编）'));
+    const kList = Array.isArray(one.knows) ? one.knows : [];
+    if (!kList.length) {
+        kSec.appendChild(el('div', 'wxg-empty', '还没记他知道什么（下面可以手加一条）'));
+    } else {
+        kList.forEach((k, ki) => {
+            const rowK = el('div', 'wxg-fact');
+            rowK.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(k.source) || '公开'));
+            rowK.appendChild(el('span', null, ' ' + trimText(k.text)));
+            if (Number(k.floor) >= 0) {
+                rowK.appendChild(el('span', 'wxg-note', ' · ' + floorLabel(Number(k.floor))));
+            }
+            const delK = button('删', 'del-know', 'wxg-btn-xs', cid);
+            delK.setAttribute('data-index', String(ki));
+            rowK.appendChild(delK);
+            kSec.appendChild(rowK);
+        });
+    }
+    // 手加一条（只增不编；来源必选）
+    const kAdd = el('div', 'wxg-row');
+    const kTxt = el('input', 'wxg-pc-input');
+    kTxt.type = 'text';
+    kTxt.id = 'wxg-know-text';
+    kTxt.placeholder = '他知道了什么（一句话）';
+    kAdd.appendChild(kTxt);
+    const kSrc = select('wxg-know-source', [
+        { value: '亲眼', label: '亲眼' },
+        { value: '被告知', label: '被告知' },
+        { value: '公开', label: '公开' },
+    ], '亲眼', 'noop');
+    kAdd.appendChild(kSrc);
+    const kBtn = button('加一条', 'add-know', 'wxg-btn-sm', cid);
+    kAdd.appendChild(kBtn);
+    kSec.appendChild(kAdd);
+    pop.appendChild(kSec);
+
+    /*
      * ⭐「任务」块（原本**只在角色状态页**）。
      *   任务是**挂在人身上**的（`c.quests`）⇒ 跟着人走才对。
      *   ⛔ 丢下它：她要能看到"他在追什么"、能改状态、能删。
@@ -4203,6 +4247,46 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     }
                     break;
+                case 'add-know': {
+                    /*
+                     * ⭐ 补③：手加一条"他该知道的"。
+                     *   来源必选（亲眼／被告知／公开）；来源楼层用**当前停在的楼**（她手加时就是在看那一楼）。
+                     *   ⏔ 自己造来源类型；⏔ 改已有的（只增）。
+                     */
+                    const box = document.getElementById('wxg-know-text');
+                    const txt = box && typeof box.value === 'string' ? box.value.trim() : '';
+                    const srcEl = document.getElementById('wxg-know-source');
+                    const src = srcEl && typeof srcEl.value === 'string' ? srcEl.value : '亲眼';
+                    if (!txt) {
+                        toast.fail('先写一句"他知道了什么"');
+                        break;
+                    }
+                    // 来源楼层＝**她现在看着的最后一楼**（手加时就在看那一楼）
+                    const chatNow = getChat();
+                    const floorNow = (Array.isArray(chatNow) ? chatNow.length : 1) - 1;
+                    const got = addKnow(id, { text: txt, source: src, floor: floorNow, manual: true });
+                    if (!got) {
+                        toast.info('这条没收（要么已经有了，要么没填来源）');
+                        break;
+                    }
+                    toast.ok('记下了（' + got.source + '）');
+                    rerender();
+                    if (personCardId) {
+                        renderPersonCard();
+                    }
+                    break;
+                }
+                case 'del-know': {
+                    const ki = Math.round(Number(target.getAttribute('data-index')));
+                    if (removeKnow(id, ki)) {
+                        toast.ok('删了一条');
+                    }
+                    rerender();
+                    if (personCardId) {
+                        renderPersonCard();
+                    }
+                    break;
+                }
                 case 'set-bench':
                     /*
                      * ⭐ 补①：勾上＝**参与**后台推演；不勾＝不进轮转名单。
