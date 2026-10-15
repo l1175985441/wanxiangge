@@ -1214,6 +1214,21 @@ function commitSection(secId) {
             patch.appearance = Object.assign({}, getSettings().appearance || {}, box[k]);
             continue;
         }
+        /*
+         * ⭐ 复审追加 2（A3 写入层）：**`applyToPanel` 要折进 `appearance` 里**，⛔ 落顶层。
+         *   根因：读侧 `theme.resolveAppearance()` 读的是 **`settings.appearance.applyToPanel`**，
+         *   而这里原来走 `patch[k] = box[k]` ⇒ 写进了**顶层** `settings.applyToPanel`（**没人读的那格**）
+         *   ⇒ 她「取消勾选 + 保存」后，读侧那格**仍是 true** ⇒ 小框照样被染色（"跟随酒馆主题"实际不生效）。
+         *   ⚠️ 正因为读不到，我 A3 那次修的"清除"**根本没被触发**——两轮人工复核都漏了这一格，
+         *     是阿砚真机 playwright 实点才抓出来的。
+         *   ⛔ 不动顶层那个历史遗留字段（留着无副作用，属清单外）。
+         */
+        if (k === 'applyToPanel') {
+            patch.appearance = Object.assign({},
+                patch.appearance || getSettings().appearance || {},
+                { applyToPanel: box[k] === true });
+            continue;
+        }
         // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换
         // （整块替换会把她存好的书签 `profiles` 一起冲掉）
         if (API_KEYS.includes(k)) {
