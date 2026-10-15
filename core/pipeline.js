@@ -14,6 +14,33 @@
  */
 
 import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
+
+/*
+ * ⭐ 补④：输出被截断之后的重试策略。
+ *
+ *   她定的规矩：截断 ⇒ **这一轮算失败、账保持原样**，⏔ 猜着补全；
+ *   重试时**加大输出额度**（但要有帽子）。
+ *
+ *   帽子怎么定的：基数（她设的 maxTokens）的 1.6 倍、且**不超 4000**。
+ *     为什么是 4000：再高就只是提高费用与等待，而"截断"的根因多半是
+ *     **模型写啰嗦**，不是额度不够 ⇒ 重试时一并要求它精简（见下面那句）。
+ */
+const RETRY_TOKEN_CAP = 4000;
+
+/** 重试时追加的一句（只在第 2 次起才发） */
+const RETRY_TIGHTEN = '【重试提醒】上一次的输出被截断了（JSON 没写完）。'
+    + '这一次请**精简**：只写变化最大、最重要的几条，'
+    + '每个字段尽量短，**必须保证 JSON 完整闭合**（宁可少写几条，也不要写到一半断掉）。';
+
+/** 按重试次数算输出额度（⏔ 超帽子） */
+function retryTokens(base, attempt) {
+    const b = clampNumber(base, 200, 8000, 1600);
+    const a = Math.max(0, Math.round(Number(attempt) || 0));
+    if (a <= 0) {
+        return b;
+    }
+    return clampNumber(Math.round(b * 1.6), 200, RETRY_TOKEN_CAP, b);
+}
 import { getChat } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
 import {
@@ -119,7 +146,7 @@ function whoIsOnStage(text, roster) {
 
 /* ------------------------------ 世界状态那一步 ------------------------------ */
 
-async function stepWorld(material) {
+async function stepWorld(material, attempt) {
     const settings = getSettings();
     const state = loadState();
     const world = state.world || {};
@@ -146,11 +173,13 @@ async function stepWorld(material) {
         hidden: hiddenLines,
     });
 
+    // ⭐ 补④：重试时加大输出额度（带帽子）＋ 一并要求精简闭合
+    const tryN = Math.max(0, Math.round(Number(attempt) || 0));
     const res = await callModelJson({
-        prompt,
+        prompt: tryN > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
         // ⛔ 破限词必须**真的发出去**：留空时要用内置那份（原来只读了原始设置 ⇒ 留空就等于没发）
         system: effectivePrompt('jailbreak'),
-        maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
+        maxTokens: retryTokens((settings.api || {}).maxTokens, tryN),
     });
 
     if (!res.ok) {
@@ -443,7 +472,7 @@ function applyCharacter(raw, material, conflicts) {
     return { name: c.name, isNew, quests };
 }
 
-async function stepCharacters(material) {
+async function stepCharacters(material, attempt) {
     const settings = getSettings();
     const state = loadState();
     const roster = state.characters.filter((c) => !c.ignored);
@@ -530,11 +559,13 @@ async function stepCharacters(material) {
         chars: charLines,
     });
 
+    // ⭐ 补④：同世界步（重试加大额度 + 要求精简闭合）
+    const tryN2 = Math.max(0, Math.round(Number(attempt) || 0));
     const res = await callModelJson({
-        prompt,
+        prompt: tryN2 > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
         // ⛔ 破限词必须**真的发出去**：留空时用内置那份
         system: effectivePrompt('jailbreak'),
-        maxTokens: clampNumber((settings.api || {}).maxTokens, 200, 8000, 1600),
+        maxTokens: retryTokens((settings.api || {}).maxTokens, tryN2),
     });
     if (!res.ok) {
         return { ok: false, reason: res.reason };
@@ -849,7 +880,7 @@ export async function runUpdate(opts) {
                 break;
             }
             setPipeline({ tries: attempt });
-            worldRes = await stepWorld(material);
+            worldRes = await stepWorld(material, attempt);
             if (worldRes.ok) {
                 break;
             }
@@ -869,7 +900,7 @@ export async function runUpdate(opts) {
             if (cancelRequested) {
                 break;
             }
-            charRes = await stepCharacters(material);
+            charRes = await stepCharacters(material, attempt);
             if (charRes.ok) {
                 break;
             }

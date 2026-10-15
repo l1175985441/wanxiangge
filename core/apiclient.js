@@ -51,7 +51,30 @@ function findBalancedEnd(str, start) {
 }
 
 /** 从模型输出里抠出 JSON（容错：```json 包裹、前后带 [标签] 废话、尾随文字、截断收尾） */
-export function extractJson(text) {
+/** 原始文本（报错时一起带出去给人看） */
+function raw0(t) {
+    return typeof t === 'string' ? t : String(t === undefined || t === null ? '' : t);
+}
+
+export function extractJson(text, opts) {
+    const o = opts || {};
+    /*
+     * ⭐⭐ 补④：**最先**看接口自己报的完成原因。
+     *   为什么必须在最前面：下面会先试"找一个平衡的整体"——
+     *   而**被截断的 JSON 也可能恰好在某处闭合了一小段**（比如 `{"a":"b"}` 后面还有没写完的），
+     *   那样会先被当成成功解析 ⇒ **截断漏判**（我的用例抓到了）。
+     *   ⏔ `finish_reason === length` 是硬证据 ⇒ 它说了算，⏔ 再去猜结构。
+     */
+    const fin = String(o.finish || '').toLowerCase();
+    if (/length|max_tokens|max_output_tokens/.test(fin)) {
+        return {
+            ok: false,
+            truncated: true,
+            reason: '输出被截断（接口报了输出到顶）',
+            value: null,
+            text: raw0(text),
+        };
+    }
     const raw = asText(text);
     if (!raw.trim()) {
         return { ok: false, reason: '模型没输出内容', value: null };
@@ -97,6 +120,31 @@ export function extractJson(text) {
 
     // ③ 截断收尾兜底：按与首括号同类的闭合符截取并补全（优先 {…}，防被前缀 [标签] 带偏）
     const mainStart = firstObj >= 0 ? firstObj : firstBrace;
+    /*
+     * ⭐⭐ 补④：**先认截断，⏔ 先补全**。
+     *
+     * 为什么要改：下面那一段 `repairJson` 会**自己把没闭合的括号补上**
+     * （见 `repairJson` 尾部）。对"被截掉一半"的输出用它，等于**替她猜着补全**——
+     * 而她定的规矩是：**截断就算这一轮失败，账保持原样，⏔ 许猜着补全、⏔ 半份写进账**。
+     *
+     * 判据两条（有哪条算哪条）：
+     *   ① 接口自己告诉我们"输出到顶了"（`finish_reason === length`）——最硬；
+     *   ② 它没说 ⇒ 看**没闭合**（引号没收／括号没闭）。
+     * ⚠️ 只有"连一个平衡的整体都找不到"时才走到这里 ⇒ 完整的 JSON 被饰文包着
+     *   不会误判（那种情况在上面 ①② 就解决了）。
+     */
+    const cutByFinish = String(o.finish || '').toLowerCase();
+    const isCut = /length|max_tokens|max_output_tokens/.test(cutByFinish)
+        || looksCut(body, mainStart);
+    if (isCut) {
+        return {
+            ok: false,
+            truncated: true,
+            reason: '输出被截断（写到一半就断了，没闭合）',
+            value: null,
+            text: raw,
+        };
+    }
     const closeCh = body[mainStart] === '{' ? '}' : ']';
     const lastClose = body.lastIndexOf(closeCh);
     const candidate = lastClose > mainStart ? body.slice(mainStart, lastClose + 1) : body.slice(mainStart);
@@ -330,7 +378,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
     if (text === null) {
         return { ok: false, reason: '转发通道回了怪东西（不是标准格式）' };
     }
-    return { ok: true, text, via: 'server' };
+    return { ok: true, text, via: 'server', finish: readFinishReason(data) };
 }
 
 /** ② 浏览器直连 */
@@ -357,7 +405,48 @@ async function callDirect(url, key, model, body, signal) {
     if (text === null) {
         return { ok: false, reason: '直连回了怪东西（不是标准格式）' };
     }
-    return { ok: true, text, via: 'direct' };
+    return { ok: true, text, via: 'direct', finish: readFinishReason(data) };
+}
+
+/**
+ * ⭐ 补④：把**完成原因**也拀出来（有就用，没有就空字符串）。
+ *   为什么要它：`finish_reason === 'length'` 是"输出被截"**最硬的证据**——
+ *   比"我们自己猜它没闭合"可靠得多。
+ *   ⚠️ 不同中转叫法不一（length／max_tokens／max_output_tokens）⇒ 都算截断。
+ */
+function readFinishReason(data) {
+    const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
+    const r = choice && (choice.finish_reason || choice.stop_reason);
+    return asText(r);
+}
+
+/** 这段文本从 `from` 开始是不是**没闭合**（引号没收、括号没闭） */
+function looksCut(text, from) {
+    const s = asText(text).slice(Math.max(0, from));
+    let inStr = false;
+    let esc = false;
+    let depth = 0;
+    for (let i = 0; i < s.length; i += 1) {
+        const ch = s[i];
+        if (inStr) {
+            if (esc) {
+                esc = false;
+            } else if (ch === '\\') {
+                esc = true;
+            } else if (ch === '"') {
+                inStr = false;
+            }
+            continue;
+        }
+        if (ch === '"') {
+            inStr = true;
+        } else if (ch === '{' || ch === '[') {
+            depth += 1;
+        } else if (ch === '}' || ch === ']') {
+            depth -= 1;
+        }
+    }
+    return inStr || depth > 0;
 }
 
 /** 从各种返回形状里把正文抠出来 */
@@ -400,9 +489,10 @@ export async function callModelJson(opts) {
     if (!res.ok) {
         return { ok: false, reason: res.reason, ms: res.ms };
     }
-    const parsed = extractJson(res.text);
+    const parsed = extractJson(res.text, { finish: res.finish });
     if (!parsed.ok) {
-        return { ok: false, reason: parsed.reason, raw: res.text, ms: res.ms };
+        // ⭐ 补④：把"截断"这个身份一路带上去（上游要据此报"截断"、⏔ 当普通格式错）。
+        return { ok: false, reason: parsed.reason, truncated: parsed.truncated === true, raw: res.text, ms: res.ms };
     }
     return { ok: true, value: parsed.value, ms: res.ms, repaired: parsed.repaired === true };
 }
