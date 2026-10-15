@@ -248,6 +248,43 @@ export function affinityFromText(text, roster, sourceTag) {
     // ② "随便…就行"：没那块标签就**扫全文**（名字能对上名册的才收）
     const hay = body || src;
     const out = [];
+    /*
+     * ⭐⭐ 10-16 拿她真语料发现：**她那个“手机”好感是 JSON 台账**，长这样：
+     *   {"op":"replace","path":"/人物/月野育子","value":81}
+     *   ⇐ 原来只认「名字：数字」 ⇒ **读不到她真正的台账**（名册还是“未接入”）。
+     *   写法刷实一点：**先定位到名字，再在附近找最近的 `"value"：数字`**（⏔ 死缚一个长正则）。
+     */
+    for (const c of (Array.isArray(roster) ? roster : [])) {
+        const nm = trimText(c && c.name);
+        if (!nm) {
+            continue;
+        }
+        const anchor = '人物/' + nm;
+        const at = hay.indexOf(anchor);
+        if (at < 0) {
+            continue;
+        }
+        // 在名字后面的 60 个字符内找最近的 "value":数字
+        const tail = hay.slice(at + anchor.length, at + anchor.length + 60);
+        const vm = tail.match(/"value"\s*:\s*(-?\d+(?:\.\d+)?)/);
+        // 也认“名字紧跟着分隔符紧跟着数字”那种（非 JSON）
+        const pm = vm || hay.slice(at, at + anchor.length + 20).match(/[\uff1a:]\s*(-?\d+(?:\.\d+)?)/);
+        if (pm && !out.some((x) => x.name === nm)) {
+            out.push({ name: nm, value: trimText(pm[1]) });
+        }
+    }
+    for (const c of (Array.isArray(roster) ? roster : [])) {
+        const nm = trimText(c && c.name);
+        if (!nm) {
+            continue;
+        }
+        const safe = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pat = new RegExp('"\u4eba\u7269/' + safe + '"\\s*,\\s*"value"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)');
+        const pm = hay.match(pat);
+        if (pm && !out.some((x) => x.name === nm)) {
+            out.push({ name: nm, value: trimText(pm[1]) });
+        }
+    }
     for (const c of (Array.isArray(roster) ? roster : [])) {
         const names = [trimText(c && c.name)].concat(toList(c && c.aliases)).filter(Boolean);
         for (const nm of names) {
