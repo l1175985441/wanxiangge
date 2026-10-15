@@ -87,7 +87,13 @@ export function planRecall(options) {
              *   ⇒ 引擎看不见他们 ⇒ 她的总结／推演整块是空的。**⛔ 引擎不替你建人**，只报出来。
              */
             if (aff && Array.isArray(aff.unmatched) && aff.unmatched.length) {
-                affinityNote = '「手机」里还有 ' + aff.unmatched.join('、')
+                /*
+                 * ⚠️ 封顶：这行**每回合**都会出现 ⇒ 名单一长就是刷屏（她的口味：「误报会变噪音」）。
+                 *   只点前 6 个 + 总数，剩下的去「体检」里看。
+                 */
+                const head = aff.unmatched.slice(0, 6).join('、');
+                const more = aff.unmatched.length > 6 ? (' 等 ' + String(aff.unmatched.length) + ' 个') : '';
+                affinityNote = '「手机」里还有 ' + head + more
                     + ' —— 名册（世界书）里没有他们的条目 ⇒ 引擎看不见他们（要不要读人时补上；⛔ 不替你建人）';
             }
         } catch (e) {
