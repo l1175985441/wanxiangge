@@ -462,6 +462,15 @@ async function stepCharacters(material) {
         if (onStageIds.has(c.id) || c.isPlayer) {
             return false;
         }
+        /*
+         * ⭐ 补①：她关掉「参与后台推演」的人**不进轮转名单**（不占名额）。
+         *   ⚠️ 只挡**轮转**这一条路：他若在这一楼正文里出场，走的是上面的 `onStage`，
+         *     照旧只做"正文里已经写了的"总结 —— 现场逻辑一点没动。
+         *   ⛔ 这里只是"不挑他"，不删他任何数据。
+         */
+        if (c.noBench === true) {
+            return false;
+        }
         if (settings.protectedBypass && Number.isFinite(material.floor) && material.floor >= 0 && c.lastSeenFloor === material.floor && trimText(c.current)) {
             return false;
         }
@@ -758,6 +767,22 @@ function extractClockFromPlace(text) {
  * 跑一次更新。
  * @param {object} opts { manual:boolean, floor:number, turns:number }
  */
+/**
+ * ⭐ 补⑤：把失败原因归成几类 —— **只留类别，⛔ 不把原文带出去**。
+ *
+ * 为什么要在源头就分类：体检报告要"她截图就能说清"，而 error 原文里
+ * 可能夹着正文片段、地址、钥匙 ⇒ ⛔ 一律不进报告、不进账。
+ * 分类口径（跟体检报告的表格一一对应）：网络／超时／截断／格式／其它。
+ */
+export function classifyFailure(msg) {
+    const s = String(msg || '');
+    if (/\u622a\u65ad|\u672a\u95ed\u5408|unterminated|truncat/i.test(s)) { return '\u622a\u65ad'; }
+    if (/\u8d85\u65f6|timeout|timed out|AbortError|aborted/i.test(s)) { return '\u8d85\u65f6'; }
+    if (/\u7f51\u7edc|fetch|network|\u8fde\u63a5|ECONN|ENOTFOUND|HTTP 4|HTTP 5/i.test(s)) { return '\u7f51\u7edc'; }
+    if (/JSON|\u683c\u5f0f|\u89e3\u6790|parse|\u4e0d\u662f\u5408\u6cd5/i.test(s)) { return '\u683c\u5f0f'; }
+    return '\u5176\u5b83';
+}
+
 export async function runUpdate(opts) {
     const o = opts || {};
     if (running) {
@@ -898,6 +923,23 @@ export async function runUpdate(opts) {
         cursor: msgs.length,
         conflicts: Array.isArray(charRes.conflicts) ? charRes.conflicts.slice(0, 20) : [],
     });
+    /*
+     * ⭐ 补⑤：失败**按类归档**（只记类别与时间，⛔ 不记任何内容）。
+     *   为什么单开一本：`pipeline.error` 只留"最近一次"，她要看的是"最近失败都是哪一类"。
+     *   ⛔ 绝不把 error 原文写进来（里面可能带正文或地址/钥匙片段）。
+     */
+    if (failed) {
+        try {
+            const st2 = loadState();
+            st2.failLog = Array.isArray(st2.failLog) ? st2.failLog : [];
+            st2.failLog.push({ at: Date.now(), kind: classifyFailure(lastError) });
+            // 只留最近 30 条（够她看趋势，⛔ 不让它长成第二个账本）
+            st2.failLog = st2.failLog.slice(-30);
+            saveState();
+        } catch (e) {
+            // 记不进就算了，⛔ 不能因为它把主流程带崩
+        }
+    }
     state.lastUpdate = {
         at: Date.now(),
         status: failed ? 'failed' : 'ok',

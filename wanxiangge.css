@@ -3465,3 +3465,19 @@ body.wxg-dragging {
 /* ③ 保存条靠右下 */
 .wxg-ws-main .wxg-sec[data-wxg-five] .wxg-savebar,
 .wxg-ws-main .wxg-sec[data-wxg-five] .wxg-save-bar { justify-content: flex-end; text-align: right; }
+
+/* 补⑤ 体检报告：报告正文（等宽、可选中、长了能滚） */
+.wanxiangge .wxg-health-pre,
+.wxg-pc .wxg-health-pre {
+    margin: 0;
+    max-height: 46vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--wxg-text, #1a1d1f);
+    -webkit-user-select: text;
+    user-select: text;
+}

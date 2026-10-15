@@ -116,6 +116,13 @@ export const BOOK_ENTRY_PREFIX = '万象阁 · ';
 export const SETTINGS_VERSION = 3;
 
 /** 账本结构版本 */
+/*
+ * ⭐ 插件版本（给**体检报告**这类地方读用）。
+ *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
+ *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
+ */
+export const APP_VERSION = '0.2.88';
+
 export const LEDGER_VERSION = 3;
 
 /** 账本里最多留多少条召回记录 */

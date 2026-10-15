@@ -28,6 +28,10 @@ import {
     PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
 } from './theme.js';
 import { questStats } from '../core/summary.js';
+// ⭐ 补⑤ 体检报告（自检）
+import { buildHealthReport } from '../core/health.js';
+// ⭐ 版本从 config 取（⏔ 从 index.js import：那会绕成循环 index→sections→index）
+import { APP_VERSION } from '../core/config.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, getEntries } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
@@ -424,6 +428,16 @@ function secStatus(host, intoSelf) {
     sFunc.style.padding = '0 12px';
     sFunc.style.whiteSpace = 'nowrap';
     sTop.appendChild(sFunc);
+    // ⭐ 补⑤：「体检」入口（点一下出一份自检）
+    const sHeal = button('体检', 'health-open', 'wxg-func-btn');
+    sHeal.title = '出一份自检：版本／开关／条数／最近失败分类（⏔ 不含正文与钥匙）';
+    sHeal.style.height = '28px';
+    sHeal.style.minHeight = '28px';
+    sHeal.style.lineHeight = '26px';
+    sHeal.style.padding = '0 12px';
+    sHeal.style.whiteSpace = 'nowrap';
+    sHeal.style.marginRight = '6px';
+    sTop.insertBefore(sHeal, sFunc);
     box.appendChild(sTop);
 
     const two = el('div', 'wxg-two');
@@ -1825,6 +1839,13 @@ function secRoster(host) {
         if (c.manual) {
             title.appendChild(el('span', 'wxg-badge is-info', '已手改'));
         }
+        /*
+         * ⭐ 补①的验收④：「名册上看得出来谁关了」。
+         *   用**灰胶囊「不推」**（不是红的）：这不是错，是她主动关的。
+         */
+        if (c.noBench === true) {
+            title.appendChild(el('span', 'wxg-badge', '不推'));
+        }
         main.appendChild(title);
         r.appendChild(main);
         // ⭐ 后三列（照包）：好感 ｜ 身份 ｜ 势力 —— 空值一律 `—`（⛔ 不写"暂无一堆"）
@@ -2759,6 +2780,27 @@ function renderPersonCard() {
     pwrap.classList.add('wxg-pc-full');
     pwrap.appendChild(pbox);
     kv.appendChild(pwrap);
+
+    /*
+     * ⭐ 补①：「参与后台推演」开关（默认开）。
+     *   说人话：**关掉＝后台不再推他**（不占轮转名额）；他仍在名册里，
+     *   正文写到他的时候**照旧更新**（现场那套不变）。⛔ 关掉不删任何历史。
+     *   ⚠️ 这里**用"关"来描述**（`noBench` 存的是"关"），因为默认是开——
+     *     勾选框的措辞要是反的，她会勾错（"勾上＝不推"最容易看反）。
+     */
+    const bbox = el('label', 'wxg-pc-player');
+    const bchk = el('input', null);
+    bchk.type = 'checkbox';
+    bchk.checked = one.noBench !== true;
+    bchk.setAttribute('data-action', 'set-bench');
+    bchk.setAttribute('data-id', cid);
+    bbox.appendChild(bchk);
+    bbox.appendChild(el('span', null, '参与后台推演（不勾＝只在正文写到他时才更新，不占轮转名额）'));
+    kv.appendChild(el('div', 'wxg-pc-k', ''));
+    const bwrap = el('div', 'wxg-pc-v');
+    bwrap.classList.add('wxg-pc-full');
+    bwrap.appendChild(bbox);
+    kv.appendChild(bwrap);
     kv.appendChild(el('div', 'wxg-pc-k', '时间·地点'));
     const tp = fieldBox(cid, 'timePlace', one.timePlace, '未知');
     tp.classList.add('wxg-pc-full');
@@ -3199,6 +3241,66 @@ function renderWorldEntryCard() {
     bindPersonCardDrag(pop);
 }
 
+/*
+ * ⭐ 补⑤ 体检报告：面板上一个入口，点一下出一份自检。
+ *
+ * 放**状态页**顶栏（那颗「功能 ⋮」旁边）——状态页本来就是"看账"的地方，
+ * ⛔ 不动「总控」那三张卡（那是目标包里定死的版式）。
+ *
+ * ⛔ 报告里不含正文、不含钥匙与地址的"值"（见 core/health.js 的铁律）。
+ */
+let healthOpen = false;
+
+export function closeHealthCard() {
+    healthOpen = false;
+    const old = document.getElementById('wxg-health-card');
+    if (old && typeof old.remove === 'function') {
+        old.remove();
+    }
+}
+
+function renderHealthCard() {
+    const old = document.getElementById('wxg-health-card');
+    if (old && typeof old.remove === 'function') {
+        old.remove();
+    }
+    if (!healthOpen) {
+        return;
+    }
+    let report = { text: '（体检报告没生成出来）', fails: [] };
+    try {
+        report = buildHealthReport({ version: APP_VERSION });
+    } catch (e) {
+        report = { text: '体检报告生成失败：' + ((e && e.message) || '未知原因'), fails: [] };
+    }
+
+    const pop = el('div', 'wxg-pc wanxiangge');
+    pop.id = 'wxg-health-card';
+    pop.setAttribute('role', 'dialog');
+
+    const head = el('div', 'wxg-pc-head');
+    head.appendChild(el('span', 'wxg-pc-grip', '⠿'));
+    const who = el('div', 'wxg-pc-who');
+    who.appendChild(el('div', 'wxg-pc-name', '体检报告'));
+    who.appendChild(el('div', 'wxg-pc-alias', '版本／开关／条数／最近失败（⛔ 不含正文与钥匙）'));
+    head.appendChild(who);
+    head.appendChild(button('✕', 'health-close', 'wxg-pc-x'));
+    pop.appendChild(head);
+
+    const sec = el('div', 'wxg-pc-sec');
+    const pre = el('pre', 'wxg-health-pre', report.text);
+    sec.appendChild(pre);
+    pop.appendChild(sec);
+
+    const foot = el('div', 'wxg-pc-foot');
+    foot.appendChild(button('关闭', 'health-close', 'wxg-pc-nav'));
+    foot.appendChild(button('复制这份', 'health-copy', 'wxg-pc-nav'));
+    pop.appendChild(foot);
+
+    (lastSectionsHost || document.body).appendChild(pop);
+    bindPersonCardDrag(pop);
+}
+
 export function renderSections(host, opts) {
     lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
     if (!host) {
@@ -3280,6 +3382,9 @@ export function renderSections(host, opts) {
          */
         if (openWorldEntry) {
             renderWorldEntryCard();
+        }
+        if (healthOpen) {
+            renderHealthCard();
         }
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
@@ -3832,6 +3937,28 @@ export function bindSectionEvents(host, refresh) {
                 case 'world-func':
                     toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑走那儿的 ⋮（浮层还在做）');
                     break;
+                case 'health-open':
+                    healthOpen = true;
+                    renderHealthCard();
+                    break;
+                case 'health-close':
+                    closeHealthCard();
+                    break;
+                case 'health-copy': {
+                    const pre = document.querySelector('#wxg-health-card pre');
+                    const txt = pre ? String(pre.textContent || '') : '';
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(txt);
+                            toast.ok('体检报告已复制（直接粘给我就行）');
+                        } else {
+                            toast.info('浏览器不让自动复制，你手选一下吧');
+                        }
+                    } catch (e) {
+                        toast.info('复制没成（浏览器限制），你手选一下吧');
+                    }
+                    break;
+                }
                 case 'status-func':
                     toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
                     break;
@@ -4060,6 +4187,22 @@ export function bindSectionEvents(host, refresh) {
                     if (isChange) {
                         updateCharacter(id, { affinity: trimText(target.value), manual: true });
                         rerender();
+                    }
+                    break;
+                case 'set-bench':
+                    /*
+                     * ⭐ 补①：勾上＝**参与**后台推演；不勾＝不进轮转名单。
+                     *   存的是**反的**（`noBench`）：老数据缺字段 ⇒ 默认"参与"，跟升级前一模一样。
+                     */
+                    if (isChange) {
+                        updateCharacter(id, { noBench: target.checked !== true });
+                        toast.ok(target.checked === true
+                            ? '他会跟其他人一起轮转'
+                            : '已关掉后台推演（不占名额；正文写到他时照常更新）');
+                        rerender();
+                        if (personCardId) {
+                            renderPersonCard();
+                        }
                     }
                     break;
                 case 'set-player':
