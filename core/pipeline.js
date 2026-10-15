@@ -366,7 +366,13 @@ async function stepWorld(material, attempt) {
         if (isLineDone(h.stage)) {
             continue;
         }
-        events.push({ title: h.name, text: h.note || h.trigger, kind: 'hidden', stage: h.stage, tier: h.tier, floor: material.floor });
+        events.push({ title: h.name, /*
+             * ⭐⭐ 她 [18]/[3]（这是最后一条漏网的路）：暗线事件会进 `state.events`，
+             *   而召回会从那里挑事件**注入给主模型**（`recall.js` 的 `pickEvents`）。
+             *   ⇐ 原来直接把 `h.note`（**含“被困待救”那句**）写进去 ⇒ 标了 suspect 也照样被喂进去。
+             *   ⇒ suspect 的只留**名字＋到点条件**（不可作据），⏔ 把那句编造带进去。
+             */
+            text: (h.suspect === true ? '（⚠ 这条的"现状"被判编造、已剔除）' : (h.note || h.trigger)), kind: 'hidden', stage: h.stage, tier: h.tier, floor: material.floor });
     }
     if (events.length) {
         setEvents(events);
