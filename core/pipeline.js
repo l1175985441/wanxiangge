@@ -407,8 +407,8 @@ function applyCharacter(raw, material, conflicts) {
         let why = '';
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
-        } else if (onStage && !textAppearsIn(cur, material.rawText || material.recentText)) {
-            why = '这是现场角色，但正文里找不到这段描写 ⇒ 视为编造（现场角色只准做正文的总结）';
+        } else if (onStage && !textAppearsIn(cur, material.recentText || material.rawText)) {
+            why = '他在正文里**露面**了，但这段正文里找不到 ⇒ 视为编造（她原话：在现场的只准出现正文的）';
         }
         if (why) {
             c.currentSuspect = true;
@@ -499,7 +499,18 @@ async function stepCharacters(material, attempt) {
     }
 
     // ⭐ 判"谁在现场"要看**原文**（清洗可能剥掉状态栏，剥过的文本会冤枉人）
-    const onStage = whoIsOnStage(material.rawText || material.recentText, roster);
+    /*
+     * ⭐⭐ 她原话 [5]/[7]：**在场＝"正文里露面"的**（⏔"名字被提到"）。
+     *   原话：「正在在线的不准编造。后台不在线的这个是编造的，这个不要紧」
+     *        ＋「如果在现场的话，只准出现正文的」。
+     *   原来喂的是 `rawText`（**清洗前**，含状态栏／变量台账）⇒
+     *   **只在台账里挂名的角色**（她 04:20 截图里的 美奈子／真琴／丽／亚美）
+     *   也被算成"在场" ⇒ 再拿"现场只准写正文"去核它们的推演 ⇒ **一排误伤**。
+     *   ⇒ 改用 `recentText`（**正文**＝走完四格清洗的那份）：正文里没露面 ⇒ 走**推演通道、放行**。
+     *   ⚠️ 原注释担心"清洗会把明明写到的人判成不在场"——四格默认只剥"成对机器块＋HTML注释"，
+     *     她的正文不在那两类里 ⇒ 不会误判；万一她自己把正文也列进了排除，才会退到 rawText（保底）。
+     */
+    const onStage = whoIsOnStage(material.recentText || material.rawText, roster);
     const onStageIds = new Set(onStage.map((c) => c.id));
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
