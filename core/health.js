@@ -219,6 +219,17 @@ export function buildHealthReport(opts) {
                 + (withAlias.length
                     ? '（例：' + withAlias.slice(0, 3).map((c) => c.name + '=' + c.aliases.join('／')).join('、') + '）'
                     : ''));
+            /*
+             * ⭐ 10-16 真机取证：她名册里 **水手月亮/水手水星/… 被当独立人物**（旧账）⇒ 她 [18]：「同一角色被拆成两条记录？**合并一键解决**」。
+             *   ⇒ 这里先让她**看见有几对**（形态名 ↔ 已在场的人）；⛔ 不自动并（那是她的账）。
+             */
+            const FORM = /^(?:水手[\u4e00-\u9fa5]{1,4}|夜礼服假面|.*假面|.*形态)$/;
+            const forms = roster.filter((c) => FORM.test(trimText(c.name)));
+            if (forms.length) {
+                lines.push('   ⚠ 疑似"真身／形态"被拆成两个人物：' + String(forms.length) + ' 个（例：'
+                    + forms.slice(0, 6).map((c) => c.name).join('、') + '）'
+                    + ' ⇒ 点名册的「自动找重复」并掉，或手工作并（⛔ 引擎不替她并）');
+            }
         } catch (e) {
             lines.push('· 名册：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
         }
