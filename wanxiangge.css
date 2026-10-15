@@ -1847,7 +1847,8 @@ body.wxg-dragging {
     padding: var(--s2) var(--s3);
     border-left: 3px solid var(--wxg-accent, var(--wxg-line));
     border-radius: 0 var(--r) var(--r) 0;
-    background: var(--black30a, rgba(0, 0, 0, 0.15));
+    /* ⭐ #38：原来用 `--black30a`（深灰）⇒ 在白卡上是一块脏灰；跟色板的填色走 */
+    background: var(--wxg-fill, rgba(0, 0, 0, 0.06));
     font-family: inherit;
     font-size: var(--fs-note);
     line-height: 1.75;
@@ -3212,7 +3213,13 @@ body.wxg-dragging {
 .wxg-pc {
     left: 424px; right: auto; top: 150px;
     width: 795px; max-width: calc(100vw - 48px);
-    background: #ffffff;
+    /*
+     * ⭐ 修复单 #36c：**⏔ 硬编码白底**。
+     *   这里原来是 `#ffffff`，直接覆盖了上一条的 `var(--wxg-card-bg, #fff)`
+     *   ⇒ 她换深色色板时，卡片还是**白底**、而字变成浅色 ⇒ **白字撞白底**。
+     *   ⇒ 跟色板变量走（`--wxg-surface` 为主、`--wxg-card-bg` 兜底）。
+     */
+    background: var(--wxg-surface, var(--wxg-card-bg, #ffffff));
 }
 .wxg-pc-head { padding: 16px 18px 12px; gap: 12px; }
 .wxg-pc-name { font-size: 27px; letter-spacing: .01em; overflow-wrap: anywhere; }

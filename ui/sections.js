@@ -2816,8 +2816,13 @@ function renderPersonCard() {
         const q = el('div', 'wxg-pc-quote');
         for (const p of past) {
             const line = el('div', null, trimText(p && p.text) || '暂无');
-            if (p && Number.isFinite(Number(p.floor)) && Number(p.floor) >= 0) {
-                line.insertBefore(el('span', 'wxg-pc-when', floorLabel(p.floor)), line.firstChild);
+            /*
+             * ⭐ 修复单 #36a：**字段名写错了**——
+             *   `past[]` 里存的是 `fromFloor`（见 `core/state.js` 的规范），`p.floor` **永远是 undefined**
+             *   ⇒ `Number(undefined)` 不是有限数 ⇒ 条件永远不成立 ⇒ **楼号从来没显示过**。
+             */
+            if (p && Number.isFinite(Number(p.fromFloor)) && Number(p.fromFloor) >= 0) {
+                line.insertBefore(el('span', 'wxg-pc-when', floorLabel(p.fromFloor)), line.firstChild);
             }
             q.appendChild(line);
         }
@@ -2826,7 +2831,7 @@ function renderPersonCard() {
     pop.appendChild(sec2);
 
     // ④ 底部条：换人（她拍的：上一位｜第几位/共几位｜下一位）＋ 合并 ＋ 保存
-﻿    /*
+    /*
      * ⭐「不可靠」提醒（原本**只在角色状态页**）——她点名的污染就是这个，得当场说出来。
      *   它本来就是"某个人的某一格不可靠" ⇒ 摆进**这个人的卡片**最合适。
      */
@@ -3208,14 +3213,35 @@ function renderWorldEntryCard() {
          *   ⇒ ⏔ 给它造一个不存在的 action（那样点了没反应）：暗线的可改项就是底部那个**阶段下拉**（已接）。
          *   ❌ 不能只图"看着像可改"而摆一个点不动的框。
          */
-        if (openWorldEntryEditing && !isHidden) {
-            const inp = el('input', 'wxg-pc-input');
-            inp.type = 'text';
-            inp.value = trimText(v);
-            inp.setAttribute('data-action', 'set-situation');
-            inp.setAttribute('data-index', String(openWorldEntry.idx));
-            inp.setAttribute('data-key', k === '哪几方' ? 'sides' : (k === '火候' ? 'tier' : (k === '到点' ? 'condition' : (k === '走到' ? 'detail' : 'title'))));
-            box2.appendChild(inp);
+        /*
+         * ⭐ 修复单 #37：
+         *   ① 原来条件是 `openWorldEntryEditing && !isHidden` ⇒
+         *     **暗线（isHidden）永远进不了编辑态**（她点 ⋮ 没反应）⇒ 把 `!isHidden` 去掉；
+         *   ② 「火候」原来是**裸文本框** ⇒ 她只能自己打字、打错就不在枚举里（#27 同族）
+         *     ⇒ 局势里给 **TIERS 下拉**；暗线那边是 `stage`（另一套枚举），保持文本框但**写对字段**。
+         *   ⚠️ 暗线跟局势存在**两个不同的表**（`world.hidden` / `world.situations`）
+         *     ⇒ 用 `data-hidden="1"` 告诉动作写回哪一张表。
+         */
+        if (openWorldEntryEditing) {
+            if (k === '火候' && !isHidden) {
+                const sel = select(null, TIERS.map((x) => ({ value: x, label: x })), trimText(v) || TIERS[1], 'set-situation');
+                sel.setAttribute('data-index', String(openWorldEntry.idx));
+                sel.setAttribute('data-key', 'tier');
+                box2.appendChild(sel);
+            } else {
+                const inp = el('input', 'wxg-pc-input');
+                inp.type = 'text';
+                inp.value = trimText(v);
+                inp.setAttribute('data-action', 'set-situation');
+                inp.setAttribute('data-index', String(openWorldEntry.idx));
+                if (isHidden) {
+                    inp.setAttribute('data-hidden', '1');
+                }
+                inp.setAttribute('data-key', isHidden
+                    ? (k === '到点' ? 'trigger' : (k === '走到' ? 'note' : 'stage'))
+                    : (k === '哪几方' ? 'sides' : (k === '火候' ? 'tier' : (k === '到点' ? 'condition' : (k === '走到' ? 'detail' : 'title')))));
+                box2.appendChild(inp);
+            }
         } else {
             const txt = trimText(v);
             box2.appendChild(el('div', 'wxg-pc-text' + (txt ? '' : ' is-empty'), txt || (empty || '未知')));
@@ -3995,7 +4021,7 @@ export function bindSectionEvents(host, refresh) {
                     renderWorldEntryCard();
                     break;
                 case 'world-func':
-                    toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑走那儿的 ⋮（浮层还在做）');
+                    toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑点那儿右上的 ⋮（点了才能改，不点只读）');
                     break;
                 case 'health-open':
                     healthOpen = true;
@@ -4023,7 +4049,9 @@ export function bindSectionEvents(host, refresh) {
                     toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
                     break;
                 case 'roster-func':
-                    toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方的筛选里有「我改过的」');
+                    /* ⭐ #39a：口径跟现状对齐——那个筛选早就换成「全部｜创建时间｜修改时间｜玩家棋子｜名字」了，
+     ——⏔ 再指一个不存在的筛选（她会去找、找不到就以为坏了） */
+toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方可按「修改时间」排、筛选里选「玩家棋子」或搜名字');
                     break;
                 case 'roster-search':
                     // 边打边筛（change 才重画，⏔ 每敲一个字都重画整页）
@@ -4129,6 +4157,26 @@ export function bindSectionEvents(host, refresh) {
                     const idx = Number(target.getAttribute('data-index'));
                     const wkey = target.getAttribute('data-key') || '';
                     const state = loadState();
+                    /*
+                     * ⭐ 修复单 #37：**暗线也走这条**。
+                     *   原来只写 `world.situations` ⇒ 暗线那边即使能编辑也**写不进去**（静默失败）。
+                     */
+                    if (target.getAttribute('data-hidden') === '1') {
+                        const hlist = (state.world.hidden || []).slice();
+                        if (Number.isFinite(idx) && hlist[idx]) {
+                            hlist[idx] = Object.assign({}, hlist[idx], {
+                                [wkey]: trimText(target.value), manual: true, updatedAt: Date.now(),
+                            });
+                            updateWorld({ hidden: hlist }, { manual: true });
+                            saveState();
+                            toast.ok('暗线改好了');
+                            rerender();
+                            if (openWorldEntry) {
+                                renderWorldEntryCard();
+                            }
+                        }
+                        break;
+                    }
                     const list = (state.world.situations || []).slice();
                     if (Number.isFinite(idx) && list[idx]) {
                         list[idx] = Object.assign({}, list[idx], { [wkey]: trimText(target.value), manual: true });
