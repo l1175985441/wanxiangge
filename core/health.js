@@ -20,6 +20,8 @@ import { floorLabel, trimText } from './utils.js';
 // ⭐ 验收自检要用：四格清洗 + 在场判定（⛔ 这两个文件都不 import health，不会绕成环）
 import { cleanMessages } from './extract.js';
 import { mentionedCharacters } from './recall.js';
+// ⭐ 体检要报"几组可并"（她 [18]「合并一键解决」）—— merge.js 只依赖 state/utils，⛔ 不会绕成环
+import { autoDetectDuplicates } from './merge.js';
 
 /** 有没有值（⛔ 只回答"有没有"，绝不回显内容） */
 function has(v) {
@@ -229,6 +231,24 @@ export function buildHealthReport(opts) {
                 lines.push('   ⚠ 疑似"真身／形态"被拆成两个人物：' + String(forms.length) + ' 个（例：'
                     + forms.slice(0, 6).map((c) => c.name).join('、') + '）'
                     + ' ⇒ 点名册的「自动找重复」并掉，或手工作并（⛔ 引擎不替她并）');
+            }
+            /*
+             * ⭐ 顺手把「现在能并几组」也算出来（她 [18]：合并一键解决）——
+             *   ⛔ 只报数，⛔ 不自动并；她自己点按钮。
+             */
+            try {
+                const groups = autoDetectDuplicates();
+                if (Array.isArray(groups) && groups.length) {
+                    const sample = groups.slice(0, 3)
+                        .map((g) => (g && g.length ? g.map((x) => x.name).join('⇄') : ''))
+                        .filter(Boolean);
+                    lines.push('   ⭐ 现在点「自动找重复」能并出 ' + String(groups.length) + ' 组'
+                        + (sample.length ? '（例：' + sample.join('；') + '）' : '') + ' ✓');
+                } else {
+                    lines.push('   ⭐ 现在没有可并的重复组 ✓');
+                }
+            } catch (e) {
+                lines.push('   ⭐ 并组统计没跑成（' + String(e && e.message ? e.message : e) + '）');
             }
         } catch (e) {
             lines.push('· 名册：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
