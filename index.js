@@ -23,7 +23,7 @@ import {
     setViewRefresher,
 } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
-import { openPanel, closePanel, isPanelOpen } from './ui/shell.js';
+import { openPanel, closePanel, isPanelOpen, refreshPanel } from './ui/shell.js';
 import { openWorkspace, isWorkspaceOpen, refreshWorkspace } from './ui/workspace.js';
 import { mountMini, refreshMini } from './ui/mini.js';
 import { ensureWandEntry, syncEntryState } from './ui/wand.js';
@@ -31,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.04';
+const VERSION = '0.3.05';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -263,6 +263,30 @@ export function onDelete() {
     console.info('[' + APP_NAME + '] 已卸载：拆掉 ' + n + ' 个监听，数据原样留着');
 }
 
+/**
+ * ⭐ 复审追加 A1：把"刷所有视图"的注册抽成一份，**boot 与 onEnable 都调**。
+ *
+ *   为什么非得这样：酒馆**正常打开页面**走的是
+ *   `activateExtensions → hooks.activate → onActivate`，而 `onEnable` **只在她在扩展管理里手动重新勾上**时才跑。
+ *   上一轮我把注册插到了 `onEnable` 里（用 `replace(...,1)` 打偏了：
+ *   `startEntryTimer();` 的第一处出现在 onEnable）⇒ **正常启动路径根本没注册**
+ *   ⇒ #21 要治的病原样存在（只刷设置区）。
+ *
+ *   ⭐ 另补一臂：**浮层面板**也要跟着刷（原来只有设置区/悬浮球/工作台）。
+ */
+function registerViewRefresher() {
+    setViewRefresher(() => {
+        renderPanel();
+        refreshMini();
+        if (isWorkspaceOpen()) {
+            refreshWorkspace();
+        }
+        if (isPanelOpen()) {
+            refreshPanel();
+        }
+    });
+}
+
 export function onEnable() {
     console.info('[' + APP_NAME + '] 已启用');
     // 停用时拆过 ⇒ 启用要把事件挂回去（⛔ 不然启用之后就没反应了）
@@ -270,7 +294,13 @@ export function onEnable() {
         const ctx = getCtx();
         if (ctx && !eventsBound) {
             bindEvents(ctx);
-        }
+            // ⭐ 复审追加 A1：启用时也把视图刷新注册上
+    try {
+        registerViewRefresher();
+    } catch (e) {
+        console.warn('[' + APP_NAME + '] 启用时注册刷新出错：', e);
+    }
+}
     } catch (e) {
         console.warn('[' + APP_NAME + '] 启用时重挂事件出错：', e);
     }
@@ -283,13 +313,6 @@ export function onEnable() {
          *   后台更新完、切档、删楼之后，**悬浮球与工作台**也跟着刷新（原来只刷设置区）。
          *   ⏔ 在核心层直接 import ui（会绕成环）。
          */
-        setViewRefresher(() => {
-            renderPanel();
-            refreshMini();
-            if (isWorkspaceOpen()) {
-                refreshWorkspace();
-            }
-        });
     } catch (e) {
         console.warn('[' + APP_NAME + '] 启用时重挂闹钟出错：', e);
     }
@@ -411,6 +434,8 @@ function boot() {
          *   停用被清掉之后 onEnable 不补 ⇒ "入口跟着面板亮"永久失灵，得刷新页面才回来）。
          */
         startEntryTimer();
+        // ⭐ 复审追加 A1：**正常启动路径**就该注册（上一轮漏在这里）
+        registerViewRefresher();
     } catch (e) {
         console.warn('[万象阁] 启动出错：', e);
     }

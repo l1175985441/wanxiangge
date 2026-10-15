@@ -81,6 +81,13 @@ export function worldbookToNative(w) {
         name: src.name !== undefined ? src.name : '',
         comment: src.name !== undefined ? src.name : '',
         enabled: src.enabled !== false,
+        /*
+         * ⭐ 复审追加 A2：**读函数这边也得给 `disable`**。
+         *   上一轮我把 `disable` 加到了**写**函数（nativeToWorldbook）上，
+         *   而三处消费者（book-wiki / worldbook ×2）查的是**读出来的那份** ⇒
+         *   TavernHelper 通道下「只读开启着的条目」**永远为假**（disable 恒 undefined）。
+         */
+        disable: src.enabled === false,
         type: st.type || 'selective',
         keys: Array.isArray(st.keys) ? st.keys.slice() : [],
         logic: (st.keys_secondary && st.keys_secondary.logic) || 'and_any',

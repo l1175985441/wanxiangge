@@ -441,10 +441,19 @@ const mirrorPending = new Map();
 
 function mirrorLedger(state) {
     if (!hasContent(state)) {
-        return; // 空账不值得留底
+        /*
+         * ⭐ 复审追加 C1 同族：空账不仅"不值得留底"，**还得把旧底抹掉** ——
+         *   否则下次读档会从底稿把刚清掉的账**捞回来**（她那边就是"清完一刷新全回来了"）。
+         */
+        try {
+            clearMirror(null, state);
+        } catch (e) {
+            // 抹不掉也⏔ 把写盘带崩
+        }
+        return;
     }
     // ⚠️ 一律立刻落盘：攒着不写＝刷新就丢（之前每 2 秒攒一次，实测就丢了）
-    // ⭐ 修复单 #3：`live: true` ⇒ 这份是**活账本此刻的真相**，不许被"更全的旧底稿"挡回去
+    // ⭐ 修复单 #3：`live: true` 戳（⚠️ **当前有意未用**：见 `flushMirror` 里 `liveOwn = false` 的说明——那条路会丢数据）
     stashToMirror(currentChatKey(), state, true);
 }
 
@@ -489,6 +498,42 @@ function stashToMirror(key, source, immediate, opts) {
         mirrorTimer = null;
         flushMirror();
     }, 2000);
+}
+
+/**
+ * ⭐ 复审追加 C1（试行・窄修）：**她明确发起的纯删除**，底稿直接跟着变。
+ *
+ *   为什么不拆 `pickFresher` 那道保护：它是用来挡"陈旧／只加载一半的账"的，
+ *   拆了会丢数据（我上一轮两版修法都把 run-tests 从 95/0 打成 92/3）。
+ *   ⇒ 只给"她点了删除"这条路径开一个直连：这一刻的账**就是她要的样子**（删完更穷也得跟着穷）。
+ *
+ *   ⚠️ 调用点：`removeCharacter` / `removeHidden` / `removeQuest` / `removeKnow` /
+ *     `removeChronicleAt` / `dropRecallRecord` —— 六个**她亲手点**的删除。
+ *     ⏔ 放在自动路径（对账、合并）里——那些会走原来的比新旧。
+ */
+export function syncMirrorAfterDelete(state) {
+    if (!state || typeof state !== 'object') {
+        return;
+    }
+    if (!hasContent(state)) {
+        // 删到空 ⇒ 那一格直接抹掉（⏔ 留着旧账等下次被捞回来）
+        clearMirror(null, state);
+        return;
+    }
+    try {
+        const store = getExtensionSettings();
+        if (!store) {
+            return;
+        }
+        const box = store[SETTINGS_KEY + '_mirror'] || (store[SETTINGS_KEY + '_mirror'] = {});
+        const owner = keyOf(state) || currentChatKey();
+        if (owner) {
+            box[owner] = deepClone(state);
+            persistSettings();
+        }
+    } catch (e) {
+        console.warn('[万象阁] 删除后同步底稿失败：', e);
+    }
 }
 
 /** 把某本账从"待落盘"队列里摘掉（跟它相同的那一刻才摘，别误伤别人） */

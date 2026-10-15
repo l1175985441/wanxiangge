@@ -55,6 +55,10 @@ function resultText(lastUpdate, pipe) {
     if (String((pipe && pipe.status) || '').trim() === 'running') {
         return '正在跑';
     }
+    // ⭐ 复审追加 A5②：`pending`（刚发消息、AI 还没生成完）不能露英文
+    if (s === 'pending') {
+        return '待送';
+    }
     if (!s || s === 'idle') {
         return '还没跑过';
     }

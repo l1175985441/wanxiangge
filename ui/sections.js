@@ -3402,7 +3402,19 @@ function renderHealthCard() {
 }
 
 export function renderSections(host, opts) {
-    lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
+    /*
+     * ⭐ 复审追加 B2：**台前有窗口时，后台那次画不该抢挂载点**。
+     *   原来无条件赋值：她开着工作台、点开人物卡，
+     *   后台一次 `renderPanel()`（注入完成／后台更新完／她发消息…都会调）
+     *   就把挂载点改指到**隐藏抽屉** ⇒ 人物卡被"偷"进去（从工作台消失）。
+     *   ⚠️ `handler` 里"点击拨正 lastSectionsHost"那半是好的，⏔ 动它。
+     */
+    const hasFgWindow = typeof document !== 'undefined'
+        && !!(document.getElementById('wanxiangge-workspace') || document.getElementById('wanxiangge-panel'));
+    const isSettingsDraw = ((opts && opts.mode) || 'settings') === 'settings';
+    if (!isSettingsDraw || !hasFgWindow || !lastSectionsHost) {
+        lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
+    }
     if (!host) {
         return;
     }
@@ -3479,11 +3491,14 @@ export function renderSections(host, opts) {
         /*
          * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
          *   ⏔ 写在每个动作里（那样漏一个就没了）。
+         * ⭐ 复审追加 B2（乙）：**同一前提**（后台那一次画 + 台前有窗口）下⛔ 重挂——
+         *   否则后台刷一下就把她工作台里开着的卡**拆下来重挂到隐藏抽屉**里（"被偷走"）。
          */
-        if (openWorldEntry) {
+        const canRemount = !(isSettingsDraw && hasFgWindow);
+        if (openWorldEntry && canRemount) {
             renderWorldEntryCard();
         }
-        if (healthOpen) {
+        if (healthOpen && canRemount) {
             renderHealthCard();
         }
         /*
@@ -3492,7 +3507,7 @@ export function renderSections(host, opts) {
          *   上面两处都补了、就这处漏了 ⇒ 表现是"人物卡自己没了"。
          *   ⛔ 别再写在每个动作里（漏一个就没一个）——统一听这里。
          */
-        if (personCardId) {
+        if (personCardId && canRemount) {
             try {
                 renderPersonCard();
             } catch (e) {
@@ -4083,7 +4098,9 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'status-func':
-                    toast.info('导出与统计在「总控 → 操作」旁边那一组；可撤回的版本数看本页「世界」框的「可撤回 N 版」');
+                    /* ⭐ 复审追加 A5①：口径跟现状对齐——「操作」卡早撕了，
+                     导出备份实际在「人物名册 → 录入」卡里；可撤回数在「世界四值」框。 */
+                    toast.info('导出与统计在「人物名册 → 录入」卡里；可撤回的版本数看本页「世界四值」框里那行「可撤回 N 版」');
                     break;
                 case 'roster-func':
                     /* ⭐ #39a：口径跟现状对齐——那个筛选早就换成「全部｜创建时间｜修改时间｜玩家棋子｜名字」了，
@@ -4750,7 +4767,19 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'reset-appearance': {
-                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, palettePatch(trimText(getSettings().appearance && getSettings().appearance.palette))) });
+                    /*
+                     * ⭐ 复审追加 A4：两个子：
+                     *   ① **先清草稿**：显示与预览走的是 `effectiveAppearance()`（**草稿优先**）
+                     *     ⇒ 她改过任一槽再点“恢复”，草稿还在 ⇒ **预览盒与颜色框纹丝不动**；
+                     *   ② 色板键按**当前生效值**取：已存色板是 `custom` 时 `palettePatch('custom')` 只返回 `{palette:'custom'}`（四槽一个都不恢复）
+                     *     ⇒ custom 时退回 `'ink'`。
+                     */
+                    const curEff = effectiveAppearance();
+                    const palKey = (curEff.palette && curEff.palette !== 'custom') ? curEff.palette : 'ink';
+                    delete stagingOf(stagingMode).appearance;
+                    patchSettings({
+                        appearance: Object.assign({}, getSettings().appearance || {}, palettePatch(palKey), { text: '' }),
+                    });
                     toast.ok('已退回所选色板');
                     rerender();
                     break;

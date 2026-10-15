@@ -125,7 +125,13 @@ function buildCard(rec) {
             const pastCut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
             const pastAnchor = Number(rec && rec.floor);
             const keepPast = (pp) => {
-                if (!pp || !trimText(pp.text) || pp.injected) {
+                /*
+                 * ⭐ 复审追加 B1：**去掉 `|| pp.injected`**。
+                 *   上一轮我多加了它 ⇒ 注入一完成（那一刻就把端出去的标了 injected）
+                 *   ⇒ 卡片上的「过去经历」**当场消失**（本轮的全被标了）。
+                 *   修复单只要求**楼层裁**同口径（`keepByFloor` 不碰 injected）。
+                 */
+                if (!pp || !trimText(pp.text)) {
                     return false;
                 }
                 if (!pastCut || !Number.isFinite(pastAnchor)) {

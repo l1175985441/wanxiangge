@@ -19,7 +19,7 @@ import { runUpdate, runReconcile } from '../core/pipeline.js';
 import { rollbackLast } from '../core/state.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { publishToBook } from '../core/book.js';
-import { applyAppearance } from './theme.js';
+import { syncPanelAppearance } from './theme.js';
 // ⭐ 修复单 #26：清空那颗要能切到「总控」页并在**工作台根里**找按钮
 import { openWorkspace, showIndex, workspaceRoot, refreshWorkspace } from './workspace.js';
 import { toast } from './toast.js';
@@ -72,11 +72,8 @@ export function mountMini() {
      *   她把「配色也用在悬浮小框上」取消了也没用（照样被染色）。
      *   ⭐ 关掉时要**清除**（不是"不管"）——否则上一次染上的颜色会留在身上。
      */
-    if ((s.appearance || {}).applyToPanel !== false) {
-        applyAppearance(wrapEl, s.appearance || {});
-    } else {
-        applyAppearance(wrapEl, {});
-    }
+    // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⏔ 再写 `{}` 把白底写死）
+    syncPanelAppearance(wrapEl, s.appearance || {});
 
     /* ---- 小球 ---- */
     ballEl = document.createElement('button');
@@ -184,10 +181,8 @@ export function refreshMini() {
         return;
     }
     // ⭐ #25（同上，第二处）
-    {
-        const ap = getSettings().appearance || {};
-        applyAppearance(wrapEl, ap.applyToPanel !== false ? ap : {});
-    }
+    // ⭐ 复审追加 A3（第二处）
+    syncPanelAppearance(wrapEl, getSettings().appearance || {});
     const s = buildStateSummary({});
     const q = s.quests || {};
     const body = panelEl.querySelector('.wxg-mini-body');

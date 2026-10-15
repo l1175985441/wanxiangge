@@ -11,7 +11,7 @@
 
 import { PANEL_ID } from '../core/config.js';
 // ⭐ 修复单 #25：浮层面板也要能套她选的配色（原来从未应用过）
-import { applyAppearance } from './theme.js';
+import { syncPanelAppearance } from './theme.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections, bindSectionEvents } from './sections.js';
 
@@ -115,8 +115,8 @@ export function openPanel() {
      *   原来 shell.js 里 `applyAppearance`/**一次都没调过** ⇒ 开关在面板这头彻底失灵。
      */
     try {
-        const ap = getSettings().appearance || {};
-        applyAppearance(root, ap.applyToPanel !== false ? ap : {});
+        // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⏔ 把白底写死）
+        syncPanelAppearance(root, getSettings().appearance || {});
     } catch (e) {
         console.warn('[万象阁] 面板配色没套上：', e);
     }
@@ -135,6 +135,17 @@ export function refreshPanel() {
     const scroll = sectionsHost.scrollTop;
     renderSections(sectionsHost, { mode: 'panel' });
     sectionsHost.scrollTop = scroll;
+    /*
+     * ⭐ 复审追加 A3：**外壳的配色也跟着同步**。
+     *   原来这里只重画（面板开着改色板 ⇒ 外壳不变）。
+     */
+    if (panelEl) {
+        try {
+            syncPanelAppearance(panelEl, getSettings().appearance || {});
+        } catch (e) {
+            console.warn('[万象阁] 面板外壳配色同步失败：', e);
+        }
+    }
 }
 
 /* ------------------------------ 拖拽 ------------------------------ */

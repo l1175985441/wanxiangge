@@ -13,7 +13,7 @@ import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
     ARRIVE_MISS_LIMIT,
 } from './config.js';
-import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror } from './adapter.js';
+import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock } from './clock.js';
 
@@ -466,6 +466,8 @@ export function removeKnow(id, index) {
     }
     c.knows.splice(index, 1);
     saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
     return true;
 }
 
@@ -523,6 +525,8 @@ export function removeCharacter(id) {
     state.characters = state.characters.filter((c) => c.id !== id);
     state.newPeople = state.newPeople.filter((n) => !state.characters.some((c) => c.name === n));
     saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
     return state.characters.length < before;
 }
 
@@ -653,6 +657,8 @@ export function removeQuest(characterId, title) {
     c.quests = c.quests.filter((q) => q.title !== trimText(title));
     if (c.quests.length !== before) {
         saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
         return true;
     }
     return false;
@@ -804,6 +810,8 @@ export function removeHidden(id) {
     state.world.hidden = state.world.hidden.filter((h) => h.id !== id);
     if (state.world.hidden.length !== before) {
         saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
         return true;
     }
     return false;
@@ -901,6 +909,8 @@ export async function removeChronicleAt(index) {
     }
     state.chronicle.splice(index, 1);
     saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
     await flushLedger();   // ⭐ 同上
     return true;
 }
@@ -1033,10 +1043,17 @@ export function markArrivals(bodyText, floor, msgs) {
          *   原来没有防重——同楼重跑（"立刻更新"连点两次／失败重试）会让 missRounds 连加，
          *   没到 3 轮就被提前转编年（她定的"连续 3 轮"被偷成"连续 3 次调用"）。
          */
-        if (Number(rec.lastCheckedFloor) === at) {
+        /*
+         * ⭐ 复审追加 B4：**先判、后写**（原来判完立刻写）。
+         *   再加上下界用 `max(rec.floor, 上次核到)` ——
+         *   原来只用 `m.floor > rec.floor`：她在 #2 点过“立刻更新”（核到 2）后又发 #3，
+         *   缓冲未进 #4 时 `freshText` 拿到的是**已经核过的 #2** ⇒ 同一楼重算一次未命中，
+         *   `missRounds` 多加 1（到 3 就**提前转编年**）。
+         */
+        const prevChecked = Number.isFinite(Number(rec.lastCheckedFloor)) ? Number(rec.lastCheckedFloor) : -1;
+        if (prevChecked >= at) {
             continue;
         }
-        rec.lastCheckedFloor = at;
         /*
          * ⭐ 修复单 #17①：只搜"这张记录**之后**、**AI 写的**新正文"——
          *   原来拿"最近 6+ 楼的拼接文本"搜：
@@ -1046,17 +1063,21 @@ export function markArrivals(bodyText, floor, msgs) {
          */
         let freshText = text;
         if (hasMsgs) {
+            // ⭐ B4：下界＝"**这张记录之后** 且 **上次核过的楼之后**"
+            const minFloor = Math.max(Number(rec.floor), prevChecked);
             freshText = msgs
                 .filter((m) => m && m.isUser !== true
-                    && Number.isFinite(Number(m.floor)) && Number(m.floor) > Number(rec.floor))
+                    && Number.isFinite(Number(m.floor)) && Number(m.floor) > minFloor)
                 .map((m) => asText(m && m.mes))
                 .filter(Boolean)
                 .join('\n');
         }
         // ⭐ 没有"记录之后的新 AI 正文"＝这一轮她还没让 AI 回过话 ⇒ 不算没进、也不清零，原样跳过
         if (hasMsgs && !freshText) {
-            continue;
+            continue;   // 没有新 AI 正文 ⇒ 连 lastCheckedFloor 都⏔ 写（下次还能重核这一楼）
         }
+        // ⭐ B4：**确认真有新正文了**才记"核到第几楼"
+        rec.lastCheckedFloor = at;
         /*
          * ⭐ 修复单 #7：**人名与事件分开取**。
          *   原来两者一起 `trimText()`——可 `rec.events` 是**对象数组**，
@@ -1201,6 +1222,8 @@ export function dropRecallRecord(floor) {
     state.recallRecords = state.recallRecords.filter((r) => !r || r.floor !== floor);
     if (state.recallRecords.length !== before) {
         saveState();
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        syncMirrorAfterDelete(state);
         return true;
     }
     return false;

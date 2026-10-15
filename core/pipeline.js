@@ -748,7 +748,25 @@ function collectQuests(raw, c) {
  */
 export function checkActingAsMe(rows, floor) {
     const hits = [];
-    for (const raw of Array.isArray(rows) ? rows : []) {
+    /*
+     * ⭐ 复审追加 B3：无主的顶层任务（没写名字）**只报一次**，⏔ 每行都报一遍。
+     *   用法：把它们归到"第一行"身上（归属口径统一）。
+     */
+    const rowsArr = Array.isArray(rows) ? rows : [];
+    const unownedTop = [];
+    for (const r of rowsArr) {
+        for (const q of (Array.isArray(r && r.allQuests) ? r.allQuests : [])) {
+            if (q && !trimText(q.name || q.character)) {
+                unownedTop.push(q);
+            }
+        }
+    }
+    const firstRow = rowsArr.length ? rowsArr[0] : null;
+    if (firstRow && unownedTop.length) {
+        firstRow.quests = (Array.isArray(firstRow.quests) ? firstRow.quests : []).concat(unownedTop);
+    }
+
+    for (const raw of rowsArr) {
         const name = trimText(raw && raw.name);
         // 模型能写、我们会落的**全部文本字段**都过一遍（不只是 current）
         const pieces = [];
@@ -777,7 +795,19 @@ export function checkActingAsMe(rows, floor) {
         // ⭐ 修复单 #16：顶层 quests（喂进 row.allQuests 的那份）也**一并过禁区**——
         //    ⛔ 只查行内 quests 的话，顶层格式写的"我"字会漏检。
         if (Array.isArray(raw && raw.quests) || Array.isArray(raw && raw.allQuests)) {
-            const qsAll = [].concat(raw.quests || []).concat(raw.allQuests || []);
+            /*
+             * ⭐ 复审追加 B3：**顶层任务只取"属于本行的"**。
+             *   上一轮我把 `allQuests`（**全员的**顶层任务）原样拼进每一行
+             *   ⇒ 一处越界会被**放大成 N 处**（每个角色行各报一条），
+             *   而且 `hits.push(name + ...)` 里的 name 是**当前行角色名** ⇒ **张冠李戴**；编年里还重复落 N 遍。
+             *   ⚠️ 无主的（没写名字）不在这里报——统一到**循环外只报一次**（见下面）。
+             */
+            const myName = trimText(raw && raw.name);
+            const mineTop = (Array.isArray(raw.allQuests) ? raw.allQuests : []).filter((q) => {
+                const who = trimText(q && (q.name || q.character));
+                return !!who && !!myName && matchKey(who) === matchKey(myName);
+            });
+            const qsAll = [].concat(raw.quests || []).concat(mineTop);
             const joined = qsAll.filter(Boolean).map((q) => {
                 const items = Array.isArray(q && q.items)
                     ? q.items.map((i) => trimText(i && i.text)).filter(Boolean).join('、')

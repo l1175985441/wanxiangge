@@ -209,3 +209,34 @@ export function applyAppearance(node, app) {
     }
     return vars;
 }
+
+/**
+ * ⭐ 复审追加 A3：外观"同步**或**清除"的**唯一口径**。
+ *
+ *   为什么非得有它：上一轮我在三处写的是
+ *   `applyAppearance(node, ap.applyToPanel !== false ? ap : {})`——本意是"不勾就清除染色"，
+ *   但 `resolveAppearance({})` 会用 `DEFAULT_APPEARANCE`（砚墨浅底白卡）**补齐空对象**，
+ *   而 `applyAppearance` 只会 `setProperty`、**没有任何清除逻辑**
+ *   ⇒ 实际效果是**把白底黑字变量写死到小框／面板上**
+ *     （她在深色主题下会看到刺眼白底）。
+ *   ⇒ 不勾时**真的把变量摘掉**（removeProperty），让它回到酒馆主题默认。
+ *   ⚠️ `applyAppearance` 会把写过的变量名记在 `node.__wxgVars`（现成机制）⇒ 清除就按它来。
+ */
+export function syncPanelAppearance(node, app) {
+    const a = app && typeof app === 'object' ? app : {};
+    if (a.applyToPanel !== false) {
+        return applyAppearance(node, a);
+    }
+    if (node && node.style && node.__wxgVars && typeof node.style.removeProperty === 'function') {
+        for (const k of Object.keys(node.__wxgVars)) {
+            try {
+                node.style.removeProperty(k);
+            } catch (e) {
+                // 摘不掉一个也⏔ 把整件事带崩
+            }
+        }
+        node.__wxgVars = null;
+    }
+    return null;
+}
+
