@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.93';
+const VERSION = '0.2.94';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -324,14 +324,23 @@ function boot() {
             }
         }, 800);
 
-        // ④ 面板开关状态跟着入口高亮
-        setInterval(() => {
+        /*
+         * ④ 面板开关状态跟着入口高亮
+         *
+         * ⚠️ 补扫漏（技能那条「每个定时器都要有成对的清理」）：
+         *   这个闹钟原来**从来没被清过**（全库 0 个 clearInterval）——
+         *   她把插件关了、卸了，它还在每 3 秒叫一次 syncEntryState。
+         *   ⇒ 登记进 `disposers`：`teardownListeners()`（关/卸时调）会把它一并清掉。
+         *   ⛔ 别把 setInterval 的句柄直接丢掉——那样就没法清了。
+         */
+        const entryTimer = setInterval(() => {
             try {
                 syncEntryState();
             } catch (e) {
                 // 忽略
             }
         }, 3000);
+        disposers.push(() => clearInterval(entryTimer));
     } catch (e) {
         console.warn('[万象阁] 启动出错：', e);
     }

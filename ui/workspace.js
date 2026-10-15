@@ -19,6 +19,8 @@ import { loadState } from '../core/state.js';
 import { trimText, asArray } from '../core/utils.js';
 
 let wsEl = null;
+/** 挂在 document 上的 Esc 处理（关工作台时得摘掉） */
+let wsKeydownHandler = null;
 let sideEl = null;
 let hostEl = null;
 /** 页级大标题那两个节点（在 hostEl 外面，⛔ 不参与 renderSections 的清空） */
@@ -37,6 +39,15 @@ export function workspaceRoot() {
 
 /** 关掉工作台 */
 export function closeWorkspace() {
+    // ⭐ 补掃漏：把挂在 document 上的 keydown 摘掉（⏔ 它会跟着 root 一起消失——它压根不在 root 上）
+    if (wsKeydownHandler) {
+        try {
+            document.removeEventListener('keydown', wsKeydownHandler);
+        } catch (e) {
+            // 摘不掉也不能把关闭流程带崩
+        }
+        wsKeydownHandler = null;
+    }
     if (wsEl) {
         wsEl.remove();
     }
@@ -133,6 +144,21 @@ export function openWorkspace() {
 
     // 点左栏、点顶栏按钮、点 Esc
     root.addEventListener('click', onWorkspaceClick);
+    /*
+     * ⚠️ 补扫漏（技能那条「每个监听都要有成对的清理」）：
+     *   `keydown` 挂在 **document** 上（不是挂在我们自己的 root 上），
+     *   而 `closeWorkspace()` 只会 `root.remove()` —— **关不掉它**
+     *   ⇒ 每关一次再开，document 上就多一个旧的 onKeydown（拿着已经删掉的那个 root）。
+     *   ⇒ 挂的时候记下来，关的时候摘掉；顺手防重复挂。
+     */
+    if (wsKeydownHandler) {
+        try {
+            document.removeEventListener('keydown', wsKeydownHandler);
+        } catch (e) {
+            // 摘不掉也不能把开工作台带崩
+        }
+    }
+    wsKeydownHandler = onKeydown;
     document.addEventListener('keydown', onKeydown);
 
     document.body.appendChild(root);
