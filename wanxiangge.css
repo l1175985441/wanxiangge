@@ -687,7 +687,14 @@
     margin-bottom: 9px;
 }
 
-/* 默认收起；标了 data-wxg-open 的那几段默认展开（酒馆用 inline style 切显示，这里要压过它） */
+/*
+ * ⭐ 目标核对 2②：收放由**我们自己**的 `data-wxg-open` 决定。
+ *   ← 原来只有"开着的压行内样式"这一半，收起那半靠 ST 的 `.inline-drawer-content` 默认样式；
+ *     现在段头不带 ST 那个 class 了 ⇒ **两半都得自己写清楚**。
+ */
+.wanxiangge .wxg-sec > .wxg-sec-body {
+    display: none;
+}
 .wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body {
     display: block !important;
 }

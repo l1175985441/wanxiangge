@@ -175,7 +175,18 @@ function section(title, hint, opts) {
     if (o.five) {
         drawer.setAttribute('data-wxg-five', '1');
     }
-    const head = el('div', 'wxg-sec-head inline-drawer-toggle inline-drawer-header');
+    /*
+     * ⭐ 目标核对 2②：**段头不能带 ST 那两个 class**。
+     *   病因：`inline-drawer-toggle` / `inline-drawer-header` 是**酒馆自带**的抽屉标记，
+     *   ST 有一个**全局委托**会在点击时去翻 `.inline-drawer-content` 的**行内 display**；
+     *   而我们自己的 CSS 用 `[data-wxg-open="1"] { display: block !important }` **压过行内样式**，
+     *   且全库**没有任何地方会摘掉 `data-wxg-open`** ⇒ 两家抢同一次点击、
+     *   **默认就开着的那几段（前 5 段）收不动**（她报的就是这个）。
+     *   ⇒ 摘掉 ST 那两个 class（让它不再插手），开合**由我们自己接管**（见 `bindSectionEvents` 里的 `.wxg-sec-head` 分支）。
+     *   ⚠️ `inline-drawer-content` 还留着（它只是个样式类，ST 那个处理器认的是 `-toggle`）。
+     */
+    const head = el('div', 'wxg-sec-head');
+    head.setAttribute('data-action', 'toggle-sec');
     const titleWrap = el('div', 'wxg-sec-titlewrap');
     titleWrap.appendChild(el('b', 'wxg-sec-title', title));
     titleWrap.appendChild(el('span', 'wxg-sec-sum', o.summary ? asText(o.summary) : ''));
@@ -4710,6 +4721,26 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 /* ---- 段级保存／撤销（她拍的："每个大标题加一个保存"） ---- */
+                case 'toggle-sec': {
+                    /*
+                     * ⭐ 目标核对 2②：**我们自己的开合**。
+                     *   切 `data-wxg-open`（CSS 靠它决定显隐）～同时把行内 display 也跟上，
+                     *   免得旧的行内样式（以前 ST 写进去的）把它压住。
+                     */
+                    const sec = target.closest ? target.closest('.wxg-sec') : null;
+                    if (sec) {
+                        const openNow = sec.getAttribute('data-wxg-open') === '1';
+                        const bodyEl = sec.querySelector('.wxg-sec-body');
+                        if (openNow) {
+                            sec.removeAttribute('data-wxg-open');
+                            if (bodyEl && bodyEl.style) { bodyEl.style.display = 'none'; }
+                        } else {
+                            sec.setAttribute('data-wxg-open', '1');
+                            if (bodyEl && bodyEl.style) { bodyEl.style.display = ''; }
+                        }
+                    }
+                    break;
+                }
                 case 'save-section': {
                     const n = commitSection(id);
                     refreshToastSection(id, n);
