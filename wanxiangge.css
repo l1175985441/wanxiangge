@@ -3087,6 +3087,35 @@ body.wxg-dragging {
 }
 
 /* ---------------------------------------------------------------------------
+ * ⭐ 目标核对 1：「进度」卡的两列小表（已完成｜未完成）
+ *    照她亲手给的目标图（`目标-状态页-目标态.html` 的 `.ptab`）：
+ *      表头＝已完成｜未完成；行＝正文／注入／编年；格＝「N 楼」（居中）；**淡线**分隔。
+ *    ⚠️ 目标里线色写死 `#d5dade`（浅底好看）——这里**优先跟色板**（`--wxg-border`），
+ *      拿不到才退回那个淡色 ⇒ 深色色板下不会出现一条扎眼的白线。
+ * ------------------------------------------------------------------------- */
+.wanxiangge .wxg-ptab {
+    border-collapse: collapse;
+    margin: 12px auto 6px;
+}
+.wanxiangge .wxg-ptab th,
+.wanxiangge .wxg-ptab td {
+    border: 1px solid var(--wxg-border, #d5dade);
+    padding: 9px 30px;
+    text-align: center;
+    font-size: 13px;
+}
+.wanxiangge .wxg-ptab thead th {
+    font-weight: 600;
+}
+.wanxiangge .wxg-ptab tbody td:first-child {
+    color: var(--wxg-text-dim, #6d747a);
+    font-size: 12.5px;
+}
+.wanxiangge .wxg-ptab tbody td b {
+    font-size: 15px;
+}
+
+/* ---------------------------------------------------------------------------
  * ⑩ 删除类小按钮（.wxg-del）＋「清空这个世界」的确认盒
  *    她拍的：清空要**写明条数**＋**手打「确认清空」**才让点（不可逆操作的防误点）。
  *    颜色只上按钮与警示条，⛔ 不铺到整块面板。

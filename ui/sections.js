@@ -2575,27 +2575,53 @@ function secSteps(host, intoBox) {
      */
     // ⭐ 统计表（一行一类，总共 N 楼与逐楼清单都收在同一张「进度」卡里）
     const cStat = card('进度');
-    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
-    const addStat = (label, doneN, totalN, extra) => {
-        const line = el('div', 'wxg-stat-line');
-        line.appendChild(el('span', 'wxg-stat-k', label));
-        line.appendChild(el('span', 'wxg-badge ' + (doneN ? 'is-ok' : 'is-off'), '已 ' + num(doneN)));
-        line.appendChild(el('span', 'wxg-badge ' + ((totalN - doneN) ? 'is-warn' : 'is-off'),
-            '没 ' + num(totalN - doneN)));
-        if (extra) {
-            line.appendChild(el('span', 'wxg-note', extra));
-        }
-        cStat.appendChild(line);
+    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + ' 楼（含 #0 开场白）'));
+    /*
+     * ⭐ 目标核对 1（目标：状态页）：**三行胶囊 ⇒ 两列小表**。
+     *   她 2026-10-15 00:22 亲手给的目标图里，这一格是一张表：
+     *     表头＝**已完成 ｜ 未完成**；行＝正文／注入／编年；格＝「**N 楼**」（居中，淡线）。
+     *   原本是"已 X｜没 X"的胶囊 ⇒ 术语也跟着改成**已完成／未完成**。
+     *   ⏔ 动其余（总共 N 楼行／进度条／折叠行／存档行）。
+     */
+    const ptab = el('table', 'wxg-ptab');
+    const thead = el('thead', null);
+    const htr = el('tr', null);
+    htr.appendChild(el('th', null, ''));
+    htr.appendChild(el('th', null, '已完成'));
+    htr.appendChild(el('th', null, '未完成'));
+    thead.appendChild(htr);
+    ptab.appendChild(thead);
+    const tbody = el('tbody', null);
+    const addStat = (label, doneN, totalN) => {
+        const tr = el('tr', null);
+        tr.appendChild(el('td', null, label));
+        const cell = (n) => {
+            const td = el('td', null);
+            td.appendChild(el('b', null, num(n)));
+            td.appendChild(el('span', null, ' 楼'));
+            return td;
+        };
+        tr.appendChild(cell(doneN));
+        tr.appendChild(cell(totalN - doneN));
+        tbody.appendChild(tr);
     };
-    addStat('正文', doneCount, total, (maxDone >= 0 ? '最高到 ' + floorLabel(maxDone) : '还没开始')
-        + (lastFloor >= 0 ? ' · 上次更新停在 ' + floorLabel(lastFloor) : ' · 还没更新过'));
-    addStat('注入', injCount, total, '把状态送进请求的楼');
-    addStat('编年', chronCount, total, '留下过记录的楼');
+    addStat('正文', doneCount, total);
+    addStat('注入', injCount, total);
+    addStat('编年', chronCount, total);
+    ptab.appendChild(tbody);
+    cStat.appendChild(ptab);
 
-    // 说明行（柚月那张底下也有一行「隐藏」＝…）—— 术语必须自己解释
+    // 表下小注：正文最高到哪、上次停在哪（目标态把它放在**表下**，⏔ 跟在行里）
     cStat.appendChild(el('div', 'wxg-note',
-        '「已做」＝引擎走过去并留下记录的楼（有编年或有回执，或者在世界钟走过的范围内）。'
-        + '「没做」＝下次更新会接着走的楼。楼层号跟酒馆消息头上的编号一致：#0 是开场白。'));
+        (maxDone >= 0 ? '正文最高到 ' + floorLabel(maxDone) : '正文还没开始')
+        + (lastFloor >= 0 ? '（上次更新停在 ' + floorLabel(lastFloor) + '）' : '（还没更新过）')));
+    // 说明行：术语必须自己解释（跟目标态同一口径）
+    cStat.appendChild(el('div', 'wxg-note',
+        '「已完成」＝引擎走过去并留下记录的楼（有编年或有回执，或者在世界钟走过的范围内）；'
+        + '「未完成」＝下次更新会接着走的楼。楼层号跟酒馆消息头上的编号一致：#0 是开场白。'));
+    // 原来注入／编年两行各有一句小注 ⇒ 信息⏔ 丢，收成一行
+    cStat.appendChild(el('div', 'wxg-note',
+        '注入＝把状态送进请求的楼；编年＝留下过记录的楼。'));
 
     // 进度条
     const pct = total ? Math.round((doneCount / total) * 100) : 0;
