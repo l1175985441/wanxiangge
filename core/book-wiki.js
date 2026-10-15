@@ -224,6 +224,53 @@ function dedupe(list, keyOf) {
  * 把分类结果**落到账上**：人物→名册；势力／局势→世界状态（局势）。
  * @returns {{people: number, factions: number, situations: number, places: number, situationsTotal: number}}
  */
+/**
+ * ⭐⭐ 她原话 [18]：分条归位得**落到人身上**（别名留档、身份带上）。
+ *   ⚠️ 10-16 真盘：这段原来**只跟在“规则兜底”那条路后面** ⇒
+ *     **模型线（她真机走得最多的）不落别名、不填身份** ✗
+ *   ⚠️ 上一版我把它往 `applyWiki` 里插 ⇒ **那里取不到 `read`** ⇒ 砸了 3 套。
+ *     **这次改在 `importBookWiki` 里接**（那里 `read` 在作用域内）。
+ *   ⚠️ 身份：**只在格空、且没被手改过**时才写（她 §10：手改的不许冲）。
+ * @returns 真正动到的人数
+ */
+export function applyPeopleExtras(people) {
+    let touched = 0;
+    try {
+        for (const pp of (Array.isArray(people) ? people : [])) {
+            if (!pp || ((!pp.aliases || !pp.aliases.length) && !pp.identityHint)) {
+                continue;
+            }
+            const c = findCharacterByName(pp.name);
+            if (!c) {
+                continue;
+            }
+            const patch = {};
+            const cur = Array.isArray(c.aliases) ? c.aliases : [];
+            const have = new Set(cur.map((x) => String(x)));
+            const merged = cur.slice();
+            for (const a of (pp.aliases || [])) {
+                if (!have.has(String(a))) {
+                    merged.push(a);
+                }
+            }
+            if (merged.length !== cur.length) {
+                patch.aliases = merged;
+            }
+            const manual = Array.isArray(c.manualFields) && c.manualFields.indexOf('identity') >= 0;
+            if (pp.identityHint && !trimText(c.identity) && !manual) {
+                patch.identity = pp.identityHint;
+            }
+            if (Object.keys(patch).length) {
+                updateCharacter(c.id, patch);
+                touched += 1;
+            }
+        }
+    } catch (e) {
+        console.warn('[万象阁] 分条归位没落上：', e);
+    }
+    return touched;
+}
+
 export function applyWiki(wiki) {
     /*
      * ⚠️ 必须**容忍缺键**：`applyWiki` 是公开函数，调用方给的可能是"只有人物"的半截对象
@@ -417,43 +464,9 @@ export async function importBookWiki(bookName, opts) {
         if (opts && opts.allowRuleFallback) {
             const rb = ruleBasedPeople(read.entries);
             const added = addCharacters(rb.people.map((p) => p.name));
-    /*
-     * ⭐⭐ 她原话 [18]：分条归位**落到人身上**。
-     *   ← 光认属主（不新建人）只做了一半：别名与身份还得**写进那个人**，
-     *     否则"水手月亮"这个名字就没了留档（她："合并成名字有个毛线用"——别名也得留）。
-     *   ⚠️ 身份：**只在格空、且没被手改过**时才写（她 §10：手改的不许冲）。
-     */
-    try {
-        for (const pp of rb.people) {
-            if (!pp.aliases.length && !pp.identityHint) {
-                continue;
-            }
-            const c = findCharacterByName(pp.name);
-            if (!c) {
-                continue;
-            }
-            const patch = {};
-            const have = new Set((Array.isArray(c.aliases) ? c.aliases : []).map((x) => String(x)));
-            const merged = (Array.isArray(c.aliases) ? c.aliases : []).slice();
-            for (const a of pp.aliases) {
-                if (!have.has(String(a))) {
-                    merged.push(a);
-                }
-            }
-            if (merged.length !== (Array.isArray(c.aliases) ? c.aliases : []).length) {
-                patch.aliases = merged;
-            }
-            const manual = Array.isArray(c.manualFields) && c.manualFields.indexOf('identity') >= 0;
-            if (pp.identityHint && !trimText(c.identity) && !manual) {
-                patch.identity = pp.identityHint;
-            }
-            if (Object.keys(patch).length) {
-                updateCharacter(c.id, patch);
-            }
-        }
-    } catch (e) {
-        console.warn('[万象阁] 分条归位没落上：', e);
-    }
+    // 她 [18]：跟模型线用**同一份**逻辑（⏔ 两处各写一遍，改一处忘一处）
+    applyPeopleExtras(rb.people);
+
             return {
                 ok: true, fellBack: true, reason: cls.reason,
                 read: read.entries.length, total: read.total, disabled: read.disabled,
@@ -464,6 +477,11 @@ export async function importBookWiki(bookName, opts) {
         return { ok: false, reason: cls.reason, read: read.entries.length };
     }
     const applied = applyWiki(cls.wiki);
+    /*
+     * ⭐ 她 [18]：**模型线也得落别名／身份**。
+     *   这里 `read` 在作用域内（上一版插在 `applyWiki` 里取不到 read ⇒ 砸了 3 套）。
+     */
+    applyPeopleExtras(ruleBasedPeople(read.entries).people);
     return {
         ok: true, fellBack: false,
         read: read.entries.length, total: read.total, disabled: read.disabled,
