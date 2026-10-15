@@ -2575,7 +2575,7 @@ function secSteps(host, intoBox) {
      */
     // ⭐ 统计表（一行一类，总共 N 楼与逐楼清单都收在同一张「进度」卡里）
     const cStat = card('进度');
-    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + ' 楼（含 #0 开场白）'));
+    cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'   // ⚠️ num() 自带" 楼"，⏔ 再加));
     /*
      * ⭐ 目标核对 1（目标：状态页）：**三行胶囊 ⇒ 两列小表**。
      *   她 2026-10-15 00:22 亲手给的目标图里，这一格是一张表：
@@ -2597,7 +2597,8 @@ function secSteps(host, intoBox) {
         tr.appendChild(el('td', null, label));
         const cell = (n) => {
             const td = el('td', null);
-            td.appendChild(el('b', null, num(n)));
+            // ⚠️ ⏔ 用 num()：它自带" 楼" ⇒ 会变成"N 楼 楼"
+            td.appendChild(el('b', null, String(n)));
             td.appendChild(el('span', null, ' 楼'));
             return td;
         };
