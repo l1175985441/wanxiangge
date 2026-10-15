@@ -246,5 +246,20 @@ export function buildHealthReport(opts) {
         lines.push('· 在场：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
     }
 
+    /*
+     * ⭐ 第五条：她 [18]/[3] 那条 —— **暗线有没有被判编造、判了几条**（只读状态，⛔ 不新引任何东西）。
+     *   她原话：「编的。根本没有要我救」⇒ 被判过的那几条，在这里点名给她看。
+     */
+    try {
+        const hid = (loadState().world && Array.isArray(loadState().world.hidden)) ? loadState().world.hidden : [];
+        const bad = hid.filter((h) => h && h.suspect === true);
+        lines.push('· 暗线：共 ' + String(hid.length) + ' 条'
+            + (bad.length
+                ? '，其中 **' + String(bad.length) + ' 条被判过编造**（例：' + bad.slice(0, 2).map((h) => h.name).join('、') + '）⇒ 这几条的"现状"不进注入，等你处理'
+                : '，没被判过编造 ✓'));
+    } catch (e) {
+        lines.push('· 暗线：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
+    }
+
     return { text: lines.join('\n'), rows, fails };
 }
