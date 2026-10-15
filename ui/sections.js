@@ -3691,6 +3691,9 @@ export function paintBookPicks(host, ex, no) {
  * 把"正在看的那本书"的条目小块摆回面板（点一条之后重画，接着还能点）。
  * 数据来自 list-entries 抓到的 `pickEntries`，⛔ 不再重复读世界书。
  */
+/** ⭐ 3③：条目列表的筛选词（她输什么就只显示带它的） */
+let entFilter = '';
+
 export function renderEntryPick(host, offList) {
     if (!pickBook || !pickEntries.length) {
         return;
@@ -3708,7 +3711,43 @@ export function renderEntryPick(host, offList) {
         note.textContent = '「' + pickBook + '」共 ' + String(pickEntries.length)
             + ' 条：点一下＝不读这一条（⛔ 不立刻保存，按段底那颗「保存」才生效）；⛔ 不改你的世界书。';
     }
-    for (const e of pickEntries.slice(0, 200)) {
+    /*
+     * ⭐ 目标核对 3③：**批量键 + 筛选**（照她点的参照物：
+     *   TavernHelper 世界书面板的「整本＋全选／全不选＋逐条勾＋筛选」）。
+     *   逐条点"不读"原来已经有（`toggle-entry`），差的就是**一次处理一整本**的那几颗。
+     */
+    const bar = el('div', 'wxg-chiprow wxg-entbar');
+    const mkBtn = (label, act) => {
+        const b2 = document.createElement('button');
+        b2.type = 'button';
+        b2.className = 'wxg-btn-sm';
+        b2.textContent = label;
+        b2.setAttribute('data-action', act);
+        return b2;
+    };
+    bar.appendChild(mkBtn('全读', 'entry-all-on'));
+    bar.appendChild(mkBtn('全不读', 'entry-all-off'));
+    bar.appendChild(mkBtn('反选', 'entry-invert'));
+    const fInp = el('input', 'wxg-pick-filter');
+    fInp.type = 'text';
+    fInp.id = 'wxg-entfilter';
+    fInp.placeholder = '筛选名字…';
+    fInp.value = entFilter;
+    fInp.setAttribute('data-action', 'filter-entries');
+    bar.appendChild(fInp);
+    wrap.appendChild(bar);
+
+    const shown = pickEntries.filter((e) => {
+        if (!entFilter) {
+            return true;
+        }
+        const title = trimText(e && (e.comment || e.key || e.name || e.title));
+        return title.toLowerCase().indexOf(entFilter.toLowerCase()) >= 0;
+    });
+    if (!shown.length) {
+        wrap.appendChild(el('div', 'wxg-empty', '没有名字里带「' + entFilter + '」的条目'));
+    }
+    for (const e of shown.slice(0, 200)) {
         const title = trimText(e && (e.comment || e.key || e.name || e.title));
         if (!title) {
             continue;
@@ -4816,6 +4855,52 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                             b.setAttribute('data-entry', title);
                             wrap.appendChild(b);
                         }
+                    }
+                    break;
+                }
+                case 'entry-all-on':
+                case 'entry-all-off':
+                case 'entry-invert': {
+                    /*
+                     * ⭐ 3③：批量改（同样**只动草稿**，等段底保存）。
+                     *   ⚠️ "全不读"只管**当前这本书的条目**，⏔把别的书的排除也涂了。
+                     */
+                    const act = action;
+                    const all = pickEntries.map((e) => trimText(e && (e.comment || e.key || e.name || e.title)))
+                        .filter(Boolean);
+                    let offNow = toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+                    const inOff = (x) => offNow.some((y) => asText(y) === asText(x));
+                    if (act === 'entry-all-on') {
+                        offNow = offNow.filter((x) => !all.some((y) => asText(y) === asText(x)));
+                        toast.ok('这本书 ' + String(all.length) + ' 条全读（还没保存）');
+                    } else if (act === 'entry-all-off') {
+                        for (const x of all) {
+                            if (!inOff(x)) {
+                                offNow.push(x);
+                            }
+                        }
+                        toast.info('这本书 ' + String(all.length) + ' 条全不读（还没保存）');
+                    } else {
+                        for (const x of all) {
+                            if (inOff(x)) {
+                                offNow = offNow.filter((y) => asText(y) !== asText(x));
+                            } else {
+                                offNow.push(x);
+                            }
+                        }
+                        toast.info('反选了（还没保存）');
+                    }
+                    stage('extract', 'excludeEntries', offNow.join('、'));
+                    renderEntryPick(host, offNow);
+                    refreshSaveBar(host, 'extract');
+                    break;
+                }
+                case 'filter-entries': {
+                    entFilter = trimText(target.value);
+                    renderEntryPick(host);
+                    const back = host.querySelector('#wxg-entfilter');
+                    if (back && typeof back.focus === 'function') {
+                        back.focus();
                     }
                     break;
                 }
