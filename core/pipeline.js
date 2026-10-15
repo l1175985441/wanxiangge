@@ -48,6 +48,7 @@ import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
     updateWorld, upsertQuest,
     markArrivals,
+    addKnow,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
@@ -471,7 +472,20 @@ function applyCharacter(raw, material, conflicts) {
     // ⭐ 任务（主线／支线）：模型在 chars 里随行给的 quests（按角色名归位；也认顶层 quests）
     const quests = collectQuests(raw, c);
 
-    return { name: c.name, isNew, quests };
+    /*
+     * ⭐ 补③（尾巴）：模型在这一行里随行报的「他这一轮新知道了什么」。
+     *   ⚠️ 必须**在这里带出去**：`applyCharacter` 是挑字段返回的（只回 name／isNew／quests），
+     *     不写这一行，模型报的 knows 到了外面就没了（用例 ③-9 当场抓到：0 → 0）。
+     *   ⛔ 这里**不过滤**（过滤统一在 `addKnow` 里做：没文字／没来源不收），免得两处规则分叉。
+     */
+    const knows = Array.isArray(raw && raw.knows)
+        ? raw.knows.filter(Boolean).map((k) => ({
+            text: trimText(k && k.text),
+            source: trimText(k && k.source),
+        })).filter((k) => k.text)
+        : [];
+
+    return { name: c.name, isNew, quests, knows };
 }
 
 async function stepCharacters(material, attempt) {
@@ -608,6 +622,7 @@ async function stepCharacters(material, attempt) {
     let written = 0;
     let newPeople = 0;
     let questCount = 0;
+    let knowCount = 0;   // ⭐ 补③：这一轮往认知账里收了几条
     for (const raw of rows) {
         const row = Object.assign({}, raw);
         // 现场标记由我们决定（⛔ 不让模型自己选，免得它把在场的人当不在场去推演）
@@ -626,6 +641,27 @@ async function stepCharacters(material, attempt) {
                     for (const q of done.quests) {
                         upsertQuest(who.id, q);
                         questCount += 1;
+                    }
+                }
+            }
+            /*
+             * ⭐ 补③（尾巴）：**引擎自己维护认知账** —— 模型这一轮说他知道了什么，就收进去。
+             *   规矩跟手加**同一套**（都走 `addKnow`）：**只增不编**；**没文字／没来源 ⇒ 不收**
+             *   （她定的"拿不准的不进"）。
+             *   ⚠️ 来源楼层＝**这一轮的楼**（他这会知道它的时刻）。
+             *   ⛔ 模型没给就当"这轮没新增"，照常往下走（不当错误、不报失败）。
+             */
+            if (Array.isArray(done.knows) && done.knows.length) {
+                const who2 = loadState().characters.find((x) => x.name === done.name);
+                if (who2) {
+                    for (const kk of done.knows) {
+                        if (addKnow(who2.id, {
+                            text: trimText(kk && kk.text),
+                            source: trimText(kk && kk.source),
+                            floor: Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1,
+                        })) {
+                            knowCount += 1;
+                        }
                     }
                 }
             }

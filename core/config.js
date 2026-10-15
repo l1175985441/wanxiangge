@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.2.92';
+export const APP_VERSION = '0.2.93';
 
 export const LEDGER_VERSION = 3;
 
@@ -264,7 +264,14 @@ export const DEFAULT_PROMPT_CHARS = [
     ' "past":["他最近经历过的（第一人称、正在过去的那几条，按由近到远）"],',
     ' "current":"【现场】只总结正文里已经写了的他此刻在做的事（⛔ 正文没写的别写）；'
     + '【不在场】他此刻正在做什么（进行时推演，⛔ 不写下一步）",',
-    ' "schedule":[{"what":"约好的事","due":"什么时候到点"}]}],',
+    ' "schedule":[{"what":"约好的事","due":"什么时候到点"}],',
+    /*
+     * ⭐ 补③：让模型**顺手报"这一轮他知道了什么"**（防全知的另一半：有账才能过滤）。
+     *   ⏔ 只报"他从哪里知道的"：只认 亲眼／被告知／公开 三类（认不出的不收）；
+     *   ⏔ 报"他推测出来的"（她定的：拿不准的不进）；**没新增就给空数组**。
+     */
+    ' "knows":[{"text":"他这一轮**新**知道的一件事（一句话）",',
+    '           "source":"亲眼 或 被告知 或 公开（只能这三个）"}]}],',
     ' "quests":[{"name":"角色名（要和上面 chars 里的一致）","kind":"main 或 side","title":"他在追什么（目标层）",',
     ' "status":"活跃 或 完成 或 搁置","note":"一句话简述","items":[{"text":"子项","done":true 或 false}]}]}',
     '',
