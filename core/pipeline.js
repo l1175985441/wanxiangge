@@ -161,6 +161,37 @@ export function textAppearsIn(text, source) {
     return (hit / grams.length) >= 0.34;
 }
 
+/**
+ * ⭐ 她 [5]/[7] 的原话口径（10-16 用她的例子校准出来的）：
+ *   「这个正文**写了他的事情**。这就叫不能编造」／「正文**没有描写**的，比如下一步动作……那就叫**污染正文**了」
+ *   ⇒ 她叫"编造"的是**"正文没有描写的事"**，**⛔ 不是"把正文有的事换个说法"**。
+ *   而 `textAppearsIn` 只有一条线（≥34%）⇒ **改写幅度一大就掉到线下、被一口咬成"编造"**（她的例子正是这种写法）。
+ *   本函数给出**重合度**，让上层能分开两种情况：
+ *     · 完全找不到依据（0）⇒ 才叫「越界·现场编造」；
+ *     · 有部分依据但达不到线 ⇒ 「正文里找不到依据（可能是换个说法的总结，也可能是编的）」——**照样出声、照样留档**，⛔ 不一嘴定性。
+ */
+export function textCoverage(text, source) {
+    const a = asText(text).replace(/[\s，。、；：！？,.;:!?"'（）()【】《》…—-]/g, '');
+    const b = asText(source).replace(/\s+/g, '');
+    if (!a || !b) {
+        return 0;
+    }
+    if (a.length <= 2) {
+        return b.includes(a) ? 1 : 0;
+    }
+    const grams = [];
+    for (let i = 0; i + 2 <= a.length; i += 1) {
+        grams.push(a.slice(i, i + 2));
+    }
+    let hit = 0;
+    for (const g of grams) {
+        if (b.includes(g)) {
+            hit += 1;
+        }
+    }
+    return grams.length ? (hit / grams.length) : 0;
+}
+
 function setPipeline(patch) {
     const state = loadState();
     state.pipeline = Object.assign({}, state.pipeline, patch);
@@ -498,7 +529,16 @@ function applyCharacter(raw, material, conflicts) {
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
         } else if (onStage && !textAppearsIn(cur, material.recentText || material.rawText)) {
-            why = '他在正文里**露面**了，但这段正文里找不到 ⇒ 视为编造（她原话：在现场的只准出现正文的）';
+            /*
+             * ⭐ 她 [5]/[7] 的原话：她叫"编造"的是**"正文没有描写的事"**，
+             *   ⏔"把正文有的事换个说法"** ⇒ 分两档：
+             *     · 一点依据都找不到（重合度 0）⇒ 才叫**越界·现场编造**；
+             *     · 有部分依据但达不到线 ⇒ **照样出声、照样留档**，但不一嘴定性成"编造"（她说过误报会变噪音）。
+             */
+            const cov = textCoverage(cur, material.recentText || material.rawText);
+            why = cov > 0
+                ? '这段在正文里找不到依据（可能是换个说法的总结、也可能是编的——你自己看一眼）'
+                : '他在正文里**露面**了，但这段正文里**一点依据都找不到** ⇒ 视为编造（她：在现场的只准出现正文的）';
         }
         if (why) {
             c.currentSuspect = true;
@@ -506,7 +546,7 @@ function applyCharacter(raw, material, conflicts) {
             conflicts.push(c.name + ' 的「正在经历」：' + why + '（' + cur.slice(0, 30) + '…）');
             addChronicle({
                 floor: material.floor,
-                kind: onStage ? '⚠ 越界·现场编造' : '⚠ 越界·疑似预判',
+                kind: onStage ? (why.indexOf('一点依据都找不到') >= 0 ? '⚠ 越界·现场编造' : '⚠ 疑似·找不到依据') : '⚠ 越界·疑似预判',
                 who: c.name,
                 text: cur + '（' + why + '）',
                 clock: loadState().world.clock,
