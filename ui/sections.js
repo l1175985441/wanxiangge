@@ -2160,6 +2160,17 @@ function secApi(host) {
         numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
         el('span', 'wxg-note', '单次最多输出'),
         numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
+    /*
+     * ⭐ 目标核对 3②：**把"已保存的地址/模型"摆出来**。
+     *   她报过"模型名字填了、sk也填了"却仍报"没配好" ⇒
+     *   光看输入框里的字**分不清是没保存上还是没填**。
+     *   这行读的是**已落盘的设置值**（⏔ 输入框）⇒ 一眼就知道存没存上。
+     */
+    const savedApi = getSettings().api || {};
+    cCh.appendChild(el('div', 'wxg-note wxg-api-savedline',
+        '已保存的：地址 ' + (trimText(savedApi.url) || '（空）')
+        + '｜推演模型 ' + (trimText(savedApi.model) || '（空）')
+        + '｜模式 ' + (savedApi.mode === 'direct' ? '直连' : '经酒馆转发')));
     row(cCh, button('测一下连接', 'test-api', 'wxg-primary'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
     box.appendChild(cCh);
 

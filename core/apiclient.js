@@ -259,7 +259,25 @@ export async function callModel(opts) {
     const key = trimText(api.key);
     const model = trimText(o.cheap ? (api.modelCheap || api.model) : api.model);
     if (!url || !model) {
-        return { ok: false, reason: '没配好自定义 API（地址／模型名）——去面板「自定义 API」里填上' };
+        /*
+         * ⭐ 目标核对 3②：**拆开说清缺哪一个**，并把**面板读到的现值**带出来。
+         *   她报过："模型名字填了，sk也填了"却仍看到这句 ⇒
+         *   原来那句话只说"没配好"⇒ **她无法判断到底是没保存上、还是填错格**。
+         */
+        const miss = [];
+        if (!url) {
+            miss.push('接口地址为空');
+        }
+        if (!model) {
+            miss.push('模型名为空');
+        }
+        return {
+            ok: false,
+            reason: '没配好自定义 API：' + miss.join('、')
+                + '｜面板现在读到的是：地址=' + (url || '（空）')
+                + '、模型=' + (model || '（空）')
+                + '（去面板「自定义 API」里看看是不是没保存上）',
+        };
     }
 
     const body = {
@@ -394,7 +412,22 @@ async function callViaServer(url, key, model, body, signal, cheap) {
     const data = await res.json().catch(() => null);
     const text = readCompletionText(data);
     if (text === null) {
-        return { ok: false, reason: '转发通道回了怪东西（不是标准格式）' };
+        /*
+         * ⭐ 目标核对 3②：失败时**把 ST 的原始回体带出来**。
+         *   病根：原来只有一句"回了怪东西（不是标准格式）"⇒ 她那边（云酒馆）**根本没法排查**
+         *   （实测 ST 转发回的是 `{"error":{"message":"Not Found"}}` 这种，看得见才能定位）。
+         */
+        let raw = '';
+        try {
+            raw = JSON.stringify(data);
+        } catch (e) {
+            raw = String(data);
+        }
+        return {
+            ok: false,
+            reason: '转发通道回了怪东西（不是标准格式）｜HTTP ' + String(res.status)
+                + '｜原始回体前 200 字：' + raw.slice(0, 200),
+        };
     }
     return { ok: true, text, via: 'server', finish: readFinishReason(data) };
 }
