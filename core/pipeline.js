@@ -542,6 +542,20 @@ async function stepCharacters(material, attempt) {
         if (c.schedule.length) {
             lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }
+        /*
+         * ⭐ 补③ 第二步：**防全知**——把"他该知道的"真喂进他的推演。
+         *   她的原话：「推演该人物时，喂料按这份清单过滤（不在清单里的世界内幕不进他的推演上下文）」。
+         *   ⚠️ 只告诉模型"他知道什么"，**⏔ 把不该知道的也列出来**（那等于换个方式泄露）。
+         */
+        const kn = Array.isArray(c.knows) ? c.knows : [];
+        if (kn.length) {
+            lines.push('  他知道的：' + kn.map((k) => trimText(k.text)
+                + '（' + (trimText(k.source) || '公开')
+                + (Number(k.floor) >= 0 ? '·' + floorLabel(Number(k.floor)) : '') + '）').join('；'));
+            lines.push('  ⏔ **不在上面那份清单里的世界内幕，他没渠道知道⇒不许写进他的推演**。');
+        } else {
+            lines.push('  他还没记下知道什么（清单是空的）⇒ 世界内幕一律⏔ 给他，只能写他自己身边看得到的。');
+        }
         lines.push('  ' + (inScene
             ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
             + '✅ 可以照正文那样**侧面带"我"**（对"我"说／看向"我"／把东西放到"我"面前／对"我"的反应）；'
@@ -551,12 +565,23 @@ async function stepCharacters(material, attempt) {
         return lines.join('\n');
     }).join('\n');
 
+    /*
+     * ⭐ 补③ 第二步（第二半）：模板里那块世界内幕是**所有人共用**的——
+     *   那本身就是"全知"的漏点（谁都能看到）。
+     *   ⇒ 只保留**至少有一个被推的人在清单里记下过**的那些；
+     *     一个人都没记过的内幕 ⇒ **整块不给**（没人有渠道知道，给了就是全知）。
+     *   ⚠️ 清单全空时（老账，谁都没记）⏔ 一刀切：那样老聊天的推演会突然变空。
+     *     ⇒ 只要**这一批里有任何一个人填过清单**，就按清单过滤；一个都没填 ⇒ 照旧（等他开始用这个功能）。
+     */
+    const pickedKnows = picked.map((c) => (Array.isArray(c.knows) ? c.knows : []).map((k) => trimText(k.text)).filter(Boolean)).flat();
+    const anyKnows = pickedKnows.length > 0;
+    const knownBySomeone = (title) => !anyKnows || pickedKnows.some((kt) => kt.includes(title) || title.includes(kt));
     const prompt = fillTemplate(effectivePrompt('chars'), {
         clock: trimText(loadState().world.clock) || '未知',
         world: [
             trimText(loadState().world.bigPicture),
-            ((loadState().world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || ''),
-        ].filter(Boolean).join('\n') || '（还没有记录）',
+            ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
+        ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⏔ 给）',
         recent: material.recentText || '（没有可读的正文）',
         chars: charLines,
     });
