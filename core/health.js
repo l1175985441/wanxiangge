@@ -17,6 +17,9 @@ import { loadState } from './state.js';
 import { getSettings } from './settings.js';
 import { buildStateSummary } from './summary.js';
 import { floorLabel, trimText } from './utils.js';
+// ⭐ 验收自检要用：四格清洗 + 在场判定（⛔ 这两个文件都不 import health，不会绕成环）
+import { cleanMessages } from './extract.js';
+import { mentionedCharacters } from './recall.js';
 
 /** 有没有值（⛔ 只回答"有没有"，绝不回显内容） */
 function has(v) {
@@ -220,6 +223,27 @@ export function buildHealthReport(opts) {
         }
     } catch (e) {
         lines.push('· 验收自检整体没跑成：' + String(e && e.message ? e.message : e));
+    }
+
+    /*
+     * ⭐ 第四条：她 [5]/[7] 那条最在意的 —— **上一轮判了谁在场**（在场的只准总结正文有的；没露面的走推演）。
+     *   同步算：走四格清洗得正文 ⇒ mentionedCharacters ⇒ 报出来。
+     *   ⛔ 同样全 try/catch（体检绝不能被探针弄挂）。
+     */
+    try {
+        const chat = (opts && Array.isArray(opts.chat)) ? opts.chat : [];
+        const last = chat.length ? chat[chat.length - 1] : null;
+        if (last) {
+            const c = cleanMessages([{ mes: String(last.mes || ''), floor: chat.length - 1, is_user: !!last.is_user }]);
+            const body = String(c.text || '');
+            const roster2 = (loadState().characters || []);
+            const on = mentionedCharacters(body, roster2).map((x) => x.name);
+            lines.push('· 在场（上一楼）：' + (on.length ? (on.join('、') + '（' + String(on.length) + ' 人）') : '没认出名册里的人')
+                + (c.fellBack ? ' ｜⚠ 正文被剥得太狠、已退回原文' : '')
+                + ' —— 在场的只准总结正文有的；其余走推演（放行）');
+        }
+    } catch (e) {
+        lines.push('· 在场：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
     }
 
     return { text: lines.join('\n'), rows, fails };
