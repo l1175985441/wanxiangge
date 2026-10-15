@@ -49,12 +49,14 @@ import {
     updateWorld, upsertQuest,
     markArrivals,
     addKnow,
+    restoreSnapshot,
+    dropSnapshot,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
 import { markBookDirty } from './book.js';
-import { trimText, asText, clampNumber, uniqueBy, floorLabel } from './utils.js';
+import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { mentionedCharacters } from './recall.js';
 
 let running = false;
@@ -625,6 +627,13 @@ async function stepCharacters(material, attempt) {
     let knowCount = 0;   // ⭐ 补③：这一轮往认知账里收了几条
     for (const raw of rows) {
         const row = Object.assign({}, raw);
+        /*
+         * ⭐ 修复单 #16：顶层 `v.quests` 之前**没喂给任何一行**——
+         *   `collectQuests` 只读 `raw.allQuests`（全库只有它读、没人写），
+         *   ⇒ 模型按默认格式（quests 在顶层、与 chars 并列）报的任务 **100% 静默丢失**。
+         *   ⇒ 循环里补喂；`checkActingAsMe` 也会顺带读到它（下面那个字段同族加上了）。
+         */
+        row.allQuests = Array.isArray(v.quests) ? v.quests : [];
         // 现场标记由我们决定（⛔ 不让模型自己选，免得它把在场的人当不在场去推演）
         const found = picked.find((c) => c.name === trimText(raw && raw.name));
         row.onStage = found ? onStageIds.has(found.id) : false;
@@ -700,9 +709,17 @@ function collectQuests(raw, c) {
     const mine = Array.isArray(raw && raw.quests) ? raw.quests.filter(Boolean) : [];
     const top = Array.isArray(raw && raw.allQuests) ? raw.allQuests.filter(Boolean) : [];
     const out = mine.slice();
+    /*
+     * ⭐ 修复单 #16 附：顶层任务的 `name` 按**名字或别名**归位——
+     *   原来只比 `who === c.name`，模型写个别名/昵称就把任务丢了。
+     *   matchKey 就是全库的"名字归一"口径（去空白/小写/全角归一），跟名册检索同一把尺。
+     */
+    const names = [trimText(c && c.name)]
+        .concat((Array.isArray(c && c.aliases) ? c.aliases : []).map((a) => trimText(a)))
+        .filter(Boolean);
     for (const q of top) {
-        const who = trimText(q && (q.name || q.character));
-        if (who && who === c.name) {
+        const who = matchKey(trimText(q && (q.name || q.character)));
+        if (who && names.some((n) => matchKey(n) === who)) {
             out.push(q);
         }
     }
@@ -749,8 +766,11 @@ export function checkActingAsMe(rows, floor) {
         }
         // ⭐ 任务也算"模型写下的字"：子项里要是写了"下一步／明天去…"这种，
         //    跟"只写这一步"的规矩是同一个禁区 ⇒ 一样要拦住、要出声（⛔ 不静默）
-        if (Array.isArray(raw && raw.quests)) {
-            const joined = raw.quests.filter(Boolean).map((q) => {
+        // ⭐ 修复单 #16：顶层 quests（喂进 row.allQuests 的那份）也**一并过禁区**——
+        //    ⛔ 只查行内 quests 的话，顶层格式写的"我"字会漏检。
+        if (Array.isArray(raw && raw.quests) || Array.isArray(raw && raw.allQuests)) {
+            const qsAll = [].concat(raw.quests || []).concat(raw.allQuests || []);
+            const joined = qsAll.filter(Boolean).map((q) => {
                 const items = Array.isArray(q && q.items)
                     ? q.items.map((i) => trimText(i && i.text)).filter(Boolean).join('、')
                     : '';
@@ -893,7 +913,28 @@ export async function runUpdate(opts) {
     const floor = Number.isFinite(o.floor) && o.floor >= 0 ? o.floor : chat.length - 1;
 
     // 留一版快照（撤回用）
-    takeSnapshot('更新前（' + floorLabel(floor) + '）');
+    const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
+    /*
+     * ⭐ 修复单 #19：开跑前先把两个"锚点"记下来，失败要退回原值——
+     *   · `prevAtFloor`：`shouldUpdateNow` 的判据（推进了 ⇒ 自动更新被拒）
+     *   · `prevLuFloor`：进度条读的那个（"上次更新停在 #N"）
+     */
+    const prevAtFloor = (() => {
+        try {
+            const p = loadState().pipeline || {};
+            return Number.isFinite(Number(p.atFloor)) ? Number(p.atFloor) : -1;
+        } catch (e) {
+            return -1;
+        }
+    })();
+    const prevLuFloor = (() => {
+        try {
+            const lu = loadState().lastUpdate || {};
+            return Number.isFinite(Number(lu.floor)) ? Number(lu.floor) : -1;
+        } catch (e) {
+            return -1;
+        }
+    })();
 
     setPipeline({
         kind: 'update',
@@ -923,17 +964,22 @@ export async function runUpdate(opts) {
         fellBack: cleaned.fellBack,
     };
     /*
-     * ⭐ 补②：材料到手了 ⇒ **先对着新正文核上一轮注入的条目**（到底接没接）。
-     *   放在这里的理由：此刻新正文已经在手，而且**还没开始推演**（核完再推）。
-     *   ⚠️ 它只读与标记，⏔ 改推演结果；出错也⏔ 影响主流程。
+     * ⭐ 补②：对着新正文核上一轮注入的条目（到底接没接）。
+     * ⚠️ 修复单 #19 联动的坑：它**会写编年**（"候补转编年"），而失败回滚**会还原编年**
+     *   ⇒ 两件事会打架（回滚把编年抹了，可 `lastCheckedFloor` 已经记上、重跑不再核 ⇒ 那笔账永久丢）。
+     *   ⇒ **把它挪到"回滚之后"再跑**（见下面收尾段），两个机制各自独立、不再互相踩。
      */
-    try {
-        markArrivals(material.rawText || material.recentText, floor);
-    } catch (e) {
-        console.warn('[万象阁] 送达回执没算成：', e);
-    }
 
     if (!trimText(material.recentText)) {
+        /*
+         * ⭐ 修复单 #19 附注①：空跑**不该占一个快照位**（快照是有上限 SNAPSHOT_KEEP 的，
+         *   占一个就挤掉一版真能用来自救的快照）。⇒ 把刚压的那版撤掉。
+         */
+        try {
+            dropSnapshot(preSnap);
+        } catch (e) {
+            console.warn('[万象阁] 撤快照没做成：', e);
+        }
         setPipeline({ status: 'failed', step: '取材料', error: '这一楼附近没有可读的正文', endedAt: Date.now(), text: '没材料可推' });
         running = false;
         return { ok: false, reason: '这一楼附近没有可读的正文' };
@@ -1019,6 +1065,33 @@ export async function runUpdate(opts) {
         }
     }
 
+    /*
+     * ⭐ 修复单 #19：**失败＝账保持原样**。
+     *   原来失败也照写 `atFloor` 与 `lastUpdate.floor`，后果三连：
+     *     ① `shouldUpdateNow` 判据是 `cur <= atFloor ⇒ false` ⇒ **失败后自动更新被永久拒掉**（"已算过"）；
+     *     ② 进度显示"走了 100%（已经追平正文）"＝**虚报**；
+     *     ③ stepWorld 已经写进去的世界钟／编年**留着** ⇒ 半截脏 + 重试时重复推。
+     *   ⇒ 失败时把账还原到开跑前那一版快照，锚点也退回原值（下面 setPipeline/lastUpdate 用 prev）。
+     */
+    if (failed) {
+        try {
+            restoreSnapshot(preSnap);
+        } catch (e) {
+            console.warn('[万象阁] 失败回滚没做成：', e);
+        }
+    }
+
+    /*
+     * ⭐ 补②（修复单 #17 已改口径）：对着新正文核上一轮注入的条目。
+     *   放在**回滚之后**：它写的编年不会被失败回滚抹掉，两个机制不再互相踩。
+     *   ⚠️ 只读与标记，不改推演结果；出错也不影响主流程。
+     */
+    try {
+        markArrivals(material.rawText || material.recentText, floor, material.messages);
+    } catch (e) {
+        console.warn('[万象阁] 送达回执没算成：', e);
+    }
+
     setPipeline({
         status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
         step: '完成',
@@ -1026,6 +1099,8 @@ export async function runUpdate(opts) {
         error: failed ? (lastError || '未知原因') : '',
         text,
         cursor: msgs.length,
+        // ⭐ #19：失败了就把锚点退回去（⛔ 不许假装这一楼算过了）
+        atFloor: failed ? prevAtFloor : floor,
         conflicts: Array.isArray(charRes.conflicts) ? charRes.conflicts.slice(0, 20) : [],
     });
     /*
@@ -1049,7 +1124,12 @@ export async function runUpdate(opts) {
         at: Date.now(),
         status: failed ? 'failed' : 'ok',
         note: text,
-        floor: Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1,
+        /*
+         * ⭐ 修复单 #19：失败时**停在原来那楼**（⛔ 不许推进）——
+         *   推进了会让进度条显示"已经追平正文"，而实际上账被回滚了、这一楼根本没算。
+         *   失败的"事实"仍然留着（status/note/failLog 都在），只是不冒充进度。
+         */
+        floor: failed ? prevLuFloor : (Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1),
     };
     saveState();
     markBookDirty();
@@ -1241,9 +1321,18 @@ export function runReconcile() {
         }
     }
 
-    // 更新锚点若指向已不存在的楼层，退回到现存最后一次有效更新的楼号（没有就归 -1），防删楼后自动更新停摆
+    /*
+     * ⭐ 修复单 #23：**两个锚点都要查**。
+     *   原来只查 `pipeline.atFloor`，`lastUpdate.floor` 越界了没人管 ——
+     *   而进度那侧读的正是 `lastUpdate.floor`（"上次更新停在 #N"＋"走了 X%"）⇒
+     *   删楼之后会出现「总共 2 楼，却显示停在 #9、走了 100%（已经追平正文）」（真机截图实锤）。
+     *   ⇒ 谁越界都一起对齐到"现存最后一次有效更新的楼号"。
+     */
     const atFloor = Number(state.pipeline && state.pipeline.atFloor);
-    if (Number.isFinite(atFloor) && atFloor >= chat.length) {
+    const luFloor = Number(state.lastUpdate && state.lastUpdate.floor);
+    const atBad = Number.isFinite(atFloor) && atFloor >= chat.length;
+    const luBad = Number.isFinite(luFloor) && luFloor >= chat.length;
+    if (atBad || luBad) {
         let lastValidFloor = -1;
         for (const c of state.chronicle) {
             const f = Number(c && c.floor);
@@ -1251,11 +1340,20 @@ export function runReconcile() {
                 lastValidFloor = f;
             }
         }
-        state.pipeline.atFloor = lastValidFloor;
-        if (state.lastUpdate && typeof state.lastUpdate === 'object') {
-            state.lastUpdate.floor = lastValidFloor;
+        // ⚠️ 编年里一条有效楼都没有时：若 lastUpdate 那个数**本身还有效**，就保住它（别越对齐越丢）
+        if (lastValidFloor < 0 && Number.isFinite(luFloor) && luFloor >= 0 && luFloor < chat.length) {
+            lastValidFloor = luFloor;
         }
-        notes.push('更新锚点已从 ' + floorLabel(atFloor) + ' 对齐到 ' + (lastValidFloor >= 0 ? floorLabel(lastValidFloor) : '未更新状态'));
+        if (atBad) {
+            state.pipeline.atFloor = lastValidFloor;
+            notes.push('更新锚点已从 ' + floorLabel(atFloor) + ' 对齐到 ' + (lastValidFloor >= 0 ? floorLabel(lastValidFloor) : '未更新状态'));
+        }
+        if (Number.isFinite(luFloor)) {
+            state.lastUpdate.floor = lastValidFloor;
+            if (luBad && !atBad) {
+                notes.push('"上次更新停在"已从 ' + floorLabel(luFloor) + ' 对齐到 ' + (lastValidFloor >= 0 ? floorLabel(lastValidFloor) : '未更新状态'));
+            }
+        }
     }
 
     saveState();

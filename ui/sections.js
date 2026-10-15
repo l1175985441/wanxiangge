@@ -3444,6 +3444,19 @@ export function renderSections(host, opts) {
         if (healthOpen) {
             renderHealthCard();
         }
+        /*
+         * ⭐ 修复单 #33（后半）：**人物卡也要画回来**。
+         *   她点开人物卡之后，任何一次重画（比如后台刷了一下设置区）都会把浮层冲掉；
+         *   上面两处都补了、就这处漏了 ⇒ 表现是"人物卡自己没了"。
+         *   ⛔ 别再写在每个动作里（漏一个就没一个）——统一听这里。
+         */
+        if (personCardId) {
+            try {
+                renderPersonCard();
+            } catch (e) {
+                console.warn('[万象阁] 摆回人物卡出错：', e);
+            }
+        }
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
@@ -3874,6 +3887,16 @@ export function bindSectionEvents(host, refresh) {
     };
 
     const handler = async (e) => {
+        /*
+         * ⭐ 修复单 #33（前半）：**handler 入口把挂载点对齐到"这次点击所在的 host"**。
+         *   为什么：`renderSections(host)` 既被**看得见的工作台**调、也被**藏在抽屉里的设置区**
+         *   （后台 renderPanel）调，而 `lastSectionsHost` 记的是"最后一次调用者"——
+         *   后台一刷就把指针改指到**隐藏抽屉** ⇒ 浮层被塞进看不见的地方＝"点了没反应"（浮层隐身）。
+         *   点击一定发生在某个 host 上 ⇒ 以它为准，指针就不会再被后台带偏。
+         */
+        if (host) {
+            lastSectionsHost = host;
+        }
         // ⭐ 顶部"快速跳转"：它没有 data-action（那是给会改数据的东西用的）
         const jump = e.target.closest && e.target.closest('[data-jump]');
         if (jump) {
@@ -4186,6 +4209,14 @@ export function bindSectionEvents(host, refresh) {
                             h.manual = true;
                             h.updatedAt = Date.now();
                             state.world.hidden = state.world.hidden.slice();
+                            /*
+                             * ⭐ 修复单 #32：**补 saveState()**。
+                             *   原来只 `slice()` 就直接 rerender——`slice()` 只是"改后待存"的写法，
+                             *   真正的落盘得靠 saveState ⇒ 暗线阶段改完**永不落盘**，刷新就回原样。
+                             *   （同文件其它同类 case 都带 saveState，就这处漏了。）
+                             */
+                            saveState();
+                            toast.ok('暗线阶段已改成「' + String(target.value) + '」');
                             rerender();
                         }
                     }

@@ -984,9 +984,10 @@ export function ledgerClearPreview() {
  *
  * @param {string} bodyText 这一轮的新正文
  * @param {number} floor 这一轮的楼层
+ * @param {Array<object>} [msgs] 原始消息数组（带 floor／isUser；给了就按它过滤，⛔ 不用拼接文本）
  * @returns {{arrived:number, missed:number, archived:number}}
  */
-export function markArrivals(bodyText, floor) {
+export function markArrivals(bodyText, floor, msgs) {
     const state = loadState();
     const text = asText(bodyText);
     const at = Number.isFinite(Number(floor)) ? Number(floor) : -1;
@@ -994,6 +995,7 @@ export function markArrivals(bodyText, floor) {
     if (!text || at < 0) {
         return out;
     }
+    const hasMsgs = Array.isArray(msgs) && msgs.length > 0;
     const list = Array.isArray(state.recallRecords) ? state.recallRecords : [];
     for (const rec of list) {
         if (!rec || rec.injectStatus !== 'ok' || rec.archived === true || rec.arrivedAt >= 0) {
@@ -1003,12 +1005,41 @@ export function markArrivals(bodyText, floor) {
         if (Number(rec.floor) >= at) {
             continue;
         }
+        /*
+         * ⭐ 修复单 #17②：同一楼已经核过就不重核。
+         *   原来没有防重——同楼重跑（"立刻更新"连点两次／失败重试）会让 missRounds 连加，
+         *   没到 3 轮就被提前转编年（她定的"连续 3 轮"被偷成"连续 3 次调用"）。
+         */
+        if (Number(rec.lastCheckedFloor) === at) {
+            continue;
+        }
+        rec.lastCheckedFloor = at;
+        /*
+         * ⭐ 修复单 #17①：只搜"这张记录**之后**、**AI 写的**新正文"——
+         *   原来拿"最近 6+ 楼的拼接文本"搜：
+         *   · 旧楼提过 ⇒ 上一轮早核过，再算＝重复计；
+         *   · 她自己的楼提过 ⇒ 她点名 ≠ 正文接住了（误判"已进正文"）。
+         *   没给 msgs 时退回整段文本（单元测试／老调用）。
+         */
+        let freshText = text;
+        if (hasMsgs) {
+            freshText = msgs
+                .filter((m) => m && m.isUser !== true
+                    && Number.isFinite(Number(m.floor)) && Number(m.floor) > Number(rec.floor))
+                .map((m) => asText(m && m.mes))
+                .filter(Boolean)
+                .join('\n');
+        }
+        // ⭐ 没有"记录之后的新 AI 正文"＝这一轮她还没让 AI 回过话 ⇒ 不算没进、也不清零，原样跳过
+        if (hasMsgs && !freshText) {
+            continue;
+        }
         const tokens = []
             .concat(Array.isArray(rec.chars) ? rec.chars : [])
             .concat(Array.isArray(rec.events) ? rec.events : [])
             .map((x) => trimText(x))
             .filter((x) => x.length >= 2);
-        const hit = tokens.some((tk) => text.includes(tk));
+        const hit = tokens.some((tk) => freshText.includes(tk));
         if (hit) {
             rec.arrivedAt = at;
             rec.arrivedNote = '已进正文（' + '#' + String(at) + '）';
@@ -1076,6 +1107,11 @@ export function putRecallRecord(record) {
         missRounds: 0,
         arrivedNote: '',
         archived: false,
+        /*
+         * ⭐ 修复单 #17②：最后一次"核到第几楼"——用来防同楼重核
+         *   （"立刻更新"连点两次／失败重试 × 同一楼 ⇒ missRounds 连加、提前转编年）。
+         */
+        lastCheckedFloor: -1,
     }, record || {});
 
     const mesId = trimText(rec.mesId);
@@ -1219,6 +1255,54 @@ export function rollbackLast() {
     }
     saveState();
     return snap;
+}
+
+/**
+ * ⭐ 修复单 #19：把账**还原到某一版快照**（引擎自己失败时收口用）。
+ *
+ * ⚠️ 跟 `rollbackLast()` 的区别（⏔ 搞混：那是"她主动撤回"，这是"引擎自己失败回滚"）：
+ *   · ⏔ 动 `snapshots` 列表（不 pop、也不 push"撤回前"）——那版快照留着，她仍可手动撤回；
+ *   · ⏔ 记"撤回"动作（这不是她的操作）；
+ *   · 只把 payload 里那六样装回去。
+ *
+ * @returns {boolean} 装回去了没
+ */
+export function restoreSnapshot(snap) {
+    if (!snap || !snap.data) {
+        return false;
+    }
+    const state = loadState();
+    state.characters = Array.isArray(snap.data.characters) ? snap.data.characters : state.characters;
+    state.world = snap.data.world || state.world;
+    state.events = Array.isArray(snap.data.events) ? snap.data.events : state.events;
+    if (Array.isArray(snap.data.chronicle)) {
+        state.chronicle = snap.data.chronicle;
+    }
+    if (Array.isArray(snap.data.newPeople)) {
+        state.newPeople = snap.data.newPeople;
+    }
+    state.stat = snap.data.stat || state.stat;
+    saveState();
+    return true;
+}
+
+/**
+ * ⭐ 修复单 #19 附注①：把某一版快照**丢掉**（空跑占位用）。
+ *   只丢"就是这一版"（按 `at`+标签认）；认不出就不动手（⏔ 乱丢别人的）。
+ */
+export function dropSnapshot(snap) {
+    if (!snap || !Number.isFinite(Number(snap.at))) {
+        return false;
+    }
+    const state = loadState();
+    const list = Array.isArray(state.snapshots) ? state.snapshots : [];
+    const idx = list.findIndex((x) => x && Number(x.at) === Number(snap.at) && trimText(x.label) === trimText(snap.label));
+    if (idx < 0) {
+        return false;
+    }
+    list.splice(idx, 1);
+    saveState();
+    return true;
 }
 
 export function snapshotCount() {
