@@ -253,7 +253,18 @@ export function buildHealthReport(opts) {
             } else {
                 const n = last.lead ? String(last.lead).length : 0;
                 const inj = Number(last.injectedChars) || 0;
-                lines.push('· 正文：上一楼原文 ' + String(n) + ' 字，注入 ' + String(inj) + ' 字（' + String(last.from || '') + '）'
+                /*
+                 * ⚠️ 真机上看到的：`from` 会把**整段 HTML 注释＋后面正文**都打出来（一行刷半屏）✗
+                 *   ⇒ 只留"从哪条路来的"这一小截：先剥注释/标签，再压成一行、截 24 字。
+                 */
+                const src = String(last.from || '')
+                    .replace(/<!--[\s\S]*?-->/g, ' ')
+                    .replace(/<[^>]{1,80}>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .slice(0, 24);
+                lines.push('· 正文：上一楼原文 ' + String(n) + ' 字，注入 ' + String(inj) + ' 字'
+                    + (src ? '（来源：' + src + '）' : '')
                     + (n >= 200 ? ' ✓' : ' ⇒ ⚠ 原文偏少：可能被「四格」剥太狠，去读取控制看看'));
             }
         } catch (e) {
