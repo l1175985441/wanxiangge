@@ -231,6 +231,40 @@ function findStandaloneName(line, forms, allForms) {
  *   ⚠️ 只收**名字能对上名册（含别名）**的那些——⏔ 把世界里别的数字当成好感。
  * @returns {Array<{name:string, value:string}>}
  */
+/**
+ * ⭐ 10-16 在她真数据上发现的缺口：**正文里有戏、但名册／书里没有他**。
+ *   实例：「春菜老师」在她正文里**露面 11 次**，但两本书里**都没有她的条目** ⇒ 引擎建不了档、她的总结／推演整块是空的。
+ *   这里**只把她指出来**（她的口味：条目可选、⏔ 自作主张）——**⏔ 自动建人**。
+ *   数据源："手机"台账里的**名字**（她自己写的那份，最可靠）。
+ * @returns 台账里出现、但名册里没有的名字
+ */
+export function ledgerNamesMissingFromRoster(text, roster) {
+    const src = trimText(text);
+    if (!src) {
+        return [];
+    }
+    const have = new Set();
+    for (const c of (Array.isArray(roster) ? roster : [])) {
+        have.add(matchKey(trimText(c && c.name)));
+        for (const a of toList(c && c.aliases)) {
+            have.add(matchKey(a));
+        }
+    }
+    const out = [];
+    // 台账写法："path":"/人物/<名字>"
+    const re = /"\/人物\/([^"]{1,20})"/g;
+    let m = re.exec(src);
+    while (m) {
+        const nm = trimText(m[1]);
+        const k = matchKey(nm);
+        if (k && !have.has(k) && out.indexOf(nm) < 0) {
+            out.push(nm);
+        }
+        m = re.exec(src);
+    }
+    return out;
+}
+
 export function affinityFromText(text, roster, sourceTag) {
     const src = trimText(text);
     const tag = trimText(sourceTag);
@@ -335,7 +369,9 @@ export async function refreshAffinity() {
             if (wrote) {
                 saveState();
             }
-            return { ok: true, reason: '从正文标签读到 ' + String(hit.length) + ' 个好感', from: 'text', wrote };
+            return { ok: true, reason: '从正文标签读到 ' + String(hit.length) + ' 个好感', from: 'text', wrote,
+                // 她口味：只指出来，⏔ 自动建人（她点头了再加）
+                unmatched: ledgerNamesMissingFromRoster(text, roster) };
         }
     } catch (e) {
         console.warn('[万象阁] 从正文标签读好感没成：', e);
