@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.94';
+const VERSION = '0.2.95';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -90,6 +90,19 @@ function bindEvents(ctx) {
 
     const on = (type, handler) => {
         if (typeof type === 'string' && type) {
+            /*
+             * ⭐ 补一个**标记**：给挂上去的那个函数盖个戳。
+             *   为什么：真机门要验"停用之后我们自己的回调真被摘了"——
+             *   而 eventSource 上**同时挂着别的扩展的回调**，光数总数会被别家的涨落淹掉
+             *   （实测：整轮里 recv 总数 8→14→16 一直在涨，差值是 0，看着像"没拆"）。
+             *   ⇒ 盖上戳，探针就只数**我们自己的**，那个差值才是真信号。
+             *   ⚠️ 打戳不影响酒馆调用它（只是多一个属性）。
+             */
+            try {
+                handler.__wxgOwn = true;
+            } catch (e) {
+                // 冻住的函数打不上戳也不影响功能
+            }
             source.on(type, handler);
             /*
              * 顺手登记"怎么拆"。真机实测（Tavern 1.18.0）：
