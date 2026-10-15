@@ -64,7 +64,14 @@ function bookApi() {
 /** 确保"万象阁"那本世界书存在 */
 async function ensureBook(api) {
     if (api.list) {
-        const names = await api.list().catch(() => []);
+        /*
+         * ⚠️ 首夜实测单第 1 条（急 · 一按就炸）：原来只查"有没有 api.list"，**没查它返回的是不是 Promise**
+         *   ⇒ 同步实现（直接返回数组）的宿主上 `.catch` 不存在 ⇒ 点「写入世界书」当场炸：
+         *   `api.list(...).catch is not a function`，而且**黑话原样漏到屏上**。
+         *   ⇒ 先拿返回值，是 Promise 才 await+catch；不是就直接当数组用（两种实现都过）。
+         */
+        const r = api.list();
+        const names = (r && typeof r.then === 'function') ? await r.catch(() => []) : (r || []);
         if (Array.isArray(names) && names.includes(WORLD_BOOK_NAME)) {
             return true;
         }
