@@ -176,7 +176,18 @@
     --wxg-line: var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
     --wxg-fill: rgba(128, 128, 128, 0.12);
     --wxg-fill-strong: rgba(128, 128, 128, 0.2);
-    --wxg-dim: var(--SmartThemeEmColor, rgba(160, 160, 160, 1));
+    /*
+     * ⭐ 目标核对 4：**弱化字色不能裸吃酒馆主题的强调色**。
+     *   她报原话："全是灰色字体，看清得凑进看"。
+     *   病因：这里原来是 `var(--SmartThemeEmColor, rgba(160,160,160,1))`——
+     *   **直接拿主题的"强调色"**，而它在浅色主题下本就很浅
+     *   ⇒ 她截图里最虚的那一层就是它；而且值域深浅不定（不可控）。
+     *   ⇒ 改**自家值 + 下限**：用 `currentColor` 按 74% 混合后面的底
+     *     （浅底得深灰、深底得浅灰，自适应）；老浏览器不认 `color-mix` 时
+     *     用前一行那个 `#6e747a`（白底上约 4.9:1，达标）。
+     */
+    --wxg-dim: rgba(110, 116, 122, 1);
+    --wxg-dim: color-mix(in srgb, currentColor 74%, transparent);
 }
 
 /* ============================ 工作台（整页窗口） ============================
@@ -3114,9 +3125,12 @@ body.wxg-dragging {
 .wanxiangge .wxg-ptab thead th {
     font-weight: 600;
 }
+/*
+ * ⭐ 目标核对 4：她圈的「数据标签」（正文／注入／编年）**不是弱化元素**，升到接近正文。
+ */
 .wanxiangge .wxg-ptab tbody td:first-child {
-    color: var(--wxg-dim, #6d747a);
-    font-size: 12.5px;
+    color: var(--wxg-text, #33383d);
+    font-size: 13px;
 }
 .wanxiangge .wxg-ptab tbody td b {
     font-size: 15px;

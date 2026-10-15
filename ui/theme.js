@@ -189,7 +189,12 @@ export function appearanceVars(app) {
         '--wxg-line-strong': isLightSurface ? '#d5dade' : a.border,
         '--wxg-fill': rgba(a.text, isLightSurface ? 0.05 : 0.07),
         '--wxg-fill-strong': rgba(a.text, isLightSurface ? 0.09 : 0.13),
-        '--wxg-dim': isLightSurface ? '#6d747a' : rgba(a.text, 0.62),
+        /*
+         * ⭐ 目标核对 4：浮层这份也抬高。
+         *   原来浅底 `#6d747a`（白底上约 4.6:1，刚过线但她仍觉得要凑近）；
+         *   深底 `rgba(a.text, 0.62)` 也偏薄 ⇒ 两边各加一档。
+         */
+        '--wxg-dim': isLightSurface ? '#565c63' : rgba(a.text, 0.74),
         '--wxg-input-bg': isLightSurface ? '#ffffff' : rgba('#000000', 0.22),
         '--wxg-card-bg': isLightSurface ? '#ffffff' : rgba(a.text, 0.045),
         '--wxg-thead-bg': isLightSurface ? '#eceef0' : rgba(a.text, 0.06),
