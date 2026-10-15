@@ -460,7 +460,9 @@ function secStatus(host, intoSelf) {
     line.setAttribute('data-tone', report.tone);
     const ledgerLine = el('div', 'wxg-ledger', '上次更新：' + ledgerText());
     const world = describeWorld();
-    const worldNote = el('div', 'wxg-note',
+    // ⭐ 目标核对 4：这一行是**数据标签**（世界钟／局势／暗线／编年／可撤回），⏔ 说明小字
+    //   ⇒ 单独给一个类，强调里把它**升到接近正文**（见 css 的 .wxg-wsum）。
+    const worldNote = el('div', 'wxg-note wxg-wsum',
         '世界钟：' + world.clock
         + (world.place ? ' · ' + world.place : '')
         + ' ｜ 局势 ' + String(world.situations)
