@@ -328,7 +328,16 @@ export function showIndex(i, scroll) {
      *   （或都不居中）。CSS 里用 `.wxg-ws-pagehead[data-wxg-sec="人物名册"]` 就能**只**管那一页。
      */
     if (pageHeadEl && pageHeadEl.setAttribute && items[activeIndex]) {
-        pageHeadEl.setAttribute('data-wxg-sec', String(items[activeIndex].textContent || '').trim());
+        /*
+         * ⭐ 修复单 #28（**根修**）：这里要取**全名**，⛔ 不取侧栏简称。
+         *   侧栏为了不折行用了简称（`SIDEBAR_SHORT`：读取控制（四格）／自定义 API／提示词），
+         *   而 CSS 里那三页的选择器写的是**全名** ⇒ 拿简称去盖这个钩子就**永远匹配不上**
+         *   ⇒ 那三页标题不居中（真机截图 08/09/10 实锤）。
+         *   ⇒ 从**对应那一段的 `.wxg-sec-title`** 读全名；读不到再退回侧栏文字（老行为）。
+         */
+        const secNow = asArray(hostEl.querySelectorAll('.wxg-sec'))[activeIndex];
+        const titleNow = secNow ? trimText((secNow.querySelector('.wxg-sec-title') || {}).textContent) : '';
+        pageHeadEl.setAttribute('data-wxg-sec', titleNow || String(items[activeIndex].textContent || '').trim());
     }
     // 内容区只显示当前那一段（其余藏起来）——像页签一样，一屏只说一件事
     const secs = asArray(hostEl.querySelectorAll('.wxg-sec'));
@@ -398,9 +407,26 @@ function onWorkspaceClick(e) {
 }
 
 function onKeydown(e) {
-    if (e && e.key === 'Escape' && isWorkspaceOpen()) {
-        closeWorkspace();
+    if (!(e && e.key === 'Escape' && isWorkspaceOpen())) {
+        return;
     }
+    /*
+     * ⭐ 修复单 #29：**先把开着的子浮层关掉**，⛔ 别一按 Esc 就把整个工作台关了。
+     *   原来无条件 `closeWorkspace()` ⇒ 她在人物卡／世界条目／记录卡／体检报告里按 Esc，
+     *   想关的是**那一张卡**，结果**整页工作台没了**（得重开一遍）。
+     *   ⚠️ 选择器用**实名**（核对件点名的四个）：
+     *      `card-close`（人物卡）／`we-close`（世界条目）／`record-close`（记录卡）／`health-close`（体检）。
+     *   ⛔ 别改成一堆猜的名字——那四个是代码里真实的 `data-action`。
+     */
+    const closers = ['card-close', 'we-close', 'record-close', 'health-close'];
+    for (const act of closers) {
+        const btn = document.querySelector('[data-action="' + act + '"]');
+        if (btn && typeof btn.click === 'function') {
+            btn.click();
+            return;   // 一次 Esc 只关一层
+        }
+    }
+    closeWorkspace();
 }
 
 /** 让她能一键切"工作台 / 浮层面板"（浮层小框右键或面板按钮都能调） */

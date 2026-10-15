@@ -65,7 +65,17 @@ export function mountMini() {
     wrapEl = document.createElement('div');
     wrapEl.id = MINI_ID;
     wrapEl.className = 'wxg-mini';
-    applyAppearance(wrapEl, s.appearance || {});
+    /*
+     * ⭐ 修复单 #25：听开关。
+     *   原来两处都是**无条件** `applyAppearance` ⇒
+     *   她把「配色也用在悬浮小框上」取消了也没用（照样被染色）。
+     *   ⭐ 关掉时要**清除**（不是"不管"）——否则上一次染上的颜色会留在身上。
+     */
+    if ((s.appearance || {}).applyToPanel !== false) {
+        applyAppearance(wrapEl, s.appearance || {});
+    } else {
+        applyAppearance(wrapEl, {});
+    }
 
     /* ---- 小球 ---- */
     ballEl = document.createElement('button');
@@ -172,7 +182,11 @@ export function refreshMini() {
     if (!panelEl) {
         return;
     }
-    applyAppearance(wrapEl, getSettings().appearance || {});
+    // ⭐ #25（同上，第二处）
+    {
+        const ap = getSettings().appearance || {};
+        applyAppearance(wrapEl, ap.applyToPanel !== false ? ap : {});
+    }
     const s = buildStateSummary({});
     const q = s.quests || {};
     const body = panelEl.querySelector('.wxg-mini-body');

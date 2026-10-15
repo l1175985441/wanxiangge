@@ -10,6 +10,8 @@
  */
 
 import { PANEL_ID } from '../core/config.js';
+// ⭐ 修复单 #25：浮层面板也要能套她选的配色（原来从未应用过）
+import { applyAppearance } from './theme.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { renderSections, bindSectionEvents } from './sections.js';
 
@@ -26,6 +28,18 @@ export function isPanelOpen() {
 
 /** 关掉面板 */
 export function closePanel() {
+    /*
+     * ⭐ 修复单 #24：**先摘监听再删节点**。
+     *   拖拽／缩放是挂在 `document` 上的（⏔ 面板上），
+     *   只 `panelEl.remove()` 的话它们**永远留着**——每开关一次多 8 个。
+     */
+    if (panelEl && typeof panelEl.__wxgCleanup === 'function') {
+        try {
+            panelEl.__wxgCleanup();
+        } catch (e) {
+            // 摘不掉也⏔ 把关面板带崩
+        }
+    }
     if (panelEl) {
         panelEl.remove();
     }
@@ -96,6 +110,16 @@ export function openPanel() {
     document.body.appendChild(root);
     panelEl = root;
 
+    /*
+     * ⭐ 修复单 #25：面板也要套她选的配色（`applyToPanel` 为真时）。
+     *   原来 shell.js 里 `applyAppearance`/**一次都没调过** ⇒ 开关在面板这头彻底失灵。
+     */
+    try {
+        const ap = getSettings().appearance || {};
+        applyAppearance(root, ap.applyToPanel !== false ? ap : {});
+    } catch (e) {
+        console.warn('[万象阁] 面板配色没套上：', e);
+    }
     makeDraggable(root, bar);
     makeResizable(root, grip);
     bindSectionEvents(sectionsHost, refreshPanel);
@@ -114,6 +138,35 @@ export function refreshPanel() {
 }
 
 /* ------------------------------ 拖拽 ------------------------------ */
+
+/*
+ * ⭐ 修复单 #24：把"要摘掉的监听"登记到 root 上（关面板时统一摘）。
+ *
+ *   为什么：拖拽与缩放都是在 **document** 上挂的（各 4 个＝**8 个/次**），
+ *   而 `closePanel()` 只会 `panelEl.remove()` —— 那些监听**不在面板上**，⏔ 会跟着消失，
+ *   于是每开关一次就漏 8 个（闭包还攥着已经删掉的旧面板）。
+ *   ⚠️ 跟 `ui/mini.js` 的 `__wxgDragCleanup` 是同一套做法（他那边早就对了）。
+ */
+function addDocListener(root, type, fn, opts) {
+    document.addEventListener(type, fn, opts);
+    if (!root.__wxgCleanupList) {
+        root.__wxgCleanupList = [];
+    }
+    root.__wxgCleanupList.push(() => document.removeEventListener(type, fn, opts));
+    if (typeof root.__wxgCleanup !== 'function') {
+        root.__wxgCleanup = () => {
+            const list = root.__wxgCleanupList || [];
+            root.__wxgCleanupList = [];
+            for (const off of list) {
+                try {
+                    off();
+                } catch (e) {
+                    // 摘不掉也⏔ 把关面板带崩
+                }
+            }
+        };
+    }
+}
 
 function makeDraggable(root, handle) {
     let dragging = false;
@@ -171,10 +224,11 @@ function makeDraggable(root, handle) {
 
     handle.addEventListener('mousedown', onDown);
     handle.addEventListener('touchstart', onDown, { passive: false });
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
+    // ⭐ #24：这四个要登记（关面板时摘）
+    addDocListener(root, 'mousemove', onMove);
+    addDocListener(root, 'touchmove', onMove, { passive: false });
+    addDocListener(root, 'mouseup', onUp);
+    addDocListener(root, 'touchend', onUp);
 }
 
 /* ------------------------------ 缩放 ------------------------------ */
@@ -224,10 +278,11 @@ function makeResizable(root, grip) {
 
     grip.addEventListener('mousedown', onDown);
     grip.addEventListener('touchstart', onDown, { passive: false });
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
+    // ⭐ #24：同上（缩放这四个也要登记）
+    addDocListener(root, 'mousemove', onMove);
+    addDocListener(root, 'touchmove', onMove, { passive: false });
+    addDocListener(root, 'mouseup', onUp);
+    addDocListener(root, 'touchend', onUp);
 }
 
 function pointOf(e) {

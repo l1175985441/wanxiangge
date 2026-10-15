@@ -113,9 +113,33 @@ function buildCard(rec) {
             if (trimText(c.current)) {
                 row.appendChild(el('div', 'wxg-fact', '正在经历：' + trimText(c.current)));
             }
+            /*
+             * ⭐ 修复单 #30：卡片这边也要**遵守「楼层裁」（pastFloorCut）**，跟注入侧**同一口径**
+             *   （`core/recall.js` 的 `keepByFloor`）——原来直接拿 `past[0]`，
+             *   于是**卡片上写着、引擎实际没端**（被裁掉了）⇒ 她会以为引擎端了。
+             *   · 端过的（`injected`）不显示；
+             *   · 来源在最近 N 楼内的不显示（主模型上下文里本来就有）；
+             *   · 老数据没有来源楼层 ⇒ 当"很老"、照显示（⏔ 因缺字段丢内容）。
+             */
             const past = Array.isArray(c.past) ? c.past : [];
-            if (past.length && trimText(past[0].text)) {
-                row.appendChild(el('div', 'wxg-fact', '过去经历：' + trimText(past[0].text)));
+            const pastCut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
+            const pastAnchor = Number(rec && rec.floor);
+            const keepPast = (pp) => {
+                if (!pp || !trimText(pp.text) || pp.injected) {
+                    return false;
+                }
+                if (!pastCut || !Number.isFinite(pastAnchor)) {
+                    return true;
+                }
+                const from = Number(pp.fromFloor);
+                if (!Number.isFinite(from)) {
+                    return true;   // 老数据：当很老
+                }
+                return (pastAnchor - from) >= pastCut;
+            };
+            const pastShown = past.filter(keepPast);
+            if (pastShown.length) {
+                row.appendChild(el('div', 'wxg-fact', '过去经历：' + trimText(pastShown[0].text)));
             }
             if (trimText(c.timePlace)) {
                 row.appendChild(el('div', 'wxg-fact', '时间·地点：' + trimText(c.timePlace)));

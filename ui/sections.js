@@ -730,8 +730,8 @@ function secWorld(host) {
             r.setAttribute('data-action', 'open-world-entry');
             r.setAttribute('data-kind', 'situation');
             r.setAttribute('data-index', String(idx));
-            const tierW = el('span', 'wxg-badge ' + (trimText(item.tier) === '立刻' ? 'is-warn' : 'is-info'),
-                trimText(item.tier) || '慢慢来');
+            const tierW = el('span', 'wxg-badge ' + (trimText(item.tier) === TIERS[0] ? 'is-warn' : 'is-info'),
+                trimText(item.tier) || '几天内');
             r.appendChild(tierW);
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
@@ -3194,8 +3194,8 @@ function renderWorldEntryCard() {
         return;
     }
     const title = isHidden ? trimText(item.name) : trimText(item.title);
-    const pillText = isHidden ? (trimText(item.stage) || '萌芽') : (trimText(item.tier) || '慢慢来');
-    const pillCls = isHidden ? stageTone(item.stage) : (pillText === '立刻' ? 'is-warn' : 'is-info');
+    const pillText = isHidden ? (trimText(item.stage) || '萌芽') : (trimText(item.tier) || '几天内');
+    const pillCls = isHidden ? stageTone(item.stage) : (pillText === TIERS[0] ? 'is-warn' : 'is-info');
 
     const pop = el('div', 'wxg-pc wanxiangge');
     pop.id = 'wxg-world-entry';
@@ -3249,7 +3249,7 @@ function renderWorldEntryCard() {
         put('火候', item.stage, '萌芽');
     } else {
         put('哪几方', item.sides, '未写');
-        put('火候', item.tier, '慢慢来');
+        put('火候', item.tier, '几天内');
     }
     sec1.appendChild(kv);
     pop.appendChild(sec1);
