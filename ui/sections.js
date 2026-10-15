@@ -1278,17 +1278,53 @@ const STAGE_MAP = {
 };
 
 /** 把一处改动收进草稿（通用入口；⛔ 不落设置） */
+/**
+ * ⭐ 修复单 #35：当前**生效**的外观——草稿优先、没草稿才用已存的。
+ *   为什么要这么一个口径：外观是"整块存"的，而她**连改几槽**时
+ *   每一槽都得以**前面那几槽的草稿值**为基底 ⇒ ⏔ 就会互冲。
+ */
+function effectiveAppearance() {
+    const box = stagingOf(stagingMode).appearance;
+    const draft = box && box.appearance;
+    if (draft && typeof draft === 'object') {
+        return draft;
+    }
+    return getSettings().appearance || {};
+}
+
+/** 把页面上已经在的预览盒重新上色（⏔ 重画整页：那会把她正在拖的滑杆弄没） */
+function refreshAppearancePreview() {
+    try {
+        const nodes = document.querySelectorAll('[data-role="app-preview"]');
+        for (const node of Array.from(nodes)) {
+            applyAppearance(node, effectiveAppearance());
+        }
+    } catch (e) {
+        console.warn('[万象阁] 预览盒没刷新：', e);
+    }
+}
+
 function stageOne(action, target) {
     // 外观那块是整块存的（色板＋四个颜色槽）
     if (action === 'stage-appearance') {
         const key = target.id;                        // wxg-app-xxx → 槽位名
         const slot = key.replace('wxg-app-', '');
-        const cur = getSettings().appearance || {};
+        /*
+         * ⭐ 修复单 #35①：**基底用"草稿里那份"**，⏔ 已存的那份。
+         *   原来一律 `getSettings().appearance`：她**连改两槽**（先改色板、再改强调色）时，
+         *   第二槽以**不含第一槽暂存**的旧值为基底算 ⇒ **第一槽的改动被冲掉**。
+         */
+        const cur = effectiveAppearance();
         if (slot === 'palette') {
             stage('appearance', 'appearance', Object.assign({}, cur, palettePatch(trimText(target.value))));
         } else {
             stage('appearance', 'appearance', Object.assign({}, cur, { [slot]: trimText(target.value), palette: 'custom' }));
         }
+        /*
+         * ⭐ 修复单 #35②：**预览盒要跟着变**。
+         *   原来改完只存草稿、预览盒还是旧颜色 ⇒ 她以为"没生效"。
+         */
+        refreshAppearancePreview();
         return 'appearance';
     }
     const row = STAGE_MAP[action];
@@ -1931,7 +1967,8 @@ function secAppearance(host) {
     // 实时预览：四个槽位长什么样，直接给她看
     const pv = el('div', 'wxg-app-preview');
     pv.setAttribute('data-role', 'app-preview');
-    applyAppearance(pv, s.appearance || {});
+    // ⭐ #35：用**生效值**（草稿优先）——她改完未保存时重画，预览不能变回去
+    applyAppearance(pv, effectiveAppearance());
     pv.appendChild(el('div', 'wxg-app-pv-name', '万象阁 · 预览'));
     const pvRow = el('div', 'wxg-row');
     pvRow.appendChild(el('span', 'wxg-badge', '强调色'));
