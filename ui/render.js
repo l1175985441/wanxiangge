@@ -343,9 +343,33 @@ export function renderPanel() {
         return;
     }
     const host = settingsHost();
-    if (host) {
-        renderSections(host, { mode: 'settings' });
+    if (!host) {
+        return;
     }
+    /*
+     * ⭐ 目标核对 2(a)：**设置区不再全量渲染工作台**。
+     *   她原话："谁在魔法棒已经有工作台的情况下这个上面还搞一堆面板？"——
+     *   原来这里把整套 10 段画进设置区（**展开总高 9303px**）⇒ 她判了：不行。
+     *   照她给的参照（屏蔽词净化助手）：收敛成**一行说明 + 一个「打开工作台」按钮**。
+     *   ⚠️ ⏔ 再把内容画回来（她就是为这个报的）；工作台自己那份照旧。
+     */
+    while (host.firstChild) {
+        host.removeChild(host.firstChild);
+    }
+    const rowEl = el('div', 'wxg-set-openrow');
+    rowEl.appendChild(el('span', 'wxg-note', '界面在「工作台」里（左侧栏切页）。'));
+    const btn = el('button', 'menu_button wxg-set-openbtn', '打开工作台');
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+        // ⏔ 静态 import（免得跟 workspace/sections 绕成环）
+        import('./workspace.js').then((m) => {
+            m.openWorkspace();
+        }).catch((e) => {
+            console.warn('[万象阁] 打开工作台失败：', e);
+        });
+    });
+    rowEl.appendChild(btn);
+    host.appendChild(rowEl);
 }
 
 /**
