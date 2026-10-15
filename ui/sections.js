@@ -44,7 +44,8 @@ import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
-import { mountMini, closeMini } from './mini.js';
+// ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⏔ 等下次切档）
+import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
@@ -1211,7 +1212,20 @@ function commitSection(secId) {
     for (const k of Object.keys(box)) {
         // 整块外观（色板＋四个颜色槽）
         if (k === 'appearance' && box[k] && typeof box[k] === 'object') {
-            patch.appearance = Object.assign({}, getSettings().appearance || {}, box[k]);
+            /*
+             * ⭐ 复审追加 3①：**这里得用 `patch.appearance` 打底**，而且**关键序**。
+             *   病根：同一轮草稿里**先取消勾选、再改色板**时，循环先走 `applyToPanel` 分支
+             *   （折好了 `patch.appearance.applyToPanel=false`），紧接着走这个分支——
+             *   原来直接 `getSettings().appearance` 做底 ⇒ **把刚折好的那一笔盖回去**；
+             *   而 `box[k]`（改色板时的基底）里还带着旧的 `applyToPanel: true`。
+             *   ⇒ 用 `patch.appearance ||` 打底，并**只要 box 里有 `applyToPanel` 就再校正一次**（⏔ 论键序）。
+             */
+            patch.appearance = Object.assign({},
+                patch.appearance || getSettings().appearance || {},
+                box[k]);
+            if (Object.prototype.hasOwnProperty.call(box, 'applyToPanel')) {
+                patch.appearance.applyToPanel = box.applyToPanel === true;
+            }
             continue;
         }
         /*
@@ -1242,6 +1256,20 @@ function commitSection(secId) {
     //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
     delete stagingOf(stagingMode)[secId];
     patchSettings(patch);
+    /*
+     * ⭐ 复审追加 3②：**外观段存完立刻刷小框**。
+     *   病根：这里只 `patchSettings`（重画走的是工作台／设置区那条路），而 `closeWorkspace()`
+     *   也只把 `mini.style.display` 放回来——**两边都没人碰小框** ⇒ 她「取消勾选 + 保存」后
+     *   **不动任何东西**读小框，`--wxg-surface` 还是旧的（要等下次切档／发消息才清）。
+     *   ⇒ 这一段存完就补一次（⛔ 不是每个段都刷：别的段跟小框无关，白刷一遍）。
+     */
+    if (secId === 'appearance') {
+        try {
+            refreshMini();
+        } catch (e) {
+            console.warn('[万象阁] 存完外观没刷上小框：', e);
+        }
+    }
     return Object.keys(box).length;
 }
 

@@ -3108,7 +3108,7 @@ body.wxg-dragging {
     font-weight: 600;
 }
 .wanxiangge .wxg-ptab tbody td:first-child {
-    color: var(--wxg-text-dim, #6d747a);
+    color: var(--wxg-dim, #6d747a);
     font-size: 12.5px;
 }
 .wanxiangge .wxg-ptab tbody td b {
