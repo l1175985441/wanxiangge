@@ -594,8 +594,16 @@ async function stepCharacters(material, attempt) {
     const knownBySomeone = (title) => !anyKnows || pickedKnows.some((kt) => kt.includes(title) || title.includes(kt));
     const prompt = fillTemplate(effectivePrompt('chars'), {
         clock: trimText(loadState().world.clock) || '未知',
+        /*
+         * ⭐ 修复单 #20：**bigPicture 也要过认知过滤**。
+         *   原来 `situations` 过了（下面那行 filter），而 `bigPicture` **没过** ⇒
+         *   只要"这一批里任何一个人填过清单"，整段世界总览照样漏给所有人 ⇒ 防全知那一支等于白写。
+         *   ⚠️ 总览是一整段话、没法按条筛 ⇒ 用"**这批里有人记过跟它相关的东西吗**"判
+         *     （`knownBySomeone` 是双向 includes：总览里提到某人记过的事 ⇒ 就照给；谁都没记过 ⇒ ⛔ 不给）。
+         */
         world: [
-            trimText(loadState().world.bigPicture),
+            (trimText(loadState().world.bigPicture) && knownBySomeone(trimText(loadState().world.bigPicture)))
+                ? trimText(loadState().world.bigPicture) : '',
             ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⏔ 给）',
         recent: material.recentText || '（没有可读的正文）',

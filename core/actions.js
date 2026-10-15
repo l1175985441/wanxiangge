@@ -1,3 +1,35 @@
+/* ------------------------------ 视图刷新（修复单 #21） ------------------------------ */
+
+let viewRefresher = null;
+
+/**
+ * ⭐ 修复单 #21：注册"把三个视图都刷一遍"的回调（由入口 `index.js` 注册）。
+ *
+ *   为什么用**注册**而⏔ 直接 `import ui/*`：
+ *   这里是核心层，而 `ui/*` 本身会 import 核心 ⇒ 静态 import 会**绕成环**（ES 环在启动早期会拿到空绑定）。
+ *   ⚠️ 没注册时退回只刷设置区（老行为），⏔ 报错。
+ */
+export function setViewRefresher(fn) {
+    viewRefresher = typeof fn === 'function' ? fn : null;
+}
+
+/**
+ * 刷所有视图：**设置区＋悬浮球＋工作台**一起更新。
+ *   原来这些地方只叫 `renderPanel()` ⇒
+ *   她在**悬浮球或工作台**里看到的还是旧数据（要手动刷新才变）。
+ */
+function refreshAllViews() {
+    try {
+        if (viewRefresher) {
+            viewRefresher();
+        } else {
+            renderPanel();
+        }
+    } catch (e) {
+        console.warn('[万象阁] 刷新视图出错：', e);
+    }
+}
+
 /**
  * 万象阁 · 动作层
  *
@@ -80,7 +112,7 @@ export function planRecall(options) {
 
         commitLedger(rec);
         refreshCardOnFloor(floor);
-        renderPanel();
+        refreshAllViews();
         return rec;
     });
 }
@@ -103,7 +135,7 @@ export function afterMessageReceived(floor) {
     return enqueue(() => {
         commitLedger();
         mountAllCards(2, 900);
-        renderPanel();
+        refreshAllViews();
 
         const settings = getSettings();
         if (!settings.enabled || !settings.autoUpdate) {
@@ -125,7 +157,9 @@ export function afterMessageReceived(floor) {
             runUpdate({ manual: false, floor: at }).then(() => {
                 markBookDirty();
                 mountAllCards(1, 600);
-                renderPanel();
+                // ⭐ 修复单 #21：这里也该刷**三个视图**——它就是"后台更新跑完了"那一刻，
+                //   她多半正盯着悬浮球或工作台看进度（只刷设置区的话那两处一直是旧的）。
+                refreshAllViews();
             }).catch((e) => console.warn('[万象阁] 后台更新出错：', e));
         }, 1200);
         return null;
@@ -136,7 +170,7 @@ export function afterMessageReceived(floor) {
 export function onChatSwitched() {
     return enqueue(() => {
         mountAllCards(2, 900);
-        renderPanel();
+        refreshAllViews();
     });
 }
 
@@ -147,7 +181,7 @@ export function reconcileAfterDelete() {
         runReconcile();
         pruneRecallRecords(chat.length);
         mountAllCards();
-        renderPanel();
+        refreshAllViews();
     });
 }
 
@@ -157,7 +191,7 @@ export function onFloorEdited(floor) {
         if (dropRecallRecord(floor)) {
             refreshCardOnFloor(floor);
         }
-        renderPanel();
+        refreshAllViews();
     });
 }
 
@@ -165,7 +199,7 @@ export function onFloorEdited(floor) {
 export function restoreCards() {
     return enqueue(() => {
         mountAllCards(3, 1200);
-        renderPanel();
+        refreshAllViews();
         const chat = getChat();
         if (Array.isArray(chat) && chat.length) {
             pruneRecallRecords(chat.length, findLastUserFloor(chat));

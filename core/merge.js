@@ -152,6 +152,28 @@ export function mergeCharacters(keepId, fromName) {
     keep.isNew = keep.isNew === true && from.isNew === true;
     keep.lastSeenFloor = Math.max(Number(keep.lastSeenFloor) || -1, Number(from.lastSeenFloor) || -1);
     keep.lastUpdatedAt = Math.max(Number(keep.lastUpdatedAt) || 0, Number(from.lastUpdatedAt) || 0);
+    /*
+     * ⭐ 修复单 #18：**这三样也得并过去**（原来全漏 ⇒ 合并＝丢数据）。
+     *   · `knows`（认知账）：按**那句话**去重后合并 —— 需求书「合并：数据互补＋历史去重，⛔ 不许丢」；
+     *   · `manualFields`（哪几格是她手改过的）：**并集**（两边手改过的格都要继续受保护）；
+     *   · `noBench`（关掉后台推演）：取**「与」**——只有两边都关了才算关
+     *     （⛔ 别用「或」：那会因为一次合并就把这人悄悄踢出轮转，而她只关过其中一条）。
+     */
+    const knowMap = new Map();
+    for (const k of [].concat(Array.isArray(keep.knows) ? keep.knows : [])
+        .concat(Array.isArray(from.knows) ? from.knows : [])) {
+        const txt = trimText(k && k.text);
+        if (txt && !knowMap.has(txt)) {
+            knowMap.set(txt, k);
+        }
+    }
+    keep.knows = Array.from(knowMap.values());
+    keep.manualFields = Array.from(new Set([]
+        .concat(Array.isArray(keep.manualFields) ? keep.manualFields : [])
+        .concat(Array.isArray(from.manualFields) ? from.manualFields : [])
+        .map((x) => trimText(x))
+        .filter(Boolean)));
+    keep.noBench = keep.noBench === true && from.noBench === true;
     keep.updatedAt = Date.now();
 
     /* ③ 挪走被合并的那条，并把这件事记进编年（历史留档，不丢） */

@@ -102,8 +102,13 @@ export function buildStateSummary(opts) {
         hiddenDue: due,
         people: roster.length,
         players: roster.filter((c) => c && c.isPlayer).length,
-        // 名册里"还只是名字、没推演过"的那几个（她有疑问时能一眼看出是谁没建档）
-        peopleBlank: roster.filter((c) => c && !trimText(c.current)).length,
+        /*
+         * 名册里"还只是名字、没推演过"的那几个（她有疑问时能一眼看出是谁没建档）。
+         * ⭐ 修复单 #22：**要排掉玩家棋子与她标了"别管"的**——
+         *   玩家棋子**永远不进推演**（`pipeline` 里 `picked` 被 filter 掉）⇒ 它的 `current` 恒空，
+         *   于是悬浮球**常驻**"1 人还没建档"的误报（她看到会以为引擎漏推了谁）。
+         */
+        peopleBlank: roster.filter((c) => c && !c.isPlayer && !c.ignored && !trimText(c.current)).length,
         quests: q,
         recall: {
             people: rec && Array.isArray(rec.chars) ? rec.chars.length : 0,

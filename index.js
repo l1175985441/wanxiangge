@@ -20,6 +20,7 @@ import { resetCache, loadState, migrateInferToChronicle } from './core/state.js'
 import { injectBeforeGenerate } from './core/engine.js';
 import {
     planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards,
+    setViewRefresher,
 } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen } from './ui/shell.js';
@@ -30,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.98';
+const VERSION = '0.2.99';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -276,6 +277,19 @@ export function onEnable() {
     // ⭐ 修复单 #5：闹钟也一起挂回来（⛔ 不然入口高亮永久不亮）
     try {
         startEntryTimer();
+
+        /*
+         * ⭐ 修复单 #21：把"刷所有视图"注册进去 ——
+         *   后台更新完、切档、删楼之后，**悬浮球与工作台**也跟着刷新（原来只刷设置区）。
+         *   ⏔ 在核心层直接 import ui（会绕成环）。
+         */
+        setViewRefresher(() => {
+            renderPanel();
+            refreshMini();
+            if (isWorkspaceOpen()) {
+                refreshWorkspace();
+            }
+        });
     } catch (e) {
         console.warn('[' + APP_NAME + '] 启用时重挂闹钟出错：', e);
     }
