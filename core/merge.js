@@ -226,8 +226,24 @@ export function autoDetectDuplicates() {
                 continue;
             }
             const bForms = [b.name].concat(b.aliases || []).map((x) => trimText(x)).filter(Boolean);
-            const related = aForms.some((x) => bForms.some((y) => x === y || x.includes(y) || y.includes(x)));
-            if (related) {
+            let related = aForms.some((x) => bForms.some((y) => x === y || x.includes(y) || y.includes(x)));
+      /*
+     * ⭐⭐ 她 [18]：「同一角色被拆成两条记录？**合并一键解决**」
+     *   ⚠️ 真机取证：她名册里「水手月亮/水手水星…」还被当独立人物，
+     *     而上面那个判法**只看名字互相包含** ⇒「水手月亮」与「月野兔」**互不包含** ⇒ **认不出来** ✗
+     *   ⇒ 补一条**身份线**：某人的「身份」里写着另一人的名字（⏔ 反过来）⇒ 算同一人。
+     *   ⚠️ 只认 **≥ 3 字** 的名字，⏔ 拿一个字去乱并（她吃过“美丽/丽”那种亏）。
+     */
+    if (!related) {
+        const aId = trimText(a.identity);
+        const bId = trimText(b.identity);
+        const hitId = (aId && bForms.some((y) => y.length >= 3 && aId.indexOf(y) >= 0))
+            || (bId && aForms.some((x) => x.length >= 3 && bId.indexOf(x) >= 0));
+        if (hitId) {
+            related = true;
+        }
+    }
+          if (related) {
                 group.push(b);
                 used.add(b.id);
             }
