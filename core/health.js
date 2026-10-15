@@ -225,11 +225,26 @@ export function buildHealthReport(opts) {
 
         // ③ 正文：上一轮引擎实际读到多少字（读不到＝引擎在瞎干）
         try {
-            const lg = (st.ledger && Array.isArray(st.ledger.records)) ? st.ledger.records : [];
-            const last = lg.length ? lg[lg.length - 1] : null;
-            const n = last && last.lead ? String(last.lead).length : 0;
-            lines.push('· 正文：上一轮读到的原文 ' + String(n) + ' 字'
-                + (n >= 200 ? ' ✓（正常）' : ' ⇒ ⚠ 偏少：可能被「四格」剥太狠，去读取控制看看'));
+            /*
+             * ⚠️ 10-16 真机自查：我原来读的是 `st.ledger.records` —— **那儿没有记录** ⇒
+             *   体检一直报"正文 0 字"，**是我的探针读错字段**（⛔ 不是她那边没跑）。
+             *   记录实际在 **`state.recallRecords`**（`ledger.js:commitLedger` 用的就是它）。
+             */
+            const lg = Array.isArray(st.recallRecords) ? st.recallRecords.filter(Boolean) : [];
+            let last = null;
+            for (const r of lg) {           // 按"注入时刻"取最新（⛔ 不按数组顺序）
+                if (!last || (Number(r.at) || 0) >= (Number(last.at) || 0)) {
+                    last = r;
+                }
+            }
+            if (!last) {
+                lines.push('· 正文：还没有本回合记录（这一局还没跑过更新）');
+            } else {
+                const n = last.lead ? String(last.lead).length : 0;
+                const inj = Number(last.injectedChars) || 0;
+                lines.push('· 正文：上一楼原文 ' + String(n) + ' 字，注入 ' + String(inj) + ' 字（' + String(last.from || '') + '）'
+                    + (n >= 200 ? ' ✓' : ' ⇒ ⚠ 原文偏少：可能被「四格」剥太狠，去读取控制看看'));
+            }
         } catch (e) {
             lines.push('· 正文：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
         }
