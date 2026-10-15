@@ -3472,7 +3472,8 @@ function renderHealthCard() {
     }
     let report = { text: '（体检报告没生成出来）', fails: [] };
     try {
-        report = buildHealthReport({ version: APP_VERSION });
+        // ⭐ 把 chat 传进去：体检里的「验收自检·在场（上一楼）」要靠它（⛔ 不传的话那行永远不出现）
+        report = buildHealthReport({ version: APP_VERSION, chat: getChat() });
     } catch (e) {
         report = { text: '体检报告生成失败：' + ((e && e.message) || '未知原因'), fails: [] };
     }
