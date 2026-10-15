@@ -484,6 +484,105 @@ export function entryTitleOf(e) {
  * 返回 { people: [{name, comment, enabled}], skipped: number, blocked: boolean }
  * ⚠️ 只是"读"：不新增、不修改她的任何条目。
  */
+/**
+ * ⭐⭐ 她原话 [18]：「AI 认错人导致同一角色**被拆成两条记录**…合并一键解决」
+ *   —— 她 10-16 首夜实测：名册里「月野兔」与「水手月亮」被当两个人（**全表 6 组同型**）。
+ *   而书里**自己就写着属主**：
+ *     `[角色] 水手月亮` 的内容头＝「【角色档案：月野兔】…变身形态：水手月亮」
+ *   ⇒ **读人只按条目名建卡、把这层结构丢了**。
+ *   本函数：从内容头认**属主**（→ 不新建人、条目名进别名）与**变身形态**（→ 属主的身份格候选）。
+ *   ⚠️ 防误并：`水手小月亮`的属主是**小小兔**（真另一人）⇒ 照它自己写的属主走，⏔ 并到月野兔。
+ */
+export function extractArchiveOwner(body) {
+    const t = trimText(body);
+    if (!t) {
+        return '';
+    }
+    const m = t.match(/【\s*角色档案\s*[：:]\s*([^】\n]{1,20})\s*】/);
+    return m ? trimText(m[1]) : '';
+}
+
+/** 内容里的「变身形态：Y」（可多条；括号里的注音也算）—— 她 [18] 里的「身份」就是这个 */
+export function extractFormNames(body) {
+    const t = trimText(body);
+    if (!t) {
+        return [];
+    }
+    const out = [];
+    const re = /变身形态\s*[：:]\s*([^\n｜|]{1,24})/g;
+    let m = re.exec(t);
+    while (m) {
+        const v = trimText(m[1]).replace(/[\uff08(].*?[\uff09)]/g, '').trim();
+        if (v && out.indexOf(v) < 0) {
+            out.push(v);
+        }
+        m = re.exec(t);
+    }
+    return out;
+}
+
+/**
+ * ⭐ 纯函数：**条目列表 → 人列表**（含"分条归位"）。抽出来是为了能单独测（⏔ 跟世界书 API 绑死）。
+ */
+export function peopleFromEntries(entries, opts) {
+    const o = opts || {};
+    const onlyEnabled = o.onlyEnabled !== false;
+    const people = [];
+    const seen = new Map();
+    let skipped = 0;
+    for (const entry of (Array.isArray(entries) ? entries : [])) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        if (onlyEnabled && entry.disable === true) {
+            continue;
+        }
+        const title = trimText(entry.comment) || trimText(entry.key) || trimText(entry.keys);
+        const shown = extractNameFromTitle(title);
+        if (!shown) {
+            skipped += 1;
+            continue;
+        }
+        const body = trimText(entry.content);
+        const owner = extractArchiveOwner(body);
+        const isPart = !!owner && matchKey(owner) !== matchKey(shown);
+        const person = isPart ? owner : shown;
+        const key = matchKey(person);
+        if (!key) {
+            skipped += 1;
+            continue;
+        }
+        let rec = seen.get(key);
+        if (!rec) {
+            rec = { name: person, comment: '', enabled: true, aliases: [], identityHint: '' };
+            seen.set(key, rec);
+            people.push(rec);
+        }
+        if (!rec.comment && trimText(entry.comment)) {
+            rec.comment = trimText(entry.comment);
+        }
+        rec.enabled = rec.enabled && entry.disable !== true;
+        // 分条：**条目名进属主别名**（她："合并成名字有个毛线用"→ 身份才是正主，别名也得留）
+        if (isPart && rec.aliases.indexOf(shown) < 0) {
+            rec.aliases.push(shown);
+        }
+        /*
+         * 变身形态 → 属主的身份候选。
+         * ⚠️ 只**候选**：写不写进身份格由上层定（仅当格空，⏔ 冲她手改的）。
+         */
+        {
+            const forms = extractFormNames(body);
+            const cand = forms.concat(isPart ? [shown] : []);
+            for (const f of cand) {
+                if (f && !rec.identityHint) {
+                    rec.identityHint = f;
+                }
+            }
+        }
+    }
+    return { people, skipped };
+}
+
 export async function collectPeopleFromBook(bookName, options) {
     const opts = options || {};
     const settings = getSettings();
@@ -502,34 +601,10 @@ export async function collectPeopleFromBook(bookName, options) {
 
     const onlyEnabled = opts.onlyEnabled !== false;
     const entries = await getEntries(name);
-    const people = [];
-    const seen = new Set();
-    let skipped = 0;
-
-    for (const entry of entries) {
-        if (!entry || typeof entry !== 'object') {
-            continue;
-        }
-        if (onlyEnabled && entry.disable === true) {
-            continue;
-        }
-        const title = trimText(entry.comment) || trimText(entry.key) || trimText(entry.keys);
-        const person = extractNameFromTitle(title);
-        if (!person) {
-            skipped += 1;
-            continue;
-        }
-        const key = matchKey(person);
-        if (seen.has(key)) {
-            continue;
-        }
-        seen.add(key);
-        people.push({
-            name: person,
-            comment: trimText(entry.comment),
-            enabled: entry.disable !== true,
-        });
-    }
-
-    return { people, skipped, blocked: false };
+    /*
+     * ⭐ 她原话 [18]：分条归位走**纯函数** `peopleFromEntries`（能单独测）。
+     *   ← 原来这里自己一条条建（只看条目名、不看内容头），属主那层结构丢了。
+     */
+    const built = peopleFromEntries(entries, { onlyEnabled });
+    return { people: built.people, skipped: built.skipped, blocked: false };
 }
