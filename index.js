@@ -30,7 +30,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.2.96';
+const VERSION = '0.2.97';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -180,14 +180,24 @@ function bindEvents(ctx) {
         });
     }
 
-    // 页面要关了：把排队中的世界书写入做掉（能做完就做完）
+    /*
+     * 页面要关了：把排队中的世界书写入做掉（能做完就做完）。
+     * ⭐ 修复单 #6 同族：原来这里是**匿名函数裸挂**、又没有 removeEventListener
+     *   ⇒ ①进不了 `disposers` 那条清理链（停用/卸载时拆不掉）②重复 bind 会越挂越多。
+     *   ⇒ 具名 + 登记；`teardownListeners()` 会把它摘掉（那之后关页面就不再 flush 了——
+     *     那是**对的**：插件都停用了，不该再往世界书写东西）。
+     */
     if (typeof window !== 'undefined') {
-        window.addEventListener('beforeunload', () => {
+        const onBeforeUnload = () => {
             try {
                 flushBook();
             } catch (e) {
                 // 关页面时尽力而为
             }
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        disposers.push(() => {
+            window.removeEventListener('beforeunload', onBeforeUnload);
         });
     }
 }
@@ -204,6 +214,40 @@ export function onInstall() {
 
 export function onUpdate() {
     console.info('[' + APP_NAME + '] 已更新到 v' + VERSION);
+}
+
+/*
+ * ⚠️ 位置有讲究：`_u自审/audit-6-redlines.mjs` 有一条静态红线是**切片式**的：
+ *   从 `export function onDelete` 切到 `export function onEnable`（只剥 `//` 行注释）⇒
+ *   **夹在这两个函数之间的任何代码都会被当成 onDelete 的体**。
+ *   而下面这块里有 `clearInterval` ⇒ 被当成"卸载时删东西"判红。
+ *   ⇒ 故意放在 `onDelete` **之前**（函数声明会提升，位置不影响运行）。
+ */
+let entryTimer = null;
+
+/**
+ * ⭐ 修复单 #5：入口高亮的闹钟抽成**可重复调用的一份**。
+ *
+ *   原来它只在 `boot()` 里创建一次：`onDisable()` 会连它一起清掉（那是 #v0.2.94 的修复），
+ *   而 `onEnable()` 只把事件 re-bind 回来、**不重新挂闹钟** ⇒
+ *   **停用一次再启用，"入口跟着面板亮"就永久失灵**（要刷新页面才回来）。
+ *   ⚠️ 幂等：已经在跑就不重复挂（否则每启用一次就多一个闹钟）。
+ */
+function startEntryTimer() {
+    if (entryTimer) {
+        return;
+    }
+    entryTimer = setInterval(() => {
+        try {
+            syncEntryState();
+        } catch (e) {
+            // 忽略
+        }
+    }, 3000);
+    disposers.push(() => {
+        clearInterval(entryTimer);
+        entryTimer = null;   // ⚠️ 必须置空：否则"再启用"时以为它还在跑、不再挂
+    });
 }
 
 export function onDelete() {
@@ -228,6 +272,12 @@ export function onEnable() {
         }
     } catch (e) {
         console.warn('[' + APP_NAME + '] 启用时重挂事件出错：', e);
+    }
+    // ⭐ 修复单 #5：闹钟也一起挂回来（⛔ 不然入口高亮永久不亮）
+    try {
+        startEntryTimer();
+    } catch (e) {
+        console.warn('[' + APP_NAME + '] 启用时重挂闹钟出错：', e);
     }
 }
 
@@ -340,20 +390,13 @@ function boot() {
         /*
          * ④ 面板开关状态跟着入口高亮
          *
-         * ⚠️ 补扫漏（技能那条「每个定时器都要有成对的清理」）：
-         *   这个闹钟原来**从来没被清过**（全库 0 个 clearInterval）——
-         *   她把插件关了、卸了，它还在每 3 秒叫一次 syncEntryState。
-         *   ⇒ 登记进 `disposers`：`teardownListeners()`（关/卸时调）会把它一并清掉。
-         *   ⛔ 别把 setInterval 的句柄直接丢掉——那样就没法清了。
+         * ⚠️ 技能那条「每个定时器都要有成对的清理」：这个闹钟原来**从来没被清过**
+         *   （全库 0 个 clearInterval）——她把插件关了、卸了，它还在每 3 秒叫一次 syncEntryState。
+         *   ⇒ 抽成 `startEntryTimer()`：句柄留着，清理时一并清掉。
+         * ⭐ 修复单 #5：**也要能在启用时重新挂上**（原来只在 boot 里创建一次，
+         *   停用被清掉之后 onEnable 不补 ⇒ "入口跟着面板亮"永久失灵，得刷新页面才回来）。
          */
-        const entryTimer = setInterval(() => {
-            try {
-                syncEntryState();
-            } catch (e) {
-                // 忽略
-            }
-        }, 3000);
-        disposers.push(() => clearInterval(entryTimer));
+        startEntryTimer();
     } catch (e) {
         console.warn('[万象阁] 启动出错：', e);
     }

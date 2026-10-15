@@ -91,6 +91,24 @@ export function extractJson(text, opts) {
     const starts = [];
     const firstObj = body.indexOf('{');
     const firstArr = body.indexOf('[');
+    /*
+     * ⭐ 修复单 #2：**先定"外层"是哪个括号，并在进候选循环之前判一次截断。**
+     *   病根：原来直接进循环——外层 `{` 被截断时，`findBalancedEnd` 会**往里找到某个闭合的子数组**
+     *   （例 `{"chars":[{"name":"a"}]` 里那个 `[...]`）并解析成功 ⇒
+     *   把"写了一半"当成成功，还可能把**内层数组当整份结果**交上去（形状都不对）。
+     *   判据：外层括号**找不到配对** ＋ 从它起 `looksCut` ⇒ 这一份就是截断。
+     *   ⚠️ 完整的 JSON（哪怕后面跟着饰文）外层能找到配对 ⇒ 不误判。
+     */
+    const mainStart = firstObj >= 0 ? firstObj : firstBrace;
+    if (findBalancedEnd(body, mainStart) <= mainStart && looksCut(body, mainStart)) {
+        return {
+            ok: false,
+            truncated: true,
+            reason: '输出被截断（写到一半就断了，没闭合）',
+            value: null,
+            text: raw,
+        };
+    }
     if (firstArr >= 0 && firstArr < firstObj) {
         starts.push(firstArr);
     }
@@ -119,7 +137,7 @@ export function extractJson(text, opts) {
     }
 
     // ③ 截断收尾兜底：按与首括号同类的闭合符截取并补全（优先 {…}，防被前缀 [标签] 带偏）
-    const mainStart = firstObj >= 0 ? firstObj : firstBrace;
+    // ⚠️ `mainStart` 已在上面（修复单 #2 的截断判定处）算好，这里⛔ 别重复声明（会 SyntaxError）。
     /*
      * ⭐⭐ 补④：**先认截断，⏔ 先补全**。
      *
@@ -274,7 +292,7 @@ export async function callModel(opts) {
         if (!text) {
             return { ok: false, reason: '模型回了空内容（可以试试调大输出上限或换模型）', ms };
         }
-        return { ok: true, text, ms, via: res.via };
+        return { ok: true, text, ms, via: res.via, finish: res.finish };
     } catch (e) {
         const ms = Date.now() - started;
         const aborted = e && (e.name === 'AbortError' || /abort/i.test(asText(e && e.message)));

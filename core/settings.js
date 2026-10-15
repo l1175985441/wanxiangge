@@ -151,6 +151,14 @@ function loadSettings() {
         : [];
 
     merged.panel = Object.assign({}, DEFAULT_SETTINGS.panel, merged.panel && typeof merged.panel === 'object' ? merged.panel : {});
+    /*
+     * ⭐ 修复单 #6 同族：**mini 也要合并**。
+     *   上面那个"补齐缺键"的循环只补**顶层**键：老档里 `mini` 存在、但缺 `show` 这类子键时，
+     *   `merged.mini` 就带着 `undefined` 往下走，而消费方 `ui/mini.js` 是
+     *   `if (!cfg.show) return null` ⇒ **悬浮球静默消失**（她那边就是"球不见了、也没报错"）。
+     *   ⛔ 别指望顶层循环兜住——它只管一层。
+     */
+    merged.mini = Object.assign({}, DEFAULT_SETTINGS.mini, merged.mini && typeof merged.mini === 'object' ? merged.mini : {});
 
     merged.version = SETTINGS_VERSION;
     merged.roster = [];   // 名册另存（按聊天各分各的）
@@ -208,7 +216,16 @@ export function patchSettings(patch) {
          */
         const api = Object.assign({}, s.api || {}, clean.api);
         if (Object.hasOwn(api, 'temperature')) {
-            api.temperature = Math.min(2, Math.max(0, Number(api.temperature) || DEFAULT_SETTINGS.api.temperature));
+            /*
+             * ⭐ 修复单 #6：**温度 0 被 `Number(0) || 默认` 吃掉了**——
+             *   0 是合法值（她就是要"完全不随机"），结果被悄悄换成 0.4。
+             *   ⇒ 只把"真的没填"（undefined／null／空串／NaN）当缺省，**0 原样留着**。
+             */
+            const tRaw = api.temperature;
+            const tNum = (tRaw === '' || tRaw === null || tRaw === undefined) ? NaN : Number(tRaw);
+            api.temperature = Number.isFinite(tNum)
+                ? Math.min(2, Math.max(0, tNum))
+                : DEFAULT_SETTINGS.api.temperature;
         }
         if (Object.hasOwn(api, 'maxTokens')) {
             api.maxTokens = clampNumber(api.maxTokens, 200, 8000, DEFAULT_SETTINGS.api.maxTokens);

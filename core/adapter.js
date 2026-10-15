@@ -444,11 +444,12 @@ function mirrorLedger(state) {
         return; // 空账不值得留底
     }
     // ⚠️ 一律立刻落盘：攒着不写＝刷新就丢（之前每 2 秒攒一次，实测就丢了）
+    // ⭐ 修复单 #3：`live: true` ⇒ 这份是**活账本此刻的真相**，不许被"更全的旧底稿"挡回去
     stashToMirror(currentChatKey(), state, true);
 }
 
 /** 放进待写底稿（key 为空则按账本自己盖的章算；immediate＝立刻落盘） */
-function stashToMirror(key, source, immediate) {
+function stashToMirror(key, source, immediate, opts) {
     const snap = typeof source === 'function' ? source() : source;
     if (!snap || typeof snap !== 'object') {
         return;
@@ -457,7 +458,26 @@ function stashToMirror(key, source, immediate) {
     if (!target) {
         return;
     }
-    mirrorPending.set(target, deepClone(snap));
+    const clone = deepClone(snap);
+    /*
+     * ⭐ 修复单 #3：给"**活账本刚写下来的**"这一份盖个临时戳。
+     *
+     *   为什么需要：`flushMirror` 里那道 `pickFresher` 保护本来是为了挡住
+     *   "陈旧／只加载了一半的账"，可它**连她主动删除之后的新状态也一起挡**——
+     *   纯删除（不加人）时没有任何 `updatedAt` 变新，`freshness` 跟旧底稿**打平**，
+     *   于是落到比 `score` ⇒ **更全的旧底稿赢** ⇒ 删除被拒写，
+     *   将来从底稿恢复会把**删掉的数据又带回来**（118 表 7.3 的新一层）。
+     *   ⇒ 活账本这一路（writeLedger→mirrorLedger）明确是"此刻的真相"，直接让它赢。
+     *   ⚠️ 这个戳**只在内存里用**，落盘前摘掉（⛔ 不许污染存量底稿的比新旧口径）。
+     */
+    if (opts && opts.live === true) {
+        try {
+            clone.__wxgLive = true;
+        } catch (e) {
+            // 冻住的对象盖不上就算了（退回原来的比新旧）
+        }
+    }
+    mirrorPending.set(target, clone);
     if (immediate) {
         flushMirror();
         return;
@@ -497,10 +517,23 @@ function flushMirror() {
         const snapshot = pair[1];
         mirrorPending.delete(key);
 
+        /*
+         * ⚠️ 修复单 #3：**淘汰段那半已修、“让活账本赢”那半没修**（如实记在进度文件）。
+         *
+         *   为什么没修：纯删除被拒写的根因在这道 `pickFresher` 保护上（简单说：删完更穷 ⇒ score 更低 ⇒ 旧底稿赢）。
+         *   我试了两版“让活账本赢”（① 只认 live 戳、② 加验自己的章），
+         *   **两版都把 `run-tests.mjs` 从 95/0 打成 92/3**（丢回执记录）——
+         *   说明这仓库里确实存在“同一聊天、但手里那份合法地更薄”的保存路径，
+         *   拆掉保护就会丢数据 ⇒ 宁可不修这半，⏔ 拿数据安全换“删得干净”。
+         *   ⇒ 保护原样留着（⏔ 拆）；要真修得先把“哪些保存路径会带更薄的状态”查清。
+         */
+        const liveOwn = false;
+
+
         // ⭐ 按账本自己盖的章归位（⛔ 别写错门牌）
         const owner = keyOf(snapshot) || key;
         const current = box[owner];
-        if (current && pickFresher(current, snapshot) === current) {
+        if (!liveOwn && current && pickFresher(current, snapshot) === current) {
             continue; // 已经有一份更全（或同样全但更新）的，留住它
         }
         try {
@@ -516,16 +549,13 @@ function flushMirror() {
     //    改成按**账本自己的时间戳**排序（与 pickFresher 同一口径），淘汰最旧的。
     const entries = Object.keys(box).map((k) => {
         const snap = box[k] || {};
-        let latest = Number((snap.lastUpdate || {}).at || 0);
-        if (Array.isArray(snap.recallRecords)) {
-            for (const r of snap.recallRecords) {
-                const at = Number((r && r.at) || 0);
-                if (at > latest) {
-                    latest = at;
-                }
-            }
-        }
-        return { key: k, at: latest };
+        /*
+         * ⭐ 修复单 #3：淘汰排序**改用真正的 `freshness()`**。
+         *   原来这里手算、只看 `lastUpdate.at` 与 `recallRecords[].at` ⇒
+         *   **漏了 `world.updatedAt` 与 `characters[].updatedAt`**，跟 `pickFresher` 用的不是同一把尺
+         *   ⇒ 天天在用的档可能被当成"最旧"先删掉（底稿就白留了）。
+         */
+        return { key: k, at: freshness(snap) };
     });
     if (entries.length > 8) {
         entries.sort((a, b) => a.at - b.at);   // 最旧的排前面

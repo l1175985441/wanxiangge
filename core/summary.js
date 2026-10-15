@@ -112,9 +112,19 @@ export function buildStateSummary(opts) {
             status: rec ? trimText(rec.injectStatus) : '',
         },
         lastUpdate: {
-            floor: state.lastUpdate && Number.isFinite(Number(state.lastUpdate.floor)) && Number(state.lastUpdate.floor) >= 0
-                ? Number(state.lastUpdate.floor)
-                : (Number.isFinite(Number(p.atFloor)) && Number(p.atFloor) >= 0 ? Number(p.atFloor) : -1),
+            /*
+             * ⭐ 修复单 #4 同族：`null`／`''` 经 `Number()` 会变成 **0** ⇒
+             *   老账里 floor 是空时会虚报"停在 #0"。⇒ 先把"不是数"的掉掉。
+             */
+            floor: (function () {
+                const raw = state.lastUpdate ? state.lastUpdate.floor : null;
+                if (raw !== null && raw !== '' && raw !== undefined) {
+                    const v = Number(raw);
+                    if (Number.isFinite(v) && v >= 0) { return v; }
+                }
+                const a = Number(p.atFloor);
+                return Number.isFinite(a) && a >= 0 ? a : -1;
+            })(),
             at: state.lastUpdate && Number(state.lastUpdate.at) ? Number(state.lastUpdate.at) : 0,
             status: trimText(p.status) || 'idle',
             error: trimText(p.error),

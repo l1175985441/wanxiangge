@@ -35,6 +35,57 @@ function when(ts) {
 }
 
 /**
+ * ⭐ 修复单 #4①：**结果**别虚报。
+ *   原来写的是 `status === 'failed' ? '失败' : '成功'`——**只要不是 failed 就报"成功"**，
+ *   于是"从没跑过"（idle）／"她中途取消"（cancelled）／状态缺失，全被报成**成功**。
+ *   ⇒ 按真实状态分档；**认不出的状态如实说"未知"**（⛔ 不许替它说成功）。
+ */
+function resultText(lastUpdate, pipe) {
+    const s = String((lastUpdate && lastUpdate.status) || '').trim();
+    if (s === 'failed') {
+        return '失败';
+    }
+    if (s === 'cancelled') {
+        return '已取消';
+    }
+    if (s === 'ok') {
+        return '成功';
+    }
+    if (String((pipe && pipe.status) || '').trim() === 'running') {
+        return '正在跑';
+    }
+    if (!s || s === 'idle') {
+        return '还没跑过';
+    }
+    return '未知（' + s + '）';
+}
+
+/**
+ * ⭐ 修复单 #4②：**"停在哪楼"要过得硬的判据**。
+ *   两个坑：
+ *     · `Number(null)`／`Number('')` 都是 **0** ⇒ 老账里 floor 是 null/空串时会**虚报"停在 #0"**；
+ *     · 只看 `lastUpdate.floor`、不看账里那份（`sum`）⇒ 跟界面别处口径不一致。
+ *   ⇒ 先把"不是数"的掐掉，再退回 `sum.lastUpdate.floor`（那份带 atFloor 兜底）。
+ */
+function stopFloorText(lastUpdate, sum) {
+    const raw = lastUpdate ? lastUpdate.floor : null;
+    let n = -1;
+    if (raw !== null && raw !== '' && raw !== undefined) {
+        const v = Number(raw);
+        if (Number.isFinite(v) && v >= 0) {
+            n = v;
+        }
+    }
+    if (n < 0) {
+        const v2 = Number(sum && sum.lastUpdate && sum.lastUpdate.floor);
+        if (Number.isFinite(v2) && v2 >= 0) {
+            n = v2;
+        }
+    }
+    return n >= 0 ? floorLabel(n) : '还没跑过';
+}
+
+/**
  * 出一份体检报告。
  * @param {object} opts `{ version: '0.2.87' }`（插件版本由调用方给，⛔ 不在这里 import index.js 免得绕成环）
  * @returns {{ text: string, rows: Array<[string,string]>, fails: Array<[string,number]> }}
@@ -77,9 +128,8 @@ export function buildHealthReport(opts) {
         ['可撤回的版本', String(Array.isArray(st.snapshots) ? st.snapshots.length : 0) + ' 版'],
         ['—— 最近一次更新 ——', ''],
         ['时间', when(st.lastUpdate && st.lastUpdate.at)],
-        ['结果', (st.lastUpdate && st.lastUpdate.status === 'failed') ? '失败' : '成功'],
-        ['停在哪楼', (st.lastUpdate && Number(st.lastUpdate.floor) >= 0)
-            ? floorLabel(st.lastUpdate.floor) : '还没跑过'],
+        ['结果', resultText(st.lastUpdate, pipe)],
+        ['停在哪楼', stopFloorText(st.lastUpdate, sum)],
         ['引擎当前状态', pipe.status === 'running' ? '正在跑' : (pipe.status === 'failed' ? '失败' : '闲着')],
         ['世界钟', String(sum.clock || '未知')],
         ['—— 自定义 API（⛔ 只报有没有）——', ''],
