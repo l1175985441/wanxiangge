@@ -314,11 +314,43 @@ export function applyWiki(wiki) {
  *    ⇒ 这里**先看方括号里的分类词**：非"人"的类别一律不收（并且报出来收了几条）。
  * ⚠️ 调用方必须告诉用户"这次是规则版、没分类"——⛔ 不许假装是分类结果。
  */
+/**
+ * ⭐⭐ 10-16 在她**真世界书**上跑出来的缺陷：
+ *   条目叫「`[角色] 日常NPC：奈鲁与海野`」⇒ 被当成“非人名”**整条丢掉**，
+ *   而他俩正是她那层里**露面最多**的（奈鲁 26 次、海野 15 次）⇒ **人在书里却没读出来**。
+ *   她 [18] 的要求就是“读人出来、她一个都不用手并” ⇒ **不能静默丢**。
+ *   这里只拆**最窄的一种**：「**类目词：甲与乙**」（类目词是 NPC／日常NPC／配角／路人／其他角色）
+ *   ⇒ 拆成一人一条。**⏔ 碰“天王遥与海王满”那种没类目词的**（那类归她点头的“书形问题”）。
+ */
+export function expandMultiNameEntries(entries) {
+    const CAT = /^(?:\u65e5\u5e38NPC|NPC|\u914d\u89d2|\u8def\u4eba|\u5176\u4ed6\u89d2\u8272|\u516c\u4f17|\u80cc\u666f)$/;
+    const out = [];
+    for (const e of (Array.isArray(entries) ? entries : [])) {
+        const raw = String((e && (e.comment || e.name || e.key)) || '');
+        const m = raw.match(/^[\[\u3010(\uff08]?\s*[^\]\u3011)\uff09]{0,8}[\]\u3011)\uff09]?\s*([^\uff1a:]{1,12})\s*[\uff1a:]\s*(.+)$/);
+        const tail = m ? m[1].trim() : '';
+        const who = m ? m[2].trim() : '';
+        if (!m || !CAT.test(tail) || !who) {
+            out.push(e);
+            continue;
+        }
+        const names = who.split(/[\u4e0e\u548c\u3001,\uff0c\uff0f\/]+/).map((x) => x.trim()).filter(Boolean);
+        if (names.length < 2) {
+            out.push(e);
+            continue;
+        }
+        for (const nm of names) {
+            out.push(Object.assign({}, e, { comment: '[\u89d2\u8272] ' + nm }));
+        }
+    }
+    return out;
+}
+
 export function ruleBasedPeople(entries) {
     const people = [];
     const seen = new Map();
     let skipped = 0;
-    for (const e of Array.isArray(entries) ? entries : []) {
+    for (const e of expandMultiNameEntries(entries)) {
         const raw = trimText(e && (e.comment || e.name || e.key || e.keys));
         // 方括号里的分类词（`[势力] X` / 【地点】X）
         const m = raw.match(/^[\[【(（]\s*([^\]】)）]{1,6})\s*[\]】)）]/);

@@ -610,7 +610,20 @@ export function extractArchiveOwner(body) {
         return '';
     }
     const m = t.match(/【\s*角色档案\s*[：:]\s*([^】\n]{1,20})\s*】/);
-    return m ? trimText(m[1]) : '';
+    if (!m) {
+        return '';
+    }
+    const who = trimText(m[1]);
+    /*
+     * ⭐ 10-16 在她**真世界书**上跑出来的：有的条目头写的是**类目**而不是人
+     *   （例：「【角色档案：日常NPC：奈鲁与海野】」）⇒ 若把「日常NPC」当属主，
+     *   真人名反倒变成别名 ⇒ **她书里的奈鲁/海野就是这么丢的**。
+     *   ⇒ 类目词（可带「：后面还有内容」）**不算属主**。
+     */
+    if (/^(?:\u65e5\u5e38NPC|NPC|\u914d\u89d2|\u8def\u4eba|\u5176\u4ed6\u89d2\u8272|\u516c\u4f17|\u80cc\u666f|\u4eba\u7269|\u89d2\u8272)(?:[\uff1a:].*)?$/.test(who)) {
+        return '';
+    }
+    return who;
 }
 
 /** 内容里的「变身形态：Y」（可多条；括号里的注音也算）—— 她 [18] 里的「身份」就是这个 */
