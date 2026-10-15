@@ -153,6 +153,15 @@ export function parseClock(text) {
         const p = PERIODS.find((x) => x.key === out.period);
         out.minutesOfDay = (p ? p.from : 12) * 60;
         out.has = true;
+    } else if (out.day !== null) {
+        /*
+         * ⭐ 修复单 #15①：**"只说了第几天"也算读出来了**。
+         *   例："第二天"／"次日"——她知道现在是哪一天，钟就是在走。
+         *   原来没有这一支 ⇒ `has` 停在 false，下游（`isLineDue` / `sinceDay` 那些）
+         *   一律当成"钟读不出来，先不推" ⇒ **那一整天什么都不推**。
+         *   ⚠️ `minutesOfDay` 留 null（⛔ 不猜具体几点）；消费方都写了 `|| 0` / `!== null`，安全。
+         */
+        out.has = true;
     }
 
     return out;
@@ -272,7 +281,17 @@ export function isLineDue(line, clockText) {
         return { due: ok, why: ok ? '钟走到放学后了' : '还没放学（现在' + (clock.period || clock.raw) + '）' };
     }
     if (/(天亮|清晨|早晨)/.test(t)) {
-        const ok = clock.period === '早上' || clock.period === '上午';
+        /*
+         * ⭐ 修复单 #15②：**"天亮"是过了那个点就一直算数**。
+         *   原来只认 `早上／上午` ⇒ 钟走到中午／下午／傍晚／晚上时反而报"**天还没亮**"（下午误判）。
+         *   ⇒ 改成"**到过天亮那一刻（早上 5 点）或更晚**"都算数；
+         *     钟读不出分钟时，退化成"时段在天亮之后"。
+         */
+        const dawn = 5 * 60;
+        const AFTER_DAWN = ['早上', '上午', '中午', '下午', '傍晚', '晚上', '深夜'];
+        const ok = Number.isFinite(clock.minutesOfDay)
+            ? clock.minutesOfDay >= dawn
+            : AFTER_DAWN.includes(clock.period);
         return { due: ok, why: ok ? '天亮了' : '天还没亮' };
     }
     if (/(夜里|深夜|半夜)/.test(t)) {

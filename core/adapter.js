@@ -502,6 +502,70 @@ export function dropMirrorFor(key, state) {
     }
 }
 
+/**
+ * ⭐ 修复单 #9：**把某一格底稿真的删掉**（不只是从待写队列里摘）。
+ *
+ *   为什么非有它不可：「清空这个世界」之后 `hasContent(state)` 为假 ⇒
+ *   `mirrorLedger` 会**直接跳过**（"空账不值得留底"）⇒ **旧底稿原封不动留着** ⇒
+ *   下一次读档 `readLedger` 从底稿把**刚被清掉的账又捞回来**（她那边就是"清完一刷新，数据全回来了"）。
+ *   ⇒ 清空动作必须**显式把那一格抹掉**。
+ *   ⚠️ 只动她指定的那一格（⛔ 不许顺手清别人的聊天）。
+ *
+ * @returns {boolean} 真删掉了吗
+ */
+export function clearMirror(key, state) {
+    /*
+     * ⚠️ 底稿那一格的键是 `keyOf(snapshot)`（账本自己盖的章），
+     *   而 `currentChatKey()` 未必等于它（自测当场证明：抹了没抹掉）。
+     *   ⇒ 把**所有可能的键**都试一遍，别只认一个。
+     */
+    const cands = [];
+    /*
+     * ⚠️ 这里是 adapter.js：它**只引了 config**（没有 utils 的 trimText），
+     *   而我又不想为一句 trim 去加 import（utils ⇄ adapter 有绕成环的风险）
+     *   ⇒ 就地处理字符串。（我第一版直接调 `trimText` ⇒ ReferenceError，
+     *     还被自己的 try/catch 吞了：**清空看着成功、底稿其实没抹**。真踩过。）
+     */
+    const push = (v) => {
+        const s = v === undefined || v === null ? '' : String(v).trim();
+        if (s && !cands.includes(s)) {
+            cands.push(s);
+        }
+    };
+    push(key);
+    if (state && typeof state === 'object') {
+        push(state.chatKey);
+        push(keyOf(state));
+    }
+    push(currentChatKey());
+    if (!cands.length) {
+        return false;
+    }
+    let hit = false;
+    for (const target of cands) {
+        try {
+            if (mirrorPending.has(target)) {
+                mirrorPending.delete(target);
+                hit = true;
+            }
+        } catch (e) {
+            // 队列动不了不影响下面那道
+        }
+        try {
+            const store = getExtensionSettings();
+            const box = store && store[SETTINGS_KEY + '_mirror'];
+            if (box && typeof box === 'object' && Object.prototype.hasOwnProperty.call(box, target)) {
+                delete box[target];
+                persistSettings();
+                hit = true;
+            }
+        } catch (e) {
+            console.warn('[万象阁] 底稿清不掉：', e);
+        }
+    }
+    return hit;
+}
+
 /** 真正落盘：一格一格对号入座 */
 function flushMirror() {
     const store = getExtensionSettings();

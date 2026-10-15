@@ -13,8 +13,8 @@ import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
     ARRIVE_MISS_LIMIT,
 } from './config.js';
-import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames } from './adapter.js';
-import { makeId, toList, trimText, asText, countChars, matchKey } from './utils.js';
+import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror } from './adapter.js';
+import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock } from './clock.js';
 
 /* ------------------------------ 人物 ------------------------------ */
@@ -786,7 +786,9 @@ export function upsertHidden(line) {
         updatedAt: now(),
     };
     state.world.hidden.push(fresh);
-    capList(state.world.hidden, 'capHidden', (h) => h.name);
+    // ⭐ 修复单 #13①：**补传 keepFn**——对照 `capEvents` 那处（`(e) => e.manual`）：
+    //   暗线也可能被她手改过（`manual: true`），不带 keepFn 就会把**她手改的那条**先淘汰掉。
+    capList(state.world.hidden, 'capHidden', (h) => h.name, (h) => h && h.manual === true);
     saveState();
     return fresh;
 }
@@ -944,12 +946,33 @@ export async function clearWorldLedger() {
     state.events = [];
     state.chronicle = [];
     state.recallRecords = [];
+    /*
+     * ⭐ 修复单 #9：**这两样也得清**（原来漏了）——
+     *   `newPeople`（"新认的人"徽章）与 `stat`（召回／注入计数）都是这本账的一部分；
+     *   不清的话"清空这个世界"之后徽章与计数**还挂着旧数据**。
+     *   `failLog`（失败分类）同属这本账，一并清掉。
+     */
+    state.newPeople = [];
+    state.stat = { recalled: 0, injected: 0, empty: 0, updates: 0 };
+    state.failLog = [];
     // ⚠️ 快照也清：留着的话"撤回上一次"能把数据拉回来 ⇒ 她说的是"真的不需要了"
     state.snapshots = [];
     state.lastUpdate = { at: 0, status: 'idle', note: '', floor: -1 };
     state.pipeline = Object.assign({}, state.pipeline, {
         status: 'idle', step: '', text: '', error: '', tries: 0, cursor: 0, atFloor: -1, cancelRequested: false,
     });
+    saveState();
+    /*
+     * ⭐ 修复单 #9 的**根因**：清完之后这本账是空的 ⇒ `mirrorLedger` 里那句
+     *   "空账不值得留底"会让它**跳过写底稿** ⇒ **旧底稿原封不动留着**
+     *   ⇒ 下次读档又从底稿把刚清掉的账捞回来（"清完一刷新数据全回来了"）。
+     *   ⇒ 清空动作必须**显式把那一格底稿抹掉**。
+     */
+    try {
+        clearMirror(null, state);
+    } catch (e) {
+        console.warn('[万象阁] 清空时抹底稿出错：', e);
+    }
     saveState();
     await flushLedger();   // ⭐ 同上：不可逆的动作必须等落盘
     return counts;
@@ -1034,10 +1057,15 @@ export function markArrivals(bodyText, floor, msgs) {
         if (hasMsgs && !freshText) {
             continue;
         }
+        /*
+         * ⭐ 修复单 #7：**人名与事件分开取**。
+         *   原来两者一起 `trimText()`——可 `rec.events` 是**对象数组**，
+         *   于是 token 里多了一堆 `'[object Object]'`（长度 15，还能过 `>= 2` 的筛）
+         *   ⇒ 事件永远搜不到、永远被当"没进正文"。⇒ 用统一的 `eventTitle()`。
+         */
         const tokens = []
-            .concat(Array.isArray(rec.chars) ? rec.chars : [])
-            .concat(Array.isArray(rec.events) ? rec.events : [])
-            .map((x) => trimText(x))
+            .concat((Array.isArray(rec.chars) ? rec.chars : []).map((x) => trimText(x)))
+            .concat((Array.isArray(rec.events) ? rec.events : []).map((x) => eventTitle(x)))
             .filter((x) => x.length >= 2);
         const hit = tokens.some((tk) => freshText.includes(tk));
         if (hit) {
@@ -1320,7 +1348,15 @@ export function capList(list, capKey, keyFn, keepFn) {
     }
     const over = list.length - cap;
     const removed = [];
-    for (let i = 0; i < over; i += 1) {
+    /*
+     * ⭐ 修复单 #13②：**边界**。
+     *   原来只扫前 `over` 条（`i < over`）：被保住的（手改过的）若排在前头，
+     *   实际就**少淘汰几条** ⇒ 列表永远压不回上限；最极端 `over = 1` 且首位是手改的时
+     *   **一条都不淘汰**（等于容量锁失效）。
+     *   ⇒ 改成"**一直往后扫，直到凑够 `over` 条该走的**"。
+     *   ⚠️ 全都被保住时（全是她手改的）就少淘汰几条——那是**有意的**：她的字优先。
+     */
+    for (let i = 0; i < list.length && removed.length < over; i += 1) {
         if (keepFn && keepFn(list[i])) {
             continue;   // 手改过的优先留着
         }

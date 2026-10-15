@@ -256,12 +256,26 @@ function legacyToArray(data) {
 /** 条目数组 → `saveWorldInfo` 要的形状（键＝uid） */
 function legacyToData(list, oldData) {
     const entries = {};
+    /*
+     * ⭐ 修复单 #10（后半）：**没有 uid 的条目不许撞车**。
+     *   原来键取 `String(Object.keys(entries).length)`——那是"此刻已放入几条"，
+     *   一旦前面删过条目（或列表里混着无 uid 的），算出来的键**可能已经被占了** ⇒
+     *   **后来者把人家的条目覆盖掉**（自审自测点：「删中间条目后再新增无 uid 条目 ⇒ 不得覆盖他条」）。
+     *   ⇒ 改成"**找一个还没被占的键**"。
+     */
+    const nextFreeKey = () => {
+        let i = 0;
+        while (Object.prototype.hasOwnProperty.call(entries, String(i))) {
+            i += 1;
+        }
+        return String(i);
+    };
     for (const e of Array.isArray(list) ? list : []) {
         if (!e || typeof e !== 'object') {
             continue;
         }
         const uid = e.uid !== undefined ? e.uid : undefined;
-        const key = uid !== undefined ? String(uid) : String(Object.keys(entries).length);
+        const key = uid !== undefined ? String(uid) : nextFreeKey();
         entries[key] = Object.assign({}, e, { uid: e.uid !== undefined ? e.uid : Number(key) || key });
     }
     // 保留原书里除 entries 之外的字段（别把别人的设置抹了）

@@ -134,8 +134,7 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
     // 楼层号以真实聊天记录为准
     const real = getChat();
     const realFloor = Array.isArray(real) && real.length ? findLastUserFloor(real) : -1;
-    const copyFloor = findLastUserFloor(list);
-    if (realFloor < 0 && copyFloor < 0) {
+    if (realFloor < 0 && findLastUserFloor(list) < 0) {
         return;
     }
 
@@ -144,6 +143,12 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
     if (existing >= 0) {
         list.splice(existing, 1);
     }
+    /*
+     * ⭐ 修复单 #11：`copyFloor` 必须**在摘注入块之后**才算。
+     *   原来先算后 splice：若上一轮那个注入块就在最后一条用户发言**前面**，
+     *   摘掉之后所有下标前移 1 ⇒ `list[copyFloor]` 指到**错的那一楼**（引用错位）。
+     */
+    const copyFloor = findLastUserFloor(list);
 
     const realLead = realFloor >= 0 ? real[realFloor] : null;
     const copyLead = copyFloor >= 0 ? list[copyFloor] : null;

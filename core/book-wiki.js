@@ -18,10 +18,10 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
-import { getEntries, extractNameFromTitle } from './worldbook.js';
+import { getEntries, extractNameFromTitle, resolveBookName } from './worldbook.js';
 
 /** 一次最多送多少条给模型（太长就分片；⛔ 不是"过滤掉"，是分批读完） */
 const CHUNK = 40;
@@ -49,7 +49,8 @@ function entryDigest(entry) {
  */
 export async function readWholeBook(bookName) {
     const settings = getSettings();
-    const name = trimText(bookName);
+    // ⭐ 修复单 #14：同上——用**回退后的书名**去比对排除名单。
+    const name = typeof resolveBookName === 'function' ? resolveBookName(bookName) : trimText(bookName);
     const blocked = toList(settings.excludeBooks).some((b) => matchKey(b) === matchKey(name));
     if (blocked) {
         return { ok: false, reason: '这本书在你「排除世界书」名单里，引擎不读它', entries: [], total: 0, disabled: 0 };
@@ -244,6 +245,11 @@ export function applyWiki(wiki) {
     const people = addCharacters(chars.map((c) => c.name));
     if (chars.length) {
         const state = loadState();
+        /*
+         * ⭐ 修复单 #12：这里改的是**内存里那份**角色的身份／势力，原来**没 saveState**
+         *   ⇒ 从世界书读到的人设「当场有、刷新就没」（补的身份／势力永不落盘）。
+         */
+        let patched = 0;
         for (const c of chars) {
             const hit = (state.characters || []).find((x) => matchKey(x.name) === matchKey(c.name));
             if (!hit) {
@@ -258,7 +264,11 @@ export function applyWiki(wiki) {
             }
             if (Object.keys(patch).length) {
                 Object.assign(hit, patch);
+                patched += 1;
             }
+        }
+        if (patched > 0) {
+            saveState();
         }
     }
 

@@ -9,7 +9,7 @@
  *   · 世界状态／平行事件＝**自动筛**：以她的最新发言为线索，相关的进、其余排后台。
  */
 
-import { clampNumber, countChars, matchKey, trimText, uniqueBy } from './utils.js';
+import { clampNumber, countChars, matchKey, trimText, uniqueBy, eventTitle } from './utils.js';
 import { getRoster, loadState } from './state.js';
 import { getSettings, effectivePrompt } from './settings.js';
 
@@ -526,12 +526,14 @@ export function buildRecall(input) {
         (loadState().recallRecords || [])
             .filter((r) => r && r.archived === true)
             .reduce((acc, r) => acc.concat(Array.isArray(r.events) ? r.events : []), [])
-            .map((x) => trimText(x))
+            // ⭐ 修复单 #7：这里原来也是 `trimText(x)` ⇒ 对象变 `'[object Object]'`
+            //   ⇒ "已归档标题"集合永远匹配不上真标题。用同一个 `eventTitle()`。
+            .map((x) => eventTitle(x))
             .filter(Boolean)
     );
     const pickedEvents = Array.isArray(evRes.picked)
         ? evRes.picked.filter((e) => {
-            const title = trimText(e && (e.title || e.text || e));
+            const title = eventTitle(e);
             return !title || !archivedTitles.has(title);
         })
         : evRes.picked;

@@ -130,16 +130,34 @@ export function nativeToWorldbook(n) {
     // 位置：旧族那串枚举 → {type, role}
     const p = POSITION_TO_NEW[src.position] || POSITION_TO_NEW.before_character_definition;
 
+    /*
+     * ⭐ 修复单 #10：**兼容旧族的六个字段**。
+     *   为什么：`core/book.js:126-133` 建条目时传的正是旧族叫法
+     *   （`key`／`keysecondary`／`selective`／`constant`／`disable`），
+     *   而这里原来只读新族的复数 `keys` ⇒ **这几个全被丢掉** ——
+     *   新建出来的条目于是"**没有关键词、也不是常驻**"，很可能永远不触发
+     *   （她那边看着就是"写进世界书了、但没生效"）。
+     *   ⛔ 两套叫法都要认（新族的优先）。
+     */
+    const asList = (v) => (Array.isArray(v)
+        ? v.filter(Boolean).map((x) => String(x))
+        : (v === undefined || v === null || String(v).trim() === '' ? [] : [String(v)]));
+    const legacyKeys = asList(src.key);
+    const legacySec = asList(src.keysecondary);
+    const enabledNow = src.enabled !== false && src.disable !== true;
+
     const out = {
         name,
-        enabled: src.enabled !== false,
+        enabled: enabledNow,
+        disable: !enabledNow,
         content: src.content !== undefined ? src.content : '',
         strategy: {
-            type: src.type || 'selective',
-            keys: Array.isArray(src.keys) ? src.keys.slice() : [],
+            // 旧族 `constant: true` ⇒ 常驻（新族 type='constant'）；否则按关键词触发
+            type: src.type || (src.constant === true ? 'constant' : 'selective'),
+            keys: Array.isArray(src.keys) && src.keys.length ? src.keys.slice() : legacyKeys,
             keys_secondary: {
                 logic: src.logic || 'and_any',
-                keys: Array.isArray(src.filters) ? src.filters.slice() : [],
+                keys: Array.isArray(src.filters) ? src.filters.slice() : legacySec,
             },
             scan_depth: isNil(src.scan_depth) ? 'same_as_global' : src.scan_depth,
         },

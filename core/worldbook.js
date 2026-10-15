@@ -242,7 +242,12 @@ export async function refreshAffinity() {
                 candidates.add(b);
             }
         }
-        const bound = trimText(ctx.chatMetadata && ctx.chatMetadata.world_info);
+        /*
+         * ⭐ 修复单 #8 附：补 `ctx &&` 保护。
+         *   同一文件 373/395 行都有这个保护、就这处没有——`ctx` 拿不到时（早期／异常环境）
+         *   这里会 `TypeError: Cannot read properties of null`，把"读人"整条路带崩。
+         */
+        const bound = trimText(ctx && ctx.chatMetadata && ctx.chatMetadata.world_info);
         if (bound && !isExcluded(bound)) {
             candidates.add(bound);
         }
@@ -387,7 +392,16 @@ export async function listWorldbookNames() {
  * ⭐ 书名留空 ⇒ 兜底用**角色卡绑定的那本**（`chatMetadata.world_info`）——
  *    界面上的输入框就是这么承诺她的（"留空＝角色卡绑定那本"，自审修正·条 14）。
  */
-export async function getEntries(bookName) {
+/**
+ * ⭐ 修复单 #14：把"书名怎么回退"抽成**一个口径**。
+ *
+ *   空名时的回退顺序：她传的名 → `chatMetadata.world_info`（当前聊天挂的那本）→
+ *   `extractBooks` 里的第一本。
+ *   ⚠️ 为什么非得抽出来：`getEntries` 一直在回退，
+ *   而**"排除世界书"那两处比对用的是回退前的空名** ⇒
+ *   `matchKey('')` 永远匹配不上 ⇒ **她点过名的书照样被读**（排除失效）。
+ */
+export function resolveBookName(bookName) {
     const ctx = getCtx();
     const settings = getSettings();
     let name = trimText(bookName);
@@ -398,9 +412,15 @@ export async function getEntries(bookName) {
         const list = toList(settings.extractBooks);
         name = list.length ? list[0] : '';
     }
+    return name;
+}
+
+export async function getEntries(bookName) {
+    const name = resolveBookName(bookName);
     if (!name) {
         return [];
     }
+    const settings = getSettings();
     // ⭐ 走多通道适配层（里面已经把旧通道的 `{entries:{uid:…}}`
     //    归一成数组了，⏐ 不用这儿再分辨）
     const data = await readBookEntries(name);
@@ -434,7 +454,12 @@ export function entryTitleOf(e) {
 export async function collectPeopleFromBook(bookName, options) {
     const opts = options || {};
     const settings = getSettings();
-    const name = trimText(bookName);
+    /*
+     * ⭐ 修复单 #14：排除比对要用**回退后的书名**。
+     *   空名时 `getEntries` 会回退（当前聊天挂的那本／extractBooks 第一本），
+     *   而这里原来拿**空名**去比 ⇒ `matchKey('')` 永远匹配不上 ⇒ **她点过名的书照样被读**。
+     */
+    const name = resolveBookName(bookName);
 
     // 她在「排除世界书」里点过名的书：⛔ 不读、不参与
     const blocked = toList(settings.excludeBooks).some((b) => matchKey(b) === matchKey(name));

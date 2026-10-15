@@ -53,6 +53,28 @@ export function asArray(list) {
 }
 
 /** 处理成用于匹配的形式：小写、只留中日韩文字与字母数字 */
+/**
+ * ⭐ 修复单 #7：把"世界事件"统一取成**标题字符串**。
+ *
+ *   为什么单开一个：`rec.events` 存的是**对象数组**（`title`/`text`），
+ *   而两处代码直接对它们 `trimText()` ⇒ 拿到的是 `'[object Object]'`：
+ *     · `state.js` 的送达回执拿它当 token 去正文里搜 ⇒ **永远搜不到**（事件永远算"没进"）；
+ *     · `recall.js` 拿它当"已归档标题"集合 ⇒ **永远匹配不上**（该挡的没挡住）。
+ *   ⇒ 一处定义、三处共用，⏔ 再各写各的。
+ */
+export function eventTitle(x) {
+    if (x === null || x === undefined) {
+        return '';
+    }
+    if (typeof x === 'string') {
+        return trimText(x);
+    }
+    if (typeof x === 'object') {
+        return trimText(x.title || x.text || x.name || '');
+    }
+    return trimText(String(x));
+}
+
 export function matchKey(v) {
     return asText(v)
         .toLowerCase()
