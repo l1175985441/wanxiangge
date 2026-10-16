@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.154';
+export const APP_VERSION = '0.3.155';
 
 export const LEDGER_VERSION = 3;
 
@@ -206,9 +206,10 @@ export const DEFAULT_PROMPT_WORLD = [
     '{{hidden}}',
     '',
     '【要你做的事】',
+    '⛔ **旧局势没变就沿用原标题、原样写回去**（⛔ 换个句式重写 ✗）；真有变化才写新的，数量 0-6 条、一句话一条 ✓。',
     '1. 给出"世界上正在发生的事"＝各方势力的碰撞（谁和谁在起冲突、世界在酝酿什么），3-6 条，一句话一条。',
     '2. 推进已有的暗线：**只有世界钟走到它挂的时间／条件时才推进阶段**；没到点就保持原样，⛔ 不许提前冒头。',
-    '3. 可以新增 0-2 条暗线（还没浮上台面的事），必须带：名称、阶段、挂在什么时间或条件上（例："晚上""放学后""三天后"）、火候（身边即时／几天内／长线大势）。',
+    '3. **仅当正文或世界书里明确出现了新伏笔时**才可以新增 0-2 条暗线（还没浮上台面的事），日常聊天回合**严禁强行编造新暗线**；必须带：名称、阶段、挂在什么时间或条件上（例："晚上""放学后""三天后"）、火候（身边即时／几天内／长线大势）。',
     /* P4 (material 07): say WHO “I” is.
      *   Her words: bu xu xie wo == do not write user, user IS the player. */
     '⛔ **"我"＝ user＝玩家＝正文里的那个人**（名单里标着"玩家棋子"的那位）；下面每一条"不许写我"都是指**这个人** ✓，⛔ 也不许写"user"、"玩家"这两个词本身 ✓。',
@@ -221,7 +222,9 @@ export const DEFAULT_PROMPT_WORLD = [
     '只输出 JSON，不要任何别的文字：',
     '{"clock":"世界内时间（读不出来写未知）","place":"大致地点","bigPicture":"从高处看一眼：这个世界现在什么样（两三句）",',
     ' "situations":[{"title":"谁和谁在起冲突／在酝酿什么","sides":"哪几方","tier":"身边即时|几天内|长线大势"}],',
-    ' "hidden":[{"name":"暗线名","stage":"萌芽|发酵|逼近|爆发|消散|筹备|执行|关键|完成","trigger":"挂在什么时间或条件上","tier":"身边即时|几天内|长线大势","note":"现在到哪一步了","advance":true}]}',
+        /* P11/P12 (material 07): advance is no longer hardcoded and the two stage tracks
+     *   are spelled out separately, with kind saying which track a line belongs to. */
+    '"hidden":[{"name":"暗线名","kind":"冲突型=conflict 或 推进型=progress","stage":"**冲突型只能这五个**：萌芽|发酵|逼近|爆发|消散；**推进型只能这四个**：筹备|执行|关键|完成（⛔ 两轨互相串）","trigger":"挂在什么时间或条件上","tier":"身边即时|几天内|长线大势","note":"现在到哪一步了","advance":true 或 false（**未到点就填 false**；⛔ 不要照拄示例里的 true）}]}',
 ].join('\n');
 
 /** 内置提示词：角色状态与平行事件（可看可改；留空＝用内置） */
@@ -276,7 +279,7 @@ export const DEFAULT_PROMPT_CHARS = [
      *   Root cause: the template said "copy it verbatim" => the model copied the
      *   placeholder into JSON => the code stored it as a real affinity value. */
     ' "faction":"或空","timePlace":"他在什么时间、什么地点",',
-    ' "past":["他最近经历过的（第一人称、正在过去的那几条，按由近到远）"],',
+    ' "past":["本轮**刚变成过去**的 0～1 条（第一人称；⛔ 不要把旧经历重抄一遍 ⛔）"],',
     ' "current":"【现场】只总结正文里已经写了的他此刻在做的事（⛔ 正文没写的别写）；'
     + '【不在场】他此刻正在做什么（进行时推演，⛔ 不写下一步）",',
     ' "schedule":[{"what":"约好的事","due":"什么时候到点"}],',
