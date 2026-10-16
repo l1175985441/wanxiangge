@@ -609,9 +609,17 @@ function applyCharacter(raw, material, conflicts) {
     };
 
     const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
+    /* ⭐⭐ 材料 07 · P5（第一波·“未知”覆盖 ✗）：**占位词不能当真值写回** ✓
+     *   病根：T1（system 破限词）强令“一个字段都不许空着…没有的写'未知'” ✗
+     *         ⇒ 模型不敢留空，全填 “未知” ✗ 而这里**只跳空串** ✗
+     *         ⇒ 把角色**原本已读出来的**身份/势力**覆盖成 “未知”** ✗✗
+     *         （空白格也被塞满 “未知” ⇒ 体检误判“身份非空” ✗ 名册显示不出 — ✗）
+     *   现在：占位词一律**当作没说** ⇒ skip ✓（⏔ 拿它覆盖已有的好数据 ✗）
+     *   ⏔ 只列明确的占位词：**不收“无”“没有”**（它们可能是有意义的值 ✓） */
+    const UNKNOWNISH = /^(未知|不详|不明|未接入|暂无|不清楚|待定|未设定|无记录|n\/a|-|—|？|\?)$/i;
     for (const f of textFields) {
         const incoming = trimText(raw && raw[f]);
-        if (!incoming) {
+        if (!incoming || UNKNOWNISH.test(incoming)) {
             continue;
         }
         const old = trimText(c[f]);
