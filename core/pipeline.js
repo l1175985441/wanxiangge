@@ -250,8 +250,12 @@ function worldMaterialCap() {
     } catch (e) { /* ⏔ 影响主流程 */ }
     return Math.min(Math.max(Math.round(v), 500), 40000);
 }
-function capWorldMaterial(txt) {
-    const cap = worldMaterialCap();
+function capWorldMaterial(txt, attempt) {
+    /* ⭐⭐ 链路是抽风型的（一会儿 400、一会儿回体 null ✗）
+     *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⏔ 缩到没东西可看 ✗）
+     *   ⏔ 不动结构：局势／暗线照旧全给 ✓（只缩正文那一块 ✓） */
+    let cap = worldMaterialCap();
+    if (Number(attempt) > 0) { cap = Math.max(600, Math.floor(cap / (Number(attempt) + 1))); }
     const s = String(txt == null ? '' : txt);
     if (!s.trim()) { return '（没有可读的正文）'; }
     if (s.length <= cap) { return s; }
@@ -289,7 +293,7 @@ async function stepWorld(material, attempt) {
             '局势：' + ((world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || '（还没有）'),
         ].filter(Boolean).join('\n'),
         clock: trimText(world.clock) || '未知',
-        recent: capWorldMaterial(material.recentText),   /* ⭐ 拆小：超长只带最近一段 ✓ */
+        recent: capWorldMaterial(material.recentText, attempt),   /* ⭐ 拆小：超长只带最近一段 ✓ */
         hidden: hiddenLines,
     });
 
