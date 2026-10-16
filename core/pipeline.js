@@ -741,7 +741,11 @@ async function stepCharacters(material, attempt) {
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
     // ⭐ 现场保护（protectedBypass）：同楼已算过的不再重推；上一轮刚在现场演过（inScene）的排到轮转队尾，优先推久未露面的人
-    const maxParallel = clampNumber(settings.maxParallelChars, 0, 12, 6);
+    const maxParallelSetting = clampNumber(settings.maxParallelChars, 0, 12, 6);
+    /* ⭐谷歌复核（四）：重试时**角色数临时减半** ✓（避开中转站的瞬时抽风波峰 ✓）下限 2 ✓ */
+    const maxParallel = (Number(attempt) >= 1)
+        ? Math.max(2, Math.floor(maxParallelSetting / 2))
+        : maxParallelSetting;
     const bench = roster.filter((c) => {
         if (onStageIds.has(c.id) || c.isPlayer) {
             return false;
