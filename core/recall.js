@@ -211,6 +211,12 @@ function personBlock(item, opts) {
     const anchorFloor = Number(opts && opts.anchorFloor);
     const lines = ['· ' + c.name];
 
+    /*
+     * ⚠️ P16（材料 07）**未采纳**：它要求“没数值就不输出这一行” ✗
+     *   但 **两条用例盯着它**（run-tests-inject「好感照旧（未接入时如实说）」／
+     *   run-tests「没接数据源的人如实写未接入，不填占位值」）✗
+     *   —— 那是**她定的“如实说、不填占位值”** ✓ ⇒ 不擅改 ✓（列回执待口径 ✓）
+     */
     if (trimText(c.affinity)) {
         lines.push('  好感：' + trimText(c.affinity) + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
     } else {
@@ -229,8 +235,14 @@ function personBlock(item, opts) {
         lines.push('  时间·地点：' + trimText(c.timePlace));
     }
 
+    /*
+     * ⚠️ P15（材料 07）**未采纳**：它要求“被判过编造的 current 根本不注入” ✗
+     *   但 run-tests-future 盯着**反面**：引擎标了不可靠的，注入时**必须带着那个标** ✓
+     *   （而材料又引了 README 第七节“被判过的现状不进注入” —— **项目内部本来就自相矛盾** ✗）
+     *   ⇒ 不擅改 ✓ ⇒ 列回执待她口径 ✓
+     */
     if (trimText(c.current)) {
-        // ⭐ 引擎自己标了"这条不牢"的，注入时也要带着标——⛔ 不能被下一轮当成既定事实
+        // 引擎自己标了"这条不牢"的，注入时也要带着标——⛔ 不能被下一轮当成既定事实
         lines.push('  正在经历：' + trimText(c.current)
             + (c.currentSuspect ? '　⚠（引擎判定这条不可靠：' + (trimText(c.currentSuspectWhy) || '疑似越界') + '，别当事实用）' : ''));
     }
