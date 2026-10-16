@@ -69,6 +69,25 @@ function cnToNum(text) {
  */
 export function parseClock(text) {
     const raw = trimText(text);
+    /*
+     * ⭐⭐ S1（材料 05 的自查）：**日历日与“第N天”必须同一坐标** ✓
+     *   旧（我 v0.3.128 落的）：1992-04-01 ⇒ `day = 8126`（距 1970 的天数 ✗）
+     *     而“第一天” ⇒ `day = 1` ✗ ⇒ 两个坐标系混用 ✗✗
+     *     场景：暗线建在“第一天”（sinceDay=1），下一轮读到 1992-04-01（nowDay=8126）
+     *       ⇒ 8125 天 ⇒ **所有暗线与日程瞬间全部提前爆炸** ✗✗
+     *   现在：日历日只写进 `ymd`（绝对值 ✓）；`day` 一律＝ ymd - epochDay + 1 ✓
+     *     基准日 epochDay 取**第一次**读到的日历日 ✓（1992-04-02 ⇒ day=2 ✓）
+     */
+    let clockEpochDay = null;
+    function absToRelativeDay(abs) {
+        if (!Number.isFinite(abs)) {
+            return null;
+        }
+        if (!Number.isFinite(clockEpochDay)) {
+            clockEpochDay = abs;
+        }
+        return abs - clockEpochDay + 1;
+    }
     const out = { raw, has: false, day: null, period: '', hour: null, minute: null, minutesOfDay: null };
     if (!raw || raw === '未知') {
         return out;
@@ -84,12 +103,14 @@ export function parseClock(text) {
     if (ymd) {
         const utc = Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
         if (Number.isFinite(utc)) {
-            out.day = Math.floor(utc / 86400000);
+            out.ymd = Math.floor(utc / 86400000);   /* S1：绝对值单列 ✓ */
+            out.day = absToRelativeDay(out.ymd);    /* S1：换成相对天 ✓ */
         }
     } else if (md) {
         const utc = Date.UTC(2000, Number(md[1]) - 1, Number(md[2]));
         if (Number.isFinite(utc)) {
-            out.day = Math.floor(utc / 86400000);
+            out.ymd = Math.floor(utc / 86400000);
+            out.day = absToRelativeDay(out.ymd);
         }
     } else if (dayMatch) {
         out.day = cnToNum(dayMatch[1]);
