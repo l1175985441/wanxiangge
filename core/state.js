@@ -268,9 +268,38 @@ export function loadState() {
 }
 
 /** 存账本 */
+/*
+ * ⭐⭐ 材料 05 · R1（内存暴涨元凶 ✗）：**一轮推演里的几十次写盘合并成一批** ✓
+ *   病根：单次更新会调 80+ 次 saveState() ✗ 每次都同步深拷贝整本数 MB 的账
+ *         （含 5 份快照、800 条编年、200 条召回 ✗）并并发打 80+ 个保存请求 ✗ ⇒ 卡顿 ✗
+ *   新：**显式批次**。批内第 2…N 次只记“脏”（不深拷贝、不发请求 ✓）；批收尾写**一次** ✓
+ *   ⏔ **批外行为与原来逐字一致** ✓（所以同步读盘的自测不受影响 ✓）
+ *   ⏔ 不动账本格式/写入接口；flushLedger()（不可逆动作那条 ✓）照旧直接写 ✓
+ */
+let saveBatchDepth = 0;
+let saveBatchDirty = false;
+
+/** 进入批次（批内的 saveState 只记账 ✓） */
+export function beginSaveBatch() {
+    saveBatchDepth += 1;
+}
+
+/** 出批次：最外层出来时，若有脏 ⇒ 补写一次 ✓ */
+export function endSaveBatch() {
+    saveBatchDepth = Math.max(0, saveBatchDepth - 1);
+    if (saveBatchDepth === 0 && saveBatchDirty) {
+        saveBatchDirty = false;
+        try { writeLedger(loadState()); } catch (e) { /* ⏔ 影响主流程 */ }
+    }
+}
+
 export function saveState() {
     const state = loadState();
     state.version = LEDGER_VERSION;
+    if (saveBatchDepth > 0) {
+        saveBatchDirty = true;   /* ⭐ R1：批内只记账 ✓（⏔ 深拷贝、⏔ 发请求 ✗） */
+        return;
+    }
     writeLedger(state);
 }
 
