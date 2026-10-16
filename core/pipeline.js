@@ -211,6 +211,56 @@ function setPipeline(patch) {
 /* ------------------------------ 取材料 ------------------------------ */
 
 /** 最近 N 楼的正文（含隐藏楼：⛔ 不许因为被隐藏就漏掉） */
+/*
+ * ⭐⭐ 谷歌复核（一）：滑动字数窗分批 ✓
+ *   病灶：补推原来**逐楼调一整轮 runUpdate** ✗ ⇒ 60 楼＝60 次完整更新 ✗（抽风站必断 ✗）
+ *   现在：按字数装桶（默认 ≤3000 字）、满 6 楼就封包 ✓；单楼本身超长 ⇒ **该楼独占一批** ✓
+ */
+function buildScanBatches(floors, maxChars) {
+    const cap = clampNumber(maxChars, 500, 20000, 3000);
+    const list = (Array.isArray(floors) ? floors : [])
+        .map((x) => Number(x))
+        .filter((x) => Number.isFinite(x) && x >= 0);
+    const chat = getChat();
+    const sizeOf = (i) => {
+        try { return trimText(chat[i] && chat[i].mes).length; } catch (e) { return 0; }
+    };
+    const out = [];
+    let bucket = [];
+    let chars = 0;
+    for (const i of list) {
+        const len = sizeOf(i);
+        if (len > cap) {
+            if (bucket.length) { out.push(bucket); bucket = []; chars = 0; }
+            out.push([i]);
+            continue;
+        }
+        if (bucket.length && (chars + len > cap || bucket.length >= 6)) {
+            out.push(bucket); bucket = []; chars = 0;
+        }
+        bucket.push(i); chars += len;
+    }
+    if (bucket.length) { out.push(bucket); }
+    return out;
+}
+
+/** 按**指定楼层**拼材料（形状与 recentMessages 一致 ✓）；单楼超长时保尾：**前 1000 ＋ 后 2000** ✓ */
+function messagesOfFloors(floors, capChars) {
+    const cap = clampNumber(capChars, 500, 20000, 3000);
+    const chat = getChat();
+    const out = [];
+    for (const i of (Array.isArray(floors) ? floors : [])) {
+        const m = chat[i];
+        if (!m || !trimText(m.mes)) { continue; }
+        let mes = String(m.mes);
+        if (mes.length > cap) {
+            mes = mes.slice(0, 1000) + '\n…（中间省略）…\n' + mes.slice(-2000);
+        }
+        out.push({ floor: i, mes, isUser: m.is_user === true, hidden: isHiddenMessage(m) });
+    }
+    return out;
+}
+
 function recentMessages(floor, turns) {
     const chat = getChat();
     const n = clampNumber(turns, 1, 40, 6);
@@ -1239,7 +1289,10 @@ export async function runUpdate(opts) {
     });
 
     // 取材料：最近几楼（含隐藏楼）＋ 走四格清洗
-    const msgs = recentMessages(floor, Math.max(6, settings.recentTurns * 2));
+    /* ⭐ 谷歌（一）：分批时按**这一批楼层**拼材料 ✓；单楼旧行为照旧 ✓ */
+    const msgs = (Array.isArray(o.batchFloors) && o.batchFloors.length)
+        ? messagesOfFloors(o.batchFloors)
+        : recentMessages(floor, Math.max(6, settings.recentTurns * 2));
     const cleaned = cleanMessages(msgs);
     const material = {
         floor,
@@ -1529,20 +1582,23 @@ export async function runBackfill(opts) {
 
     let done = 0;
     let failedAt = '';
-    for (const floor of todo) {
+    /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⏔ 逐楼一整轮 ✗） */
+    const batches = buildScanBatches(todo);
+    for (const batch of batches) {
+        const floor = batch[batch.length - 1];
         if (cancelRequested) {
             break;
         }
-        setPipeline({ text: '补推中：' + floorLabel(floor) + '（' + String(done + 1) + '/' + String(todo2.length) + '）', cursor: done });
+        setPipeline({ text: '补推中：' + floorLabel(batch[0]) + '→' + floorLabel(floor) + '（已完成 ' + String(done) + '/' + String(todo2.length) + '）', cursor: done });
         // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
         // eslint-disable-next-line no-await-in-loop
         // ⭐ L3：补批循环**传 keepCancel** ⇒ 入口不会把她刚按的"取消"吞掉（防御性）
-        const res = await runUpdate({ manual: true, floor, keepCancel: true });
+        const res = await runUpdate({ manual: true, floor, batchFloors: batch, keepCancel: true });
         if (!res.ok) {
             failedAt = floorLabel(floor) + '：' + (res.reason || '失败');
             break;
         }
-        done += 1;
+        done += batch.length;   /* ⭐ 一批算几楼 ✓（⏔ 按 1 楼加 ✗） */
         await sleep(400);   // 让界面喘口气，⛔ 不挡她聊天
     }
 
