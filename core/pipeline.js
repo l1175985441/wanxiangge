@@ -1165,12 +1165,11 @@ export function checkActingAsMe(rows, floor) {
                 pieces.push({ f, text });
             }
         }
-        if (Array.isArray(raw && raw.past)) {
-            const joined = raw.past.map((x) => trimText(x)).filter(Boolean).join('；');
-            if (joined) {
-                pieces.push({ f: 'past', text: joined });
-            }
-        }
+        /*
+         * ⭐⭐ 修复 6（材料 02）：**`past` 不纳入抓捕** ✓
+         *   提示词里**明确要求 past（过去经历）按角色第一人称视角记事** ✓（如“我那天去了…”）
+         *   ⇒ 拿它去判“扮演玩家”**必然误报** ✗ ⇒ 不再塞进 pieces ✓（其余字段照旧 ✓）
+         */
         if (Array.isArray(raw && raw.schedule)) {
             const joined = raw.schedule
                 .map((s) => [trimText(s && s.what), trimText(s && s.due)].filter(Boolean).join(' '))
@@ -1225,7 +1224,13 @@ export function checkActingAsMe(rows, floor) {
              *      · 后面紧跟"的"（"我的处境""我的反应"）
              */
             const meSubject = (() => {
-                const s = String(text).replace(/["'「」『』“”‘’]/g, '');
+                /* ⭐⭐ 修复 6（材料 02）：**先剥掉角色台词，再判“我”** ✓
+             *   旧：只删了**引号字符** ✗ ⇒ 台词内容还在 ✗
+             *     （角色说「**我**不去！」里的“我”照样被当成“扮演玩家” ✗）
+             *   现在：先把**直接引语整段**换成空格 ✓，再把含“我”的**固定词**换成空格 ✓ */
+            const s = String(text)
+                .replace(/“[^”]{0,120}”|「[^」]{0,120}」|『[^』]{0,120}』|"[^"]{0,120}"/g, ' ')
+                .replace(/自我|忘我|本我|超我|大我|小我|我方|我行我素|依然故我/g, ' ');
                 /*
                  * ⚠️ 这张表要包含**方向／处所类**介词（到在从往至进出回过）：
                  *    漏了"到"就会把「把煎蛋**放到我**面前的桌垫上」这种合规侧面写法误报
@@ -1239,7 +1244,7 @@ export function checkActingAsMe(rows, floor) {
                     if (s[i + 1] === '的') {
                         continue;                      // 所有格：侧面豁免
                     }
-                    if (BEFORE.test(s.slice(Math.max(0, i - 3), i))) {
+                    if (BEFORE.test(s.slice(Math.max(0, i - 4), i))) {
                         continue;                      // 宾语：别人对我…
                     }
                     return true;                        // 其余 ⇒ 它当了主语
