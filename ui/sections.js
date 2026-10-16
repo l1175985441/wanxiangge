@@ -2360,7 +2360,18 @@ function secApi(host) {
      *   没有（老数据）⇒ 照旧显示 `api.mode` ✓（旧账照读）
      *   ⏔ 不动 direct／proxy 的老路（她的两段式 ✓ 测试也照旧 ✓）
      */
-    const curPick = trimText(api.currentProfile) ? ('profile:' + trimText(api.currentProfile)) : api.mode;
+    /*
+     * ⚠️ 修上一版的不一致：下拉框里**没有这个书签时**，`<select>` 会自动落回第一项（proxy），
+     *   而人话行与「删」却还按 currentProfile 说话 ⇒ **三处不一致** ✗
+     *   ⇒ 现在统一：**只有那个书签真的在选项里**，才算“当前这套” ✓
+     */
+    const curNick = (function () {
+        const want = trimText(api.currentProfile);
+        if (!want) { return ''; }
+        const list = Array.isArray(api.profiles) ? api.profiles : [];
+        return list.some((x) => trimText(x && x.nick) === want) ? want : '';
+    })();
+    const curPick = curNick ? ('profile:' + curNick) : api.mode;
     /*
      * ⭐⭐ 照她 14:xx 发的截图（SP数据库的「当前 API 预设」：下拉框 ＋ 加/删）把形状对齐：
      *   「连接方式」这一行＝下拉框（列全部可用套路）＋「＋」（存成书签）＋「删」（删当前书签）✓
@@ -2372,7 +2383,7 @@ function secApi(host) {
     const plusBtn = button('＋', 'save-profile', 'wxg-btn-sm');
     plusBtn.setAttribute('title', '把下面「书签名」里填的名字，存成一套（同名就更新）');
     modeRow.appendChild(plusBtn);
-    const curNickForDel = trimText(api.currentProfile);
+    const curNickForDel = curNick;   /* 与下拉框同源 ✓（修上一版的不一致） */
     if (curNickForDel) {
         const delBtn = button('删', 'del-profile', 'wxg-btn-sm', curNickForDel);
         delBtn.setAttribute('title', '删掉当前这个书签「' + curNickForDel + '」');
