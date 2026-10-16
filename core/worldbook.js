@@ -529,16 +529,18 @@ export async function refreshAffinity() {
                     const after = line.slice(at + hitForm.length);
                     const before = line.slice(0, at);
                     let value = '';
-                    const byKeyword = after.match(/(?:好感|好感度|亲密度|喜欢|羁绊)\s*[:：]?\s*(-?\d+(?:\.\d+)?)/)
-                        || before.match(/(?:好感|好感度|亲密度|喜欢|羁绊)\s*[:：]?\s*(-?\d+(?:\.\d+)?)/);
+                    /* S6（材料 05 自查）：关键词补齐 ✓（旧表里没有亲情／爱情／友情 ✗） */
+                    const stripParen = (sx) => String(sx == null ? '' : sx).replace(/[（(][^）)]*[）)]/g, ' ');
+                    const AFF_KEYS = /(?:好感|好感度|亲密度|亲情|爱情|友情|信赖|信任|依赖|喜欢|羁绊)\s*[:：]?\s*(-?\d+(?:\.\d+)?)/;
+                    const byKeyword = after.match(AFF_KEYS) || before.match(AFF_KEYS);
                     if (byKeyword) {
                         value = byKeyword[1];
                     } else {
-                        const numsAfter = after.match(/-?\d+(?:\.\d+)?/g);
+                        const numsAfter = stripParen(after).replace(/\d+\s*岁/g, ' ').match(/-?\d+(?:\.\d+)?/g);
                         if (numsAfter && numsAfter.length) {
                             value = numsAfter[0];      // 名字后面第一个数（"名字 … 90(+0.0)" ⇒ 90）
                         } else {
-                            const numsBefore = before.match(/-?\d+(?:\.\d+)?/g);
+                            const numsBefore = stripParen(before).replace(/\d+\s*岁/g, ' ').match(/-?\d+(?:\.\d+)?/g);
                             if (numsBefore && numsBefore.length) {
                                 value = numsBefore[numsBefore.length - 1];
                             }
