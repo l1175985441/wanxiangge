@@ -5,9 +5,9 @@ let viewRefresher = null;
 /**
  * ⭐ 修复单 #21：注册"把三个视图都刷一遍"的回调（由入口 `index.js` 注册）。
  *
- *   为什么用**注册**而⏔ 直接 `import ui/*`：
+ *   为什么用**注册**而⛔ 直接 `import ui/*`：
  *   这里是核心层，而 `ui/*` 本身会 import 核心 ⇒ 静态 import 会**绕成环**（ES 环在启动早期会拿到空绑定）。
- *   ⚠️ 没注册时退回只刷设置区（老行为），⏔ 报错。
+ *   ⚠️ 没注册时退回只刷设置区（老行为），⛔ 报错。
  */
 export function setViewRefresher(fn) {
     viewRefresher = typeof fn === 'function' ? fn : null;
@@ -111,7 +111,7 @@ export function planRecall(options) {
          *   病根：MESSAGE_SENT（index.js）与 injectBeforeGenerate（engine.js）竞态 ✗
          *        ⇒ 后完成的那次 planRecall 会把拦截器已写好的 `injectStatus: 'ok'`
          *        **冲回 'pending'** ✗ ⇒ 账本那行于是显示“正文还没生成，本轮待送” ✗
-         *   现在：本楼若**已经 'ok'** ⇒ 只更新别的字段，**状态与已注入的那份一并保留** ✓（⏔ 回退 ✗） */
+         *   现在：本楼若**已经 'ok'** ⇒ 只更新别的字段，**状态与已注入的那份一并保留** ✓（⛔ 回退 ✗） */
         const prevRec = getRecallRecord(floor);
         const keepOk = !!(prevRec && prevRec.injectStatus === 'ok');
         const rec = putRecallRecord({

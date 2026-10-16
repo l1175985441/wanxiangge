@@ -119,7 +119,7 @@ function buildCard(rec) {
              *   于是**卡片上写着、引擎实际没端**（被裁掉了）⇒ 她会以为引擎端了。
              *   · 端过的（`injected`）不显示；
              *   · 来源在最近 N 楼内的不显示（主模型上下文里本来就有）；
-             *   · 老数据没有来源楼层 ⇒ 当"很老"、照显示（⏔ 因缺字段丢内容）。
+             *   · 老数据没有来源楼层 ⇒ 当"很老"、照显示（⛔ 因缺字段丢内容）。
              */
             const past = Array.isArray(c.past) ? c.past : [];
             const pastCut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
@@ -351,7 +351,7 @@ export function renderPanel() {
      *   她原话："谁在魔法棒已经有工作台的情况下这个上面还搞一堆面板？"——
      *   原来这里把整套 10 段画进设置区（**展开总高 9303px**）⇒ 她判了：不行。
      *   照她给的参照（屏蔽词净化助手）：收敛成**一行说明 + 一个「打开工作台」按钮**。
-     *   ⚠️ ⏔ 再把内容画回来（她就是为这个报的）；工作台自己那份照旧。
+     *   ⚠️ ⛔ 再把内容画回来（她就是为这个报的）；工作台自己那份照旧。
      */
     while (host.firstChild) {
         host.removeChild(host.firstChild);
@@ -361,7 +361,7 @@ export function renderPanel() {
     const btn = el('button', 'menu_button wxg-set-openbtn', '打开工作台');
     btn.type = 'button';
     btn.addEventListener('click', () => {
-        // ⏔ 静态 import（免得跟 workspace/sections 绕成环）
+        // ⛔ 静态 import（免得跟 workspace/sections 绕成环）
         import('./workspace.js').then((m) => {
             m.openWorkspace();
         }).catch((e) => {

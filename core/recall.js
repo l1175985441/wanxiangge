@@ -373,7 +373,7 @@ function pickEvents(leadText, ctxText, events, cap) {
     });
     const hot = scored.filter((s) => s.score > 0);
     /* ⭐⭐ 修复 8：与当前对话**完全无关**（score === 0）的事件里，**只允许公开局势补位** ✓
-     *   ⏔ **绝不把未关联的潜伏暗线（hidden）强塞给主模型** ✗（防暗线提前冒头 ✗ 及被送达回执误拉黑 ✗） */
+     *   ⛔ **绝不把未关联的潜伏暗线（hidden）强塞给主模型** ✗（防暗线提前冒头 ✗ 及被送达回执误拉黑 ✗） */
     const cold = scored.filter((s) => s.score === 0 && s.ev.kind !== 'hidden');
     // 相关的优先；不够封顶数就用"暗线优先、新的优先"补齐（世界不被冷落）
     hot.sort((a, b) => b.score - a.score);

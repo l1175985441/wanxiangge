@@ -39,7 +39,7 @@ export function workspaceRoot() {
 
 /** 关掉工作台 */
 export function closeWorkspace() {
-    // ⭐ 补掃漏：把挂在 document 上的 keydown 摘掉（⏔ 它会跟着 root 一起消失——它压根不在 root 上）
+    // ⭐ 补掃漏：把挂在 document 上的 keydown 摘掉（⛔ 它会跟着 root 一起消失——它压根不在 root 上）
     if (wsKeydownHandler) {
         try {
             document.removeEventListener('keydown', wsKeydownHandler);

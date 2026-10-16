@@ -41,11 +41,11 @@ const PAIR_RULES = [
 /**
  * ⭐⭐ 10-16 拿她 **11 层真语料**跑出来的根治：**这个块是“台账”还是“正文”**。
  *   她那张卡把**正文整个包在成对块里** ⇒ 旧逻辑"见块就整块剥"
- *   把正文也剥了（**6675 字 → 30 字**）。而她 §8 要剥的是“**机器块**”，⏔叙述正文。
+ *   把正文也剥了（**6675 字 → 30 字**）。而她 §8 要剥的是“**机器块**”，⛔叙述正文。
  *   判据（两边都不误伤）：
  *     · 整块**大多数行是「名字：值」**（且没句读）⇒ **台账块** ⇒ 剥；
  *     · 整块**长且有句读**（，。！？）⇒ **叙述块** ⇒ **留**；
- *     · 拿不准 ⇒ 按老规矩当机器块（保守，⏔ 把不该留的留下来）。
+ *     · 拿不准 ⇒ 按老规矩当机器块（保守，⛔ 把不该留的留下来）。
  */
 export function looksLikeMachineBlock(inner) {
     const t = asText(inner).trim();
@@ -95,7 +95,7 @@ export function stripPairedBlocks(text) {
                     const inner = out.slice(from, at);
                     if (!looksLikeMachineBlock(inner)) {
                         m = rx.exec(out);
-                        continue;   // 叙述块：留着（⏔ 再往下找别的块）
+                        continue;   // 叙述块：留着（⛔ 再往下找别的块）
                     }
                     out = out.slice(0, m.index) + out.slice(at + closeTag.length);
                     removed += 1;
@@ -274,12 +274,12 @@ export function cleanMessageText(raw) {
      *   ⇒ 改成"**剩得太少也算被剥没**"：剥完不足原文的 **15%**（且原文够长 ≥200 字）就退回原文。
      */
     const leftLen = trimText(text).length;
-    /* ⭐修复 12：阈值改看 **安全基准**（⏔ 原文）✓；且退回的是 safeBaseline ✓ */
+    /* ⭐修复 12：阈值改看 **安全基准**（⛔ 原文）✓；且退回的是 safeBaseline ✓ */
     if (!leftLen || (baseLen >= 120 && leftLen < baseLen * 0.15)) {
         /* ⭐修复 12（两全版）：
          *   · **没排除过任何标签** ⇒ 照旧退**原文** ✓（她的老规矩：不许把整楼读成空 ✓）
          *   · **排除过** ⇒ 只能退到 `safeBaseline` ✓
-         *     （⏔ 把她明明排除掉的标签内容又放回来 ✗ —— 那正是她报的病 ✗） */
+         *     （⛔ 把她明明排除掉的标签内容又放回来 ✗ —— 那正是她报的病 ✗） */
         const backTo = (baseLen > 0 && exclRemoved > 0) ? safeBaseline : original;
         return { text: backTo, removed, fellBack: true };
     }

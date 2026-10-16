@@ -63,7 +63,7 @@ export function extractJson(text, opts) {
      *   为什么必须在最前面：下面会先试"找一个平衡的整体"——
      *   而**被截断的 JSON 也可能恰好在某处闭合了一小段**（比如 `{"a":"b"}` 后面还有没写完的），
      *   那样会先被当成成功解析 ⇒ **截断漏判**（我的用例抓到了）。
-     *   ⏔ `finish_reason === length` 是硬证据 ⇒ 它说了算，⏔ 再去猜结构。
+     *   ⛔ `finish_reason === length` 是硬证据 ⇒ 它说了算，⛔ 再去猜结构。
      */
     const fin = String(o.finish || '').toLowerCase();
     if (/length|max_tokens|max_output_tokens/.test(fin)) {
@@ -139,11 +139,11 @@ export function extractJson(text, opts) {
     // ③ 截断收尾兜底：按与首括号同类的闭合符截取并补全（优先 {…}，防被前缀 [标签] 带偏）
     // ⚠️ `mainStart` 已在上面（修复单 #2 的截断判定处）算好，这里⛔ 别重复声明（会 SyntaxError）。
     /*
-     * ⭐⭐ 补④：**先认截断，⏔ 先补全**。
+     * ⭐⭐ 补④：**先认截断，⛔ 先补全**。
      *
      * 为什么要改：下面那一段 `repairJson` 会**自己把没闭合的括号补上**
      * （见 `repairJson` 尾部）。对"被截掉一半"的输出用它，等于**替她猜着补全**——
-     * 而她定的规矩是：**截断就算这一轮失败，账保持原样，⏔ 许猜着补全、⏔ 半份写进账**。
+     * 而她定的规矩是：**截断就算这一轮失败，账保持原样，⛔ 许猜着补全、⛔ 半份写进账**。
      *
      * 判据两条（有哪条算哪条）：
      *   ① 接口自己告诉我们"输出到顶了"（`finish_reason === length`）——最硬；
@@ -302,7 +302,7 @@ export async function callModel(opts) {
      * ⭐⭐ 真机对照实验得到的通关组合：**假流式-**前缀的模型名 ＋ **走流式** ✓
      *   实测：普通名＋非流式 ⇒ Bad Request ✗；普通名＋流式 ⇒ 400 INVALID_ARGUMENT ✗；
      *         **假流式-**名＋流式 ⇒ **HTTP 200、真数据回来了** ✓✓
-     *   ⇒ 失败且看到 Bad Request／INVALID_ARGUMENT 时，**自动加上这个前缀重试** ✓（⏔ 让她去改模型名 ✗）
+     *   ⇒ 失败且看到 Bad Request／INVALID_ARGUMENT 时，**自动加上这个前缀重试** ✓（⛔ 让她去改模型名 ✗）
      */
     let modelTry = model;
    /* ⭐ 直连被挡、自动改走转发时记下来 ✓ */
@@ -312,7 +312,7 @@ export async function callModel(opts) {
          * ⭐⭐ 她 15:xx：「**你不会修 api 连接吗**？还一直叫我换」
          *   真机取证：「直连」发 **POST** 时会被挡（CORS/网络层）⇒ `Failed to fetch` / `ERR_CONNECTION_RESET` ✗
          *   而「经酒馆转发」那条是能走的（只是慢 ✗）⇒ 原来直连一抛**直接判失败**，根本没去试转发 ✗
-         *   ⇒ 现在：**直连抛了就自动改走转发再试一次** ✓（⏔ 让她手动切 ✗），并记下 via='proxy-auto' ✓
+         *   ⇒ 现在：**直连抛了就自动改走转发再试一次** ✓（⛔ 让她手动切 ✗），并记下 via='proxy-auto' ✓
          */
         let res = null;
         if (api.mode === 'direct') {
@@ -354,7 +354,7 @@ export async function callModel(opts) {
             const cur = Number(body.max_tokens);
             if (guard === 2) {
                 /* ⭐ 最后一招：**干脆不传 max_tokens** ✓（有些中转只在“字段存在”时才校验 ✓）
-                 *   ⏔ JSON.stringify 会丢掉 undefined 属性 ⇒ 这个字段就不会出现在请求里 ✓ */
+                 *   ⛔ JSON.stringify 会丢掉 undefined 属性 ⇒ 这个字段就不会出现在请求里 ✓ */
                 delete body.max_tokens;
                 loweredTo = -1;
             } else {
@@ -420,7 +420,7 @@ export async function callModel(opts) {
  * ⭐⭐ 修复 10（材料 01/06：12.3／12.4）：**地址后缀拼接对称化** ✓
  *   旧：直连模式填了**没带 /v1 的根域名**（只写到主机名、后面没有路径）⇒ **漏 /v1** ✗ ⇒ 拉不出模型/连不上 ✗
  *   现在：只对**纯根域名**（后面没有任何路径）补 `/v1` ✓
- *   ⏔ 带了路径的（如 /v1beta／/v1／自定义路径）**一律不碰** ✓（她填什么就是什么 ✓）
+ *   ⛔ 带了路径的（如 /v1beta／/v1／自定义路径）**一律不碰** ✓（她填什么就是什么 ✓）
  */
 function withVersionIfBareRoot(u) {
     const s = trimText(u);
@@ -472,7 +472,7 @@ export async function fetchModels(opts) {
 }
 
 /*
- * ⭐⭐ 真机取证（第 48 轮）：有些报错**是对面服务自己吐的**，⏔ 我们的 bug ✗
+ * ⭐⭐ 真机取证（第 48 轮）：有些报错**是对面服务自己吐的**，⛔ 我们的 bug ✗
  *   例：她那个中转（stapi.cc.cd）返回 500 “No environment variable set for provider: self-dploy”
  *   已证：酒馆源码里**没有**这句话 ✓、我们的 payload 全对（custom_url／密钥头）✓ ⇒ 只能是它报的 ✓
  *   ⇒ 把它翻译成人话，省得她（和我）去追自己的代码 ✓
@@ -480,7 +480,7 @@ export async function fetchModels(opts) {
 function providerHint(txt) {
     const s = String(txt == null ? '' : txt);
     if (/No environment variable set for provider/i.test(s)) {
-        return '（⚠ 这是**对方服务自己**的报错：它内部那个 provider 没配密钥 —— 要修在它那边，⏔ 不是万象阁的问题）';
+        return '（⚠ 这是**对方服务自己**的报错：它内部那个 provider 没配密钥 —— 要修在它那边，⛔ 不是万象阁的问题）';
     }
     return '';
 }
@@ -555,7 +555,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
             detail = '';
         }
         // 404 时把话说到位：云酒馆挂在子路径上、或酒馆没开这条接口
-        /* ⭐她 15:xx：失败时要把“真因”点名（⏔ 让她以为是本地的毛病 ✗） */
+        /* ⭐她 15:xx：失败时要把“真因”点名（⛔ 让她以为是本地的毛病 ✗） */
         const resetLike = res.status === 502 || /ECONNRESET|ETIMEDOUT|socket hang up|aborted/i.test(String(detail || ''));
         const hint = res.status === 404
             ? '（接口没找到：如果酒馆挂在子路径下，或"自定义 URL"被服务器关了，就会这样）'
@@ -672,7 +672,7 @@ function looksCut(text, from) {
  *   他发现：同一台机器上，**酒馆本体跑的长请求（上下文比这两步还大）是通的** ✓
  *   差别就在它走 **流式**（数据一直滚 ✓），而我们这两步是**非流式**（一次等一个大回包 ✗）
  *   ⇒ 若那站只是不爱“长时间零输出的连接”，**这一枪就能过** ✓（一试便知 ✓）
- *   ⏔ 不能只会流式：有站不支持流式、直接回 JSON ✗ ⇒ 那就退回原来的读法 ✓
+ *   ⛔ 不能只会流式：有站不支持流式、直接回 JSON ✗ ⇒ 那就退回原来的读法 ✓
  */
 /** 从单个已解析的 JSON 块（SSE 帧或整包）里提取增量正文与完成原因 */
 function extractChunkPiece(j) {
@@ -729,7 +729,7 @@ function extractChunkPiece(j) {
 }
 
 /**
- * ⭐ 自适应读取响应（⏔ 不看 Content-Type 头：酒馆 forwardFetchResponse 转发流式时不带该头）：
+ * ⭐ 自适应读取响应（⛔ 不看 Content-Type 头：酒馆 forwardFetchResponse 转发流式时不带该头）：
  *   1. 优先用 reader 边收边拼（真流式保活），无 reader 时退回 res.text() / res.json()（兼容离线自测）；
  *   2. 按内容自身特征判：含 `data:` 行或 SSE 事件流 ⇒ 逐行解析拼合 delta；否则走整包 JSON.parse（失败再回退逐行扫）；
  *   3. 若上游在 HTTP 200 流内塞了 {"error":...}，直接拎出真实错误原因。
@@ -905,7 +905,7 @@ export async function callModelJson(opts) {
     }
     const parsed = extractJson(res.text, { finish: res.finish });
     if (!parsed.ok) {
-        // ⭐ 补④：把"截断"这个身份一路带上去（上游要据此报"截断"、⏔ 当普通格式错）。
+        // ⭐ 补④：把"截断"这个身份一路带上去（上游要据此报"截断"、⛔ 当普通格式错）。
         return { ok: false, reason: parsed.reason, truncated: parsed.truncated === true, raw: res.text, ms: res.ms };
     }
     return { ok: true, value: parsed.value, ms: res.ms, repaired: parsed.repaired === true };

@@ -112,7 +112,7 @@ const CLASSIFY_SYSTEM = [
     '· places＝地点（例：十番街、水晶东京）。',
     '· hidden＝**暗线**：还没浮上台面的阴谋／计划／暗中行动（例：在港区的珠宝店收集能量）。',
     '  每条必须带：名称、**阶段**（萌芽／发酵／逼近／爆发／消散 或 筹备／执行／关键／完成）、**挂在什么时间或条件上**（例：晚上／放学后／三天后）。',
-    '⛔ **公开的局势放 situations，暗中的阴谋放 hidden**，⏔ 两边都放。',
+    '⛔ **公开的局势放 situations，暗中的阴谋放 hidden**，⛔ 两边都放。',
     '',
     '规矩：',
     '1. 名字**照抄条目里的写法**，⛔ 不要翻译、不要加前缀、不要自己起名。',
@@ -456,7 +456,7 @@ export function applyWiki(wiki) {
  *   而他俩正是她那层里**露面最多**的（奈鲁 26 次、海野 15 次）⇒ **人在书里却没读出来**。
  *   她 [18] 的要求就是“读人出来、她一个都不用手并” ⇒ **不能静默丢**。
  *   这里只拆**最窄的一种**：「**类目词：甲与乙**」（类目词是 NPC／日常NPC／配角／路人／其他角色）
- *   ⇒ 拆成一人一条。**⏔ 碰“天王遥与海王满”那种没类目词的**（那类归她点头的“书形问题”）。
+ *   ⇒ 拆成一人一条。**⛔ 碰“天王遥与海王满”那种没类目词的**（那类归她点头的“书形问题”）。
  */
 export function expandMultiNameEntries(entries) {
     const CAT = /^(?:\u65e5\u5e38NPC|NPC|\u914d\u89d2|\u8def\u4eba|\u5176\u4ed6\u89d2\u8272|\u516c\u4f17|\u80cc\u666f)$/;
@@ -499,7 +499,7 @@ export function ruleBasedPeople(entries) {
             const bare = raw.replace(/^[\[\u3010(\uff08][^\]\u3011)\uff09]{1,8}[\]\u3011)\uff09]\s*/, '');
             const c2 = bare.match(/^([^\uff1a:]{1,8})[\uff1a:]/);
             if (c2 && NOT_PERSON_PREFIX.has(matchKey(c2[1]))) {
-                skipped += 1;   // ⏔ 把“关系：…”当成一个人（她 [14]：关系不做）
+                skipped += 1;   // ⛔ 把“关系：…”当成一个人（她 [14]：关系不做）
                 continue;
             }
         }
@@ -566,7 +566,7 @@ export async function importBookWiki(bookName, opts) {
         if (opts && opts.allowRuleFallback) {
             const rb = ruleBasedPeople(read.entries);
             const added = addCharacters(rb.people.map((p) => p.name));
-    // 她 [18]：跟模型线用**同一份**逻辑（⏔ 两处各写一遍，改一处忘一处）
+    // 她 [18]：跟模型线用**同一份**逻辑（⛔ 两处各写一遍，改一处忘一处）
     applyPeopleExtras(rb.people);
 
             return {

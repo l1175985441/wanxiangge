@@ -641,7 +641,7 @@ function secGeneral(host) {
         const pipe = (loadState() && loadState().pipeline) || {};
         const pText = trimText(pipe.text);
         const pFail = /没成|失败|出错|不兼容/.test(pText) || /fail|error/i.test(trimText(pipe.step));
-        /* ⭐ 真机抓到的卡死标记：只认“**本会话真的在跑**”（内存态 ✓），⏔ 只认持久化的 step ✗ */
+        /* ⭐ 真机抓到的卡死标记：只认“**本会话真的在跑**”（内存态 ✓），⛔ 只认持久化的 step ✗ */
         const liveRun = !!(typeof window !== 'undefined' && window.__wxgLiveRun);
         const running = !pFail && liveRun && !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
         if (running) {
@@ -1435,7 +1435,7 @@ const API_KEYS = ['mode', 'url', 'key', 'model', 'modelCheap', 'temperature', 'm
  *   为什么要有它：她填完地址/密钥/模型，可能还没点空白处失焦（或面板刚重画过 ✗），
  *   就直接点「测一下连接」「拉取模型」「另存为书签」或「保存」——
  *   这时候直接从当前面板的输入框读现值并落盘，100% 所见即所得，绝不绕弯 ✓
- *   （⏔ 不能只依赖“失焦时的 change 事件”——那只覆盖一种情形 ✗）
+ *   （⛔ 不能只依赖“失焦时的 change 事件”——那只覆盖一种情形 ✗）
  */
 function syncApiFromDom(host) {
     if (!host || typeof host.querySelector !== 'function') {
@@ -1586,7 +1586,7 @@ function stageOne(action, target) {
     }
     /*
      * ⭐ 选的是内置两条（直连／经酒馆转发）⇒ 只把“当前书签”清掉（下拉框就不再显示旧书签了 ✓）
-     *   ⏔ 不碰老路：mode 的暂存照旧走下去（测试也照旧 ✓）
+     *   ⛔ 不碰老路：mode 的暂存照旧走下去（测试也照旧 ✓）
      */
     if (action === 'stage-api-mode' && trimText((getSettings().api || {}).currentProfile)) {
         stage('api', 'api', Object.assign({}, getSettings().api || {}, { currentProfile: '' }));
@@ -1640,7 +1640,7 @@ function stageOne(action, target) {
     }
     /*
      * ⭐⭐ 在“连接方式”里选中一个**书签** ⇒ 当场切到那一套，并记下“当前就是它” ✓
-     *   其余值（direct／proxy）**一律落回原来的暂存路** ✓（⏔ 改老路：上一版就是改了才红的 ✗）
+     *   其余值（direct／proxy）**一律落回原来的暂存路** ✓（⛔ 改老路：上一版就是改了才红的 ✗）
      */
     const row = STAGE_MAP[action];
     if (!row) {
@@ -1733,7 +1733,7 @@ let chronFilter = 'all';
  * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
  */
 let clearWorldOpen = false;
-/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（模块级！⏔ 放进函数里 handler 看不见 ✗） */
+/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（模块级！⛔ 放进函数里 handler 看不见 ✗） */
 let apiKeyShown = false;
 /** 要她手打的那四个字（打错就点不动） */
 const CLEAR_WORD = '确认清空';
@@ -2435,7 +2435,7 @@ function secApi(host) {
      * ⭐⭐ 当前用的是哪套通道（她 13:xx 报的“切完就回弹、两处对不上”）：
      *   有 `api.currentProfile` ⇒ 下拉框当前值就显示**她正在用的那个书签** ✓
      *   没有（老数据）⇒ 照旧显示 `api.mode` ✓（旧账照读）
-     *   ⏔ 不动 direct／proxy 的老路（她的两段式 ✓ 测试也照旧 ✓）
+     *   ⛔ 不动 direct／proxy 的老路（她的两段式 ✓ 测试也照旧 ✓）
      */
     /*
      * ⚠️ 修上一版的不一致：下拉框里**没有这个书签时**，`<select>` 会自动落回第一项（proxy），
@@ -2448,7 +2448,7 @@ function secApi(host) {
          *   ⇒ 算出空 ⇒ 「删」不渲染、人话回落到 mode ✗（两处同一个根因）
          *   ⇒ 现在：**草稿与已存两边都看**（草稿优先 ✓），
          *        并且只要它**在任一边的书签列表里存在**，就算“当前这套” ✓
-         *   ⏔ 两段式架构不动（只是读的时候多看一眼已存那份 ✓）
+         *   ⛔ 两段式架构不动（只是读的时候多看一眼已存那份 ✓）
          */
         const savedPick = getSettings().api || {};
         const want = trimText(api.currentProfile) || trimText(savedPick.currentProfile);
@@ -2462,7 +2462,7 @@ function secApi(host) {
     /*
      * ⭐⭐ 照她 14:xx 发的截图（SP数据库的「当前 API 预设」：下拉框 ＋ 加/删）把形状对齐：
      *   「连接方式」这一行＝下拉框（列全部可用套路）＋「＋」（存成书签）＋「删」（删当前书签）✓
-     *   ⏔ 纯加法、零新逻辑：「＋」复用原来的 save-profile（它自会去读书签名输入框）；
+     *   ⛔ 纯加法、零新逻辑：「＋」复用原来的 save-profile（它自会去读书签名输入框）；
      *        「删」复用原来的 del-profile（把当前书签名当 data-id 传过去）✓
      */
     const modeRow = el('div', 'wxg-row');
@@ -3715,8 +3715,8 @@ function renderWorldEntryCard() {
              *   旧：暗线那一格写成 `put('火候', item.stage, '萌芽')` ✗
              *        ⇒ **标签叫“火候”、值却是 stage** ✗（名不符实 ✗），而且暗线**没有 tier 那一格** ✗
              *   新：火候 ⇒ **TIERS 下拉**（暗线也用，标 `data-hidden` ✓）；阶段（暗线）⇒
-             *        按 `item.kind` 给 **STAGES_PROGRESS / STAGES_CONFLICT 下拉** ✓（⏔ 手打错别字破坏 isLineDone 判定 ✗）
-             *   ⏔ 不删 stage ✓（只读态下两栏信息区一格都不少 ✓） */
+             *        按 `item.kind` 给 **STAGES_PROGRESS / STAGES_CONFLICT 下拉** ✓（⛔ 手打错别字破坏 isLineDone 判定 ✗）
+             *   ⛔ 不删 stage ✓（只读态下两栏信息区一格都不少 ✓） */
             if (k === '火候') {
                 const sel = select(null, TIERS.map((x) => ({ value: x, label: x })), trimText(v) || TIERS[1], 'set-situation');
                 sel.setAttribute('data-index', String(openWorldEntry.idx));
@@ -4501,14 +4501,14 @@ export function bindSectionEvents(host, refresh) {
                 /*
                  * ⭐⭐ 她 15:xx：「api 保存还是有问题，**好绕**，绕的手感一点都不好」
                  *   ⇒ 「自定义 API」这一节改成**防抖自动保存**：她停下手 ~0.8 秒就自己存一次 ✓
-                 *   ⏔ **不能每改一格就提交**：已验证那样会丢项（commit 会清草稿，而 stage 以草稿为基底 ✗）
-                 *   ⇒ 防抖 = **一次连续填完才提交一次**（基底是完整的 ✓）⏔ 其它节照旧 ✓
+                 *   ⛔ **不能每改一格就提交**：已验证那样会丢项（commit 会清草稿，而 stage 以草稿为基底 ✗）
+                 *   ⇒ 防抖 = **一次连续填完才提交一次**（基底是完整的 ✓）⛔ 其它节照旧 ✓
                  */
                 if (which === 'api') {
                     try {
                         /* Google fix 3 (culprit 2): drop the 800ms debounce. Cause: her Save click
                      *   raced it and got "nothing unsaved". Now change commits at once. */
-                    try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { }                    } catch (e2) { /* ⏔ 影响输入 */ }
+                    try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { }                    } catch (e2) { /* ⛔ 影响输入 */ }
                 }
                 if (which) {
                     refreshSaveBar(host, which);
@@ -4839,7 +4839,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条局势删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这条局势）');
                     const idx = Number(target.getAttribute('data-index'));
@@ -4908,7 +4908,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条暗线删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这条暗线）');
                     removeHidden(id); rerender(); break;
@@ -5000,7 +5000,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条认知删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这条认知）');
                     const ki = Math.round(Number(target.getAttribute('data-index')));
@@ -5049,7 +5049,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个角色删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这个角色）');
                     removeCharacter(id); rerender(); break;
@@ -5303,7 +5303,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                             const modelLabel = trimText(aSaved.model) || '（没填）';
                             const say = (typeof toast.ok === 'function') ? toast.ok : toast.info;
                             say.call(toast, 'API 设置已保存 ✓（当前：' + modeLabel + '｜模型：' + modelLabel + '）');
-                        } catch (eSaveTip) { /* ⏔ 影响保存 */ }
+                        } catch (eSaveTip) { /* ⛔ 影响保存 */ }
                     }
                     rerender();
                     break;
@@ -5563,7 +5563,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个任务删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这个任务）');
                     const title = target.getAttribute('data-title') || '';
@@ -5807,7 +5807,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
                      *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
                      *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
                     if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个 API 书签删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
                     takeSnapshot('删除前（这个 API 书签）');
                     const nick = id;
@@ -5894,18 +5894,18 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                                 /*
                                  * ⭐⭐ 她的链路＝“机场＋免费公益站” ⇒ **时好时坏** ✓
                                  *   ⇒ 失败了不用她守着点：**自己等 20 秒再试一次**（最多 2 次 ✓）
-                                 *   ⏔ 参数级的错**不**自动重试（那是白试 ✗ 分层已经做在 pipeline 里 ✓）
+                                 *   ⛔ 参数级的错**不**自动重试（那是白试 ✗ 分层已经做在 pipeline 里 ✓）
                                  */
                                 if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
                                     /* ⭐ 她可调：链路掉线后自己再试几次（默认 2 ✓） */
                                     let autoMax = 2;
-                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⏔ 影响她 */ }
+                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⛔ 影响她 */ }
                                     window.__wxgAutoRetry = (window.__wxgAutoRetry || 0) + 1;
                                     if (window.__wxgAutoRetry <= autoMax) {
                                         /* ⭐ 越等越久：链路“过一会儿就好”⇒ 第1次 20 秒、第2次 45 秒 ✓ */
                                         const waitSec = window.__wxgAutoRetry === 1 ? 20 : 45;
                                         toast.info('链路掉线 —— ' + String(waitSec) + ' 秒后自己再试一次（第 ' + String(window.__wxgAutoRetry) + '/2 次）✓');
-                                        setTimeout(() => { try { runUpdate({ manual: false }); } catch (eAuto) { /* ⏔ 影响她 */ } }, waitSec * 1000);
+                                        setTimeout(() => { try { runUpdate({ manual: false }); } catch (eAuto) { /* ⛔ 影响她 */ } }, waitSec * 1000);
                                     }
                                 }
                             } else {
@@ -5967,18 +5967,18 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                                 toast.warn(res.reason || '正在跑，别急');
                                 /*
                                  * ⭐她最实用的那条路（少量多次）也该会自救 ✓
-                                 *   链路级失败 ⇒ **自己再接着补**（20 秒、45 秒 ✓）⏔ 她守着点 ✗
+                                 *   链路级失败 ⇒ **自己再接着补**（20 秒、45 秒 ✓）⛔ 她守着点 ✗
                                  */
                                 if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
                                     /* ⭐ 她可调：链路掉线后自己再试几次（默认 2 ✓） */
                                     let autoMax = 2;
-                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⏔ 影响她 */ }
+                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⛔ 影响她 */ }
                                     window.__wxgAutoRetryB = (window.__wxgAutoRetryB || 0) + 1;
                                     if (window.__wxgAutoRetryB <= autoMax) {
                                         const wSec = window.__wxgAutoRetryB === 1 ? 20 : 45;
                                         toast.info('链路掉线 —— ' + String(wSec) + ' 秒后自己接着补（第 ' + String(window.__wxgAutoRetryB) + '/2 次）✓');
                                         setTimeout(() => {
-                                            try { runBackfill(useLim ? { limit: useLim } : {}); } catch (eAutoB) { /* ⏔ 影响她 */ }
+                                            try { runBackfill(useLim ? { limit: useLim } : {}); } catch (eAutoB) { /* ⛔ 影响她 */ }
                                         }, wSec * 1000);
                                     }
                                 }

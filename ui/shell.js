@@ -30,14 +30,14 @@ export function isPanelOpen() {
 export function closePanel() {
     /*
      * ⭐ 修复单 #24：**先摘监听再删节点**。
-     *   拖拽／缩放是挂在 `document` 上的（⏔ 面板上），
+     *   拖拽／缩放是挂在 `document` 上的（⛔ 面板上），
      *   只 `panelEl.remove()` 的话它们**永远留着**——每开关一次多 8 个。
      */
     if (panelEl && typeof panelEl.__wxgCleanup === 'function') {
         try {
             panelEl.__wxgCleanup();
         } catch (e) {
-            // 摘不掉也⏔ 把关面板带崩
+            // 摘不掉也⛔ 把关面板带崩
         }
     }
     if (panelEl) {
@@ -115,7 +115,7 @@ export function openPanel() {
      *   原来 shell.js 里 `applyAppearance`/**一次都没调过** ⇒ 开关在面板这头彻底失灵。
      */
     try {
-        // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⏔ 把白底写死）
+        // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⛔ 把白底写死）
         syncPanelAppearance(root, getSettings().appearance || {});
     } catch (e) {
         console.warn('[万象阁] 面板配色没套上：', e);
@@ -154,7 +154,7 @@ export function refreshPanel() {
  * ⭐ 修复单 #24：把"要摘掉的监听"登记到 root 上（关面板时统一摘）。
  *
  *   为什么：拖拽与缩放都是在 **document** 上挂的（各 4 个＝**8 个/次**），
- *   而 `closePanel()` 只会 `panelEl.remove()` —— 那些监听**不在面板上**，⏔ 会跟着消失，
+ *   而 `closePanel()` 只会 `panelEl.remove()` —— 那些监听**不在面板上**，⛔ 会跟着消失，
  *   于是每开关一次就漏 8 个（闭包还攥着已经删掉的旧面板）。
  *   ⚠️ 跟 `ui/mini.js` 的 `__wxgDragCleanup` 是同一套做法（他那边早就对了）。
  */
@@ -172,7 +172,7 @@ function addDocListener(root, type, fn, opts) {
                 try {
                     off();
                 } catch (e) {
-                    // 摘不掉也⏔ 把关面板带崩
+                    // 摘不掉也⛔ 把关面板带崩
                 }
             }
         };

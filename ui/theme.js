@@ -237,7 +237,7 @@ export function syncPanelAppearance(node, app) {
             try {
                 node.style.removeProperty(k);
             } catch (e) {
-                // 摘不掉一个也⏔ 把整件事带崩
+                // 摘不掉一个也⛔ 把整件事带崩
             }
         }
         node.__wxgVars = null;

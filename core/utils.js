@@ -60,7 +60,7 @@ export function asArray(list) {
  *   而两处代码直接对它们 `trimText()` ⇒ 拿到的是 `'[object Object]'`：
  *     · `state.js` 的送达回执拿它当 token 去正文里搜 ⇒ **永远搜不到**（事件永远算"没进"）；
  *     · `recall.js` 拿它当"已归档标题"集合 ⇒ **永远匹配不上**（该挡的没挡住）。
- *   ⇒ 一处定义、三处共用，⏔ 再各写各的。
+ *   ⇒ 一处定义、三处共用，⛔ 再各写各的。
  */
 export function eventTitle(x) {
     if (x === null || x === undefined) {

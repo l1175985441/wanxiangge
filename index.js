@@ -31,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.161';
+const VERSION = '0.3.162';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -324,7 +324,7 @@ export function onEnable() {
         /*
          * ⭐ 修复单 #21：把"刷所有视图"注册进去 ——
          *   后台更新完、切档、删楼之后，**悬浮球与工作台**也跟着刷新（原来只刷设置区）。
-         *   ⏔ 在核心层直接 import ui（会绕成环）。
+         *   ⛔ 在核心层直接 import ui（会绕成环）。
          */
     } catch (e) {
         console.warn('[' + APP_NAME + '] 启用时重挂闹钟出错：', e);

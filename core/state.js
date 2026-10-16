@@ -89,7 +89,7 @@ export function normalizeCharacter(raw) {
          */
         knows: Array.isArray(c.knows) ? c.knows.filter(Boolean).map((k) => ({
             text: trimText(k && k.text),
-            // 来源只认这三类（她定的）；认不出的归"公开"——⏔ 自己造第四类
+            // 来源只认这三类（她定的）；认不出的归"公开"——⛔ 自己造第四类
             source: ['亲眼', '被告知', '公开'].includes(trimText(k && k.source)) ? trimText(k.source) : '公开',
             floor: Number.isFinite(Number(k && k.floor)) ? Number(k.floor) : -1,
             at: Number((k && k.at) || 0),
@@ -273,8 +273,8 @@ export function loadState() {
  *   病根：单次更新会调 80+ 次 saveState() ✗ 每次都同步深拷贝整本数 MB 的账
  *         （含 5 份快照、800 条编年、200 条召回 ✗）并并发打 80+ 个保存请求 ✗ ⇒ 卡顿 ✗
  *   新：**显式批次**。批内第 2…N 次只记“脏”（不深拷贝、不发请求 ✓）；批收尾写**一次** ✓
- *   ⏔ **批外行为与原来逐字一致** ✓（所以同步读盘的自测不受影响 ✓）
- *   ⏔ 不动账本格式/写入接口；flushLedger()（不可逆动作那条 ✓）照旧直接写 ✓
+ *   ⛔ **批外行为与原来逐字一致** ✓（所以同步读盘的自测不受影响 ✓）
+ *   ⛔ 不动账本格式/写入接口；flushLedger()（不可逆动作那条 ✓）照旧直接写 ✓
  */
 let saveBatchDepth = 0;
 let saveBatchDirty = false;
@@ -289,7 +289,7 @@ export function endSaveBatch() {
     saveBatchDepth = Math.max(0, saveBatchDepth - 1);
     if (saveBatchDepth === 0 && saveBatchDirty) {
         saveBatchDirty = false;
-        try { writeLedger(loadState()); } catch (e) { /* ⏔ 影响主流程 */ }
+        try { writeLedger(loadState()); } catch (e) { /* ⛔ 影响主流程 */ }
     }
 }
 
@@ -297,7 +297,7 @@ export function saveState() {
     const state = loadState();
     state.version = LEDGER_VERSION;
     if (saveBatchDepth > 0) {
-        saveBatchDirty = true;   /* ⭐ R1：批内只记账 ✓（⏔ 深拷贝、⏔ 发请求 ✗） */
+        saveBatchDirty = true;   /* ⭐ R1：批内只记账 ✓（⛔ 深拷贝、⛔ 发请求 ✗） */
         return;
     }
     writeLedger(state);
@@ -448,7 +448,7 @@ export function findCharacterByName(name) {
  * ⭐ 补③ 认知账：给某人**追一条**"他该知道的"。
  *
  * 她定的规矩：**只增不编**；**拿不准的不进**（延续"不存推断"的定例）。
- *   ⇒ 所以这个函数**只会追加**，⏔ 修改也⏔ 删除已有的；要改走界面上的「删」。
+ *   ⇒ 所以这个函数**只会追加**，⛔ 修改也⛔ 删除已有的；要改走界面上的「删」。
  *   ⇒ 而且要求**必须有来源与来源楼层**（没来源＝拿不准 ⇒ 不收）。
  *
  * @returns {object|null} 收下去的那一条；没收（没文字／没来源）返回 null
@@ -467,7 +467,7 @@ export function addKnow(id, item) {
         return null;
     }
     c.knows = Array.isArray(c.knows) ? c.knows : [];
-    // 同一句话不重复收（只增不编 ⏔ 收成一堆重复的）
+    // 同一句话不重复收（只增不编 ⛔ 收成一堆重复的）
     if (c.knows.some((k) => trimText(k && k.text) === text)) {
         return null;
     }
@@ -483,7 +483,7 @@ export function addKnow(id, item) {
     return row;
 }
 
-/** 删一条认知（她在界面上手删；⏔ 让引擎自己删） */
+/** 删一条认知（她在界面上手删；⛔ 让引擎自己删） */
 export function removeKnow(id, index) {
     const state = loadState();
     const c = state.characters.find((x) => x && x.id === id);
@@ -495,7 +495,7 @@ export function removeKnow(id, index) {
     }
     c.knows.splice(index, 1);
     saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
     return true;
 }
@@ -554,7 +554,7 @@ export function removeCharacter(id) {
     state.characters = state.characters.filter((c) => c.id !== id);
     state.newPeople = state.newPeople.filter((n) => !state.characters.some((c) => c.name === n));
     saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
     return state.characters.length < before;
 }
@@ -686,7 +686,7 @@ export function removeQuest(characterId, title) {
     c.quests = c.quests.filter((q) => q.title !== trimText(title));
     if (c.quests.length !== before) {
         saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
         return true;
     }
@@ -839,7 +839,7 @@ export function removeHidden(id) {
     state.world.hidden = state.world.hidden.filter((h) => h.id !== id);
     if (state.world.hidden.length !== before) {
         saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
         return true;
     }
@@ -938,7 +938,7 @@ export async function removeChronicleAt(index) {
     }
     state.chronicle.splice(index, 1);
     saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
     await flushLedger();   // ⭐ 同上
     return true;
@@ -950,7 +950,7 @@ export async function clearChronicle() {
     const n = Array.isArray(state.chronicle) ? state.chronicle.length : 0;
     state.chronicle = [];
     saveState();
-    await flushLedger();   // ⭐ 等真存下去再回话（⏔ 她刷新一看又回来）
+    await flushLedger();   // ⭐ 等真存下去再回话（⛔ 她刷新一看又回来）
     return n;
 }
 
@@ -1038,7 +1038,7 @@ export function ledgerClearPreview() {
  *
  * 她定的规矩：
  *   · 写进了 ⇒ 标「**已进正文（第 N 楼）**」
- *   · 没进 ⇒ 留候补；**连续 3 轮**都没进 ⇒ **转进编年留档**，⏔ 再占注入位、⏔ 再强塞。
+ *   · 没进 ⇒ 留候补；**连续 3 轮**都没进 ⇒ **转进编年留档**，⛔ 再占注入位、⛔ 再强塞。
  *
  * 怎么判"写进了"：拿**这一条当时带的人名与事件名**去新正文里找——
  *   名字出现了就算"接到了"。⚠️ 这是**有限但诚实**的判法（我不假装能读懂语义）：
@@ -1103,7 +1103,7 @@ export function markArrivals(bodyText, floor, msgs) {
         }
         // ⭐ 没有"记录之后的新 AI 正文"＝这一轮她还没让 AI 回过话 ⇒ 不算没进、也不清零，原样跳过
         if (hasMsgs && !freshText) {
-            continue;   // 没有新 AI 正文 ⇒ 连 lastCheckedFloor 都⏔ 写（下次还能重核这一楼）
+            continue;   // 没有新 AI 正文 ⇒ 连 lastCheckedFloor 都⛔ 写（下次还能重核这一楼）
         }
         // ⭐ B4：**确认真有新正文了**才记"核到第几楼"
         rec.lastCheckedFloor = at;
@@ -1136,7 +1136,7 @@ export function markArrivals(bodyText, floor, msgs) {
     }
     /*
      * 转编年的那几条：单独留一笔账（她能回查"它们去哪了"）。
-     * ⏔ 放在循环里逐条写（那样会反复读写整本账）；汇总一条。
+     * ⛔ 放在循环里逐条写（那样会反复读写整本账）；汇总一条。
      */
     if (out.archived > 0) {
         state.chronicle = Array.isArray(state.chronicle) ? state.chronicle : [];
@@ -1251,7 +1251,7 @@ export function dropRecallRecord(floor) {
     state.recallRecords = state.recallRecords.filter((r) => !r || r.floor !== floor);
     if (state.recallRecords.length !== before) {
         saveState();
-        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⏔ 等下次被捞回来）
+        // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
         return true;
     }
@@ -1340,9 +1340,9 @@ export function rollbackLast() {
 /**
  * ⭐ 修复单 #19：把账**还原到某一版快照**（引擎自己失败时收口用）。
  *
- * ⚠️ 跟 `rollbackLast()` 的区别（⏔ 搞混：那是"她主动撤回"，这是"引擎自己失败回滚"）：
- *   · ⏔ 动 `snapshots` 列表（不 pop、也不 push"撤回前"）——那版快照留着，她仍可手动撤回；
- *   · ⏔ 记"撤回"动作（这不是她的操作）；
+ * ⚠️ 跟 `rollbackLast()` 的区别（⛔ 搞混：那是"她主动撤回"，这是"引擎自己失败回滚"）：
+ *   · ⛔ 动 `snapshots` 列表（不 pop、也不 push"撤回前"）——那版快照留着，她仍可手动撤回；
+ *   · ⛔ 记"撤回"动作（这不是她的操作）；
  *   · 只把 payload 里那六样装回去。
  *
  * @returns {boolean} 装回去了没
@@ -1368,7 +1368,7 @@ export function restoreSnapshot(snap) {
 
 /**
  * ⭐ 修复单 #19 附注①：把某一版快照**丢掉**（空跑占位用）。
- *   只丢"就是这一版"（按 `at`+标签认）；认不出就不动手（⏔ 乱丢别人的）。
+ *   只丢"就是这一版"（按 `at`+标签认）；认不出就不动手（⛔ 乱丢别人的）。
  */
 export function dropSnapshot(snap) {
     if (!snap || !Number.isFinite(Number(snap.at))) {

@@ -15,7 +15,7 @@ import { getSettings, patchSettings } from '../core/settings.js';
 import { floorLabel } from '../core/utils.js';
 import { buildStateSummary } from '../core/summary.js';
 import { runUpdate, runReconcile } from '../core/pipeline.js';
-// ⭐ 操作组（目标包「悬浮球」）——跟总控操作卡**同一套函数**，⏔ 各算一套
+// ⭐ 操作组（目标包「悬浮球」）——跟总控操作卡**同一套函数**，⛔ 各算一套
 import { rollbackLast } from '../core/state.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { publishToBook } from '../core/book.js';
@@ -72,7 +72,7 @@ export function mountMini() {
      *   她把「配色也用在悬浮小框上」取消了也没用（照样被染色）。
      *   ⭐ 关掉时要**清除**（不是"不管"）——否则上一次染上的颜色会留在身上。
      */
-    // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⏔ 再写 `{}` 把白底写死）
+    // ⭐ 复审追加 A3：走统一口径（不勾时**真清除**，⛔ 再写 `{}` 把白底写死）
     syncPanelAppearance(wrapEl, s.appearance || {});
 
     /* ---- 小球 ---- */
@@ -326,10 +326,10 @@ function onMiniClick(e) {
         return;
     }
     /*
-     * ⭐ 操作组（跟工作台走同一套函数 ⏔ 另写实现）。
+     * ⭐ 操作组（跟工作台走同一套函数 ⛔ 另写实现）。
      *   「清空这个世界」刻意**不在小框里直接清**：它是不可逆的，
      *   而工作台那份会**先铺开各多少条、再要她手打「确认清空」**；
-     *   ⇒ 小框这颗把她**带到工作台并把确认盒打开**，⏔ 在这里绕过那道门。
+     *   ⇒ 小框这颗把她**带到工作台并把确认盒打开**，⛔ 在这里绕过那道门。
      */
     if (action === 'op-rollback') {
         const snap = rollbackLast();
@@ -378,7 +378,7 @@ function onMiniClick(e) {
              *   为什么：那个 `clear-world-open` 入口**只在总控页**上（sections 里只有那一处），
              *   她停在别的页（名册／状态／世界状态…）时 `querySelector` **什么都找不到**
              *   ⇒ 点了没反应（她报的正是这个）。
-             *   ⚠️ 也⏔ 在整份 document 里找：只在**她工作台根**里找（⏔ 抓到抽屉里那份旧副本）。
+             *   ⚠️ 也⛔ 在整份 document 里找：只在**她工作台根**里找（⛔ 抓到抽屉里那份旧副本）。
              */
             try {
                 showIndex(4, true);   // 4 = 总控页（跟工作台左栏同一份顺序）

@@ -465,7 +465,7 @@ function mirrorLedger(state) {
         try {
             clearMirror(null, state);
         } catch (e) {
-            // 抹不掉也⏔ 把写盘带崩
+            // 抹不掉也⛔ 把写盘带崩
         }
         return;
     }
@@ -526,14 +526,14 @@ function stashToMirror(key, source, immediate, opts) {
  *
  *   ⚠️ 调用点：`removeCharacter` / `removeHidden` / `removeQuest` / `removeKnow` /
  *     `removeChronicleAt` / `dropRecallRecord` —— 六个**她亲手点**的删除。
- *     ⏔ 放在自动路径（对账、合并）里——那些会走原来的比新旧。
+ *     ⛔ 放在自动路径（对账、合并）里——那些会走原来的比新旧。
  */
 export function syncMirrorAfterDelete(state) {
     if (!state || typeof state !== 'object') {
         return;
     }
     if (!hasContent(state)) {
-        // 删到空 ⇒ 那一格直接抹掉（⏔ 留着旧账等下次被捞回来）
+        // 删到空 ⇒ 那一格直接抹掉（⛔ 留着旧账等下次被捞回来）
         clearMirror(null, state);
         return;
     }
@@ -650,8 +650,8 @@ function flushMirror() {
          *   我试了两版“让活账本赢”（① 只认 live 戳、② 加验自己的章），
          *   **两版都把 `run-tests.mjs` 从 95/0 打成 92/3**（丢回执记录）——
          *   说明这仓库里确实存在“同一聊天、但手里那份合法地更薄”的保存路径，
-         *   拆掉保护就会丢数据 ⇒ 宁可不修这半，⏔ 拿数据安全换“删得干净”。
-         *   ⇒ 保护原样留着（⏔ 拆）；要真修得先把“哪些保存路径会带更薄的状态”查清。
+         *   拆掉保护就会丢数据 ⇒ 宁可不修这半，⛔ 拿数据安全换“删得干净”。
+         *   ⇒ 保护原样留着（⛔ 拆）；要真修得先把“哪些保存路径会带更薄的状态”查清。
          */
         const liveOwn = false;
 
