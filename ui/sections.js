@@ -5629,8 +5629,11 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                                  *   ⏔ 参数级的错**不**自动重试（那是白试 ✗ 分层已经做在 pipeline 里 ✓）
                                  */
                                 if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
+                                    /* ⭐ 她可调：链路掉线后自己再试几次（默认 2 ✓） */
+                                    let autoMax = 2;
+                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⏔ 影响她 */ }
                                     window.__wxgAutoRetry = (window.__wxgAutoRetry || 0) + 1;
-                                    if (window.__wxgAutoRetry <= 2) {
+                                    if (window.__wxgAutoRetry <= autoMax) {
                                         /* ⭐ 越等越久：链路“过一会儿就好”⇒ 第1次 20 秒、第2次 45 秒 ✓ */
                                         const waitSec = window.__wxgAutoRetry === 1 ? 20 : 45;
                                         toast.info('链路掉线 —— ' + String(waitSec) + ' 秒后自己再试一次（第 ' + String(window.__wxgAutoRetry) + '/2 次）✓');
@@ -5699,8 +5702,11 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                                  *   链路级失败 ⇒ **自己再接着补**（20 秒、45 秒 ✓）⏔ 她守着点 ✗
                                  */
                                 if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
+                                    /* ⭐ 她可调：链路掉线后自己再试几次（默认 2 ✓） */
+                                    let autoMax = 2;
+                                    try { const an = Number((getSettings().api || {}).autoRetryMax); if (Number.isFinite(an)) { autoMax = Math.max(0, Math.min(5, Math.round(an))); } } catch (eAm) { /* ⏔ 影响她 */ }
                                     window.__wxgAutoRetryB = (window.__wxgAutoRetryB || 0) + 1;
-                                    if (window.__wxgAutoRetryB <= 2) {
+                                    if (window.__wxgAutoRetryB <= autoMax) {
                                         const wSec = window.__wxgAutoRetryB === 1 ? 20 : 45;
                                         toast.info('链路掉线 —— ' + String(wSec) + ' 秒后自己接着补（第 ' + String(window.__wxgAutoRetryB) + '/2 次）✓');
                                         setTimeout(() => {

@@ -143,6 +143,8 @@ function loadSettings() {
     merged.api.maxTokens = clampNumber(merged.api.maxTokens, 200, 8000, DEFAULT_SETTINGS.api.maxTokens);
     /* ⭐ 她可调：每轮最多喂多少字正文（默认 6000 ✓，越小请求越短 ✓） */
     merged.api.materialCap = clampNumber(merged.api.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap);
+    /* ⭐ 链路掉线后自己再试几次（0～5 ✓ 默认 2） */
+    merged.api.autoRetryMax = clampNumber(merged.api.autoRetryMax, 0, 5, DEFAULT_SETTINGS.api.autoRetryMax);
     // ⭐ API 书签：归一成数组（老设置里没有这个键 ⇒ 补空数组）
     merged.api.profiles = Array.isArray(merged.api.profiles)
         ? merged.api.profiles.filter((p) => p && typeof p === 'object' && trimText(p.nick)).map((p) => ({
