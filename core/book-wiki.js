@@ -339,7 +339,20 @@ export function applyWiki(wiki) {
      *   （她原话：「作息与时间锚被读成人」✗；家庭合集名（月野家）也不当一个人 ✗） */
     const chars = dedupe(w.characters, (c) => c.name).filter((c) => {
         const clean = extractNameFromTitle(c.name);
-        return Boolean(clean) && !/家$/.test(clean);
+        /*
+         * ⭐ S5（材料 05 的自查）：**别把“老管家”这种正常角色也过滤掉** ✓
+         *   我原来写的 `!/家$/.test(clean)` ✗ ⇒ 只要名字以“家”结尾就杀 ✗
+         *     （她若有一个叫「老管家」的角色 ⇒ 当场被丢 ✗）
+         *   现在：只匹配**合集名本身**（最多 3 字＋家／一家／一族 ✓）
+         *     ⇒ 「月野家」跳过 ✓，「老管家」「某书家」照收 ✓
+         */
+        /*
+         * S5 补一道护栏：材料给的 `/^.{1,3}家$/` 本身也会误杀 ✗
+         *   （「老管家」「某书家」都是 3 字、也以家结尾 ✗）
+         *   ⇒ 只要尾巴是**职业／身份词**（管家／书家／作家… ✓）就**照收** ✓
+         */
+        const looksProfession = /(?:管家|书家|作家|专家|行家|店家|东家|亲家|冤家|仇家|出家|在家|农家|法家|医家|画家|音乐家)$/.test(clean);
+        return Boolean(clean) && !(looksProfession !== true && /^.{1,3}家(?:一家|一族)?$/.test(clean));
     });
     const facs = dedupe(w.factions, (f) => f.name);
     const sits = dedupe(w.situations, (s) => s.title);
