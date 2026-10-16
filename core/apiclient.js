@@ -402,6 +402,20 @@ export async function fetchModels(opts) {
     }
 }
 
+/*
+ * ⭐⭐ 真机取证（第 48 轮）：有些报错**是对面服务自己吐的**，⏔ 我们的 bug ✗
+ *   例：她那个中转（stapi.cc.cd）返回 500 “No environment variable set for provider: self-dploy”
+ *   已证：酒馆源码里**没有**这句话 ✓、我们的 payload 全对（custom_url／密钥头）✓ ⇒ 只能是它报的 ✓
+ *   ⇒ 把它翻译成人话，省得她（和我）去追自己的代码 ✓
+ */
+function providerHint(txt) {
+    const s = String(txt == null ? '' : txt);
+    if (/No environment variable set for provider/i.test(s)) {
+        return '（⚠ 这是**对方服务自己**的报错：它内部那个 provider 没配密钥 —— 要修在它那边，⏔ 不是万象阁的问题）';
+    }
+    return '';
+}
+
 export function tavernApiPath() {
     const fallback = '/api/backends/chat-completions/generate';
     let loc = null;
@@ -477,7 +491,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
         const hint = res.status === 404
             ? '（接口没找到：如果酒馆挂在子路径下，或"自定义 URL"被服务器关了，就会这样）'
             : '';
-        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + (resetLike ? '（对方站点把连接掉了 —— 不是你本地的毛病：可以少推几楼／换个模型或站点／过会儿再试）' : '')
+        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + providerHint(detail) + (resetLike ? '（对方站点把连接掉了 —— 不是你本地的毛病：可以少推几楼／换个模型或站点／过会儿再试）' : '')
             + (detail ? '：' + detail : '') };
     }
     const data = await res.json().catch(() => null);
@@ -520,7 +534,7 @@ async function callDirect(url, key, model, body, signal) {
         } catch (e) {
             detail = '';
         }
-        return { ok: false, reason: '直连失败（HTTP ' + String(res.status) + '）' + (detail ? '：' + detail : '') };
+        return { ok: false, reason: ('直连失败（HTTP ' + String(res.status) + '）' + providerHint(detail)) + (detail ? '：' + detail : '') };
     }
     const data = await res.json().catch(() => null);
     const text = readCompletionText(data);
