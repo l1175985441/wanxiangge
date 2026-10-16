@@ -342,6 +342,18 @@ function mergeSituations(oldList, freshList) {
         ));
         if (idx >= 0) {
             if (merged[idx].manual) continue; // 她手改锁定的局势不覆盖
+        /* ⭐ Q1（材料 05 · 她原话 [318]–[322]）：局势推进也要留编年 ✓
+         *   旧：引擎只给「暗线新增」与「暗线推进」写编年 ✗
+         *     ⇒ **所有局势点开浮层「因果」永远是空的** ✗
+         *     （“世界账里还没记到这一条” ✗） */
+        try {
+            addChronicle({
+                floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : -1,
+                kind: '局势·推进',
+                who: '',
+                text: trimText(merged[idx].title) + '（' + trimText(title) + '）',
+            });
+        } catch (eCh1) { /* 记不上也不能把世界步搞挂 ✓ */ }
             merged[idx] = Object.assign({}, merged[idx], {
                 title,
                 sides: trimText(inc.sides) || merged[idx].sides,
@@ -403,6 +415,15 @@ function mergeSituations(oldList, freshList) {
                 });
             } else {
                 merged.push(inc);
+                /* Q1：新增局势也留一条编年 ✓（⏔ ℱ果区空着 ✗） */
+                try {
+                    addChronicle({
+                        floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : -1,
+                        kind: '局势·新增',
+                        who: '',
+                        text: trimText(inc.title),
+                    });
+                } catch (eCh2) { /* 同上 ✓ */ }
             }
         }
     }
