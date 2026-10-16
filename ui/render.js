@@ -294,8 +294,19 @@ function sweepOrphanCards() {
     }
 }
 
+/*
+ * ⭐⭐ R7（材料 05）：**补挂链去重 ＋ 可作废** ✓
+ *   病根：每次都用匿名 setTimeout 递归 ✗，**既不清上一个 timerId、也没有取消** ✗
+ *     ⇒ 一个聊天 15 条用户消息，加载时**几十条重叠的定时器链同时跑** ✗
+ *     ⇒ 反复全量查 `.mes` 重建卡片 ✗（她说的“加载聊天时卡” ✗）
+ *   现在：每次调用**把上一条链作废** ✓（token 一变、旧链自己就不再递归 ✓）
+ */
+let mountTimer = null;
+let mountToken = 0;
+
 /** 按账本把卡片挂回去（刷新后消息是分几拍画出来的，所以默认再补一轮） */
 export function mountAllCards(tries, delay) {
+    mountToken += 1;   /* R7：新一轮出来 ⇒ 上一条补挂链自动作废 ✓ */
     if (!hasDom()) {
         return;
     }
@@ -317,7 +328,19 @@ export function mountAllCards(tries, delay) {
     }
 
     if (rounds > 0) {
-        setTimeout(() => mountAllCards(rounds - 1, wait), wait);
+        /* R7：只留最新一条链 ✓（旧链作废 ✗） */
+        const my = mountToken;
+        if (mountTimer) {
+            try { clearTimeout(mountTimer); } catch (eT) { /* 清不掉也不要紧 ✓ */ }
+            mountTimer = null;
+        }
+        mountTimer = setTimeout(() => {
+            mountTimer = null;
+            if (my !== mountToken) {
+                return;   /* 已被更新的调用取代 ⇒ 不再递归 ✓ */
+            }
+            mountAllCards(rounds - 1, wait);
+        }, wait);
     }
 }
 
