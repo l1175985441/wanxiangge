@@ -2498,7 +2498,7 @@ function secApi(host) {
     line(cCh, '温度',
         numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
         el('span', 'wxg-note', '单次最多输出'),
-        numberInput('wxg-api-maxtok', api.maxTokens, 200, 32000, 'stage-api-maxtok'));
+        numberInput('wxg-api-maxtok', api.maxTokens, 200, 65536, 'stage-api-maxtok'));
     /*
      * ⭐⭐ 她可调的一个旋钮（真机取证后才明白它有多重要）：
      *   她那个中转对**长请求**一律掉线（直连 reset、转发 502+ECONNRESET、连流式也照掉 ✗）；

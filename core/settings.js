@@ -140,7 +140,7 @@ function loadSettings() {
     merged.api = Object.assign({}, DEFAULT_SETTINGS.api, merged.api && typeof merged.api === 'object' ? merged.api : {});
     merged.api.mode = merged.api.mode === 'direct' ? 'direct' : 'proxy';
     merged.api.temperature = Number.isFinite(Number(merged.api.temperature)) ? Number(merged.api.temperature) : DEFAULT_SETTINGS.api.temperature;
-    merged.api.maxTokens = clampNumber(merged.api.maxTokens, 200, 32000, DEFAULT_SETTINGS.api.maxTokens);
+    merged.api.maxTokens = clampNumber(merged.api.maxTokens, 200, 65536, DEFAULT_SETTINGS.api.maxTokens);
     /* ⭐ 她可调：每轮最多喂多少字正文（默认 6000 ✓，越小请求越短 ✓） */
     merged.api.materialCap = clampNumber(merged.api.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap);
     /* ⭐ 链路掉线后自己再试几次（0～5 ✓ 默认 2） */
@@ -155,7 +155,7 @@ function loadSettings() {
             model: trimText(p.model),
             modelCheap: trimText(p.modelCheap),
             temperature: Number.isFinite(Number(p.temperature)) ? Number(p.temperature) : DEFAULT_SETTINGS.api.temperature,
-            maxTokens: clampNumber(p.maxTokens, 200, 32000, DEFAULT_SETTINGS.api.maxTokens),
+            maxTokens: clampNumber(p.maxTokens, 200, 65536, DEFAULT_SETTINGS.api.maxTokens),
             at: Number(p.at || 0),
         }))
         : [];
@@ -238,7 +238,7 @@ export function patchSettings(patch) {
                 : DEFAULT_SETTINGS.api.temperature;
         }
         if (Object.hasOwn(api, 'maxTokens')) {
-            api.maxTokens = clampNumber(api.maxTokens, 200, 32000, DEFAULT_SETTINGS.api.maxTokens);
+            api.maxTokens = clampNumber(api.maxTokens, 200, 65536, DEFAULT_SETTINGS.api.maxTokens);
         }
         /* ⭐⭐ 谷歌诊断修法 1（修的是我自己桶的娄子 ✗）：
          *   原来 patchSettings 没夹取这两个键 ⇒ 她在面板上调了也**写进没人读的废格** ✗（调了白调 ✗） */

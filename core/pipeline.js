@@ -25,7 +25,11 @@ import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
  *     为什么是 4000：再高就只是提高费用与等待，而"截断"的根因多半是
  *     **模型写啰嗦**，不是额度不够 ⇒ 重试时一并要求它精简（见下面那句）。
  */
-const RETRY_TOKEN_CAP = 4000;
+/* ⭐修复 2（材料 02）：解除写死的 Token 枷锁 ✗
+ *   旧：推演请求输出上限写死 8000（重试时 4000）✗ ⇒ 长思考模型思考吃完就没正文 ✗
+ *   新：上限 65536 ✓（材料 03 定稿：32000→65536 ✓） */
+/* ⏔ 它不是用户可调的那个：这是**重试时**的内部封顶 ✓ */
+const RETRY_TOKEN_CAP = 65536;
 
 /** 重试时追加的一句（只在第 2 次起才发） */
 const RETRY_TIGHTEN = '【重试提醒】上一次的输出被截断了（JSON 没写完）。'
@@ -34,12 +38,13 @@ const RETRY_TIGHTEN = '【重试提醒】上一次的输出被截断了（JSON �
 
 /** 按重试次数算输出额度（⏔ 超帽子） */
 function retryTokens(base, attempt) {
-    const b = clampNumber(base, 200, 8000, 1600);
+    const b = clampNumber(base, 200, RETRY_TOKEN_CAP, 1600);
     const a = Math.max(0, Math.round(Number(attempt) || 0));
     if (a <= 0) {
         return b;
     }
-    return clampNumber(Math.round(b * 1.6), 200, RETRY_TOKEN_CAP, b);
+    /* ⭐ 重试时**只增不减** ✓（旧：底下限 200 ⇒ 会把用户额度倒扣砍半 ✗） */
+    return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
 import { getChat } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
