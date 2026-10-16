@@ -338,6 +338,7 @@ export async function callModel(opts) {
         if (res && res.ok === false && !/^假流式-/.test(modelTry)
             && /Bad Request|INVALID_ARGUMENT|invalid argument/i.test(String(res.reason || ''))) {
             modelTry = '假流式-' + modelTry;
+            await retryPause(0);
             try {
                 if (api.mode === 'direct') {
                     try { res = await callDirect(url, key, modelTry, body, timeout.signal); }
@@ -363,6 +364,7 @@ export async function callModel(opts) {
                 body.max_tokens = next;
                 loweredTo = next;
             }
+            await retryPause(guard + 1);
             if (api.mode === 'direct') {
                 try {
                     res = await callDirect(url, key, modelTry, body, timeout.signal);
@@ -428,6 +430,20 @@ function withVersionIfBareRoot(u) {
         return s;
     }
     return s + '/v1';
+}
+
+/*
+ * ⭐⭐ 材料 01（界面第 1 条）：**重试之间要有小退避** ✓
+ *   她的原话：「一口气四连动」✗
+ *   旧：直连失败⇒切转发⇒加假流式-前缀⇒砍 max_tokens 连试 3 次，**中间零间隔** ✗
+ *     ⇒ 一秒内对公益站连打 3～5 枪 ✗ ⇒ 触发防刷限流、返回 null ✗
+ *   现在：每一步重试前先等 ≈600ms / 1300ms / 2000ms ✓（不到一秒一枪 ✓）
+ */
+function retryPause(step) {
+    const ms = 600 + Math.max(0, Number(step) || 0) * 700;
+    return new Promise((resolve) => {
+        try { setTimeout(resolve, ms); } catch (e) { resolve(); }
+    });
 }
 
 export async function fetchModels(opts) {
