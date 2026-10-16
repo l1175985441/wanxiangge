@@ -964,7 +964,9 @@ async function stepCharacters(material, attempt) {
                 + (Number(k.floor) >= 0 ? '·' + floorLabel(Number(k.floor)) : '') + '）').join('；'));
             lines.push('  ⛔ **不在上面那份清单里的世界内幕，他没渠道知道⇒不许写进他的推演**。');
         } else {
-            lines.push('  他还没记下知道什么（清单是空的）⇒ 世界内幕一律⛔ 给他，只能写他自己身边看得到的。');
+            /* P21 (material 07): this used to gag brand-new characters completely - a villain
+     *   imported from the world book could not even know his own faction's business. */
+        lines.push('  他还没记下知道什么（清单是空的）⇒ **除他所属势力与自身身份分内的事、以及公开新闻之外**，别的世界内幕⛔ 不给他，只能写他自己身边看得到的。');
         }
         lines.push('  ' + (inScene
             ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
