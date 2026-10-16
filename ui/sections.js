@@ -1561,6 +1561,13 @@ function stageOne(action, target) {
         rerender();
         return 'api';
     }
+    /*
+     * ⭐ 选的是内置两条（直连／经酒馆转发）⇒ 只把“当前书签”清掉（下拉框就不再显示旧书签了 ✓）
+     *   ⏔ 不碰老路：mode 的暂存照旧走下去（测试也照旧 ✓）
+     */
+    if (action === 'stage-api-mode' && trimText((getSettings().api || {}).currentProfile)) {
+        stage('api', 'api', Object.assign({}, getSettings().api || {}, { currentProfile: '' }));
+    }
     const row = STAGE_MAP[action];
     if (!row) {
         return null;
