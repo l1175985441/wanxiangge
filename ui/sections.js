@@ -1429,6 +1429,61 @@ function commitSection(secId) {
 const API_KEYS = ['mode', 'url', 'key', 'model', 'modelCheap', 'temperature', 'maxTokens', 'materialCap', 'autoRetryMax', 'currentProfile'];
 
 /**
+ * ⭐⭐ 谷歌方案 A（她 2026-10-17 选定）：**DOM 即真相** ✓
+ *   把当前面板 DOM 里填着的 API 各项**直接收拢并落盘** ✓
+ *   为什么要有它：她填完地址/密钥/模型，可能还没点空白处失焦（或面板刚重画过 ✗），
+ *   就直接点「测一下连接」「拉取模型」「另存为书签」或「保存」——
+ *   这时候直接从当前面板的输入框读现值并落盘，100% 所见即所得，绝不绕弯 ✓
+ *   （⏔ 不能只依赖“失焦时的 change 事件”——那只覆盖一种情形 ✗）
+ */
+function syncApiFromDom(host) {
+    if (!host || typeof host.querySelector !== 'function') {
+        return;
+    }
+    const cur = Object.assign({}, getSettings().api || {});
+    const draft = (stagingOf(stagingMode) && stagingOf(stagingMode).api) || {};
+    for (const k of Object.keys(draft)) {
+        if (k === 'api' && draft.api && typeof draft.api === 'object') {
+            Object.assign(cur, draft.api);
+        } else if (API_KEYS.includes(k)) {
+            cur[k] = draft[k];
+        }
+    }
+    const readVal = (id) => {
+        const elNode = host.querySelector('#' + id);
+        return elNode && typeof elNode.value === 'string' ? elNode.value : null;
+    };
+    const modeVal = readVal('wxg-api-mode');
+    if (modeVal !== null && modeVal.indexOf('profile:') !== 0) {
+        cur.mode = trimText(modeVal) === 'direct' ? 'direct' : 'proxy';
+    }
+    const urlVal = readVal('wxg-api-url');
+    if (urlVal !== null) { cur.url = trimText(urlVal); }
+    const keyVal = readVal('wxg-api-key');
+    if (keyVal !== null) { cur.key = trimText(keyVal); }
+    const modelVal = readVal('wxg-api-model');
+    if (modelVal !== null) { cur.model = trimText(modelVal); }
+    const cheapVal = readVal('wxg-api-model-cheap');
+    if (cheapVal !== null) { cur.modelCheap = trimText(cheapVal); }
+    const tempVal = readVal('wxg-api-temp-code');
+    if (tempVal !== null && trimText(tempVal) !== '') { cur.temperature = Number(tempVal); }
+    const maxTokVal = readVal('wxg-api-maxtok');
+    if (maxTokVal !== null && trimText(maxTokVal) !== '') { cur.maxTokens = Number(maxTokVal); }
+    const matCapVal = readVal('wxg-api-material-cap');
+    if (matCapVal !== null && trimText(matCapVal) !== '') { cur.materialCap = Number(matCapVal); }
+    const retryVal = readVal('wxg-auto-retry-max');
+    if (retryVal !== null && trimText(retryVal) !== '') { cur.autoRetryMax = Number(retryVal); }
+
+    for (const m of Object.keys(stagingByMode)) {
+        if (stagingByMode[m]) {
+            delete stagingByMode[m].api;
+        }
+    }
+    patchSettings({ api: cur });
+}
+
+
+/**
  * ⭐ `stage-*` 动作总表：动作名 → [这一段, 设置键, 取值方式]。
  * 有了它，各处控件只要把 `set-xxx` 写成 `stage-xxx` 就进了草稿，⛔ 不用每个都写一个 case。
  */
@@ -5108,8 +5163,24 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'save-section': {
+                    syncApiFromDom(host);
                     const n = commitSection(id);
                     refreshToastSection(id, n);
+                    /*
+                     * ⭐⭐ 谷歌方案 A（她 2026-10-17 选定）：保存按钮＝**确定性回执** ✓
+                     *   病根：她填完去点保存，而值已经（失焦）落盘 ⇒ 旧行为只弹
+                     *   “这一段没有未保存的改动” ✗ ⇒ 她根本不知道到底存上没存上 ✗（＝“好绕”）
+                     *   ⇒ 现在：API 这一段保存后弹**带当前值**的回执 ✓（她一眼就知道存的是哪一套 ✓）
+                     */
+                    if (id === 'api') {
+                        try {
+                            const aSaved = getSettings().api || {};
+                            const modeLabel = aSaved.mode === 'direct' ? '直连' : '经酒馆转发';
+                            const modelLabel = trimText(aSaved.model) || '（没填）';
+                            const say = (typeof toast.ok === 'function') ? toast.ok : toast.info;
+                            say.call(toast, 'API 设置已保存 ✓（当前：' + modeLabel + '｜模型：' + modelLabel + '）');
+                        } catch (eSaveTip) { /* ⏔ 影响保存 */ }
+                    }
                     rerender();
                     break;
                 }
@@ -5381,6 +5452,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'fetch-models': {
+                    syncApiFromDom(host);
                     /*
                      * ⭐ 她 13:xx 原话：「填完了API得保存一下，然后拉取模型得保存一下……反正啥都要保存一下。这就是别扭问题了。」
                      *   ⇒ 这几个动作**直接用你面板里现在填的值**（先把 api 那节草稿提交，等同自动按一次保存）✓
@@ -5433,6 +5505,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'test-api': {
+                    syncApiFromDom(host);
                     /* ⭐ 同上：测连接**不用先保存**，直接用你现在填的地址／密钥／模型 ✓ */
                     commitSection('api');
 
@@ -5462,6 +5535,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 /* ---- ⭐ API 书签（她点名要的：设好几套通道随时切） ---- */
                 case 'save-profile':
                 case 'overwrite-profile': {
+                    syncApiFromDom(host);
                     const nick = trimText(textOf(host, 'wxg-profile-nick'));
                     if (!nick) {
                         toast.fail('先给书签起个名字（例：主站／备用站）');
