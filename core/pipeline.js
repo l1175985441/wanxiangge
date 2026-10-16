@@ -955,7 +955,16 @@ async function stepCharacters(material, attempt) {
     const stageMsgsAll = Array.isArray(material.messages) ? material.messages : [];
     const lastMsgText = trimText(stageMsgsAll.length ? (stageMsgsAll[stageMsgsAll.length - 1] || {}).mes : (material.rawText || ''));
     const hasStatusBlock = /<meow_FM>|scene\s*[:：]|relation\s*[:：]/i.test(lastMsgText);
-    const stageMsgs = hasStatusBlock ? stageMsgsAll.slice(-2) : stageMsgsAll.slice(-4);
+    /*
+     * ⭐⭐ S2（材料 05 自查）：**补推整批时看全部楼层** ✓
+     *   旧：不管单轮还是补推，一律只看最后 2 楼（有状态卡）或 4 楼 ✗
+     *     ⇒ 一批 #0～#5 里，在 #1～#3 出场、#4 离场的人（吃早饭的育子、谦之 ✗）
+     *     被标成**不在场** ✗ ⇒ 模型总结他们做的事时违反“不在场不准带我”的规矩 ✗
+     *   现在：整批 ⇒ 用该批**全部楼层** ✓；日常单轮 ⇒ 照旧（状态卡优先／4 楼窗口 ✓）
+     */
+    const stageMsgs = material.batch === true
+        ? stageMsgsAll
+        : (hasStatusBlock ? stageMsgsAll.slice(-2) : stageMsgsAll.slice(-4));
     const stageCleaned = cleanMessages(stageMsgs).text;
     const stageRaw = stageMsgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n');
     const bodyForStage = (() => {
@@ -1533,6 +1542,11 @@ async function runUpdateInner(opts) {
         : recentMessages(floor, Math.max(6, settings.recentTurns * 2));
     const cleaned = cleanMessages(msgs);
     const material = {
+        /* ⭐ S2（材料 05 自查）：**这一回是整批补推吗** ✓
+         *   补推时 material.messages 就是**该批全部楼层** ✓
+         *   （她一批可能 #0～#5 共 6 层 ✓）
+         *   ⇒ 在场判定必须看**整批**，⏔ 只看最后 2 楼 ✗ */
+        batch: Array.isArray(o.batchFloors) && o.batchFloors.length > 0,
         floor,
         recentText: cleaned.text,
         // ⭐ 另留一份"清洗前"的原文：判"谁在现场""这句正文里有没有"要用它——
