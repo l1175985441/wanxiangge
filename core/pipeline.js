@@ -594,6 +594,46 @@ function applyCharacter(raw, material, conflicts) {
     let c = state.characters.find((x) => x.name === name)
         || state.characters.find((x) => (x.aliases || []).includes(name));
     let isNew = false;
+    /*
+     * ⭐⭐ R11（材料 05）：**别因为模型多写个括号就造新角色** ✓
+     *   旧：只按**精确字符串**找人 ✗ ⇒ 名册里叫「奈鲁」、
+     *     模型写了「大阪奈鲁」或「月野育子（母亲）」⇒ **当场另建一个 isNew 的残缺重复角色** ✗
+     *     （新建那个还没过 normalizeCharacter ✗ ⇒ 缺 quests／knows 等格 ✗）
+     *   现在：先试**规范化名／去括号名／双向包含／别名** ✓
+     *     找到就用它，并把新写法**记成别名** ✓（下次就能直接认出 ✓）
+     */
+    if (!c) {
+        const keyFull = matchKey(name);
+        const bare = trimText(String(name).replace(/[（(][^）)]*[）)]/g, ''));
+        const keyBare = matchKey(bare);
+        const hit = state.characters.find((x) => {
+            const kx = matchKey(x.name || '');
+            if (!kx) {
+                return false;
+            }
+            if (kx === keyFull || (keyBare && kx === keyBare)) {
+                return true;
+            }
+            if (kx.length >= 2 && keyBare.length >= 2 && (kx.includes(keyBare) || keyBare.includes(kx))) {
+                return true;
+            }
+            return (Array.isArray(x.aliases) ? x.aliases : []).some((a) => {
+                const ka = matchKey(a);
+                return ka && (ka === keyFull || (keyBare && ka === keyBare));
+            });
+        });
+        if (hit) {
+            c = hit;
+            try {
+                const al = Array.isArray(c.aliases) ? c.aliases.slice() : [];
+                const nm = trimText(name);
+                if (nm && !al.some((a) => matchKey(a) === matchKey(nm))) {
+                    al.push(nm);
+                    c.aliases = al;
+                }
+            } catch (eAlias) { /* 记不上别名也不能把这一步搞挂 ✓ */ }
+        }
+    }
     if (!c) {
         // 新认的人：自动建档（⛔ 不打扰她），但打标记让她一眼看得见
         c = {
