@@ -5347,6 +5347,21 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         + (pendingN ? '；上方还有 ' + String(pendingN) + ' 处没保存的改动' : '')
                         + '，想现在就用它请点「切到这套」）');
                     rerender();
+                    /*
+                     * ⭐⭐ 她 13:xx 原话：「存完书签以后，API 那个经酒馆那个地方**没有出来这个书签**」
+                     *   真机查证：书签**确实存了、也确实显示**（proxy 模式下也显示 ✓），
+                     *   但书签那一栏**贴在页面最底边**（真机读数 y≈894／视口 950），而面板滚动还在顶部
+                     *   ⇒ **她根本看不见** ✗ ⇒ 不是"没出来"，是"没让她看见" ✓
+                     *   修：存完把**书签那一栏滚进视野**（居中最稳），并把名字写在提示里 ✓
+                     */
+                    setTimeout(() => {
+                        try {
+                            const listBox = document.querySelector('.wxg-prof-list') || document.querySelector('.wanxiangge .wxg-prof');
+                            if (listBox && typeof listBox.scrollIntoView === 'function') {
+                                listBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            }
+                        } catch (e) { /* ⛔ 滚不动也不能让保存这一步崩掉 */ }
+                    }, 150);
                     break;
                 }
                 case 'apply-profile': {
