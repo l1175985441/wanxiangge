@@ -278,7 +278,7 @@ function personBlock(item, opts) {
     if (c.schedule && c.schedule.length) {
         const todo = c.schedule.filter((s) => !s.done);
         if (todo.length) {
-            lines.push('  日程：' + todo.map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+            lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }
     }
     if (c.isPlayer) {

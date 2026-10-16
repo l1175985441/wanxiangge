@@ -61,7 +61,7 @@ import {
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
-import { isLineDue, nextStage, isLineDone, clockWentBackwards } from './clock.js';
+import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock } from './clock.js';
 import { markBookDirty } from './book.js';
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { mentionedCharacters } from './recall.js';
@@ -744,6 +744,14 @@ function applyCharacter(raw, material, conflicts) {
     }
 
     // 日程：约好的事要记下、到点跟上
+    /* ⭐修复 7 后半：**记下建日程时的世界钟**（起算日 ✓）
+     *   旧：只记 `{what, due, done}` ✗ ⇒ 到点判断无从算起 ✗；而且一到点就 `done = true` ✗
+     *        ⇒ 她根本没机会履约 ✗（约定默默消失 ✗）
+     *   新：当时的世界钟存 `sinceDay` / `sinceMinutes` ✓；到点分两步：
+     *        **本轮刚到点** ⇒ `dueReached = true`（留着注入给模型让角色履约 ✓）；**下一轮**才归档 done ✓ */
+    const parsedClock = parseClock(loadState().world.clock);
+    const curDay = parsedClock.has ? (parsedClock.day === null ? 1 : parsedClock.day) : null;
+    const curMin = parsedClock.has ? ((curDay || 1) * 1440 + (parsedClock.minutesOfDay || 0)) : null;
     const schedule = Array.isArray(raw && raw.schedule) ? raw.schedule : [];
     if (schedule.length) {
         for (const s of schedule) {
@@ -752,7 +760,14 @@ function applyCharacter(raw, material, conflicts) {
                 continue;
             }
             if (!c.schedule.some((x) => x.what === what)) {
-                c.schedule.push({ what, due: trimText(s && s.due), done: false });
+                c.schedule.push({
+                    what,
+                    due: trimText(s && s.due),
+                    done: false,
+                    dueReached: false,
+                    sinceDay: curDay,
+                    sinceMinutes: curMin,
+                });
             }
         }
     }
@@ -760,12 +775,25 @@ function applyCharacter(raw, material, conflicts) {
     // 日程到点判断（按世界钟，⛔ 不按回合）
     const clock = loadState().world.clock;
     for (const s of c.schedule) {
-        if (s.done || !trimText(s.due)) {
+        if (s.done) {
             continue;
         }
-        const due = isLineDue({ trigger: s.due, tier: '几天内' }, clock);
-        if (due.due) {
+        if (s.dueReached) {
             s.done = true;
+            continue;
+        }
+        if (!trimText(s.due)) {
+            continue;
+        }
+        if (!Number.isFinite(Number(s.sinceDay)) && Number.isFinite(curDay)) {
+            s.sinceDay = curDay;
+        }
+        if (!Number.isFinite(Number(s.sinceMinutes)) && Number.isFinite(curMin)) {
+            s.sinceMinutes = curMin;
+        }
+        const due = isLineDue({ trigger: s.due, tier: '几天内', sinceDay: s.sinceDay, sinceMinutes: s.sinceMinutes }, clock);
+        if (due.due) {
+            s.dueReached = true;
             addChronicle({ floor: material.floor, kind: '日程到点', who: c.name, text: s.what + '（' + due.why + '）', clock });
         }
     }
