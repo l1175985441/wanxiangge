@@ -5379,11 +5379,26 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     rerender();
                     break;
                 }
-                case 'update-now':
-                    runUpdate({ manual: true });
-                    toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
+                case 'update-now': {
+                    /*
+                     * ⭐ 首夜实测单第 6 条：连点第二下被**静默吞掉**（防重返回 {ok:false,reason:'已经在跑了'}，
+                     *   而 handler 把返回值丢了）⇒ 这里把话说出来（轻提示，不弹多次）。
+                     */
+                    const r1 = runUpdate({ manual: true });
+                    if (r1 && typeof r1.then === 'function') {
+                        r1.then((res) => {
+                            if (res && res.ok === false) {
+                                toast.warn(res.reason || '正在跑，别急');
+                            }
+                        }).catch(() => {});
+                    } else if (r1 && r1.ok === false) {
+                        toast.warn(r1.reason || '正在跑，别急');
+                    } else {
+                        toast.info('开始更新世界与角色状态（后台跑，不挡你聊天）');
+                    }
                     rerender();
                     break;
+                }
                 case 'cancel-update':
                     cancelUpdate();
                     toast.warn('已请求取消：跑完当前这一小步就停');
@@ -5423,7 +5438,18 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     const rawN = trimText((byId(host, 'wxg-backfill-n') || {}).value || '');
                     const lim = Number.parseInt(rawN, 10);
                     const useLim = Number.isFinite(lim) && lim > 0 ? lim : 0;
-                    runBackfill(useLim ? { limit: useLim } : {});
+                    const rB = runBackfill(useLim ? { limit: useLim } : {});
+                    // ⭐ 第 6 条：连点被防重吞掉时，把理由说出来（⛔ 不静默）
+                    if (rB && typeof rB.then === 'function') {
+                        rB.then((res) => {
+                            if (res && res.ok === false) {
+                                toast.warn(res.reason || '正在跑，别急');
+                            }
+                        }).catch(() => {});
+                    } else if (rB && rB.ok === false) {
+                        toast.warn(rB.reason || '正在跑，别急');
+                        break;
+                    }
                     toast.info(useLim
                         ? ('开始补推历史：只补**最近 ' + String(useLim) + ' 楼**（分批跑，可随时取消）')
                         : '开始补推历史：**全部楼层**（分批跑，可随时取消）');

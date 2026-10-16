@@ -3570,3 +3570,23 @@ body.wxg-dragging {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* ⭐ 首夜实测单第 6 条：按钮要有手感（常态／悬停／按下 三态肉眼可辨） */
+.wxg-card-actions button,
+.wxg-btn,
+.wxg-func-btn {
+    transition: background-color .14s ease, border-color .14s ease, transform .08s ease, box-shadow .14s ease;
+}
+.wxg-card-actions button:hover:not([disabled]),
+.wxg-btn:hover:not([disabled]),
+.wxg-func-btn:hover:not([disabled]) {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border-color: color-mix(in srgb, currentColor 40%, transparent);
+    box-shadow: 0 1px 6px color-mix(in srgb, currentColor 18%, transparent);
+}
+.wxg-card-actions button:active:not([disabled]),
+.wxg-btn:active:not([disabled]),
+.wxg-func-btn:active:not([disabled]) {
+    transform: translateY(1px) scale(.985);
+    background: color-mix(in srgb, currentColor 22%, transparent);
+}
