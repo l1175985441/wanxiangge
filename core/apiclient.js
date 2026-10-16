@@ -549,8 +549,13 @@ async function callViaServer(url, key, model, body, signal, cheap) {
         return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + providerHint(detail) + (resetLike ? '（对方站点把连接掉了 —— 不是你本地的毛病：可以少推几楼／换个模型或站点／过会儿再试）' : '')
             + (detail ? '：' + detail : '') };
     }
-    const data = await res.json().catch(() => null);
-    const text = readCompletionText(data);
+    /*
+     * ⭐⭐真凶（阿砚定位 ✓）：v0.3.85 发了流式、**读取端忘了接线** ✗
+     *   ⇒ `res.json()` 解流式必失败 ⇒ catch(()=>null) ⇒ 空 ⇒ 报“怪东西：null” ✗（结构性 100% 复现 ✓）
+     */
+    const rmsA = await readMaybeStream(res);
+    const data = rmsA.raw;
+    const text = rmsA.text;
     if (text === null) {
         /*
          * ⭐ 目标核对 3②：失败时**把 ST 的原始回体带出来**。
@@ -569,7 +574,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
                 + '｜原始回体前 200 字：' + raw.slice(0, 200),
         };
     }
-    return { ok: true, text, via: 'server', finish: readFinishReason(data) };
+    return { ok: true, text, via: 'server', finish: (rmsA.finish || readFinishReason(data)) };
 }
 
 /** ② 浏览器直连 */
@@ -591,12 +596,12 @@ async function callDirect(url, key, model, body, signal) {
         }
         return { ok: false, reason: ('直连失败（HTTP ' + String(res.status) + '）' + providerHint(detail)) + (detail ? '：' + detail : '') };
     }
-    const data = await res.json().catch(() => null);
-    const text = readCompletionText(data);
+    const rmsB = await readMaybeStream(res);
+    const text = rmsB.text;
     if (text === null) {
         return { ok: false, reason: '直连回了怪东西（不是标准格式）' };
     }
-    return { ok: true, text, via: 'direct', finish: readFinishReason(data) };
+    return { ok: true, text, via: 'direct', finish: (rmsB.finish || readFinishReason(rmsB.raw)) };
 }
 
 /**
@@ -653,9 +658,10 @@ async function readMaybeStream(res) {
     try { ct = String((res.headers && res.headers.get && res.headers.get('content-type')) || ''); } catch (e) { ct = ''; }
     if (!/text\/event-stream/i.test(ct)) {
         const data = await res.json().catch(() => null);
-        return readCompletionText(data);
+        return { text: readCompletionText(data), finish: readFinishReason(data), raw: data };
     }
     let acc = '';
+    let fin = '';
     try {
         const reader = res.body.getReader();
         const dec = new TextDecoder();
@@ -676,12 +682,13 @@ async function readMaybeStream(res) {
                     const ch = (j && j.choices && j.choices[0]) || {};
                     const d = ch.delta || ch.message || {};
                     if (typeof d.content === 'string') { acc += d.content; }
+                    if (typeof ch.finish_reason === 'string' && ch.finish_reason) { fin = ch.finish_reason; }
                 } catch (e2) { /* 单块坏了不影响整体 ✓ */ }
             }
         }
     } catch (e3) { /* 断了就用已经收到的 ✓ */ }
     const out = trimText(acc);
-    return out ? out : null;   /* 与 readCompletionText 的“空则 null”一致 ✓ */
+    return { text: out ? out : null, finish: fin, raw: acc };
 }
 
 function readCompletionText(data) {
