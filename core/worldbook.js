@@ -403,9 +403,17 @@ export async function refreshAffinity() {
             if (wrote) {
                 saveState();
             }
-            return { ok: true, reason: '从正文标签读到 ' + String(hit.length) + ' 个好感', from: 'text', wrote,
-                // 她口味：只指出来，⏔ 自动建人（她点头了再加）
-                unmatched: ledgerNamesMissingFromRoster(text, roster) };
+            /* ⭐修复 4 收尾（材料 02 · L617）：**读到标签就提前 return ✗**
+             *   旧：正文标签读到一条就直接 return ✗ ⇒ **世界书「手机」那条路被跳过** ✗
+             *        （名册里其他人的好感就丢了 ✗）
+             *   新：**没配数据源** ⇒ 照旧在这里返回 ✓；
+             *        **配了数据源** ⇒ **不返回、继续往下走世界书那条路** ✓（两边互补 ✓）
+             *   ⏔ 只“读进来”：不自算、不自编、不另存一份 ✓（她的原话 ✓） */
+            if (!source) {
+                return { ok: true, reason: '从正文标签读到 ' + String(hit.length) + ' 个好感', from: 'text', wrote,
+                    // 她口味：只指出来，⏔ 自动建人（她点头了再加）
+                    unmatched: ledgerNamesMissingFromRoster(text, roster) };
+            }
         }
     } catch (e) {
         console.warn('[万象阁] 从正文标签读好感没成：', e);
