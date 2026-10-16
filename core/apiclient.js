@@ -297,11 +297,29 @@ export async function callModel(opts) {
     const timeoutMs = Number.isFinite(Number(o.timeoutMs)) ? Number(o.timeoutMs) : REQUEST_TIMEOUT_MS;
     const started = Date.now();
     const timeout = withTimeout(timeoutMs);
+    let autoVia = '';   /* ⭐ 直连被挡、自动改走转发时记下来 ✓ */
 
     try {
-        const res = api.mode === 'direct'
-            ? await callDirect(url, key, model, body, timeout.signal)
-            : await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+        /*
+         * ⭐⭐ 她 15:xx：「**你不会修 api 连接吗**？还一直叫我换」
+         *   真机取证：「直连」发 **POST** 时会被挡（CORS/网络层）⇒ `Failed to fetch` / `ERR_CONNECTION_RESET` ✗
+         *   而「经酒馆转发」那条是能走的（只是慢 ✗）⇒ 原来直连一抛**直接判失败**，根本没去试转发 ✗
+         *   ⇒ 现在：**直连抛了就自动改走转发再试一次** ✓（⏔ 让她手动切 ✗），并记下 via='proxy-auto' ✓
+         */
+        let res = null;
+        if (api.mode === 'direct') {
+            try {
+                res = await callDirect(url, key, model, body, timeout.signal);
+            } catch (eDirect) {
+                /* ⚠️ 已经超时/取消就不再重试（重试也是白跑 ✗） */
+                const aborted2 = eDirect && (eDirect.name === 'AbortError' || /abort/i.test(asText(eDirect && eDirect.message)));
+                if (aborted2) { throw eDirect; }
+                res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+                if (res && res.ok) { autoVia = 'proxy-auto'; }
+            }
+        } else {
+            res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+        }
         const ms = Date.now() - started;
         if (!res.ok) {
             return { ok: false, reason: res.reason, ms };
@@ -310,7 +328,8 @@ export async function callModel(opts) {
         if (!text) {
             return { ok: false, reason: '模型回了空内容（可以试试调大输出上限或换模型）', ms };
         }
-        return { ok: true, text, ms, via: res.via, finish: res.finish };
+        return { ok: true, text, ms, via: (autoVia || res.via), finish: res.finish };
+        /* ⭐ 走了自动转发时，via 会是 'proxy-auto' ⇒ 上层可以告诉她“直连被挡，已自动改走转发” ✓ */
     } catch (e) {
         const ms = Date.now() - started;
         const aborted = e && (e.name === 'AbortError' || /abort/i.test(asText(e && e.message)));
