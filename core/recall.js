@@ -272,7 +272,13 @@ function personBlock(item, opts) {
         lines.push('  过去经历（由近到远）：' + freshByFloor.map((p) => p.text).join('；'));
     } else if (fresh.length && freshByFloor.length !== fresh.length) {
         // 全都被"楼层裁"挡下了 ⇒ 如实说明（⛔ 不静默，也不拿近处的凑数）
-        lines.push('  过去经历：（最近 ' + String(cut) + ' 楼内的已在你的上下文里，不再重复；更老的暂时没有）');
+        /*
+         * ⭐ P17（材料 07）：原句 38 字的“（最近 N 楼内的**已在你的上下文里**，不再重复；**更老的暂时没有**）” ✗
+         *   是插件内部账本话，不该喂给写正文的模型 ✗ ⇒ 删掉两处黑话 ✓
+         *   ⚠️ 但 run-tests-inject 盯着“要如实说明为什么不端”（子串「最近 3 楼内」✓）
+         *   ⇒ 保留**一句最短的实话** ✓（不再提“你的上下文”与“更老的暂时没有” ✓）
+         */
+        lines.push('  过去经历：（最近 ' + String(cut) + ' 楼内的不再重复）');
     } else if (past.length && trimText(past[0].text) && keepByFloor(past[0])) {
         lines.push('  过去经历（最近一条）：' + trimText(past[0].text));
     }
@@ -297,7 +303,7 @@ function personBlock(item, opts) {
         lines.push('  备注：这是玩家棋子（由她本人控制），只可作为"别人对TA做的事"出现。');
     }
     if (c.isNew) {
-        lines.push('  备注：名字是新认的，尚未核实。');
+        /* P18 (material 07): same - internal bookkeeping must not reach the writing model. */
     }
     return lines.join('\n') + '\n';
 }
