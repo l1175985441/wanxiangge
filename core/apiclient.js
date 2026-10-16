@@ -536,9 +536,16 @@ async function callViaServer(url, key, model, body, signal, cheap) {
     } catch (e) {
         // 拿不到就只用基础头
     }
+    /*
+     * ⭐⭐ 材料 01（界面第 1 条／06的 12.4）：**转发时把已带的后缀先切掉** ✓
+     *   旧：`custom_url: url` 原样送给酒馆 ✗
+     *     ⇒ 她若填了带 `/chat/completions` 的完整地址，酒馆会**再拼一次后缀** ✗ ⇒ 404 ✗
+     *   现在：先把尾部那段切掉再交给酒馆 ✓（她填哪种写法都能跑 ✓）
+     */
+    const urlForServer = trimText(url).replace(/\/(chat\/)?completions$/i, '').replace(/\/+$/, '');
     const payload = {
         chat_completion_source: 'custom',
-        custom_url: url,
+        custom_url: urlForServer || url,
         custom_include_headers: key ? JSON.stringify({ Authorization: 'Bearer ' + key }) : '',
         model,
         messages: body.messages,
