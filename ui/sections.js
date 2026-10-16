@@ -1539,6 +1539,28 @@ function stageOne(action, target) {
             return 'api';
         }
     }
+    /*
+     * ⭐⭐ 在“连接方式”里选中一个**书签** ⇒ 当场切到那一套，并记下“当前就是它” ✓
+     *   其余值（direct／proxy）**一律落回原来的暂存路** ✓（⏔ 改老路：上一版就是改了才红的 ✗）
+     */
+    if (action === 'stage-api-mode' && trimText(target.value).indexOf('profile:') === 0) {
+        const wantNick = trimText(target.value).slice('profile:'.length);
+        const curApi = getSettings().api || {};
+        const one = (Array.isArray(curApi.profiles) ? curApi.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
+        if (one) {
+            const copy = {};
+            for (const k of Object.keys(one)) {
+                if (k !== 'nick') { copy[k] = one[k]; }
+            }
+            stage('api', 'api', Object.assign({}, curApi, copy, { currentProfile: wantNick }));
+            commitSection('api');
+            toast.ok('已切到书签「' + wantNick + '」（连接方式／地址／模型都换成它那一套了）');
+        } else {
+            toast.warn('没找到书签「' + wantNick + '」（可能刚被删了）');
+        }
+        rerender();
+        return 'api';
+    }
     const row = STAGE_MAP[action];
     if (!row) {
         return null;
@@ -2325,7 +2347,14 @@ function secApi(host) {
             modeOpts.push({ value: 'profile:' + pfNick, label: '书签：' + pfNick + '（' + (pf.mode === 'direct' ? '直连' : '经酒馆转发') + '）' });
         }
     }
-    line(cCh, '连接方式', select('wxg-api-mode', modeOpts, api.mode, 'stage-api-mode'));
+    /*
+     * ⭐⭐ 当前用的是哪套通道（她 13:xx 报的“切完就回弹、两处对不上”）：
+     *   有 `api.currentProfile` ⇒ 下拉框当前值就显示**她正在用的那个书签** ✓
+     *   没有（老数据）⇒ 照旧显示 `api.mode` ✓（旧账照读）
+     *   ⏔ 不动 direct／proxy 的老路（她的两段式 ✓ 测试也照旧 ✓）
+     */
+    const curPick = trimText(api.currentProfile) ? ('profile:' + trimText(api.currentProfile)) : api.mode;
+    line(cCh, '连接方式', select('wxg-api-mode', modeOpts, curPick, 'stage-api-mode'));
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
     line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
