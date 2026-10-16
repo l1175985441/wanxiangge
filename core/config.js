@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.91';
+export const APP_VERSION = '0.3.92';
 
 export const LEDGER_VERSION = 3;
 
@@ -141,7 +141,7 @@ export const SNAPSHOT_KEEP = 5;
 export const REQUEST_TIMEOUT_MS = 100000;
 
 /** 重试上限（⛔ 不许无限重试） */
-export const RETRY_LIMIT = 2;
+export const RETRY_LIMIT = 4;
 
 /*
  * ⭐ 补②「送达回执」：注入发出去了，但正文连续几轮都没接，
