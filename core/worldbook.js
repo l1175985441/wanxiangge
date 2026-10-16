@@ -278,13 +278,23 @@ export function ledgerNamesMissingFromRoster(text, roster) {
     return out;
 }
 
+/*
+ * ⭐⭐ 修复 4 后半（材料 02 · L534-614，照此落码 ✓）
+ *   旧：只认 “人物/名字” ＋ 名字后 60 字符内的 "value"（或冒号数字）✗
+ *        ⇒ **手机那种树状 <meow_FM> 块读不到** ✗；**同一人多次出现时取到的不是最新值** ✗；**别名（aliases）不认** ✗
+ *   新：三段扫法（后扫到的新值覆盖旧值 ⇒ **取最新** ✓）：
+ *         ① "path":"/人物/名字" … "value":N（JSON 台账 ✓）
+ *         ② <meow_FM> 树状：◈ 名字 … └─ （链条标记）亲情 ⌾ 91(+1.0)（手机标签 ✓）
+ *         ③ 同行「名字：数字」或「名字 … 好感/亲情/羁绊 90」✓
+ *         ＋ **别名（aliases）一并匹配** ✓（matchesChar ✓）
+ *   ⏔ regex 里那些 ◈  ├ │ └ ⌾ 是**格式标记**（必需 ✓），不是装饰 ✓
+ */
 export function affinityFromText(text, roster, sourceTag) {
     const src = trimText(text);
     const tag = trimText(sourceTag);
     if (!src) {
         return [];
     }
-    // ① 先试她填的那个标签名（名字在正文里出现才算）
     let body = '';
     if (tag) {
         const picked = pickNamedBlocks(src, [tag]);
@@ -292,84 +302,73 @@ export function affinityFromText(text, roster, sourceTag) {
             body = picked;
         }
     }
-    // ② "随便…就行"：没那块标签就**扫全文**（名字能对上名册的才收）
     const hay = body || src;
-    const out = [];
-    /*
-     * ⭐⭐ 10-16 拿她真语料发现：**她那个“手机”好感是 JSON 台账**，长这样：
-     *   {"op":"replace","path":"/人物/月野育子","value":81}
-     *   ⇐ 原来只认「名字：数字」 ⇒ **读不到她真正的台账**（名册还是“未接入”）。
-     *   写法刷实一点：**先定位到名字，再在附近找最近的 `"value"：数字`**（⏔ 死缚一个长正则）。
-     */
-    for (const c of (Array.isArray(roster) ? roster : [])) {
-        const nm = trimText(c && c.name);
-        if (!nm) {
-            continue;
-        }
-        const anchor = '人物/' + nm;
-        let at = hay.indexOf(anchor);
-        /*
-         * ⭐ 10-16 她真数据：**台账写全名、书里条目是简称**
-         *   （台账 `人物/大阪奈鲁`、名册里叫「奈鲁」）⇒ 直接找找不到
-         *   ⇒ 她的奈鲁／海野好感**永远是空的** ✗
-         *   ⇒ 退一步：直接扫台账里每个 `人物/XXX`，找一个**互相包含**的（≥2 字，⏔ 单字误配）。
-         *   ⚠️ 这种情形下，“取值起点”要算在**匹配到的那个名字之后**（⏔ 按 anchor 长度算）。
-         */
-        let tailFrom = at >= 0 ? at + anchor.length : -1;
-        if (at < 0 && nm.length >= 2) {
-            let q = hay.indexOf('人物/');
-            while (q >= 0) {
-                const rest = hay.slice(q + 3, q + 3 + 24);
-                const mm = rest.match(/^([^"]{1,20})/);
-                const cand = mm ? mm[1] : '';
-                if (cand.length >= 2 && (cand.indexOf(nm) >= 0 || nm.indexOf(cand) >= 0)) {
-                    at = q;
-                    tailFrom = q + 3 + cand.length;
-                    break;
-                }
-                q = hay.indexOf('人物/', q + 3);
+    const byName = new Map(); // name -> 最新一次匹配到的数值字符串
+
+    // 辅助：判断候选名与角色名/别名是否匹配
+    const matchesChar = (cand, c) => {
+        const kCand = matchKey(cand);
+        if (!kCand) return false;
+        const forms = [trimText(c && c.name)].concat(toList(c && c.aliases)).filter(Boolean);
+        for (const f of forms) {
+            const kf = matchKey(f);
+            if (!kf) continue;
+            if (kCand === kf) return true;
+            if (kCand.length >= 2 && kf.length >= 2 && (kCand.includes(kf) || kf.includes(kCand))) {
+                return true;
             }
         }
-        if (at < 0) {
-            continue;
+        return false;
+    };
+
+    const list = Array.isArray(roster) ? roster : [];
+
+    // ① 扫 JSON 台账格式（如 "path":"/人物/月野育子","value":81），从前往后扫，后面的新值自动覆盖前面的旧值
+    const jsonRe = /"\/?人物\/([^"\/]{1,20})"[\s\S]{0,60}?"value"\s*:\s*(-?\d+(?:\.\d+)?)/g;
+    let jm = jsonRe.exec(hay);
+    while (jm) {
+        const cand = trimText(jm[1]);
+        const val = trimText(jm[2]);
+        for (const c of list) {
+            if (matchesChar(cand, c)) {
+                byName.set(trimText(c.name), val);
+            }
         }
-        // 在名字后面的 60 个字符内找最近的 "value":数字
-        const tail = hay.slice(tailFrom, tailFrom + 60);
-        const vm = tail.match(/"value"\s*:\s*(-?\d+(?:\.\d+)?)/);
-        // 也认“名字紧跟着分隔符紧跟着数字”那种（非 JSON）
-        const pm = vm || hay.slice(at, at + anchor.length + 20).match(/[\uff1a:]\s*(-?\d+(?:\.\d+)?)/);
-        if (pm && !out.some((x) => x.name === nm)) {
-            out.push({ name: nm, value: trimText(pm[1]) });
-        }
+        jm = jsonRe.exec(hay);
     }
-    for (const c of (Array.isArray(roster) ? roster : [])) {
-        const nm = trimText(c && c.name);
-        if (!nm) {
-            continue;
+
+    // ② 扫 <meow_FM> 树状 relation 块格式：
+    //    ◈ 月野谦之 <男 ⌾ 正常>
+    //    ├─ ...
+    //    └─ 🔗 亲情 ⌾ 91(+1.0)
+    const meowRe = /◈\s*([^\s<（(【\n]{1,20})[^\n]*\n(?:[├│└].*\n){0,5}?[├└]─\s*🔗[^\n\d\-]*(-?\d+(?:\.\d+)?)/g;
+    let mm = meowRe.exec(hay);
+    while (mm) {
+        const cand = trimText(mm[1]);
+        const val = trimText(mm[2]);
+        for (const c of list) {
+            if (matchesChar(cand, c)) {
+                byName.set(trimText(c.name), val);
+            }
         }
-        const safe = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pat = new RegExp('"\u4eba\u7269/' + safe + '"\\s*,\\s*"value"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)');
-        const pm = hay.match(pat);
-        if (pm && !out.some((x) => x.name === nm)) {
-            out.push({ name: nm, value: trimText(pm[1]) });
-        }
+        mm = meowRe.exec(hay);
     }
-    for (const c of (Array.isArray(roster) ? roster : [])) {
-        const names = [trimText(c && c.name)].concat(toList(c && c.aliases)).filter(Boolean);
-        for (const nm of names) {
-            /*
-             * 只认"名字 紧跟着 分隔符 紧跟着 数字"这种写法（她那边就是这样的账）。
-             * ⏔ 把只是提到名字的别的句子也当成好感。
-             */
-            const re = new RegExp(nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[：:]\\s*(-?\\d+(?:\\.\\d+)?)');
-            const m = hay.match(re);
-            if (m) {
-                out.push({ name: trimText(c.name), value: trimText(m[1]) });
-                break;
+
+    // ③ 扫同行「名字：数字」或「名字 … 好感/亲情/羁绊 90」格式（逐行从旧到新扫，取最新值）
+    for (const c of list) {
+        const forms = [trimText(c && c.name)].concat(toList(c && c.aliases)).filter(Boolean);
+        for (const nm of forms) {
+            const safe = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const lineRe = new RegExp(safe + '(?:\\s*[：:]\\s*|[^\\n\\d]{1,18}?(?:好感度?|亲密度?|亲情|爱情|友情|羁绊|喜欢)\\s*[⌾：:]?\\s*)(-?\\d+(?:\\.\\d+)?)', 'g');
+            let lm = lineRe.exec(hay);
+            while (lm) {
+                byName.set(trimText(c.name), trimText(lm[1]));
+                lm = lineRe.exec(hay);
             }
         }
     }
-    return out;
+
+    return Array.from(byName.entries()).map(([name, value]) => ({ name, value }));
 }
 
 export async function refreshAffinity() {
