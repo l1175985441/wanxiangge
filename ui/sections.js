@@ -3823,7 +3823,7 @@ function renderWorldEntryCard() {
     const foot = el('div', 'wxg-pc-foot');
     foot.appendChild(button('关闭', 'we-close', 'wxg-pc-nav'));
     foot.appendChild(el('span', 'wxg-pc-counter', '来自世界账 · 改动走右上 ⋮ → 编辑'));
-    if (isHidden) {
+    if (isHidden && !openWorldEntryEditing) {
         const sel = select('wxg-we-stage-' + String(openWorldEntry.idx),
             (item.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
             item.stage, 'set-hidden-stage', item.id);
@@ -4808,13 +4808,31 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         if (!oldName || !newName || oldName === newName) {
                             return;
                         }
+                    /* S4（材料 05）：同步收窄 ＋ 重名拦截 ✓ */
+                    const worldish = (row) => /\u6697\u7ebf|\u5c40\u52bf|\u5f52\u5e76|\u5019\u8865/.test(String((row && row.kind) || ''));
+                    const dupName = (nm) => {
+                        try {
+                            const st2 = loadState();
+                            const w2 = st2.world || {};
+                            const inH = (Array.isArray(w2.hidden) ? w2.hidden : []).some((h) => h && matchKey(h.name) === matchKey(nm) && trimText(h.name) !== oldName);
+                            const inS = (Array.isArray(w2.situations) ? w2.situations : []).some((x) => x && matchKey(x.title) === matchKey(nm) && trimText(x.title) !== oldName);
+                            return inH || inS;
+                        } catch (eDup) {
+                            return false;
+                        }
+                    };
+                    if (dupName(newName)) {
+                        toast.warn('已经有同名的暗线／局势了，换个名字吧（⏔ 两条撞名会找错 ✗）');
+                        return false;
+                    }
                         // \u2460 \u540c\u6b65\u7f16\u5e74\uff08state.chronicle\uff09\u91cc\u7684 who \u4e0e text\uff0c\u4fdd\u8bc1\u6d6e\u5c42\u300c\u56e0\u679c\u300d\u4e0d\u65ad\u94fe \u2713
                         for (const c of (state.chronicle || [])) {
                             if (!c) continue;
                             if (trimText(c.who) === oldName) {
                                 c.who = newName;
                             }
-                            if (typeof c.text === 'string' && c.text.includes(oldName)) {
+                            if (typeof c.text === 'string' && c.text.includes(oldName)
+                                && (trimText(c.who) === oldName || worldish(c))) {
                                 c.text = c.text.split(oldName).join(newName);
                             }
                         }
