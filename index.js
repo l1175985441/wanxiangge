@@ -31,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.117';
+const VERSION = '0.3.118';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -133,7 +133,15 @@ function bindEvents(ctx) {
     on(types.MESSAGE_RECEIVED, (index) => {
         const chat = (getCtx() && getCtx().chat) || [];
         const floor = Number.isFinite(Number(index)) ? Number(index) : chat.length - 1;
-        afterMessageReceived(floor - 1 >= 0 ? floor - 1 : lastUserFloor);
+        /* ⭐修复 3（材料 02）：**自动更新锚点错位** ✓
+         *   旧：死写 `floor - 1` ✗ ⇒ 停在**用户楼**（那楼还没剧情 ✗）
+         *   新：`updateEvery <= 1`（不留缓冲）⇒ 当场算刚生成的 AI 楼 `floor` ✓；
+         *        `updateEvery >= 2`（默认 2 ✓ 防重 roll）⇒ 算上一轮已落定的 `floor - 2` ✓；
+         *        首轮（floor < 2）还在缓冲期 ⇒ 传 -1（只刷面板、不跑推演 ✓ 不白烧额度 ✓）
+         *   ⚠️ 注：这一处与 00 里“待口径③ 首轮缓冲时机”相邻 ✗ ⇒ 回执里已标出请她确认 ✓ */
+        const every = Number(getSettings().updateEvery) || 2;
+        const targetFloor = every <= 1 ? floor : (floor >= 2 ? floor - 2 : -1);
+        afterMessageReceived(targetFloor);
         markBookDirty();
     });
 
@@ -175,11 +183,10 @@ function bindEvents(ctx) {
     });
 
     // 酒馆自己的世界书变了：下次把我们的记录刷一遍（只写自己那本，⛔ 不碰她的）
-    if (typeof types.WORLDINFO_UPDATED === 'string') {
-        on(types.WORLDINFO_UPDATED, () => {
-            markBookDirty();
-        });
-    }
+    /* ⭐修复 3（材料 02）：**移除写书死循环** ✓
+     *   原来监听 WORLDINFO_UPDATED ⇒ 而 `publishToBook()` 写《万象阁 · 世界后台》
+     *   **本身就会触发 WORLDINFO_UPDATED** ✗ ⇒ 自触发 ⇒ **每 8 秒一次的永久无限写书死循环** ✗✗
+     *   ⇒ 直接不再监听它 ✓（她自己改世界书后的刷新走别的路 ✓） */
 
     /*
      * 页面要关了：把排队中的世界书写入做掉（能做完就做完）。
