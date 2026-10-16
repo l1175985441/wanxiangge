@@ -2031,7 +2031,10 @@ function secRoster(host) {
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
     inTarget.appendChild(bookList);
-    row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'), button('导出备份（JSON）', 'export-data'));
+    row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'),
+                /* ⭐修复 15（材料 02）：**一键合并查重出的所有重复组** ✓ */
+                button('一键合并重复组', 'merge-all-dupes'),
+                button('导出备份（JSON）', 'export-data'));
     box.appendChild(cIn);
 
     /*
@@ -5423,6 +5426,51 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     stage('extract', 'excludeEntries', off.join('、'));
                     renderEntryPick(host, off);
                     refreshSaveBar(host, 'extract');
+                    break;
+                }
+                /* ⭐ 修复 15（材料 02）：一键合并查重出的所有重复组 ✓
+                 *   为什么要有它：她能「查重」看出一堆重复，但只能一条条点「按这条合并…」✗
+                 *   现在：一次确认 ⇒ 留一份快照 ⇒ 逐组逐条并（单组失败不影响其它 ✓） */
+                case 'merge-all-dupes': {
+                    const groups = autoDetectDuplicates();
+                    if (!groups.length) {
+                        toast.ok('没发现疑似重复的记录');
+                        break;
+                    }
+                    const msg = '要把查重出的 ' + String(groups.length) + ' 组重复全部合并吗？\n\n'
+                        + '（每组保留第一条，其余并进去；会先留一份快照，「撤回上一次」能撤回来）';
+                    const askOk = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+                        ? window.confirm(msg)
+                        : true;
+                    if (!askOk) {
+                        break;
+                    }
+                    takeSnapshot('批量合并重复前');
+                    let merged = 0;
+                    for (const g of groups) {
+                        if (!Array.isArray(g) || g.length < 2) {
+                            continue;
+                        }
+                        const keep = g[0] || {};
+                        for (let i = 1; i < g.length; i += 1) {
+                            const from = g[i] || {};
+                            if (!keep.id || !trimText(from.name)) {
+                                continue;
+                            }
+                            try {
+                                /* ⚠️ `mergeCharacters` 返回的是**对象**（{ ok, reason }）✗
+                                 *   ⇒ ⛔ 不能直接 if(…)（对象永远为真 ✗ 会把失败当成功 ✗） */
+                                const mres = mergeCharacters(keep.id, from.name);
+                                if (mres === true || (mres && mres.ok === true)) {
+                                    merged += 1;
+                                }
+                            } catch (e) {
+                                /* 单组失败不影响其它 ✓ */
+                            }
+                        }
+                    }
+                    toast.ok('合并完成：并掉了 ' + String(merged) + ' 条重复 ✓');
+                    rerender();
                     break;
                 }
                 case 'detect-dupes': {
