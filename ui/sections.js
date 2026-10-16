@@ -2273,6 +2273,8 @@ function secExtract(host) {
 
 function secApi(host) {
     const SECID = 'api';
+/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（⏔ 一重绘就变回去 ✗） */
+let apiKeyShown = false;
     const s = getSettings();
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
@@ -2287,8 +2289,8 @@ function secApi(host) {
     ], api.mode, 'stage-api-mode'));
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
-    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', 'password'),
-        button('显示', 'toggle-api-key', 'wxg-btn-sm'));
+    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
+        button(apiKeyShown ? '隐藏' : '显示', 'toggle-api-key', 'wxg-btn-sm'));
     line(cCh, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
     /*
      * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
@@ -5201,14 +5203,17 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /*
                      * ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认遮住，点一下才显形（⛔ 不改她的值）
                      */
+                    apiKeyShown = !apiKeyShown;
                     const kEl = document.getElementById('wxg-api-key');
                     if (kEl) {
-                        const showing = kEl.type === 'text';
-                        kEl.type = showing ? 'password' : 'text';
-                        target.textContent = showing ? '显示' : '隐藏';
-                        toast.info(showing ? '钥匙已遮住' : '钥匙已显形（看完记得点回「隐藏」）');
+                        kEl.type = apiKeyShown ? 'text' : 'password';
                     }
-                    rerender();
+                    const eyeBtn = document.querySelector('[data-action="toggle-api-key"]');
+                    if (eyeBtn) {
+                        eyeBtn.textContent = apiKeyShown ? '隐藏' : '显示';
+                    }
+                    toast.info(apiKeyShown ? '钥匙已显形（看完记得点回「隐藏」）' : '钥匙已遮住');
+                    /* ⛐ 这里不 rerender：重绘会把输入框重建（当时的 type 被冲掉 ✗）——标志已记住，下次重绘会自带正确 type ✓ */
                     break;
                 }
                 case 'fetch-models': {
