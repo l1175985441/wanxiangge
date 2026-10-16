@@ -106,7 +106,7 @@ const CLASSIFY_SYSTEM = [
     '     **你必须从它的正文里把每一个具体人物的名字单独拆出来**（例如拆出：月野育子、月野谦之、月野进悟；大阪奈鲁、海野栗雄），',
     '     一人一条放进 characters，⛔ **绝不要把「月野家」这种家庭合集名当成一个人**！',
     '  ⭐⭐ 如果一个条目是某个角色的**变身形态／马甲**（正文里写了【角色档案：真名】，如「水手月亮」其实是「月野兔」），',
-    '     只保留真名「月野兔」，把「水手月亮」写进她的 identity 字段，⛔ 不要拆成两个人！',
+    '     只保留真名「月野兔」；把「水手月亮」这种**变身形态的名字写进 aliases 数组**，真名写在 name，⛔ 不要拆成两个人！',
     '· factions＝势力／组织／团体／阵营（例：黑暗王国、水手战士、黑暗四天王）。',
     '· situations＝正在发生的**局势**：谁跟谁顶着、暗中在策划什么阴谋。要能从条目正文里读出来，⛔ 别编。',
     '· places＝地点（例：十番街、水晶东京）。',
@@ -122,7 +122,7 @@ const CLASSIFY_SYSTEM = [
     '6. 其余分类拿不准的**宁可放进 characters**，⛔ 不要丢。',
     '',
     '只回 JSON，⛔ 不要解释、不要 markdown 代码块：',
-    '{"characters":[{"name":"","note":"","identity":"","faction":""}],'
+    '{"characters":[{"name":"","note":"","identity":"","faction":"","aliases":[]}],'
     + '"factions":[{"name":"","note":""}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
     + '"places":[{"name":"","note":""}]}',
@@ -154,6 +154,10 @@ function normalizeWiki(raw) {
                 note: trimText(c && c.note),
                 identity: trimText(c && c.identity),
                 faction: trimText(c && c.faction),
+                /* P2 (material 07): carry the aliases through (the model is told to put
+                 *   transformation-form names here) - previously they were dropped. */
+                aliases: Array.isArray(c && c.aliases)
+                    ? c.aliases.map((x) => trimText(x)).filter(Boolean) : [],
             });
         }
     }
@@ -336,6 +340,21 @@ export function applyWiki(wiki) {
             }
             if (c.faction && !trimText(hit.faction)) {
                 patch.faction = c.faction;
+            }
+            /* P2 (material 07): merge aliases in (union, never overwrite). */
+            if (Array.isArray(c.aliases) && c.aliases.length) {
+                const cur = Array.isArray(hit.aliases) ? hit.aliases.slice() : [];
+                let changed = false;
+                for (const a of c.aliases) {
+                    const nm = trimText(a);
+                    if (nm && !cur.some((x) => matchKey(x) === matchKey(nm))) {
+                        cur.push(nm);
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    patch.aliases = cur;
+                }
             }
             if (Object.keys(patch).length) {
                 Object.assign(hit, patch);
