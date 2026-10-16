@@ -1247,6 +1247,9 @@ export async function runUpdate(opts) {
             }
             lastError = worldRes.reason;
             if (attempt < RETRY_LIMIT) {
+                /* ⭐ 小退避：链路是“机场＋免费公益站”⇒ 抽风是常态 ✓ */
+                /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
+                await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
                 setPipeline({ text: '世界状态这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次（最多 ' + String(RETRY_LIMIT) + ' 次）' });
                 await sleep(800);
             }
@@ -1267,6 +1270,9 @@ export async function runUpdate(opts) {
             }
             lastError = charRes.reason;
             if (attempt < RETRY_LIMIT) {
+                /* ⭐ 小退避：链路是“机场＋免费公益站”⇒ 抽风是常态 ✓ */
+                /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
+                await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
                 setPipeline({ text: '角色这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次' });
                 await sleep(800);
             }
