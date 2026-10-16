@@ -640,7 +640,9 @@ function secGeneral(host) {
         const pipe = (loadState() && loadState().pipeline) || {};
         const pText = trimText(pipe.text);
         const pFail = /没成|失败|出错|不兼容/.test(pText) || /fail|error/i.test(trimText(pipe.step));
-        const running = !pFail && !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
+        /* ⭐ 真机抓到的卡死标记：只认“**本会话真的在跑**”（内存态 ✓），⏔ 只认持久化的 step ✗ */
+        const liveRun = !!(typeof window !== 'undefined' && window.__wxgLiveRun);
+        const running = !pFail && liveRun && !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
         if (running) {
             row(opsRow, button('取消（正在跑）', 'cancel-update', 'wxg-del'));
             /*
@@ -717,7 +719,9 @@ function secGeneral(host) {
              *   ⇒ 先把"没成/失败"这类**排除出"跑中"**，单独报（她要知道"上次没成、为什么"）。
              */
             const failed = /没成|失败|出错|不兼容/.test(text) || /fail|error/i.test(step);
-            const running2 = !failed && !!step && step !== 'done' && step !== 'idle';
+            /* 同上：只认本会话真在跑 ✓（卡死的旧标记会被当“上次”报出来 ✓） */
+            const liveRun2 = !!(typeof window !== 'undefined' && window.__wxgLiveRun);
+            const running2 = !failed && liveRun2 && !!step && step !== 'done' && step !== 'idle';
             if (failed) {
                 progRow.textContent = '⚠ 上次：' + text;
             } else if (running2) {

@@ -60,6 +60,15 @@ import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from '.
 import { mentionedCharacters } from './recall.js';
 
 let running = false;
+/*
+ * ⭐⭐ 真机抓到：那个持久化的 step 会**卡死**（一轮中途死了没清标记 ✗）
+ *   ⇒ 之后每次进来都说“正在跑” ⇒ **重活按钮永久禁用** ✗✗
+ *   ⇒ 这里把“本会话真的在跑”暴露成 window 标记（**内存态** ✓ 重载即失效 ✓）
+ *   ⇒ 界面只认它（⏔ 只认持久化那个 ✗）：卡死的标记就不再欺骗她了 ✓
+ */
+function markLive() {
+    try { if (typeof window !== 'undefined') { window.__wxgLiveRun = Boolean(running || backfilling); } } catch (e) { /* ⏔ 影响主流程 */ }
+}
 let cancelRequested = false;
 
 /** 正在跑吗 */
@@ -1107,6 +1116,7 @@ export async function runUpdate(opts) {
     }
 
     running = true;
+    markLive();
     /*
      * ⭐ L3（防御性）：**补批调进来时⏔ 重置取消标记**。
      *   她按取消后，补批循环会在**每楼开跑前**检查一次（当前路径靠那个检查兜住，所以现在不可达）；
@@ -1188,6 +1198,7 @@ export async function runUpdate(opts) {
         }
         setPipeline({ status: 'failed', step: '取材料', error: '这一楼附近没有可读的正文', endedAt: Date.now(), text: '没材料可推' });
         running = false;
+    markLive();
         return { ok: false, reason: '这一楼附近没有可读的正文' };
     }
     setPipeline({ step: '读世界状态', text: '正在算世界状态（' + floorLabel(floor) + '）' });
@@ -1341,6 +1352,7 @@ export async function runUpdate(opts) {
     markBookDirty();
 
     running = false;
+    markLive();
     return {
         ok: !failed,
         reason: failed ? lastError : '',
@@ -1398,6 +1410,7 @@ export async function runBackfill(opts) {
     }
 
     backfilling = true;
+    markLive();
     cancelRequested = false;
     setPipeline({
         kind: 'backfill',
@@ -1431,6 +1444,7 @@ export async function runBackfill(opts) {
     }
 
     backfilling = false;
+    markLive();
     const text = cancelRequested
         ? ('补推已取消（已完成 ' + String(done) + ' 楼，进度留着，下次接着补）')
         : (failedAt ? ('补推中断：' + failedAt + '（已完成 ' + String(done) + ' 楼）')
