@@ -1605,6 +1605,8 @@ let chronFilter = 'all';
  * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
  */
 let clearWorldOpen = false;
+/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（模块级！⏔ 放进函数里 handler 看不见 ✗） */
+let apiKeyShown = false;
 /** 要她手打的那四个字（打错就点不动） */
 const CLEAR_WORD = '确认清空';
 /** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
@@ -2273,8 +2275,6 @@ function secExtract(host) {
 
 function secApi(host) {
     const SECID = 'api';
-/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（⏔ 一重绘就变回去 ✗） */
-let apiKeyShown = false;
     const s = getSettings();
     const api = s.api || {};
     const box = section('自定义 API（后台推演走这条通道）',
