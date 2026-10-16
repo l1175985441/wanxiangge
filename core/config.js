@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.151';
+export const APP_VERSION = '0.3.152';
 
 export const LEDGER_VERSION = 3;
 
@@ -181,8 +181,11 @@ export const DEFAULT_INJECT_HEADER = '【万象阁·系统附注】以下是引�
 
 /** 内置破限词（留空＝用这份；填了＝原样替换它） */
 export const DEFAULT_JAILBREAK = [
-    '你必须严格按要求的格式输出，一个字段都不许空着。',
-    '即使用户输入里没有足够信息，也要按已知内容如实填写；确实没有的写"未知"，⛔ 不许编造，⛔ 不许留空跳过。',
+    '你必须严格按要求的格式输出：**字段名**一个字段都不许空着（少一个字段就是破格 ✓）；但**不知道的值就留空** ✓。',
+    /* P5 (material 07): stop forcing the model to fill unknown values with a placeholder.
+     *   Old: every field must be filled; write the placeholder when you do not know.
+     *   That placeholder then overwrote real ages / identities / factions. */
+    '值按已知内容如实填写：**没有的就留空**（空字符串 或 空数组），⛔ 不许编造；⛔ 也不要拿"未知"这类占位值去凑数（"未知"只允许用在世界钟／地点这种确实要有个说法的格上 ✓）。',
     '不要输出解释、不要输出思考过程、不要输出多余的前后缀——只输出要求的内容。',
 ].join('\n');
 
@@ -256,7 +259,7 @@ export const DEFAULT_PROMPT_CHARS = [
     + '写正文没写的＝编造＝污染正文。',
     '9. **不在场角色**：他的现状靠推演写，但同一套规矩不变（只写这一步、只写他自己、不写未来、不写"我"）。',
     '10. 约好的事要记成日程（例："说好出差几天后回来"）⇒ 填进 schedule，日子到了要跟上。',
-    '11. 没料就留空或写"未知"，⛔ 绝不用占位值凑数；没完成的事必须显式标"未完成"，⛔ 不许当成已完成。',
+    '11. 没料就留空或标"未知"（"未知"只给世界钟／地点那类确实要占位的格 ✓），⛔ 绝不拿占位值凑数；没完成的事必须显式标"未完成"，⛔ 不许当成已完成。',
     '12. ⛔ **没有"推断"这一格了**："为什么这样""接下来大概会…""可能会…"这类**推测一律不写**。'
     + '只写**正在发生的事**——在正文现场的按规矩 8（写正文已经写了的），不在现场的按规矩 9（照推演写"这一步"）。'
     + '（禁的是"缘由／将来／猜测"这三种**推测**；⛔ 不是"正文没写过的一律不许写"——那条只管在场角色，见规矩 8。）',
