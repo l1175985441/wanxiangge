@@ -5623,6 +5623,20 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         r1.then((res) => {
                             if (res && res.ok === false) {
                                 toast.warn(res.reason || '正在跑，别急');
+                                /*
+                                 * ⭐⭐ 她的链路＝“机场＋免费公益站” ⇒ **时好时坏** ✓
+                                 *   ⇒ 失败了不用她守着点：**自己等 20 秒再试一次**（最多 2 次 ✓）
+                                 *   ⏔ 参数级的错**不**自动重试（那是白试 ✗ 分层已经做在 pipeline 里 ✓）
+                                 */
+                                if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
+                                    window.__wxgAutoRetry = (window.__wxgAutoRetry || 0) + 1;
+                                    if (window.__wxgAutoRetry <= 2) {
+                                        toast.info('链路掉线 —— 20 秒后自己再试一次（第 ' + String(window.__wxgAutoRetry) + '/2 次）✓');
+                                        setTimeout(() => { try { runUpdate({ manual: false }); } catch (eAuto) { /* ⏔ 影响她 */ } }, 20000);
+                                    }
+                                }
+                            } else {
+                                window.__wxgAutoRetry = 0;
                             }
                         }).catch(() => {});
                     } else if (r1 && r1.ok === false) {
