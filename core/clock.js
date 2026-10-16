@@ -74,9 +74,24 @@ export function parseClock(text) {
         return out;
     }
 
-    // 第几天
+    // 第几天（兼容：① 1992-04-01 / 1992/04/01 / 1992年4月1日；② 4月1日；③ 第N天）
+    /* ⭐⭐ 修复 7（材料 02）：**世界钟认不出公历日期** ✗
+     *   旧：只认“第N天 / 第二天 / 今天” ✗ ⇒ 卡面写 1992-04-01 时读不出来 ✗（时间线断掉 ✗）
+     *   新：先认**年-月-日**（三种分隔符✓），再认**月日**（无年份时按 2000 年算天数 ✓），最后才回到“第N天” ✓ */
+    const ymd = raw.match(/(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?/);
+    const md = !ymd && raw.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/);
     const dayMatch = raw.match(/第\s*([0-9]+|[零一二两三四五六七八九十]+)\s*[天日]/);
-    if (dayMatch) {
+    if (ymd) {
+        const utc = Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+        if (Number.isFinite(utc)) {
+            out.day = Math.floor(utc / 86400000);
+        }
+    } else if (md) {
+        const utc = Date.UTC(2000, Number(md[1]) - 1, Number(md[2]));
+        if (Number.isFinite(utc)) {
+            out.day = Math.floor(utc / 86400000);
+        }
+    } else if (dayMatch) {
         out.day = cnToNum(dayMatch[1]);
     } else if (/次[日天]|第二天/.test(raw)) {
         out.day = 2;
