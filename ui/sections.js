@@ -5694,6 +5694,22 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         rB.then((res) => {
                             if (res && res.ok === false) {
                                 toast.warn(res.reason || '正在跑，别急');
+                                /*
+                                 * ⭐她最实用的那条路（少量多次）也该会自救 ✓
+                                 *   链路级失败 ⇒ **自己再接着补**（20 秒、45 秒 ✓）⏔ 她守着点 ✗
+                                 */
+                                if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
+                                    window.__wxgAutoRetryB = (window.__wxgAutoRetryB || 0) + 1;
+                                    if (window.__wxgAutoRetryB <= 2) {
+                                        const wSec = window.__wxgAutoRetryB === 1 ? 20 : 45;
+                                        toast.info('链路掉线 —— ' + String(wSec) + ' 秒后自己接着补（第 ' + String(window.__wxgAutoRetryB) + '/2 次）✓');
+                                        setTimeout(() => {
+                                            try { runBackfill(useLim ? { limit: useLim } : {}); } catch (eAutoB) { /* ⏔ 影响她 */ }
+                                        }, wSec * 1000);
+                                    }
+                                }
+                            } else {
+                                window.__wxgAutoRetryB = 0;
                             }
                         }).catch(() => {});
                     } else if (rB && rB.ok === false) {
