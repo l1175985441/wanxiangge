@@ -150,6 +150,15 @@ export function stripNamedBlocks(text, names) {
                 at = out.indexOf(pair[0]);
             }
         }
+        /*
+         * ⭐⭐ 修复 12（材料 02）：**认“带属性的开标签”** ✓
+         *   旧：只认精确的 `<name>` ✗ ⇒ 遇到 `<name 属性="x">…</name>` 就**匹配不上** ✗
+         *   新：只给 `<…>` 这一对**允许开标签带属性** ✓（其余三种写法一字不动 ✓）
+         */
+        try {
+            const reAttr = new RegExp('<' + name + '(?:\\s[^>]*)?>[\\s\\S]*?<\\/' + name + '>', 'gi');
+            out = out.replace(reAttr, () => { removed += 1; return ''; });
+        } catch (eAttr) { /* 名字异常就跳过 ✓ */ }
     }
     return { text: out, removed };
 }
@@ -189,6 +198,20 @@ export function pickNamedBlocks(text, names) {
                 at = src.indexOf(pair[0], end + pair[1].length);
             }
         }
+        /* ⭐修复 12：同样认**带属性的开标签** ✓（只针对 <…> 这一对 ✓） */
+        try {
+            const reAttr = new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + name + '>', 'gi');
+            let mmAttr = reAttr.exec(src);
+            let gAttr = 0;
+            while (mmAttr && gAttr < 200) {
+                gAttr += 1;
+                const bodyAttr = trimText(mmAttr[1]);
+                if (bodyAttr) {
+                    parts.push(bodyAttr);
+                }
+                mmAttr = reAttr.exec(src);
+            }
+        } catch (eAttr2) { /* 跳过 ✓ */ }
     }
     return parts.length ? parts.join('\n') : asText(text);
 }
