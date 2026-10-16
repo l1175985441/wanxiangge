@@ -327,12 +327,20 @@ export async function callModel(opts) {
          *   ⇒ 现在：**对方说超了就自动砍半重试**（最多 2 次 ✓）
          */
         let loweredTo = 0;
-        for (let guard = 0; guard < 2 && res && res.ok === false
+        for (let guard = 0; guard < 3 && res && res.ok === false
             && /exceeds the maximum output tokens|max_tokens/i.test(String(res.reason || '')); guard += 1) {
             const cur = Number(body.max_tokens);
-            const next = Math.max(256, Math.floor((Number.isFinite(cur) ? cur : 1024) / 2));
-            if (!Number.isFinite(next) || (Number.isFinite(cur) && next >= cur)) { break; }
-            body.max_tokens = next;
+            if (guard === 2) {
+                /* ⭐ 最后一招：**干脆不传 max_tokens** ✓（有些中转只在“字段存在”时才校验 ✓）
+                 *   ⏔ JSON.stringify 会丢掉 undefined 属性 ⇒ 这个字段就不会出现在请求里 ✓ */
+                delete body.max_tokens;
+                loweredTo = -1;
+            } else {
+                const next = Math.max(256, Math.floor((Number.isFinite(cur) ? cur : 1024) / 2));
+                if (!Number.isFinite(next) || (Number.isFinite(cur) && next >= cur)) { break; }
+                body.max_tokens = next;
+                loweredTo = next;
+            }
             if (api.mode === 'direct') {
                 try {
                     res = await callDirect(url, key, model, body, timeout.signal);
@@ -342,12 +350,12 @@ export async function callModel(opts) {
             } else {
                 res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
             }
-            loweredTo = next;
         }
         const ms = Date.now() - started;
         if (!res.ok) {
             return { ok: false, reason: String(res.reason || '')
-                + (loweredTo ? ('（已自动把输出上限降到 ' + String(loweredTo) + ' 再试过 ✓）') : ''), ms };
+                + (loweredTo === -1 ? '（已自动改成**不传输出上限**再试过 ✓）'
+                    : (loweredTo ? ('（已自动把输出上限降到 ' + String(loweredTo) + ' 再试过 ✓）') : '')), ms };
         }
         const text = trimText(res.text);
         if (!text) {
