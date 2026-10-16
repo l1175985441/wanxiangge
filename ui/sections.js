@@ -2391,6 +2391,23 @@ function secExtract(host) {
     const entPick = el('div', 'wxg-pickwrap');
     entPick.id = 'wxg-entpick';
     cBook.appendChild(entPick);
+    /*
+     * ⭐⭐ 材料 01（界面第 2 条）：**打开这一页就自动列世界书** ✓
+     *   旧：打开时区域是**空的** ✗ ⇒ 必须手动先点一次「读世界书列表」才出按钮 ✗
+     *   现在：渲染完就自己去点一下那颗按钮 ✓（复用现成的 list-books 路，⏔ 重写逻辑 ✗）
+     *   ⏔ 只在“还没列过”时发 ✓（避免每次重画都去读一遍世界书 ✗）
+     */
+    setTimeout(() => {
+        try {
+            if (Array.isArray(listBooksCache) && listBooksCache.length) {
+                return;
+            }
+            const btn = host.querySelector('[data-action="list-books"]');
+            if (btn && btn.click) {
+                btn.click();
+            }
+        } catch (e) { /* 列不出来也不能把这一页搞挂 ✓ */ }
+    }, 0);
     const entNote = el('div', 'wxg-note', '');
     entNote.id = 'wxg-entnote';
     cBook.appendChild(entNote);
@@ -5334,13 +5351,23 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     note.textContent = '「' + name + '」共 ' + String(entries.length)
                         + ' 条：点一下＝不读这一条（点过的不参与推演）；⛔ 不改你的世界书。';
                     if (wrap) {
-                        const head = wrap.querySelector('.wxg-pick-head');
-                        while (wrap.firstChild) {
-                            wrap.removeChild(wrap.firstChild);
+                        /*
+         * ⭐⭐ 材料 01（界面第 2 条）：**只清“条目区”，⏔ 清整个容器** ✓
+         *   旧：`while (wrap.firstChild) removeChild` 把 `#wxg-entpick` **整个清空** ✗
+         *     ⇒ 里面那些「看条目：某某书」按钮**全被冲没** ✗
+         *     （她想看第二本书还得重新点一次“读世界书列表” ✗）
+         *   现在：条目放进它们自己的子容器 `#wxg-entlist` ✓ ⇒ 只清它 ✓
+         */
+                        let box = wrap.querySelector('#wxg-entlist');
+                        if (!box) {
+                            box = document.createElement('div');
+                            box.id = 'wxg-entlist';
+                            wrap.appendChild(box);
                         }
-                        if (head) {
-                            wrap.appendChild(head);
+                        while (box.firstChild) {
+                            box.removeChild(box.firstChild);
                         }
+                        wrap = box;
                         for (const e of entries.slice(0, 200)) {
                             const title = trimText(e && (e.comment || e.key || e.title));
                             if (!title) {
