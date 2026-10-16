@@ -1514,6 +1514,31 @@ function stageOne(action, target) {
         refreshAppearancePreview();
         return 'appearance';
     }
+    /*
+     * ⭐⭐ 她 13:xx：在「连接方式」下拉框里选中一个**书签** ⇒ 立刻切到那一套 ✓
+     *   （等同点书签卡片上的「切到这套」；两个入口都给，⛔ 不删她已有的路）
+     */
+    if (action === 'stage-api-mode') {
+        const pick = trimText(target.value);
+        if (pick.indexOf('profile:') === 0) {
+            const wantNick = pick.slice('profile:'.length);
+            const cur = getSettings().api || {};
+            const one = (Array.isArray(cur.profiles) ? cur.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
+            if (one) {
+                const copy = {};
+                for (const k of Object.keys(one)) {
+                    if (k !== 'nick') { copy[k] = one[k]; }
+                }
+                stage('api', 'api', Object.assign({}, getSettings().api || {}, copy));
+                commitSection('api');
+                toast.ok('已切到书签「' + wantNick + '」（连接方式／地址／模型都换成它那一套了）');
+            } else {
+                toast.warn('没找到书签「' + wantNick + '」（可能刚被删了）');
+            }
+            rerender();
+            return 'api';
+        }
+    }
     const row = STAGE_MAP[action];
     if (!row) {
         return null;
@@ -2283,10 +2308,24 @@ function secApi(host) {
     // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
     // ⭐ 第三层：这条通道也排成规整两列
     const cCh = card('通道');
-    line(cCh, '连接方式', select('wxg-api-mode', [
+    /*
+     * ⭐⭐ 她 13:xx 澄清后的真需求（我上一版 v0.3.71 修错了地方 ✗）：
+     *   「我说的是**连接方式**……那个**下拉框**我保存了书签以后**没有出现在这里面**。
+     *     最普通的插件不是都有这种的吗？」
+     *   ⇒ 把「连接方式」做成**通道选择器**：两种连接方式 ＋ **她存的书签**（每条一个选项）✓
+     *   ⚠️ 选中的值仍是 api.mode（direct／proxy）⇒ 旧数据照读 ✓（书签那几条是临时选项，选中即切走）
+     */
+    const modeOpts = [
         { value: 'proxy', label: '经酒馆服务器转发（云酒馆最稳）' },
         { value: 'direct', label: '直连（浏览器直接请求）' },
-    ], api.mode, 'stage-api-mode'));
+    ];
+    for (const pf of (Array.isArray(api.profiles) ? api.profiles : [])) {
+        const pfNick = trimText(pf && pf.nick);
+        if (pfNick) {
+            modeOpts.push({ value: 'profile:' + pfNick, label: '书签：' + pfNick + '（' + (pf.mode === 'direct' ? '直连' : '经酒馆转发') + '）' });
+        }
+    }
+    line(cCh, '连接方式', select('wxg-api-mode', modeOpts, api.mode, 'stage-api-mode'));
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
     line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
