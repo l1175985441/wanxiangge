@@ -671,8 +671,15 @@ function secGeneral(host) {
             }
             const step = trimText(p2.step);
             const text = trimText(p2.text);
-            const running2 = !!step && step !== 'done' && step !== 'idle';
-            if (running2) {
+            /*
+             * ⚠️ 真机上抓到：**失败/没配好**的旧消息也带着非 done/idle 的 step ⇒ 被我显示成"⏳ 正在跑" ✗
+             *   ⇒ 先把"没成/失败"这类**排除出"跑中"**，单独报（她要知道"上次没成、为什么"）。
+             */
+            const failed = /没成|失败|出错|不兼容/.test(text) || /fail|error/i.test(step);
+            const running2 = !failed && !!step && step !== 'done' && step !== 'idle';
+            if (failed) {
+                progRow.textContent = '⚠ 上次：' + text;
+            } else if (running2) {
                 progRow.textContent = '⏳ ' + (text || '正在跑…');
             } else if (text && /补推中断|已取消/.test(text)) {
                 /*
