@@ -2361,7 +2361,32 @@ function secApi(host) {
      *   ⏔ 不动 direct／proxy 的老路（她的两段式 ✓ 测试也照旧 ✓）
      */
     const curPick = trimText(api.currentProfile) ? ('profile:' + trimText(api.currentProfile)) : api.mode;
-    line(cCh, '连接方式', select('wxg-api-mode', modeOpts, curPick, 'stage-api-mode'));
+    /*
+     * ⭐⭐ 照她 14:xx 发的截图（SP数据库的「当前 API 预设」：下拉框 ＋ 加/删）把形状对齐：
+     *   「连接方式」这一行＝下拉框（列全部可用套路）＋「＋」（存成书签）＋「删」（删当前书签）✓
+     *   ⏔ 纯加法、零新逻辑：「＋」复用原来的 save-profile（它自会去读书签名输入框）；
+     *        「删」复用原来的 del-profile（把当前书签名当 data-id 传过去）✓
+     */
+    const modeRow = el('div', 'wxg-row');
+    modeRow.appendChild(select('wxg-api-mode', modeOpts, curPick, 'stage-api-mode'));
+    const plusBtn = button('＋', 'save-profile', 'wxg-btn-sm');
+    plusBtn.setAttribute('title', '把下面「书签名」里填的名字，存成一套（同名就更新）');
+    modeRow.appendChild(plusBtn);
+    const curNickForDel = trimText(api.currentProfile);
+    if (curNickForDel) {
+        const delBtn = button('删', 'del-profile', 'wxg-btn-sm', curNickForDel);
+        delBtn.setAttribute('title', '删掉当前这个书签「' + curNickForDel + '」');
+        modeRow.appendChild(delBtn);
+    }
+    const modeLine = el('div', 'wxg-line');
+    modeLine.appendChild(el('span', 'wxg-line-k', '连接方式'));
+    modeLine.appendChild(modeRow);
+    cCh.appendChild(modeLine);
+    /* 一句人话：现在走的是哪条 ✓（照世界背面那句“我跟着…”的写法） */
+    cCh.appendChild(el('div', 'wxg-note', '现在走的是：' + (curNickForDel
+        ? ('书签「' + curNickForDel + '」那一套')
+        : (api.mode === 'direct' ? '直连（浏览器直接请求）' : '经酒馆服务器转发'))
+        + '。想换别的就在上面选；想存成一套，先填下面的「书签名」再点「＋」。'));
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
     line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
