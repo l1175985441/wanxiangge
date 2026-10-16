@@ -107,6 +107,13 @@ export function planRecall(options) {
             ? trimText(assembleInjectText(recall.items, recall.events, effectivePrompt('header'), { anchorFloor: floor }))
             : '';
 
+        /* ⭐⭐ 材料 06 · 5.6：**injectStatus 单调** ✓
+         *   病根：MESSAGE_SENT（index.js）与 injectBeforeGenerate（engine.js）竞态 ✗
+         *        ⇒ 后完成的那次 planRecall 会把拦截器已写好的 `injectStatus: 'ok'`
+         *        **冲回 'pending'** ✗ ⇒ 账本那行于是显示“正文还没生成，本轮待送” ✗
+         *   现在：本楼若**已经 'ok'** ⇒ 只更新别的字段，**状态与已注入的那份一并保留** ✓（⏔ 回退 ✗） */
+        const prevRec = getRecallRecord(floor);
+        const keepOk = !!(prevRec && prevRec.injectStatus === 'ok');
         const rec = putRecallRecord({
             floor,
             mesId: recall.mesId,
@@ -117,12 +124,12 @@ export function planRecall(options) {
             events: recall.events,
             chars: recall.chars,
             notes: [].concat(recall.notes || []).concat(affinityNote ? [affinityNote] : []),
-            injectedText: text,
-            injectedChars: injectSize(text),
-            injectedAt: 0,
-            injectStatus: 'pending',
-            injectNote: '',
-            injectType: '',
+            injectedText: keepOk ? prevRec.injectedText : text,
+            injectedChars: keepOk ? prevRec.injectedChars : injectSize(text),
+            injectedAt: keepOk ? prevRec.injectedAt : 0,
+            injectStatus: keepOk ? 'ok' : 'pending',
+            injectNote: keepOk ? prevRec.injectNote : '',
+            injectType: keepOk ? prevRec.injectType : '',
             shown: false,
         });
 
