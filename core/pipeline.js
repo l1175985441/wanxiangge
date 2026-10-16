@@ -1304,7 +1304,12 @@ export async function runUpdate(opts) {
     if (charRes.ok) {
         parts.push(charRes.summary);
     }
-    const text = (cancelRequested ? '已取消（已跑的部分保留）' : (failed ? '有一步没成' : '更新完成'))
+    const text = (cancelRequested ? '已取消（已跑的部分保留）' : (failed ? ('有一步没成'
+        /* ⭐ 失败也别慌：链路＝“机场＋免费公益站”⇒ 偶发掉线是常态 ✓ */
+        + (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null/i.test(String(lastError || ''))
+            ? '（这次像是链路掉线 —— 等会儿再点一次「立刻更新」，会从停下的那楼接着走 ✓）'
+            : ''))
+        : '更新完成'))
         + (parts.length ? '：' + parts.join('；') : (lastError ? '：' + lastError : ''));
 
     // ⭐ 把这一轮的"与你手改冲突"条目**留档**到更新那一刻的召回记录上，
