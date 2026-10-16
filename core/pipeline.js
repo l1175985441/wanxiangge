@@ -907,6 +907,17 @@ async function stepCharacters(material, attempt) {
         return { ok: true, summary: '这一轮没有要处理的角色（都在省额度轮转里）' };
     }
 
+    /* P4 part 2 (material 07): tell the model WHO the player is - see the note below. */
+    const playerHintLines = (() => {
+        const me = (Array.isArray(roster) ? roster : []).find((c) => c && c.isPlayer);
+        if (!me || !trimText(me.name)) {
+            return [];
+        }
+        return [
+            '· ' + trimText(me.name) + '（**玩家棋子 ＝ 提示词里说的“我”／user／玩家**）',
+            '  ⏔ 不给他建推演行、不替他行动／说话／决定；他的存在只由**别人**的行侧面承载 ✓',
+        ];
+    })();
     const charLines = picked.map((c) => {
         const inScene = onStageIds.has(c.id);
         const lines = [
@@ -996,7 +1007,7 @@ async function stepCharacters(material, attempt) {
             ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⏔ 给）',
         recent: material.recentText || '（没有可读的正文）',
-        chars: charLines,
+        chars: playerHintLines.concat(charLines),
     });
 
     // ⭐ 补④：同世界步（重试加大额度 + 要求精简闭合）
