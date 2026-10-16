@@ -435,6 +435,16 @@ export function assembleInjectText(items, events, headerText, opts) {
         let keptChars = countChars(header) + countChars(worldBlock) + 8;
         let keptPeople = 0;
         let keptEvents = 0;
+        /*
+         * ⭐⭐ R9（材料 05）：**截断分支也要带上两个分节标题** ✓
+         *   旧：未超 1400 字时正常拼了 「【人物】」与「【世界上正在发生的事】」 ✓
+         *     一旦超了走重组分支，直接 kept += b ✗ ⇒ **两个大标题全丢** ✗
+         *     ⇒ 人物块与世界事件块**糊在一起** ✗
+         */
+        if (blocks.length) {
+            kept += '\n【人物】\n';
+            keptChars += 4;
+        }
         for (const b of blocks) {
             if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
                 break;
@@ -442,6 +452,10 @@ export function assembleInjectText(items, events, headerText, opts) {
             kept += b;
             keptChars += countChars(b);
             keptPeople += 1;
+        }
+        if (evBlocks.length) {
+            kept += '\n【世界上正在发生的事】\n';
+            keptChars += 4;
         }
         for (const b of evBlocks) {
             if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
