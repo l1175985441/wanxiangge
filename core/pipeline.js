@@ -51,6 +51,7 @@ import {
     addKnow,
     restoreSnapshot,
     dropSnapshot,
+    capList,
 } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
@@ -250,6 +251,40 @@ function worldMaterialCap() {
     } catch (e) { /* ⏔ 影响主流程 */ }
     return Math.min(Math.max(Math.round(v), 500), 40000);
 }
+/*
+ * ⭐⭐ 谷歌复核（三）：局势**增量归并** ✓（照此落码、一个字不动 ✓）
+ *   病灶：原来 `if (fresh.length) { updateWorld({ situations: fresh }, {}) }`
+ *         ⇒ **用本批产出的几条势局把旧数组整锅端了** ✗（逐批补扫时后批冲掉前批 ✗）
+ *   ⇒ 现在：同名／二元组覆盖率≥0.45 认作同一场局势演进 ⇒ 原地更新 ✓；
+ *         **`manual`（她手改锁定的）不覆盖** ✓；新的才 push ✓
+ */
+function mergeSituations(oldList, freshList) {
+    const merged = (Array.isArray(oldList) ? oldList : []).map((s) => Object.assign({}, s));
+    for (const inc of Array.isArray(freshList) ? freshList : []) {
+        const title = trimText(inc && inc.title);
+        if (!title) continue;
+        // 按标题同名或二元组覆盖率 >= 0.45 认出是不是同一场局势演进
+        const idx = merged.findIndex((old) => old && (
+            matchKey(old.title) === matchKey(title)
+            || textAppearsIn(title, old.title)
+            || textAppearsIn(old.title, title)
+        ));
+        if (idx >= 0) {
+            if (merged[idx].manual) continue; // 她手改锁定的局势不覆盖
+            merged[idx] = Object.assign({}, merged[idx], {
+                title,
+                sides: trimText(inc.sides) || merged[idx].sides,
+                tier: trimText(inc.tier) || merged[idx].tier,
+                at: Date.now(),
+                floor: inc.floor,
+            });
+        } else {
+            merged.push(inc);
+        }
+    }
+    return merged;
+}
+
 function capWorldMaterial(txt, attempt) {
     /* ⭐⭐ 链路是抽风型的（一会儿 400、一会儿回体 null ✗）
      *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⏔ 缩到没东西可看 ✗）
@@ -341,7 +376,11 @@ async function stepWorld(material, attempt) {
             floor: material.floor,
         })).filter((s) => s.title);
         if (fresh.length) {
-            updateWorld({ situations: fresh }, {});
+            /* ⭐谷歌复核（三）：增量归并（⏔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
+            const mergedSits = mergeSituations((loadState().world || {}).situations, fresh);
+            updateWorld({ situations: mergedSits }, {});
+            capList((loadState().world || {}).situations, 'capEvents', (s) => s.title, (s) => s.manual);
+            saveState();   /* capList 是原地改，这里保险落盘 ✓ */
         }
     }
 
