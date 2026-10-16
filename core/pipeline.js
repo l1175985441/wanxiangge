@@ -1478,8 +1478,28 @@ async function runUpdateInner(opts) {
     let worldRes = { ok: false, reason: '没跑' };
     let charRes = { ok: false, reason: '没跑' };
 
+    /*
+     * ⭐⭐ R4（材料 05）：**让 worldAtFloor 真正被读** ✓
+     *   旧：只写不读 ✗ ⇒ 世界步成功（暗线萌芽⇒发酵）、紧接着角色步失败时 ✗
+     *     重试同一楼会**对着已经到“发酵”的暗线再跑一遍世界步** ✗
+     *     ⇒ 同一楼里暗线**连跳两级** ✗（萌芽⇒逼近 ✗）
+     *   现在：上一轮世界步已经成功过**而整楼还没跑完**（atFloor < floor ✓）⇒ **跳过世界步、直接接角色步** ✓
+     *   （她若事后手动重刷同一楼，atFloor 已等于 floor ⇒ 不跳、照常重跑 ✓）
+     */
+    const worldStepDone = (() => {
+        try {
+            const p = loadState().pipeline || {};
+            return Number(p.worldAtFloor) === Number(floor) && Number(p.atFloor) < Number(floor);
+        } catch (eDone) {
+            return false;
+        }
+    })();
+    if (worldStepDone) {
+        worldRes = { ok: true, reason: '这一楼的世界步上一轮已经成功过 ⇒ 跳过，直接接着跑角色步 ✓' };
+    }
+
     // 世界这一步（占 1 步预算）：带重试上限
-    if (stepsUsed < budget) {
+    if (!worldStepDone && stepsUsed < budget) {
         stepsUsed += 1;
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
             if (cancelRequested) {
