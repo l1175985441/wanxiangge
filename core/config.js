@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.146';
+export const APP_VERSION = '0.3.147';
 
 export const LEDGER_VERSION = 3;
 
@@ -260,7 +260,11 @@ export const DEFAULT_PROMPT_CHARS = [
     '',
     '只输出 JSON，不要任何别的文字：',
     '{"clock":"世界内时间（读不出来写未知）","chars":[{"name":"角色名","age":"或空","identity":"或空",',
-    ' "faction":"或空","affinity":"原样照抄，没有就空","timePlace":"他在什么时间、什么地点",',
+    /* P1 (material 07): the affinity field is removed from the model JSON template.
+     *   Her words: affinity is READ-ONLY from her phone / body-text tags.
+     *   Root cause: the template said "copy it verbatim" => the model copied the
+     *   placeholder into JSON => the code stored it as a real affinity value. */
+    ' "faction":"或空","timePlace":"他在什么时间、什么地点",',
     ' "past":["他最近经历过的（第一人称、正在过去的那几条，按由近到远）"],',
     ' "current":"【现场】只总结正文里已经写了的他此刻在做的事（⛔ 正文没写的别写）；'
     + '【不在场】他此刻正在做什么（进行时推演，⛔ 不写下一步）",',
