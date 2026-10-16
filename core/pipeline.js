@@ -283,10 +283,26 @@ function recentMessages(floor, turns) {
     return out;
 }
 
+/**
+ * ⭐⭐ 修复 5（材料 02）并按材料 03 定稿改造 ✓：**剥掉“不在现场”的人** ✓
+ *   病根：卡面 <meow_FM> 里的 `archived:`（后台归档角色）与标了 `已离场` 的人没被剥掉 ✗
+ *         ⇒ **哪怕只看最新 1 楼**，露娜／地场卫／妖魔也会被判成“在场” ✗ ⇒ 刷屏报「现场编造」✗
+ */
+function stripOffStageSections(text) {
+    let s = asText(text);
+    // 1. 剥掉状态块里的 archived: 段落（直到块尾或下一个顶级字段）
+    s = s.replace(/\n\s*archived\s*[:：][\s\S]*?(?=\n[a-zA-Z_]+\s*[:：]|\n<\/|\n\[\/|$)/gi, '\n');
+    // 2. 剥掉明确标了“已离场 / 不在场 / 未出场”的整块或整行（连同上一行 ◈ 角色名）
+    s = s.replace(/◈\s*[^\n]+\n(?:[├│└][^\n]*\n){0,3}?[├│└][^\n]*?(?:已离场|不在场|未出场)[^\n]*/g, '');
+    s = s.replace(/^.*(?:已离场|不在场|镜头外).*$/gm, '');
+    return s;
+}
+
 /** 这一楼正文里出现了哪些名册上的人（认全名与别名；决定谁"在现场"） */
 function whoIsOnStage(text, roster) {
     // ⭐ 走召回那套统一判定（漏了单字名会让前台角色被误当"不在场"去自由推演）
-    return mentionedCharacters(text, roster);
+    // ⭐ 修复 5：**先剥掉“不在现场”的人** ✓（archived 段落、已离场 ✗）
+    return mentionedCharacters(stripOffStageSections(text), roster);
 }
 
 /* ------------------------------ 世界状态那一步 ------------------------------ */
@@ -800,12 +816,25 @@ async function stepCharacters(material, attempt) {
      *   ⇒ 若直接拿清洗后的去判“谁在场”，**一个人都判不出来** ⇒ 那 6 方全被当“不在场”、该做总结的没做总结。
      *   ⇒ **兜底**：清洗后**一个名字都没了**就退回原文（宁可多算、⏔ 全判不在场）。
      */
+    /*
+     * ⭐⭐ 修复 5（材料 02）并按材料 03 定稿：**在场判定的窗口尺度** ✓
+     *   旧：拿 6–12 楼历史拼合全文去扫 ✗ ⇒ 跳场景后旧场景人物还在窗口里 ✗（误报 ✗）
+     *   新：窗口＝**最近 4 楼**（当前回合＋上一回合 ✓）
+     *        但若**最新一楼带明确的 <meow_FM> 状态块**（含 scene: 与 relation: ✓）
+     *        ⇒ 卡面已给出本回合精确的在场名单 ⇒ **只取最新 2 楼** ✓（切场景当场切干净 ✓）
+     *   ⏔ 普通卡（没有状态栏）照旧用 4 楼 ⇒ 不会漏掉“上一回合还在说话、这回合沉默旁听”的同场角色 ✓
+     */
+    const stageMsgsAll = Array.isArray(material.messages) ? material.messages : [];
+    const lastMsgText = trimText(stageMsgsAll.length ? (stageMsgsAll[stageMsgsAll.length - 1] || {}).mes : (material.rawText || ''));
+    const hasStatusBlock = /<meow_FM>|scene\s*[:：]|relation\s*[:：]/i.test(lastMsgText);
+    const stageMsgs = hasStatusBlock ? stageMsgsAll.slice(-2) : stageMsgsAll.slice(-4);
+    const stageCleaned = cleanMessages(stageMsgs).text;
+    const stageRaw = stageMsgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n');
     const bodyForStage = (() => {
-        const cleaned = material.recentText || '';
-        if (!trimText(cleaned)) {
-            return material.rawText || '';
+        if (trimText(stageCleaned) && whoIsOnStage(stageCleaned, roster).length) {
+            return stageCleaned;
         }
-        return whoIsOnStage(cleaned, roster).length ? cleaned : (material.rawText || cleaned);
+        return stageRaw || material.recentText || material.rawText || '';
     })();
     const onStage = whoIsOnStage(bodyForStage, roster);
     const onStageIds = new Set(onStage.map((c) => c.id));
