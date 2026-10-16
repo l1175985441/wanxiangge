@@ -289,11 +289,42 @@ export function endSaveBatch() {
     saveBatchDepth = Math.max(0, saveBatchDepth - 1);
     if (saveBatchDepth === 0 && saveBatchDirty) {
         saveBatchDirty = false;
+        if (!chatBoundOk()) {
+            return;   /* R3：换档了 ⇒ 这一批也不落 ✓ */
+        }
         try { writeLedger(loadState()); } catch (e) { /* ⛔ 影响主流程 */ }
     }
 }
 
+/*
+ * ⭐⭐ 材料 05 · R3：**切了聊天就不许再往新账本里写** ✓
+ *   病根：runUpdate 等模型要 10～100 秒 ✗ 期间她切了聊天档 ✗
+ *     ⇒ 回来后 loadState()/updateWorld()/upsertHidden()/saveState() 没有任何校验 ✗
+ *     ⇒ **A 聊天的推演结果直接写进 B 聊天** ✗✗（甚至拿 A 的快照覆写 B ✗）
+ *   现在：一轮推演开跑时记下当时的聊天键 ✓ ⇒ 写盘前比一下 ✓
+ *     不一致就**拒写** ✓（一处管住全部写点 ✓）
+ */
+let runChatKey = null;
+
+/** 一轮推演开跑：记下当时的聊天键 ✓ */
+export function bindChatForRun() {
+    runChatKey = currentChatKey();
+}
+
+/** 一轮结束：解绑 ✓ */
+export function unbindChatForRun() {
+    runChatKey = null;
+}
+
+/** 当前聊天还是开跑时那个吗？✓ */
+export function chatBoundOk() {
+    return !runChatKey || runChatKey === currentChatKey();
+}
+
 export function saveState() {
+    if (!chatBoundOk()) {
+        return;   /* R3：换档了 ⇒ 拒写 ✓（⏔ 把旧档的结果写进新档 ✗） */
+    }
     const state = loadState();
     state.version = LEDGER_VERSION;
     if (saveBatchDepth > 0) {

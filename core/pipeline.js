@@ -57,8 +57,7 @@ import {
     restoreSnapshot,
     dropSnapshot,
     capList,
-    beginSaveBatch, endSaveBatch
-} from './state.js';
+    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock } from './clock.js';
@@ -1362,11 +1361,13 @@ export async function runUpdate(opts) {
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
      *   批内只记账 ⇒ 批收尾写一次 ✓（⛔ 改变批外行为 ✗）
      *   try/finally 保证：即使中间抛错，批也一定收尾、该落的盘照落 ✓ */
+    bindChatForRun();   /* R3：记下开跑时的聊天档 ✓ */
     beginSaveBatch();
     try {
         return await runUpdateInner(opts);
     } finally {
         endSaveBatch();
+        unbindChatForRun();   /* R3：收尾解绑 ✓ */
     }
 }
 
