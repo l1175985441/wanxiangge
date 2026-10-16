@@ -169,11 +169,28 @@ export function readLedger() {
  * 判据：内存里正握着的那本账，它的章就是 owner（＝同一个聊天刚刚改名）。
  * ⚠️ 换聊天时入口会先 resetCache()，那时 liveKey 为空 ⇒ 不会误认（这正是这条判据安全的原因）。
  */
+/*
+ * ⭐⭐ 材料 06 · 15.3：**"刚切过聊天就不认自己的账"** ✗ —— 毁账的根源在这里 ✓
+ *   病根：CHAT_CHANGED 先调 `resetCache()` ✗ ⇒ 内存里那本账被清掉 ✗
+ *         ⇒ `cacheChatKey()` 返回空 ⇒ `isOwnPastKey` 说“不认” ✗
+ *         ⇒ 继承来的账被判成“别的聊天” ⇒ `md[LEDGER_KEY] = null` ✗✗（毁账 ✗）
+ *   新：**切之前先把“上一个聊天是谁”记下来** ✓ ⇒ 建分支/导入聊天时能认出“这是自己刚才那本账” ✓
+ *         （真换聊天时，新聊天的 metadata 里**根本没有我们的账** ✗ ⇒ 那段根本不会触发 ⇒ **不会串档** ✓）
+ */
+let lastOwnKey = '';
+
+/** 切聊天前记下“上一个聊天”的章（由 index.js 在 resetCache() 之前调 ✓） */
+export function setLastOwnKey(k) {
+    lastOwnKey = trimText(k);
+}
+
 function isOwnPastKey(owner) {
     if (!owner) {
         return true;   // 没盖章的账，当自己的
     }
-    const liveKey = cacheChatKey();
+    /* ⭐ 15.3：刚换过聊天时 `cacheChatKey()` 已被 resetCache 清空 ✗
+     *   ⇒ 用“切之前记下的那个章”兜底 ✓（分支/导入能认出自己的账 ✓） */
+    const liveKey = cacheChatKey() || lastOwnKey;
     if (!liveKey) {
         return false;  // 手里没有别的账可对（刚换过聊天）⇒ 不认
     }

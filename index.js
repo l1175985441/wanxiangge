@@ -15,7 +15,7 @@
  */
 
 import { APP_NAME } from './core/config.js';
-import { setContext, getCtx } from './core/adapter.js';
+import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
 import { resetCache, loadState, migrateInferToChronicle } from './core/state.js';
 import { injectBeforeGenerate } from './core/engine.js';
 import {
@@ -31,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.122';
+const VERSION = '0.3.123';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -176,6 +176,12 @@ function bindEvents(ctx) {
     // 换聊天／新开档：新聊天＝新世界
     on(types.CHAT_CHANGED, () => {
         lastUserFloor = -1;
+        /* ⭐材料 06 · 15.3：**调 resetCache() 之前先记下“上一个聊天是谁”** ✓
+
+         *   （否则一清就没了 ✗ ⇒ 继承来的账会被误判为串档并置 null ✗ 毁账 ✗） */
+
+        setLastOwnKey(currentChatKey());
+
         resetCache();
         onChatSwitched();
         mountAllCards(2, 900);
