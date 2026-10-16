@@ -1492,6 +1492,37 @@ function refreshAppearancePreview() {
 }
 
 function stageOne(action, target) {
+    /*
+     * ⚠️ 真机探针定案（第 21 轮）：这段原本挂在 STAGE_MAP 那行之前 ✗，
+     *   而 stageOne 里更早的一处分支已经把 stage-api-mode 处理完并 return 了 ✗
+     *   ⇒ 改了三版都没生效，就是因为改的是执行不到的代码 ✗
+     *   ⇒ 现在放到函数最前面，一定会被执行到 ✓
+     */
+    if (action === 'stage-api-mode' && trimText(target.value).indexOf('profile:') === 0) {
+        const wantNick = trimText(target.value).slice('profile:'.length);
+        const curApi = getSettings().api || {};
+        const one = (Array.isArray(curApi.profiles) ? curApi.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
+        if (one) {
+            const copy = {};
+            for (const k of Object.keys(one)) {
+                if (k !== 'nick') { copy[k] = one[k]; }
+            }
+            stage('api', 'api', Object.assign({}, curApi, copy, { currentProfile: wantNick }));
+            commitSection('api');
+            toast.ok('已切到书签「' + wantNick + '」（连接方式／地址／模型都换成它那一套了）');
+        } else {
+            toast.warn('没找到书签「' + wantNick + '」（可能刚被删了）');
+        }
+        rerender();
+        return 'api';
+    }
+    /*
+     * ⭐ 选的是内置两条（直连／经酒馆转发）⇒ 只把“当前书签”清掉（下拉框就不再显示旧书签了 ✓）
+     *   ⏔ 不碰老路：mode 的暂存照旧走下去（测试也照旧 ✓）
+     */
+    if (action === 'stage-api-mode' && trimText((getSettings().api || {}).currentProfile)) {
+        stage('api', 'api', Object.assign({}, getSettings().api || {}, { currentProfile: '' }));
+    }
     // 外观那块是整块存的（色板＋四个颜色槽）
     if (action === 'stage-appearance') {
         const key = target.id;                        // wxg-app-xxx → 槽位名
@@ -1543,31 +1574,6 @@ function stageOne(action, target) {
      * ⭐⭐ 在“连接方式”里选中一个**书签** ⇒ 当场切到那一套，并记下“当前就是它” ✓
      *   其余值（direct／proxy）**一律落回原来的暂存路** ✓（⏔ 改老路：上一版就是改了才红的 ✗）
      */
-    if (action === 'stage-api-mode' && trimText(target.value).indexOf('profile:') === 0) {
-        const wantNick = trimText(target.value).slice('profile:'.length);
-        const curApi = getSettings().api || {};
-        const one = (Array.isArray(curApi.profiles) ? curApi.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
-        if (one) {
-            const copy = {};
-            for (const k of Object.keys(one)) {
-                if (k !== 'nick') { copy[k] = one[k]; }
-            }
-            stage('api', 'api', Object.assign({}, curApi, copy, { currentProfile: wantNick }));
-            commitSection('api');
-            toast.ok('已切到书签「' + wantNick + '」（连接方式／地址／模型都换成它那一套了）');
-        } else {
-            toast.warn('没找到书签「' + wantNick + '」（可能刚被删了）');
-        }
-        rerender();
-        return 'api';
-    }
-    /*
-     * ⭐ 选的是内置两条（直连／经酒馆转发）⇒ 只把“当前书签”清掉（下拉框就不再显示旧书签了 ✓）
-     *   ⏔ 不碰老路：mode 的暂存照旧走下去（测试也照旧 ✓）
-     */
-    if (action === 'stage-api-mode' && trimText((getSettings().api || {}).currentProfile)) {
-        stage('api', 'api', Object.assign({}, getSettings().api || {}, { currentProfile: '' }));
-    }
     const row = STAGE_MAP[action];
     if (!row) {
         return null;
