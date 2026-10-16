@@ -1513,8 +1513,10 @@ function stageOne(action, target) {
         } else {
             toast.warn('没找到书签「' + wantNick + '」（可能刚被删了）');
         }
-        rerender();
-        return 'api';
+        /* ⚠️ 这里⛔ 不能调 rerender：它是 bindSectionEvents 里的局部函数，stageOne 看不见 ✗
+         *   （真机抓到：rerender is not defined ⇒ 被吞 ⇒ 界面毫无反应）
+         *   ⇒ 改成返回哨兵值，由 handler（它能看见 rerender ✓）去重画 ✓ */
+        return 'api-profile-switched';
     }
     /*
      * ⭐ 选的是内置两条（直连／经酒馆转发）⇒ 只把“当前书签”清掉（下拉框就不再显示旧书签了 ✓）
@@ -4383,6 +4385,7 @@ export function bindSectionEvents(host, refresh) {
             // ⭐ 通用草稿入口：凡是 `stage-*` 的控件，一律只进草稿（段底一起保存）
             if (action.indexOf('stage-') === 0) {
                 const which = stageOne(action, target);
+                if (which === 'api-profile-switched') { rerender(); return; }
                 if (which) {
                     refreshSaveBar(host, which);
                     const bar = host.querySelector('.wxg-savebar[data-id="' + which + '"]');
