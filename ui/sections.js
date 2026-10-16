@@ -615,6 +615,17 @@ function secGeneral(host) {
     const opsRow = el('div', 'wxg-card-actions');
     row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'),
         button('重算本楼', 'replan'));
+    /*
+     * ⭐ 首夜实测单第 3 条：补推前给**范围**（留空＝全部，向后兼容）。
+     *   她原话：「我也不知道他补齐了多少楼？这旁边也没有自己设定的，我可以自己设定要补齐多少楼层。」
+     */
+    const bfRow = el('div', 'wxg-card-actions');
+    bfRow.appendChild(el('span', 'wxg-note', '补推范围：'));
+    const bfN = textInput('wxg-backfill-n', stagedValue(SECID, 'backfillN', getSettings().backfillN || ''),
+        '补最近几楼（留空＝全部）', 'stage-backfill-n', 'wxg-short');
+    bfN.setAttribute('title', '例：填 5 ⇒ 只补最近 5 层你的发言；留空 ⇒ 从最早补到现在（老行为）');
+    bfRow.appendChild(bfN);
+    opsRow.appendChild(bfRow);
     row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
     /*
@@ -5321,8 +5332,17 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 }
                 case 'backfill': {
                     const { runBackfill } = await import('../core/pipeline.js');
-                    runBackfill();
-                    toast.info('开始补推历史（分批跑，可随时取消）');
+                    /*
+                     * ⭐ 第 3 条：把"补最近几楼"读出来传进去；留空＝全部（老行为）。
+                     *   ⭐ 第 4 条：toast 里**直接说清这次补的范围**（不用她再翻到状态页）。
+                     */
+                    const rawN = trimText((byId(host, 'wxg-backfill-n') || {}).value || '');
+                    const lim = Number.parseInt(rawN, 10);
+                    const useLim = Number.isFinite(lim) && lim > 0 ? lim : 0;
+                    runBackfill(useLim ? { limit: useLim } : {});
+                    toast.info(useLim
+                        ? ('开始补推历史：只补**最近 ' + String(useLim) + ' 楼**（分批跑，可随时取消）')
+                        : '开始补推历史：**全部楼层**（分批跑，可随时取消）');
                     rerender();
                     break;
                 }

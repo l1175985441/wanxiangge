@@ -1386,7 +1386,14 @@ export async function runBackfill(opts) {
     }
     const startFrom = Number.isFinite(o.from) && o.from >= 0 ? o.from : 0;
     const todo = userFloors.filter((f) => f >= startFrom);
-    if (!todo.length) {
+    /*
+     * ⭐ 首夜实测单第 3 条（她原话：「这旁边也没有自己设定的，我可以自己设定要补齐多少楼层」）：
+     *   `opts.from` 早就有（从第 X 楼起补），缺的是**"就补最近 N 楼"** ⇒ 这里从**队尾往前数**取 N 个。
+     *   ⚠️ 默认（不传 limit）＝照旧**全部补**（向后兼容，⛔ 不改老行为）。
+     */
+    const lim = Number.isFinite(o.limit) ? Math.floor(o.limit) : 0;
+    const todo2 = lim > 0 ? todo.slice(Math.max(0, todo2.length - lim)) : todo;
+    if (!todo2.length) {
         return { ok: true, text: '没有要补的楼了' };
     }
 
@@ -1397,7 +1404,7 @@ export async function runBackfill(opts) {
         status: 'running',
         step: '补推历史',
         startedAt: Date.now(),
-        text: '准备补推 ' + String(todo.length) + ' 个楼层',
+        text: '准备补推 ' + String(todo2.length) + ' 个楼层',
         cursor: 0,
         atFloor: -1,
         cancelRequested: false,
@@ -1410,7 +1417,7 @@ export async function runBackfill(opts) {
         if (cancelRequested) {
             break;
         }
-        setPipeline({ text: '补推中：' + floorLabel(floor) + '（' + String(done + 1) + '/' + String(todo.length) + '）', cursor: done });
+        setPipeline({ text: '补推中：' + floorLabel(floor) + '（' + String(done + 1) + '/' + String(todo2.length) + '）', cursor: done });
         // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
         // eslint-disable-next-line no-await-in-loop
         // ⭐ L3：补批循环**传 keepCancel** ⇒ 入口不会把她刚按的"取消"吞掉（防御性）
