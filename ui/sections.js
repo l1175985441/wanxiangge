@@ -5631,8 +5631,10 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                                 if (/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|超时|没回|null|怪东西/i.test(String(res.reason || ''))) {
                                     window.__wxgAutoRetry = (window.__wxgAutoRetry || 0) + 1;
                                     if (window.__wxgAutoRetry <= 2) {
-                                        toast.info('链路掉线 —— 20 秒后自己再试一次（第 ' + String(window.__wxgAutoRetry) + '/2 次）✓');
-                                        setTimeout(() => { try { runUpdate({ manual: false }); } catch (eAuto) { /* ⏔ 影响她 */ } }, 20000);
+                                        /* ⭐ 越等越久：链路“过一会儿就好”⇒ 第1次 20 秒、第2次 45 秒 ✓ */
+                                        const waitSec = window.__wxgAutoRetry === 1 ? 20 : 45;
+                                        toast.info('链路掉线 —— ' + String(waitSec) + ' 秒后自己再试一次（第 ' + String(window.__wxgAutoRetry) + '/2 次）✓');
+                                        setTimeout(() => { try { runUpdate({ manual: false }); } catch (eAuto) { /* ⏔ 影响她 */ } }, waitSec * 1000);
                                     }
                                 }
                             } else {
