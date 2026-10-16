@@ -141,6 +141,8 @@ function loadSettings() {
     merged.api.mode = merged.api.mode === 'direct' ? 'direct' : 'proxy';
     merged.api.temperature = Number.isFinite(Number(merged.api.temperature)) ? Number(merged.api.temperature) : DEFAULT_SETTINGS.api.temperature;
     merged.api.maxTokens = clampNumber(merged.api.maxTokens, 200, 8000, DEFAULT_SETTINGS.api.maxTokens);
+    /* ⭐ 她可调：每轮最多喂多少字正文（默认 6000 ✓，越小请求越短 ✓） */
+    merged.api.materialCap = clampNumber(merged.api.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap);
     // ⭐ API 书签：归一成数组（老设置里没有这个键 ⇒ 补空数组）
     merged.api.profiles = Array.isArray(merged.api.profiles)
         ? merged.api.profiles.filter((p) => p && typeof p === 'object' && trimText(p.nick)).map((p) => ({

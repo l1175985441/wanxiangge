@@ -1455,6 +1455,7 @@ const STAGE_MAP = {
     'stage-api-model-cheap': ['api', 'modelCheap', 'value'],
     'stage-api-temp': ['api', 'temperature', 'value'],
     'stage-api-maxtok': ['api', 'maxTokens', 'value'],
+    'stage-api-material-cap': ['api', 'materialCap', 'value'],
     // 读取控制（四格）
     'stage-extract-tags': ['extract', 'extractTags', 'value'],
     'stage-exclude-tags': ['extract', 'excludeTags', 'value'],
@@ -2438,6 +2439,14 @@ function secApi(host) {
         numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
         el('span', 'wxg-note', '单次最多输出'),
         numberInput('wxg-api-maxtok', api.maxTokens, 200, 8000, 'stage-api-maxtok'));
+    /*
+     * ⭐⭐ 她可调的一个旋钮（真机取证后才明白它有多重要）：
+     *   她那个中转对**长请求**一律掉线（直连 reset、转发 502+ECONNRESET、连流式也照掉 ✗）；
+     *   而**只有她知道那站能收多大的请求** ⇒ 把上限交给她，一档一档往下试 ✓
+     */
+    line(cCh, '每轮最多喂多少字正文', numberInput('wxg-api-material-cap', Number(api.materialCap) || 6000, 500, 40000, 'stage-api-material-cap'));
+    cCh.appendChild(el('div', 'wxg-note', '这个数**越小越容易穿过慢或爱掉线的站**（每轮只带最近这么多字），但模型看到的上下文也越少。卡住时可以一档一档往下试：6000 → 3000 → 1500 ✓'));
+
     /*
      * ⭐ 目标核对 3②：**把"已保存的地址/模型"摆出来**。
      *   她报过"模型名字填了、sk也填了"却仍报"没配好" ⇒

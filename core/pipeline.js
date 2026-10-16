@@ -240,12 +240,22 @@ function whoIsOnStage(text, roster) {
  *   ⇒ 让请求**本身就短**：喂进去的正文超长时，**只带最近一段** ✓（最近的才是当前世界状态最需要的 ✓）
  *   ⏔ 不动结构：世界钟／地点／总览／局势／暗线照旧全给 ✓（只缩正文那一块 ✓）
  */
-const WORLD_MATERIAL_CAP = 6000;
+const WORLD_MATERIAL_CAP = 6000;   /* 默认值；真正用的是她在面板里填的那个数 ✓ */
+function worldMaterialCap() {
+    let v = WORLD_MATERIAL_CAP;
+    try {
+        const a = getSettings().api || {};
+        const num = Number(a.materialCap);
+        if (Number.isFinite(num) && num >= 500) { v = num; }
+    } catch (e) { /* ⏔ 影响主流程 */ }
+    return Math.min(Math.max(Math.round(v), 500), 40000);
+}
 function capWorldMaterial(txt) {
+    const cap = worldMaterialCap();
     const s = String(txt == null ? '' : txt);
     if (!s.trim()) { return '（没有可读的正文）'; }
-    if (s.length <= WORLD_MATERIAL_CAP) { return s; }
-    return '（前文太长，只带最近 ' + String(WORLD_MATERIAL_CAP) + ' 字 ✓）\n' + s.slice(-WORLD_MATERIAL_CAP);
+    if (s.length <= cap) { return s; }
+    return '（前文太长，只带最近 ' + String(cap) + ' 字 ✓）\n' + s.slice(-cap);
 }
 
 async function stepWorld(material, attempt) {
