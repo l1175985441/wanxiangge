@@ -212,23 +212,34 @@ export function cleanMessageText(raw) {
         text = picked;
     }
 
-    // ② 用户点名的排除标签
+    // ② 用户点名的排除标签（**显式排除，绝不回退** ✓）
     const excl = stripNamedBlocks(text, settings.excludeTags);
     text = excl.text;
     removed += excl.removed;
+    const exclRemoved = Number(excl.removed) || 0;   /* ⭐修复 12：排除过没排除过，兜底时要分开看 ✓ */
 
-    // ③ 结构剥成对机器块（总开关）
-    if (settings.stripPairedBlocks !== false) {
-        const paired = stripPairedBlocks(text);
-        text = paired.text;
-        removed += paired.removed;
-    }
-
-    // ④ 剥 HTML 注释（总开关）
+    // ③ 剥 HTML 注释（总开关）
     if (settings.stripHtmlComments !== false) {
         const cmt = stripHtmlComments(text);
         text = cmt.text;
         removed += cmt.removed;
+    }
+
+    /*
+     * ⭐⭐ 修复 12（材料 02）：**保住“显式排除后”的安全基准** ✓
+     *   病根：下面第④步（剥成对机器块）一旦把**包在块里的正文误剥光** ✗
+     *         旧代码会退回**原文** ✗ ⇒ **连她明明排除掉的标签内容也一起回来了** ✗✗
+     *         （她原话：「我明明排除了那个标签，它还是冒出来」✗）
+     *   现在：基准取在**排除与注释都剥完之后** ✓ ⇒ 兜底只能退到这里 ✓
+     */
+    const safeBaseline = text;
+    const baseLen = trimText(safeBaseline).length;
+
+    // ④ 结构剥成对机器块（总开关）
+    if (settings.stripPairedBlocks !== false) {
+        const paired = stripPairedBlocks(text);
+        text = paired.text;
+        removed += paired.removed;
     }
 
     /*
@@ -240,9 +251,14 @@ export function cleanMessageText(raw) {
      *   ⇒ 改成"**剩得太少也算被剥没**"：剥完不足原文的 **15%**（且原文够长 ≥200 字）就退回原文。
      */
     const leftLen = trimText(text).length;
-    const origLen = trimText(original).length;
-    if (!leftLen || (origLen >= 200 && leftLen < origLen * 0.15)) {
-        return { text: original, removed, fellBack: true };
+    /* ⭐修复 12：阈值改看 **安全基准**（⏔ 原文）✓；且退回的是 safeBaseline ✓ */
+    if (!leftLen || (baseLen >= 120 && leftLen < baseLen * 0.15)) {
+        /* ⭐修复 12（两全版）：
+         *   · **没排除过任何标签** ⇒ 照旧退**原文** ✓（她的老规矩：不许把整楼读成空 ✓）
+         *   · **排除过** ⇒ 只能退到 `safeBaseline` ✓
+         *     （⏔ 把她明明排除掉的标签内容又放回来 ✗ —— 那正是她报的病 ✗） */
+        const backTo = (baseLen > 0 && exclRemoved > 0) ? safeBaseline : original;
+        return { text: backTo, removed, fellBack: true };
     }
 
     return { text, removed, fellBack: false };
