@@ -637,9 +637,28 @@ function secGeneral(host) {
      */
     {
         const pipe = (loadState() && loadState().pipeline) || {};
-        const running = !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
+        const pText = trimText(pipe.text);
+        const pFail = /没成|失败|出错|不兼容/.test(pText) || /fail|error/i.test(trimText(pipe.step));
+        const running = !pFail && !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
         if (running) {
             row(opsRow, button('取消（正在跑）', 'cancel-update', 'wxg-del'));
+            /*
+             * ⭐ 首夜实测单第 5 条（她 06:09「**立即更新说到了点**」＝认可"点完没有在跑的样子"）：
+             *   跑中得有**样子** —— 这里挂一个「⏳ 更新中」胶囊，并把重活按钮**禁用**（点不动、也不吞连点）；
+             *   跑完（running 为假）自然恢复 ⇒ 下次重绘时按钮就没有 disabled 了 ✓
+             */
+            const pill = el('span', 'wxg-busy-pill', '⏳ 更新中…');
+            pill.id = 'wxg-ops-busy';
+            pill.setAttribute('title', pText || '正在后台跑；想停就点旁边的「取消（正在跑）」');
+            opsRow.appendChild(pill);
+            const heavy = ['update-now', 'backfill', 'reconcile', 'publish-book', 'replan', 'rollback'];
+            for (const a of heavy) {
+                const b = opsRow.querySelector('[data-action="' + a + '"]');
+                if (b) {
+                    b.setAttribute('disabled', 'disabled');
+                    b.setAttribute('title', '正在跑（上面的胶囊能看到进度）——想停就点「取消（正在跑）」');
+                }
+            }
         }
     }
     row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));

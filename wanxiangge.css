@@ -3547,3 +3547,26 @@ body.wxg-dragging {
 .wanxiangge .wxg-wsum {
     color: var(--wxg-text, inherit);
 }
+
+/* ⭐ 首夜实测单第 5 条：跑中要有"样子"（那个胶囊就在操作钮旁边） */
+.wxg-busy-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--wxg-text, inherit);
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+    animation: wxg-busy-pulse 1.4s ease-in-out infinite;
+}
+@keyframes wxg-busy-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+.wxg-card-actions button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
