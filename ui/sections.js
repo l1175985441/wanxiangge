@@ -643,6 +643,64 @@ function secGeneral(host) {
         }
     }
     row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));
+    /*
+     * ⭐ 首夜实测单第 4 条（她原话：「我也不知道他更新到什么东西了，**还得翻到总空那里去看看**」
+     *   ＋「第一次点了一下推了八成……第二次按完才推完，还是翻到那个地方才看到他推了多少」）：
+     *   progress 文案**早就存在**（`pipeline.js` 的「准备补推 N 个楼层」／「补推中：第X楼（n/total）」／
+     *   「补推中断：…（已完成 X 楼）」），但**只渲在【状态】页** ⇒ 操作在总控、进度在状态，中间隔一次翻页 ✗
+     *   ⇒ 这里把进度**搬到操作钮旁边就地显示**（同一个数据源 `loadState().pipeline`），
+     *     并**自带一个小自刷**：跑中就每 700ms 刷一次；元素一离开 DOM 就自停（⛔ 不挂全局定时器）。
+     */
+    const progRow = el('div', 'wxg-note', '');
+    progRow.id = 'wxg-ops-progress';
+    opsRow.appendChild(progRow);
+    {
+        const readPipe = () => {
+            try {
+                return (loadState() && loadState().pipeline) || {};
+            } catch (e) {
+                return {};
+            }
+        };
+        const draw = () => {
+            let p2 = {};
+            try {
+                p2 = readPipe();
+            } catch (e) {
+                p2 = {};
+            }
+            const step = trimText(p2.step);
+            const text = trimText(p2.text);
+            const running2 = !!step && step !== 'done' && step !== 'idle';
+            if (running2) {
+                progRow.textContent = '⏳ ' + (text || '正在跑…');
+            } else if (text && /补推中断|已取消/.test(text)) {
+                /*
+                 * 断点续跑要**露出**（她那次"推了八成→再点→推完"的静默中断，屏上根本没说过）：
+                 * 留着上次那句话，并告诉她**再点一次「补推历史」就能接着补**。
+                 */
+                progRow.textContent = '⏸ ' + text + '（再点「补推历史」接着补；填了范围就按范围补）';
+            } else if (text) {
+                progRow.textContent = '上次：' + text;
+            } else {
+                progRow.textContent = '（还没跑过；点「补推历史」按范围补，跑中这里会显示 n/N）';
+            }
+        };
+        draw();
+        let n = 0;
+        const timer = setInterval(() => {
+            n += 1;
+            if (n > 1200 || !progRow.isConnected) {   // 元素离屏就自停（⛔ 不留全局定时器）
+                clearInterval(timer);
+                return;
+            }
+            try {
+                draw();
+            } catch (e) {
+                clearInterval(timer);
+            }
+        }, 700);
+    }
     cOps.appendChild(opsRow);
     if (clearWorldOpen) {
         const prevG = ledgerClearPreview();
