@@ -416,6 +416,20 @@ export async function callModel(opts) {
  *   ⚠️ 拉不到（站不通／没开这个接口／没埋地址）⇒ **如实说原因**，且**不影响手输**（她随时可以自己填）。
  *   ⚠️ 这条路**不走酒馆转发**（ST 那个端口是聊天用的，没有 models）⇒ 只能直连拉。
  */
+/*
+ * ⭐⭐ 修复 10（材料 01/06：12.3／12.4）：**地址后缀拼接对称化** ✓
+ *   旧：直连模式填了**没带 /v1 的根域名**（只写到主机名、后面没有路径）⇒ **漏 /v1** ✗ ⇒ 拉不出模型/连不上 ✗
+ *   现在：只对**纯根域名**（后面没有任何路径）补 `/v1` ✓
+ *   ⏔ 带了路径的（如 /v1beta／/v1／自定义路径）**一律不碰** ✓（她填什么就是什么 ✓）
+ */
+function withVersionIfBareRoot(u) {
+    const s = trimText(u);
+    if (!/^https?:\/\/[^\/]+$/i.test(s)) {
+        return s;
+    }
+    return s + '/v1';
+}
+
 export async function fetchModels(opts) {
     const api = (opts && opts.api) || (getSettings().api || {});
     const url = trimText(api.url);
@@ -425,7 +439,7 @@ export async function fetchModels(opts) {
     const base = url.replace(/\/+$/, '');
     const key = trimText(api.key);
     // ⚠️ 不能跟用户填的 `…/chat/completions` 拼错：把尾部那段切掉再接 `/models`
-    const root = base.replace(/\/(chat\/)?completions$/i, '');
+    const root = withVersionIfBareRoot(base.replace(/\/(chat\/)?completions$/i, ''));
     const ep = root + '/models';
     try {
         const res = await fetch(ep, {
@@ -583,7 +597,8 @@ async function callViaServer(url, key, model, body, signal, cheap) {
 /** ② 浏览器直连 */
 async function callDirect(url, key, model, body, signal) {
     const base = url.replace(/\/+$/, '');
-    const endpoint = /\/chat\/completions$/.test(base) ? base : base + '/chat/completions';
+    const baseNorm = withVersionIfBareRoot(base);
+    const endpoint = /\/chat\/completions$/.test(baseNorm) ? baseNorm : baseNorm + '/chat/completions';
     const headers = { 'Content-Type': 'application/json' };
     if (key) {
         headers.Authorization = 'Bearer ' + key;
