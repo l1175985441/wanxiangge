@@ -741,6 +741,20 @@ function freshness(s) {
                 latest = at;
             }
         }
+    /*
+     * ⭐ R14（材料 05）：**freshness 还要算上编年的时间** ✓
+     *   旧：只算 lastUpdate／world.updatedAt／recalRecords／characters ✗
+     *     ⇒ 她若刚删了一条局势（仅在编年里留痕 ✓），freshness 可能算不出“这份更新” ✗
+     *     ⇒ 刷新页面时被旧底稿反超 ⇒ **刚删的局势又活过来** ✗
+     */
+    if (Array.isArray(s.chronicle)) {
+        for (const row of s.chronicle) {
+            const at = Number((row && row.at) || 0);
+            if (at > latest) {
+                latest = at;
+            }
+        }
+    }
     }
     return latest;
 }
