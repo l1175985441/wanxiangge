@@ -43,7 +43,15 @@ export function markCarried(items, opts) {
             if (injectedText && !injectedText.includes(trimText(p.text))) {
                 continue;
             }
-            p.injected = true;
+            /*
+             * ⭐⭐ R8（材料 05）：**不再把投射过的经历永久标成 injected** ✓
+             *   她原话（[51]～[54]）：过去经历是**流动的最近几条**，没淡出前**每轮**该带上 ✓
+             *   旧：注入完就永久标 true ✗，但注入是往 coreChat 临时塞一条 system、
+             *     **不进聊天历史**，下一轮开头就被摘掉 ✗
+             *     ⇒ 第 2 个回合起（以及重 roll 时）第 2～5 条经历对主模型**全部隐身** ✗
+             *   现在：只记账、不打永久标 ✓ ⇒ 每轮都能带 ✓
+             *     （流动范围仍由 capPast 与“楼层裁”管 ✓）
+             */
             marked += 1;
         }
     }
