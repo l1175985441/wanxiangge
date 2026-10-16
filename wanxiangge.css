@@ -3261,7 +3261,7 @@ body.wxg-dragging {
  *    ⚠️ 这一版把上一版那条 592px / 贴右 的规矩**覆盖掉**（后写的赢）。
  * ======================================================================== */
 .wxg-pc {
-    left: 424px; right: auto; top: 150px;
+    left: max(16px, calc(50vw - 397px)); right: auto; top: 150px;
     width: 795px; max-width: calc(100vw - 48px);
     /*
      * ⭐ 修复单 #36c：**⏔ 硬编码白底**。

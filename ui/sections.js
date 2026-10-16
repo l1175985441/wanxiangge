@@ -2496,8 +2496,12 @@ function secApi(host) {
         el('span', 'wxg-note', '（向地址 + /models 要一份清单；拉不到也可以自己填）'));
     cCh.appendChild(el('div', 'wxg-chipwrap', '')).id = 'wxg-api-modellist';
     line(cCh, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
+    /* ⭐修复 15（材料 02）：**温度框设 step="0.1"** ✓
+     *   （旧：步长默认 1 ✗ ⇒ 她想填 0.6 这种小数很别扭 ✗） */
+    const tempInput = numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp');
+    tempInput.step = '0.1';
     line(cCh, '温度',
-        numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp'),
+        tempInput,
         el('span', 'wxg-note', '单次最多输出'),
         numberInput('wxg-api-maxtok', api.maxTokens, 200, 65536, 'stage-api-maxtok'));
     /*
