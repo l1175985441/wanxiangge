@@ -3704,11 +3704,27 @@ function renderWorldEntryCard() {
          *     ⇒ 用 `data-hidden="1"` 告诉动作写回哪一张表。
          */
         if (openWorldEntryEditing) {
-            if (k === '火候' && !isHidden) {
+            /* ⭐⭐ 材料 03 定稿：**「阶段(stage)」与「火候(tier)」拆成两格、各叫各的真名** ✓
+             *   旧：暗线那一格写成 `put('火候', item.stage, '萌芽')` ✗
+             *        ⇒ **标签叫“火候”、值却是 stage** ✗（名不符实 ✗），而且暗线**没有 tier 那一格** ✗
+             *   新：火候 ⇒ **TIERS 下拉**（暗线也用，标 `data-hidden` ✓）；阶段（暗线）⇒
+             *        按 `item.kind` 给 **STAGES_PROGRESS / STAGES_CONFLICT 下拉** ✓（⏔ 手打错别字破坏 isLineDone 判定 ✗）
+             *   ⏔ 不删 stage ✓（只读态下两栏信息区一格都不少 ✓） */
+            if (k === '火候') {
                 const sel = select(null, TIERS.map((x) => ({ value: x, label: x })), trimText(v) || TIERS[1], 'set-situation');
                 sel.setAttribute('data-index', String(openWorldEntry.idx));
+                if (isHidden) {
+                    sel.setAttribute('data-hidden', '1');
+                }
                 sel.setAttribute('data-key', 'tier');
                 box2.appendChild(sel);
+            } else if (k === '阶段' && isHidden) {
+                const stages = item.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT;
+                const sel2 = select(null, stages.map((x) => ({ value: x, label: x })), trimText(v) || stages[0], 'set-situation');
+                sel2.setAttribute('data-index', String(openWorldEntry.idx));
+                sel2.setAttribute('data-hidden', '1');
+                sel2.setAttribute('data-key', 'stage');
+                box2.appendChild(sel2);
             } else {
                 const inp = el('input', 'wxg-pc-input');
                 inp.type = 'text';
@@ -3732,7 +3748,9 @@ function renderWorldEntryCard() {
     if (isHidden) {
         put('到点', item.trigger, '未定时间');
         put('走到', item.note, '还没走到');
-        put('火候', item.stage, '萌芽');
+        /* ⭐材料 03：**阶段与火候各归各位** ✓（旧：火候那格里装的是 stage ✗） */
+        put('阶段', item.stage, '萌芽');
+        put('火候', item.tier, '几天内');
     } else {
         put('哪几方', item.sides, '未写');
         put('火候', item.tier, '几天内');
