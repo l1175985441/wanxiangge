@@ -1290,6 +1290,13 @@ export async function runUpdate(opts) {
             setPipeline({ tries: attempt });
             worldRes = await stepWorld(material, attempt);
             if (worldRes.ok) {
+                /* ⭐谷歌复核（二）：世界状态成功 ⇒ **立刻落盘** ✓ + 记下 worldAtFloor ✓
+                 *   ⇒ 之后角色步挂了，**绝不回滚它** ✓（下次从这批的角色步接着跑 ✓） */
+                try {
+                    const stW = loadState();
+                    stW.pipeline = Object.assign({}, stW.pipeline || {}, { worldAtFloor: floor });
+                    saveState();
+                } catch (eW) { /* ⏔ 影响主流程 */ }
                 break;
             }
             lastError = worldRes.reason;
@@ -1384,7 +1391,11 @@ export async function runUpdate(opts) {
      */
     if (failed) {
         try {
+            /* ⭐谷歌复核（二）：**世界状态也没成才整轮回滚** ✓；
+         *   世界状态已成功并已落盘（见上方）⇒ **只回滚角色步**（角色状态本来就没脏 ✓） */
+        if (!worldRes || worldRes.ok !== true) {
             restoreSnapshot(preSnap);
+        }
         } catch (e) {
             console.warn('[万象阁] 失败回滚没做成：', e);
         }
