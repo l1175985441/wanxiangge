@@ -318,8 +318,9 @@ function colorInput(id, value, action) {
     return box;
 }
 
-function textInput(id, value, placeholder, action, cls) {    const input = document.createElement('input');
-    input.type = 'text';
+function textInput(id, value, placeholder, action, cls, type) {    const input = document.createElement('input');
+    /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 支持传 'password'（默认遮住）✓ */
+    input.type = type || 'text';
     input.id = id;
     input.className = 'text_pole ' + (cls || '');
     input.value = asText(value);
@@ -2285,7 +2286,9 @@ function secApi(host) {
         { value: 'direct', label: '直连（浏览器直接请求）' },
     ], api.mode, 'stage-api-mode'));
     line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
-    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short'));
+    /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
+    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', 'password'),
+        button('显示', 'toggle-api-key', 'wxg-btn-sm'));
     line(cCh, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
     /*
      * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
@@ -5194,7 +5197,27 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 case 'set-api-model-cheap': if (isChange) { patchApi({ modelCheap: target.value }); } break;
                 case 'set-api-temp': if (isChange) { patchApi({ temperature: target.value }); } break;
                 case 'set-api-maxtok': if (isChange) { patchApi({ maxTokens: target.value }); } break;
+                case 'toggle-api-key': {
+                    /*
+                     * ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认遮住，点一下才显形（⛔ 不改她的值）
+                     */
+                    const kEl = document.getElementById('wxg-api-key');
+                    if (kEl) {
+                        const showing = kEl.type === 'text';
+                        kEl.type = showing ? 'password' : 'text';
+                        target.textContent = showing ? '显示' : '隐藏';
+                        toast.info(showing ? '钥匙已遮住' : '钥匙已显形（看完记得点回「隐藏」）');
+                    }
+                    rerender();
+                    break;
+                }
                 case 'fetch-models': {
+                    /*
+                     * ⭐ 她 13:xx 原话：「填完了API得保存一下，然后拉取模型得保存一下……反正啥都要保存一下。这就是别扭问题了。」
+                     *   ⇒ 这几个动作**直接用你面板里现在填的值**（先把 api 那节草稿提交，等同自动按一次保存）✓
+                     *   ⛔ 两段式架构不动：只是替她多点一次"保存"，值仍走同一套校验与落盘 ✓
+                     */
+                    commitSection('api');
                     toast.info('正在拉模型列表…');
                     const apiMod = await import('../core/apiclient.js');
                     const boxEl = host.querySelector('#wxg-api-modellist');
@@ -5229,6 +5252,10 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         inp.value = name;
                         // 走同一条草稿（⛔ 直接 patch：她还要点段底保存）
                         const which = stageOne('stage-api-model', inp);
+                    /*
+                     * ⭐ 她 13:xx：「按了模型得保存一下」⇒ 选完模型**当场落盘**（不用她再按保存）✓
+                     */
+                    commitSection('api');
                         if (which) {
                             refreshSaveBar(host, which);
                         }
@@ -5237,6 +5264,9 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'test-api': {
+                    /* ⭐ 同上：测连接**不用先保存**，直接用你现在填的地址／密钥／模型 ✓ */
+                    commitSection('api');
+
                     toast.info('正在测连接…');
                     const res = await testApi();
                     if (res.ok) {
