@@ -117,19 +117,56 @@ async function upsertEntries(api, wanted) {
     }
     let written = 0;
     const problems = [];
+    /*
+     * ⭐⭐ 修复 11（材料 02）：**告别 60 次串行全书读写** ✓
+     *   旧：每一条都单独调一次 api.setEntries ⇒ 60 条就 60 次「读整本＋写整本」✗ ⇒ 卡顿 ✗
+     *   新：先分两桶（要改的 toUpdate／要建的 toCreate ✓ 内容没变就跳过、不白写盘 ✓）
+     *       ⇒ **一次 setEntries 把要改的全写掉** ✓（60 次 → 1 次 ✓）
+     */
+    const toUpdate = [];
+    const toCreate = [];
     for (const item of wanted) {
         const old = byTitle.get(item.title);
+        if (old) {
+            if (trimText(old.content) === trimText(item.content)) {
+                continue;   // 内容没变 ⇒ 不白写盘 ✓
+            }
+            toUpdate.push({ ...old, content: item.content });
+        } else {
+            toCreate.push(item);
+        }
+    }
+
+    if (toUpdate.length) {
         try {
-            if (old) {
-                const patch = { content: item.content };
-                if (api.setEntries) {
-                    await api.setEntries(WORLD_BOOK_NAME, [{ ...old, content: item.content }]);
-                } else if (api.createEntry) {
-                    // 实在没有改接口：留着旧条目不动，另建一条（宁可重复也不丢数据）
-                    await api.createEntry(WORLD_BOOK_NAME, { comment: item.title, content: item.content, key: item.title, keysecondary: '', selective: false, constant: false });
-                }
-                written += 1;
+            if (api.setEntries) {
+                // ⭐ 一次性批量更新已有条目 ✓
+                await api.setEntries(WORLD_BOOK_NAME, toUpdate);
+                written += toUpdate.length;
             } else if (api.createEntry) {
+                // \u23d4 \u4fdd\u7559\u515c\u5e95\uff1a\u5bbf\u4e3b\u6ca1\u6709\u6279\u91cf\u63a5\u53e3\u65f6\uff0c\u7167\u65e7\u9010\u6761\u53e6\u5efa\uff08\u5b81\u53ef\u91cd\u590d\u4e5f\u4e0d\u4e22\u6570\u636e \u2713\uff09
+                for (const item of toUpdate) {
+                    await api.createEntry(WORLD_BOOK_NAME, {
+                        comment: item.comment || item.title || '',
+                        content: item.content,
+                        key: item.key || item.comment || item.title || '',
+                        keysecondary: '',
+                        selective: false,
+                        constant: false,
+                    });
+                    written += 1;
+                }
+            } else {
+                problems.push('这个酒馆版本没有给"批量改世界书条目"的接口');
+            }
+        } catch (e) {
+            problems.push('批量更新条目失败：' + (e && e.message ? e.message : String(e)));
+        }
+    }
+
+    for (const item of toCreate) {
+        try {
+            if (api.createEntry) {
                 await api.createEntry(WORLD_BOOK_NAME, {
                     comment: item.title,
                     content: item.content,
@@ -137,11 +174,15 @@ async function upsertEntries(api, wanted) {
                     keysecondary: '',
                     selective: false,
                     constant: false,
-                    disable: false,
+                    /* ⭐ 修复 11（材料 02）：新增条目默认 disable:true / enabled:false
+                     *   ⇒ **仅作查阅备份** ✓ 防与万象阁自己的拦截器**重复注入** ✗ */
+                    disable: true,
+                    enabled: false,
                 });
                 written += 1;
             } else {
                 problems.push('这个酒馆版本没有给"新增世界书条目"的接口');
+                break;
             }
         } catch (e) {
             problems.push(item.title + '：' + (e && e.message ? e.message : String(e)));
