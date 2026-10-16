@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.152';
+export const APP_VERSION = '0.3.153';
 
 export const LEDGER_VERSION = 3;
 
@@ -214,6 +214,8 @@ export const DEFAULT_PROMPT_WORLD = [
     '⛔ **"我"＝ user＝玩家＝正文里的那个人**（名单里标着"玩家棋子"的那位）；下面每一条"不许写我"都是指**这个人** ✓，⛔ 也不许写"user"、"玩家"这两个词本身 ✓。',
     '4. ⛔ 不许写"我"（玩家）的任何动作、状态、位置、预判；⛔ 不许因"我"的动静而行动。',
     '5. ⛔ 不要写经济、物价、民生气候这类东西。',
+    /* P7 (material 07): the code rejects fabricated trouble, so say so here. */
+    '⛔ **不许编造“受困／重伤／待救”这类情节**：⏔ 不写被困／困于／昏迷／重伤／待解救／急待／即将发生（这些词会被当成**编造**剔掉 ✓）；世界里真出了麻烦，就**按正文里已经写了的**如实写 ✓。',
     '6. ⛔ 只写"现在正在发生的事"，不许写"下一步会怎样"。',
     '',
     '只输出 JSON，不要任何别的文字：',
