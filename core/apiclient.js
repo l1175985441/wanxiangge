@@ -472,10 +472,13 @@ async function callViaServer(url, key, model, body, signal, cheap) {
             detail = '';
         }
         // 404 时把话说到位：云酒馆挂在子路径上、或酒馆没开这条接口
+        /* ⭐她 15:xx：失败时要把“真因”点名（⏔ 让她以为是本地的毛病 ✗） */
+        const resetLike = res.status === 502 || /ECONNRESET|ETIMEDOUT|socket hang up|aborted/i.test(String(detail || ''));
         const hint = res.status === 404
             ? '（接口没找到：如果酒馆挂在子路径下，或"自定义 URL"被服务器关了，就会这样）'
             : '';
-        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + (detail ? '：' + detail : '') };
+        return { ok: false, reason: '酒馆转发失败（HTTP ' + String(res.status) + '）' + hint + (resetLike ? '（对方站点把连接掉了 —— 不是你本地的毛病：可以少推几楼／换个模型或站点／过会儿再试）' : '')
+            + (detail ? '：' + detail : '') };
     }
     const data = await res.json().catch(() => null);
     const text = readCompletionText(data);
