@@ -334,7 +334,8 @@ function pickEvents(leadText, ctxText, events, cap) {
         let score = 0;
         if (lead && hay) {
             // 发言里出现同一个词就加分（粗筛：2 字以上的切片）
-            for (let i = 0; i + 2 <= lead.length; i += 2) {
+            /* ⭐修复 8：**步长改回 1** ✓（原 i += 2 ✗ ⇒ 奇偶位跨界的双字词漏掉 ✗） */
+            for (let i = 0; i + 2 <= lead.length; i += 1) {
                 const gram = lead.slice(i, i + 2);
                 if (gram.length === 2 && hay.includes(gram)) {
                     score += 2;
@@ -342,7 +343,8 @@ function pickEvents(leadText, ctxText, events, cap) {
             }
         }
         if (ctx && hay) {
-            for (let i = 0; i + 2 <= ctx.length; i += 4) {
+            /* ⭐修复 8：**步长改回 1** ✓（原 i += 4 ✗ ⇒ 漏得更多 ✗） */
+            for (let i = 0; i + 2 <= ctx.length; i += 1) {
                 const gram = ctx.slice(i, i + 2);
                 if (gram.length === 2 && hay.includes(gram)) {
                     score += 1;
@@ -352,11 +354,13 @@ function pickEvents(leadText, ctxText, events, cap) {
         return { ev, idx, score };
     });
     const hot = scored.filter((s) => s.score > 0);
-    const cold = scored.filter((s) => s.score === 0);
+    /* ⭐⭐ 修复 8：与当前对话**完全无关**（score === 0）的事件里，**只允许公开局势补位** ✓
+     *   ⏔ **绝不把未关联的潜伏暗线（hidden）强塞给主模型** ✗（防暗线提前冒头 ✗ 及被送达回执误拉黑 ✗） */
+    const cold = scored.filter((s) => s.score === 0 && s.ev.kind !== 'hidden');
     // 相关的优先；不够封顶数就用"暗线优先、新的优先"补齐（世界不被冷落）
     hot.sort((a, b) => b.score - a.score);
-    cold.sort((a, b) => (b.ev.kind === 'hidden' ? 1 : 0) - (a.ev.kind === 'hidden' ? 1 : 0)
-        || (Number(b.ev.at) || 0) - (Number(a.ev.at) || 0));
+    /* ⭐修复 8：冷门补位**只按新旧** ✓（旧：把 hidden 排在最前 ✗ ⇒ 暗线总冒头 ✗） */
+    cold.sort((a, b) => (Number(b.ev.at) || 0) - (Number(a.ev.at) || 0));
     const merged = hot.concat(cold).slice(0, n);
     return { picked: merged.map((x) => x.ev), dropped: Math.max(0, events.length - merged.length) };
 }
