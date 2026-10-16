@@ -119,7 +119,13 @@ export function planRecall(options) {
             mesId: recall.mesId,
             at: recall.at,
             lead: leadText,
-            from: recall.from,
+            /*
+         * ⭐⭐ R2（材料 05）：**别把整楼原文存进召回记录** ✓
+         *   旧：`from: recall.from`（最近 3 层楼的完整正文，动辙一两万字 ✗）
+         *     × 最多 200 条 × 8 个聊天档镜像 ⇒ settings.json 膨胀到数 MB ✗
+         *   现在：**只留尾巴 400 字** ✓（没人读 rec.from ✓，留一截方便排查 ✓）
+         */
+        from: String(recall.from == null ? '' : recall.from).slice(-400),
             items: recall.items,
             events: recall.events,
             chars: recall.chars,
