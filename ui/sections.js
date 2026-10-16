@@ -617,6 +617,20 @@ function secGeneral(host) {
         button('重算本楼', 'replan'));
     row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
+    /*
+     * ⭐ 首夜实测单第 2 条（她原话：「我们取消的按钮都没有见到……想按个取消也没有见到」）：
+     *   `cancel-update` 的 handler 一直**在**（本文件 ~L5278），但**按钮从来没被创建过**（孤儿）——
+     *   而「补推」的 toast 却承诺"可随时取消" ⇒ **说了有、实际没有**。
+     *   ⇒ 这里接上：**跑中就地出现**（就在这些操作钮旁边），跑完自动收起。
+     *   ⚠️ 只在跑中渲染（她不用对着一个永远点不动的"取消"发呆）。
+     */
+    {
+        const pipe = (loadState() && loadState().pipeline) || {};
+        const running = !!pipe.step && pipe.step !== 'done' && pipe.step !== 'idle';
+        if (running) {
+            row(opsRow, button('取消（正在跑）', 'cancel-update', 'wxg-del'));
+        }
+    }
     row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));
     cOps.appendChild(opsRow);
     if (clearWorldOpen) {
