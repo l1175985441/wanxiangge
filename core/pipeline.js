@@ -622,8 +622,15 @@ function applyCharacter(raw, material, conflicts) {
     }
 
     // 好感：只"读"，⛔ 不自己加减、不自己编（模型给的只当参考，若她没接数据源就照抄）
+    /* ⭐修复 4（材料 02）并按材料 03 定稿修正 ✓
+     *   病根：旧条件只排除 `'未知'` ✗ ⇒ 推演模型把“未接入/敌对/本人”这类**文字**
+     *         写进好感格也照单全收 ✗（好感格污染 ✗）
+     *   现在：**必须是合法数字** 才收 ✓（纯数字正则 ⇒ “未接入/敌对/本人”100% 进不来 ✓）
+     *   ⚠️材料 03 明确修正：**去掉 `&& !trimText(c.affinity)`** ✓
+     *      （那是“空值锁”✗ ⇒ 只要格子里有初始值，后续正文里读到的更新就**永远写不进去** ✗）
+     *   保留的三个条件：合法数字 ✓ ＋ 未接外部数据源 ✓ ＋ 该格未被手动锁定 ✓ */
     const incomingAff = trimText(raw && raw.affinity);
-    if (incomingAff && incomingAff !== '未知' && !trimText(c.affinitySource)) {
+    if (/^-?\d+(?:\.\d+)?$/.test(incomingAff) && !trimText(c.affinitySource)) {
         const old = trimText(c.affinity);
         if (!(old && isFieldLocked('affinity') && old !== incomingAff)) {
             patch.affinity = incomingAff;
