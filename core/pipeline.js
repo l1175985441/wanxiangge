@@ -350,7 +350,60 @@ function mergeSituations(oldList, freshList) {
                 floor: inc.floor,
             });
         } else {
-            merged.push(inc);
+            /*
+             * ⭐⭐ R12（材料 05）：**合不上时先找最像的那条并进去** ✓
+             *   旧：二元组重合度低于阈值就当**新局势 push** ✗
+             *     ⇒ 模型换个措辞（主谓语一变）就合不上 ✗
+             *     ⇒ 塞满 60 条（capEvents）才开始淘汰 ✗ ⇒ 面板与每轮提示词越来越臃肿 ✗
+             *   现在：先算“跟现有哪条最像”（双字重合率 ✓），
+             *     ≥ 0.25 就**并进去（保留原标题 ✓）**；真不像才 push ✓
+             */
+            const gramsOf = (txt) => {
+                const s2 = matchKey(txt);
+                const g2 = [];
+                for (let i = 0; i + 2 <= s2.length; i += 1) {
+                    g2.push(s2.slice(i, i + 2));
+                }
+                return g2;
+            };
+            const gNew = gramsOf(title);
+            let bestIdx = -1;
+            let bestScore = 0;
+            if (gNew.length) {
+                for (let k = 0; k < merged.length; k += 1) {
+                    const old = merged[k];
+                    if (!old || old.manual) {
+                        continue;   /* 她手改锁定的不动 ✓ */
+                    }
+                    const gOld = gramsOf(old.title || '');
+                    if (!gOld.length) {
+                        continue;
+                    }
+                    const seen = new Set(gOld);
+                    let hit = 0;
+                    for (const g of gNew) {
+                        if (seen.has(g)) {
+                            hit += 1;
+                        }
+                    }
+                    const score = hit / Math.max(1, Math.min(gNew.length, gOld.length));
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestIdx = k;
+                    }
+                }
+            }
+            if (bestIdx >= 0 && bestScore >= 0.25) {
+                /* 并进去：**标题保留原来那个** ✓（⏔ 让列表越来越长 ✗） */
+                merged[bestIdx] = Object.assign({}, merged[bestIdx], {
+                    sides: trimText(inc.sides) || merged[bestIdx].sides,
+                    tier: trimText(inc.tier) || merged[bestIdx].tier,
+                    at: Date.now(),
+                    floor: inc.floor,
+                });
+            } else {
+                merged.push(inc);
+            }
         }
     }
     return merged;
