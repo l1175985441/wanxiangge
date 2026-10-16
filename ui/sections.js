@@ -4454,6 +4454,41 @@ function downloadText(filename, text) {
 }
 
 /** 把事件委托绑到宿主上（只绑一次） */
+/**
+ * ⭐⭐ R5（材料 05）：**改完一格别当场重画** ✓
+ *   旧：change（鼠标按下失焦就触发）里**当场** rerender() ✗
+ *     ⇒ 把她正按着的那颗按钮连同整个浮层 DOM 销毁重建 ✗
+ *     ⇒ mouseup 时 click 凭空蒸发 ✗ ⇒ **第一次点击必然失效** ✗
+ *   现在：**状态照旧同步写** ✓，只把**重画推迟 ~260ms** ✓，并**记住浮层位置**、重画完还回去 ✓
+ *   ⚠️ 只用在**改字段**这类地方 ✓（⏔ 往别的流程里套 ✗：
+ *     “名字跟人设名一样⇒自动认玩家棋子”那条审计就靠**同步重画** ✗）
+ */
+function scheduleCardRerender() {
+    let keep = null;
+    try {
+        const old = document.querySelector('.wxg-pc');
+        if (old && old.style) {
+            keep = { left: old.style.left, top: old.style.top };
+        }
+    } catch (e0) { keep = null; }
+    try {
+        setTimeout(() => {
+            try {
+                rerender();
+                if (personCardId) { renderPersonCard(); }
+                if (openWorldEntry) { renderWorldEntryCard(); }
+            } catch (e1) { /* 重画出错也不能把这一页搞挂 ✓ */ }
+            try {
+                const now = document.querySelector('.wxg-pc');
+                if (now && now.style && keep) {
+                    if (keep.left) { now.style.left = keep.left; }
+                    if (keep.top) { now.style.top = keep.top; }
+                }
+            } catch (e2) { /* 位置回不去也不要紧 ✓ */ }
+        }, 260);
+    } catch (e3) { /* 定时器都起不来就只剩状态写入 ✓ */ }
+}
+
 export function bindSectionEvents(host, refresh) {
     if (!host || host.__wxgBound) {
         return;
@@ -4962,10 +4997,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                          *   （浮层挂在段容器里）⇒ 真机上就是"改一格、整张卡没了"。
                          *   ⇒ **重画完再把卡片画回来**（跟 `card-save` 同一个道理）。
                          */
-                        rerender();
-                        if (personCardId) {
-                            renderPersonCard();
-                        }
+            scheduleCardRerender();   /* R5：推迟重画 ✓（⛔ 把她正按的按钮销毁掉 ✗） */
                     }
                     break;
                 case 'set-alias':
