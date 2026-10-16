@@ -31,7 +31,7 @@ import {
 import { questStats } from '../core/summary.js';
 // ⭐ 补⑤ 体检报告（自检）
 import { buildHealthReport } from '../core/health.js';
-// ⭐ 版本从 config 取（⏔ 从 index.js import：那会绕成循环 index→sections→index）
+// ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION } from '../core/config.js';
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, getEntries } from '../core/worldbook.js';
@@ -44,7 +44,7 @@ import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
-// ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⏔ 等下次切档）
+// ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 
@@ -170,7 +170,7 @@ function section(title, hint, opts) {
     /*
      * ⭐ 「调设置」那五页（外观／召回／读取控制／自定义 API／提示词）盖个标记：
      *   包里这五页的版式共同点是「**卡标题居中** ＋ 保存靠右下**」。
-     *   ⏔ 给所有段都上：数据页（状态／世界／名册…）的卡标题居中反而难扫。
+     *   ⛔ 给所有段都上：数据页（状态／世界／名册…）的卡标题居中反而难扫。
      */
     if (o.five) {
         drawer.setAttribute('data-wxg-five', '1');
@@ -416,7 +416,7 @@ function secStatus(host, intoSelf) {
         + '原来分三页，其实是同一件事。',
         { open: true });
     /*
-     * ⭐ 「现在怎么样」这张卡**壳撕了**（照状态页目标态的 ⏔ 清单：
+     * ⭐ 「现在怎么样」这张卡**壳撕了**（照状态页目标态的 ⛔ 清单：
      *   它的信息＝每轮记录最新一条，重复）。
      *   ⚠️ 但里面那几行**一条都没丢**：
      *     · 存档行（✓ 已存进聊天档…）—— 目标包要它并进「进度」框的框底（下一步做）
@@ -425,12 +425,12 @@ function secStatus(host, intoSelf) {
      */
     /*
      * ⭐ 两框布局（照目标包：上排两框「进度｜世界」，下排整条「每轮记录」）。
-     *   ⏔ 再一堆竖着摆（原来就是一堆，看不出"两件事"）。
+     *   ⛔ 再一堆竖着摆（原来就是一堆，看不出"两件事"）。
      *   ⭐ 存档行与「上次更新」按包里要求**并进左框的框底**。
      */
     /*
      * ⭐ 右上「功能 ⋮」（照目标包：状态页页头右上也有一个）。
-     *   跟名册页那颗**同一个做法**（⏔ 两套）。
+     *   跟名册页那颗**同一个做法**（⛔ 两套）。
      */
     const sTop = el('div', 'wxg-roster-topbar');
     const sFunc = button('功能 ⋮', 'status-func', 'wxg-func-btn');
@@ -443,7 +443,7 @@ function secStatus(host, intoSelf) {
     sTop.appendChild(sFunc);
     // ⭐ 补⑤：「体检」入口（点一下出一份自检）
     const sHeal = button('体检', 'health-open', 'wxg-func-btn');
-    sHeal.title = '出一份自检：版本／开关／条数／最近失败分类（⏔ 不含正文与钥匙）';
+    sHeal.title = '出一份自检：版本／开关／条数／最近失败分类（⛔ 不含正文与钥匙）';
     sHeal.style.height = '28px';
     sHeal.style.minHeight = '28px';
     sHeal.style.lineHeight = '26px';
@@ -460,7 +460,7 @@ function secStatus(host, intoSelf) {
     line.setAttribute('data-tone', report.tone);
     const ledgerLine = el('div', 'wxg-ledger', '上次更新：' + ledgerText());
     const world = describeWorld();
-    // ⭐ 目标核对 4：这一行是**数据标签**（世界钟／局势／暗线／编年／可撤回），⏔ 说明小字
+    // ⭐ 目标核对 4：这一行是**数据标签**（世界钟／局势／暗线／编年／可撤回），⛔ 说明小字
     //   ⇒ 单独给一个类，强调里把它**升到接近正文**（见 css 的 .wxg-wsum）。
     const worldNote = el('div', 'wxg-note wxg-wsum',
         '世界钟：' + world.clock
@@ -496,9 +496,9 @@ function secStatus(host, intoSelf) {
     secSteps(host, colProg);
     /*
      * ⭐ 存档行／上次更新 ⇒ 收进**进度卡里面**（包里要的是「框底一行」，
-     *   ⏔ 只是"跟在卡下面"）。
+     *   ⛔ 只是"跟在卡下面"）。
      *   做法：`secSteps` 已经把卡挂进 colProg 了 ⇒ 把这两行**挪进那张卡**。
-     *   拿不到卡就退回原样（⏔ 为了排版把信息弄丢）。
+     *   拿不到卡就退回原样（⛔ 为了排版把信息弄丢）。
      */
     const progCard = colProg.querySelector ? colProg.querySelector('.wxg-card') : null;
     if (progCard) {
@@ -513,7 +513,7 @@ function secStatus(host, intoSelf) {
      * ⭐ 修复单 #31(a)：右框补**对称的标题结构**。
      *   原来它只是 `wxg-plain` 里孤零零一行小灰字，而左框是**一张带标题的卡** ⇒
      *   上排两框看着不像一对（真机截图 01-状态 可证：右上只有两条小灰字、没卡片标题）。
-     *   ⇒ 用跟左框**同一个** `.wxg-card`＋`.wxg-card-h` 结构（⏔ 自己发明新样式）。
+     *   ⇒ 用跟左框**同一个** `.wxg-card`＋`.wxg-card-h` 结构（⛔ 自己发明新样式）。
      *   ⚠️ 标题用她熟的叫法「世界四值」（跟页内其他地方一致）。
      */
     const cWorld = card('世界四值');
@@ -609,7 +609,7 @@ function secGeneral(host) {
      * ⭐ ③ 操作（目标包「总控页」第三张卡）。
      *   她 2026-10-15 00:45 令：「设置加操作，悬浮球也加上，**双重保险**」——本卡＝双重保险的一半。
      *   ⚠️ 这 7 钮＝**从状态页移出的那一组**：先在本页**接住**，
-     *     等悬浮球也接上了，才能把状态页那张卡撕掉（⏔ 先撕＝她就摸不到了）。
+     *     等悬浮球也接上了，才能把状态页那张卡撕掉（⛔ 先撕＝她就摸不到了）。
      */
     const cOps = card('操作');
     const opsRow = el('div', 'wxg-card-actions');
@@ -664,17 +664,17 @@ function secGeneral(host) {
     row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));
     /*
      * ⭐ 首夜实测单第 7 条（她原话：「（总控那些操作设置）**纠结半天到底是什么意思，我也没搞懂**」）：
-     *   每个操作钮给**一句人话**（鼠标悬上去就能看）—— ⏔ 再堆黑话。
+     *   每个操作钮给**一句人话**（鼠标悬上去就能看）—— ⛔ 再堆黑话。
      */
     {
         const HINT = {
             'update-now': '立刻把“刚落定的那一楼”算一遍（世界状态＋角色七格）。后台跑，不挡你聊天。',
             rollback: '撑回上一次更新之前的样子（撑回前那一版也留着，能再撑回来）。',
-            replan: '把当前这一楼重算一遍（比如你改了字、想重算）；⏔ 重新跑整本账。',
-            reconcile: '把“账”和“楼”对齐（看看哪几楼还没入账）。⏔ 改内容，只对账。',
-            'publish-book': '把现在的名册／世界状态／编年，**另写一份**到世界书《万象阁 · 世界后台》（⏔ 动你原来的书）。',
+            replan: '把当前这一楼重算一遍（比如你改了字、想重算）；⛔ 重新跑整本账。',
+            reconcile: '把“账”和“楼”对齐（看看哪几楼还没入账）。⛔ 改内容，只对账。',
+            'publish-book': '把现在的名册／世界状态／编年，**另写一份**到世界书《万象阁 · 世界后台》（⛔ 动你原来的书）。',
             backfill: '把之前没算过的楼补算一遍；旁边可以先填“只补最近几楼”（留空＝全部）。跑中可随时取消。',
-            'clear-world-open': '清空这个聊天里的世界账（会先问你一次，⏔ 直接清）。',
+            'clear-world-open': '清空这个聊天里的世界账（会先问你一次，⛔ 直接清）。',
         };
         for (const a of Object.keys(HINT)) {
             const b = opsRow.querySelector('[data-action="' + a + '"]');
@@ -763,7 +763,7 @@ function secGeneral(host) {
         typeRowG.appendChild(el('span', 'wxg-note', '把下面这四个字打进去才能点：'));
         const inpG = el('input', 'wxg-danger-typing');
         inpG.type = 'text';
-        // ⚠️ ⏔ 跟状态页那份撞 id（撞了就读到错的那个输入框）
+        // ⚠️ ⛔ 跟状态页那份撞 id（撞了就读到错的那个输入框）
         inpG.id = 'wxg-clear-typing-general';
         inpG.placeholder = CLEAR_WORD;
         inpG.setAttribute('autocomplete', 'off');
@@ -825,10 +825,10 @@ function secWorld(host) {
     box.appendChild(cWorld);
 
     /*
-     * ⭐ 局势／暗线这两张卡**不套 `lockable`**（照目标包的 ⏔ 规矩：
+     * ⭐ 局势／暗线这两张卡**不套 `lockable`**（照目标包的 ⛔ 规矩：
      *   「**有悬浮框的旁边不留编辑**」——她 10-15 01:34 划的原则）。
      *   `lockable` 会在卡头右上加一颗「编辑」并把卡标成 `is-locked`；
-     *   不套它 ⇒ 无那颗钮、也没有 `is-locked`（**内容照常可见**，⏔ 会被锁死）。
+     *   不套它 ⇒ 无那颗钮、也没有 `is-locked`（**内容照常可见**，⛔ 会被锁死）。
      *   ⚙️ 编辑将来走**点行弹出的浮层 ⋮**（尚未做）。
      */
     const cSit = card('局势（势力的碰撞）');
@@ -842,7 +842,7 @@ function secWorld(host) {
             const r = el('div', 'wxg-r is-rowlink');
             /*
              * ⭐ 点行开浮层（照目标包）。
-             *   ⚠️ 用**自己的类名** `is-rowlink`，⏔ 蹭 `.is-click`：
+             *   ⚠️ 用**自己的类名** `is-rowlink`，⛔ 蹭 `.is-click`：
              *     `.wxg-r.is-click` 带着一条老规矩 `grid-template-columns: 1fr auto`
              *     （那是给名册行用的两列）⇒ 套上它会把本行变成两列
              *     （胶囊被拉成通栏、「删」掉到下一行）——真机截图里我看到了。
@@ -893,7 +893,7 @@ function secWorld(host) {
     addSitRow.setAttribute('data-no-lock', '1');
     box.appendChild(cSit);
 
-    // 同上：暗线卡也不套 `lockable`（⏔ 卡头留一颗「编辑」）
+    // 同上：暗线卡也不套 `lockable`（⛔ 卡头留一颗「编辑」）
     const cHid = card('暗线（自己有时间表，到点才动）');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
@@ -1361,7 +1361,7 @@ function commitSection(secId) {
              *   （折好了 `patch.appearance.applyToPanel=false`），紧接着走这个分支——
              *   原来直接 `getSettings().appearance` 做底 ⇒ **把刚折好的那一笔盖回去**；
              *   而 `box[k]`（改色板时的基底）里还带着旧的 `applyToPanel: true`。
-             *   ⇒ 用 `patch.appearance ||` 打底，并**只要 box 里有 `applyToPanel` 就再校正一次**（⏔ 论键序）。
+             *   ⇒ 用 `patch.appearance ||` 打底，并**只要 box 里有 `applyToPanel` 就再校正一次**（⛔ 论键序）。
              */
             patch.appearance = Object.assign({},
                 patch.appearance || getSettings().appearance || {},
@@ -1467,7 +1467,7 @@ const STAGE_MAP = {
 /**
  * ⭐ 修复单 #35：当前**生效**的外观——草稿优先、没草稿才用已存的。
  *   为什么要这么一个口径：外观是"整块存"的，而她**连改几槽**时
- *   每一槽都得以**前面那几槽的草稿值**为基底 ⇒ ⏔ 就会互冲。
+ *   每一槽都得以**前面那几槽的草稿值**为基底 ⇒ ⛔ 就会互冲。
  */
 function effectiveAppearance() {
     const box = stagingOf(stagingMode).appearance;
@@ -1478,7 +1478,7 @@ function effectiveAppearance() {
     return getSettings().appearance || {};
 }
 
-/** 把页面上已经在的预览盒重新上色（⏔ 重画整页：那会把她正在拖的滑杆弄没） */
+/** 把页面上已经在的预览盒重新上色（⛔ 重画整页：那会把她正在拖的滑杆弄没） */
 function refreshAppearancePreview() {
     try {
         const nodes = document.querySelectorAll('[data-role="app-preview"]');
@@ -1496,7 +1496,7 @@ function stageOne(action, target) {
         const key = target.id;                        // wxg-app-xxx → 槽位名
         const slot = key.replace('wxg-app-', '');
         /*
-         * ⭐ 修复单 #35①：**基底用"草稿里那份"**，⏔ 已存的那份。
+         * ⭐ 修复单 #35①：**基底用"草稿里那份"**，⛔ 已存的那份。
          *   原来一律 `getSettings().appearance`：她**连改两槽**（先改色板、再改强调色）时，
          *   第二槽以**不含第一槽暂存**的旧值为基底算 ⇒ **第一槽的改动被冲掉**。
          */
@@ -1619,7 +1619,7 @@ let stepPage = 1;
 /** 名册的筛选：全部／玩家棋子／新认的／我改过的 */
 let rosterFilter = 'all';
 
-    /** 名册的搜索词（搜“名字或别名”；⏔ 落设置，只是看的姿势） */
+    /** 名册的搜索词（搜“名字或别名”；⛔ 落设置，只是看的姿势） */
     let rosterSearch = '';
 
 /** 名册里哪一个人正展开着编辑（''＝都没展开） */
@@ -1938,7 +1938,7 @@ function secRoster(host) {
     if (rosterFilter === 'player') {
         shownRoster = shownRoster.filter((c) => c.isPlayer);
     }
-    // 排序（创建时间／修改时间／名字）：⏔ 改原数组，拷一份再排
+    // 排序（创建时间／修改时间／名字）：⛔ 改原数组，拷一份再排
     if (rosterFilter === 'created' || rosterFilter === 'changed' || rosterFilter === 'name') {
         const key = rosterFilter === 'created' ? 'createdAt' : (rosterFilter === 'changed' ? 'updatedAt' : '');
         shownRoster = shownRoster.slice();
@@ -1983,7 +1983,7 @@ function secRoster(host) {
     /*
      * ⭐ 翻页条：**挪到页底**（照目标包：分页贴页底）。
      *    原来放在**列表上方**——那是早期参照的做法；包里明确要"贴页底"。
-     *    ⏔ 改回上面（虽然长列表里"翻页在下头"要滑到底才看得到）——**以包为准**。
+     *    ⛔ 改回上面（虽然长列表里"翻页在下头"要滑到底才看得到）——**以包为准**。
      */
     const pagerAtBottom = shownRoster.length > PER_PAGE.roster
         ? () => pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length)
@@ -2019,7 +2019,7 @@ function secRoster(host) {
          *    事件的 closest 会先命中它们（点输入框不会把行收起来）。
          */
         const r = el('div', 'wxg-r is-click' + (open ? ' is-open' : ''));
-        // ⭐ 点一行开**浮层**（照目标包：⏔ 行内展开）
+        // ⭐ 点一行开**浮层**（照目标包：⛔ 行内展开）
         r.setAttribute('data-action', 'open-person-card');
         r.setAttribute('data-id', c.id);
         /*
@@ -2290,7 +2290,7 @@ function secApi(host) {
     /*
      * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
      *   点一下拉回来 ⇒ 列成一排可点的小片 ⇒ 点一个就填进「推演模型」（走同一条草稿，照旧要点段底保存）。
-     *   ⚠️ 拉不到就**如实说原因**，**⏔ 影响手输**。
+     *   ⚠️ 拉不到就**如实说原因**，**⛔ 影响手输**。
      */
     line(cCh, '', button('拉取模型列表', 'fetch-models', 'wxg-btn-sm'),
         el('span', 'wxg-note', '（向地址 + /models 要一份清单；拉不到也可以自己填）'));
@@ -2304,7 +2304,7 @@ function secApi(host) {
      * ⭐ 目标核对 3②：**把"已保存的地址/模型"摆出来**。
      *   她报过"模型名字填了、sk也填了"却仍报"没配好" ⇒
      *   光看输入框里的字**分不清是没保存上还是没填**。
-     *   这行读的是**已落盘的设置值**（⏔ 输入框）⇒ 一眼就知道存没存上。
+     *   这行读的是**已落盘的设置值**（⛔ 输入框）⇒ 一眼就知道存没存上。
      */
     const savedApi = getSettings().api || {};
     cCh.appendChild(el('div', 'wxg-note wxg-api-savedline',
@@ -2656,7 +2656,7 @@ function secReport(host, intoBox) {
          * ⭐ 点行弹浮层（照目标包：跟名册那件**同一套手法**）。
          *   做法刻意保守：**正文那 ①②③ 一个字没改**——原来拼进 `det`（行内折叠条），
          *   现在**把它整块搬进浮层**（DOM 搬移），所以不存在"浮层里跟行内不一样"。
-         *   ⏔ 没开任何一条时，行为跟以前一模一样（照旧挂回列表）。
+         *   ⛔ 没开任何一条时，行为跟以前一模一样（照旧挂回列表）。
          */
         if (openRecordAt === idx) {
             renderRecordCard(rec, body, idx, shownList.length, statusText, statusTone(rec), shownChars);
@@ -2765,14 +2765,14 @@ function secSteps(host, intoBox) {
      */
     // ⭐ 统计表（一行一类，总共 N 楼与逐楼清单都收在同一张「进度」卡里）
     const cStat = card('进度');
-    // ⚠️ `num()` 自带" 楼"（它是 `String(n) + ' 楼'`）——这里⏔ 再加单位
+    // ⚠️ `num()` 自带" 楼"（它是 `String(n) + ' 楼'`）——这里⛔ 再加单位
     cStat.appendChild(el('div', 'wxg-total-line', '总共 ' + num(total) + '（含 #0 开场白）'));
     /*
      * ⭐ 目标核对 1（目标：状态页）：**三行胶囊 ⇒ 两列小表**。
      *   她 2026-10-15 00:22 亲手给的目标图里，这一格是一张表：
      *     表头＝**已完成 ｜ 未完成**；行＝正文／注入／编年；格＝「**N 楼**」（居中，淡线）。
      *   原本是"已 X｜没 X"的胶囊 ⇒ 术语也跟着改成**已完成／未完成**。
-     *   ⏔ 动其余（总共 N 楼行／进度条／折叠行／存档行）。
+     *   ⛔ 动其余（总共 N 楼行／进度条／折叠行／存档行）。
      */
     const ptab = el('table', 'wxg-ptab');
     const thead = el('thead', null);
@@ -2788,7 +2788,7 @@ function secSteps(host, intoBox) {
         tr.appendChild(el('td', null, label));
         const cell = (n) => {
             const td = el('td', null);
-            // ⚠️ ⏔ 用 num()：它自带" 楼" ⇒ 会变成"N 楼 楼"
+            // ⚠️ ⛔ 用 num()：它自带" 楼" ⇒ 会变成"N 楼 楼"
             td.appendChild(el('b', null, String(n)));
             td.appendChild(el('span', null, ' 楼'));
             return td;
@@ -2803,7 +2803,7 @@ function secSteps(host, intoBox) {
     ptab.appendChild(tbody);
     cStat.appendChild(ptab);
 
-    // 表下小注：正文最高到哪、上次停在哪（目标态把它放在**表下**，⏔ 跟在行里）
+    // 表下小注：正文最高到哪、上次停在哪（目标态把它放在**表下**，⛔ 跟在行里）
     cStat.appendChild(el('div', 'wxg-note',
         (maxDone >= 0 ? '正文最高到 ' + floorLabel(maxDone) : '正文还没开始')
         + (lastFloor >= 0 ? '（上次更新停在 ' + floorLabel(lastFloor) + '）' : '（还没更新过）')));
@@ -2811,7 +2811,7 @@ function secSteps(host, intoBox) {
     cStat.appendChild(el('div', 'wxg-note',
         '「已完成」＝引擎走过去并留下记录的楼（有编年或有回执，或者在世界钟走过的范围内）；'
         + '「未完成」＝下次更新会接着走的楼。楼层号跟酒馆消息头上的编号一致：#0 是开场白。'));
-    // 原来注入／编年两行各有一句小注 ⇒ 信息⏔ 丢，收成一行
+    // 原来注入／编年两行各有一句小注 ⇒ 信息⛔ 丢，收成一行
     cStat.appendChild(el('div', 'wxg-note',
         '注入＝把状态送进请求的楼；编年＝留下过记录的楼。'));
 
@@ -2928,7 +2928,7 @@ let personCardEditing = false;
 
 /**
  * ⭐ 「每轮记录」点开的是第几条（-1＝都没开）。
- *   照目标包：点行弹浮层，**跟名册那件同一套手法**（⏔ 行内展开）。
+ *   照目标包：点行弹浮层，**跟名册那件同一套手法**（⛔ 行内展开）。
  */
 let openRecordAt = -1;
 
@@ -3120,7 +3120,7 @@ function renderPersonCard() {
      *     "推演时只喂清单里的"是**第二步**（她允许分两步）。
      */
     const kSec = el('div', 'wxg-pc-sec');
-    kSec.appendChild(el('div', 'wxg-pc-sech', '他知道什么（只收发生过的、他碰得到的；⏔ 编）'));
+    kSec.appendChild(el('div', 'wxg-pc-sech', '他知道什么（只收发生过的、他碰得到的；⛔ 编）'));
     const kList = Array.isArray(one.knows) ? one.knows : [];
     if (!kList.length) {
         kSec.appendChild(el('div', 'wxg-empty', '还没记他知道什么（下面可以手加一条）'));
@@ -3222,7 +3222,7 @@ function renderPersonCard() {
     foot.appendChild(button('按这条合并…', 'merge-into', 'wxg-btn-sm', c.id));
     /*
      * 底部那颗：只读态下叫「编辑这一位」；编辑态下叫「收起编辑」。
-     * ⚠️ 不叫「保存」是诚实：改字是**改哪格存哪格**（立即落账），⏔ 做假的"取消"骗人。
+     * ⚠️ 不叫「保存」是诚实：改字是**改哪格存哪格**（立即落账），⛔ 做假的"取消"骗人。
      */
     const save = button(personCardEditing ? '收起编辑' : '编辑这一位',
         personCardEditing ? 'card-view' : 'card-edit', personCardEditing ? 'wxg-primary' : '');
@@ -3243,7 +3243,7 @@ function renderPersonCard() {
  *   ⇒ 默认**只读**；⋮ 就是那个“编辑按钮”。
  *
  * ⚠️ 编辑态里改字是**改哪格存哪格**（沿用 `set-char-field` ⇒ 保存路径与手改锁都不变），
- *   ⏔ 做假“取消”骗人（改了就已经落账了）。底部那颗叫「收起编辑」。
+ *   ⛔ 做假“取消”骗人（改了就已经落账了）。底部那颗叫「收起编辑」。
  */
 function fieldBox(charId, field, value, placeholder) {
     const wrap = el('div', 'wxg-pc-v');
@@ -3336,7 +3336,7 @@ function bindPersonCardDrag(pop) {
  *   标题栏＝⏿ 把手＋标题＋状态胶囊＋✕；
  *   正文＝已经拼好的那三块（①怎么挑的 ②实际送进请求的内容 ③回执）**原样搬过来**；
  *   底部＝关闭｜第 N 条 / 共 M 条｜下一条 ›。
- *   ⏔ 重写一份正文构造（那样两边会分叉）。
+ *   ⛔ 重写一份正文构造（那样两边会分叉）。
  */
 function renderRecordCard(rec, body, idx, total, statusText, tone, shownChars) {
     const host = document.getElementById('wxg-record-card');
@@ -3436,7 +3436,7 @@ function renderWorldEntryCard() {
     const w = describeWorld();
     const isHidden = openWorldEntry.kind === 'hidden';
     /*
-     * ⚠️ 字段在 **`state.world.*`**，⏔ `state.*`（我写错过：取不到 ⇒
+     * ⚠️ 字段在 **`state.world.*`**，⛔ `state.*`（我写错过：取不到 ⇒
      *   被下面那句防御性 `return` **静静吃掉**：不报错、也不弹。）
      */
     const raw = isHidden
@@ -3480,7 +3480,7 @@ function renderWorldEntryCard() {
         const box2 = el('div', 'wxg-pc-v');
         /*
          * ⚠️ 暗线**没有"改名字/改到点/改走到"的已有动作**（现有的只有 `set-hidden-stage` 与 `del-hidden`）
-         *   ⇒ ⏔ 给它造一个不存在的 action（那样点了没反应）：暗线的可改项就是底部那个**阶段下拉**（已接）。
+         *   ⇒ ⛔ 给它造一个不存在的 action（那样点了没反应）：暗线的可改项就是底部那个**阶段下拉**（已接）。
          *   ❌ 不能只图"看着像可改"而摆一个点不动的框。
          */
         /*
@@ -3641,7 +3641,7 @@ export function renderSections(host, opts) {
      *   原来无条件赋值：她开着工作台、点开人物卡，
      *   后台一次 `renderPanel()`（注入完成／后台更新完／她发消息…都会调）
      *   就把挂载点改指到**隐藏抽屉** ⇒ 人物卡被"偷"进去（从工作台消失）。
-     *   ⚠️ `handler` 里"点击拨正 lastSectionsHost"那半是好的，⏔ 动它。
+     *   ⚠️ `handler` 里"点击拨正 lastSectionsHost"那半是好的，⛔ 动它。
      */
     const hasFgWindow = typeof document !== 'undefined'
         && !!(document.getElementById('wanxiangge-workspace') || document.getElementById('wanxiangge-panel'));
@@ -3695,21 +3695,21 @@ export function renderSections(host, opts) {
          *   · `run-tests-future`：「不可靠」提醒
          *   · `run-tests-dualpanel`：面板里改角色字段
          * ⇒ 这些**名册与浮层里都还没有**。先把它们搬过去，才能撕这一页；
-         *   ⏔ 为了"看着像做完了"而提前撕（她的话：别真的不行还打钩）。
+         *   ⛔ 为了"看着像做完了"而提前撕（她的话：别真的不行还打钩）。
          */
         /*
          * ⭐⭐ 「角色状态」**撕了**（她 2026-10-15：「角色名册/人物名册不就是角色状态」
          *   「这两个有啥区别？」「我刚刚就说两个都是一模一样来着」）。
          *   → 它的职分（呈现人物状态、可改）**全归名册**：名册即角色状态。
          *
-         * ⏔ 先撕后接——撕之前已逐样搬完（这一步是硬前提）：
+         * ⛔ 先撕后接——撕之前已逐样搬完（这一步是硬前提）：
          *   · **七格**（年龄/身份/势力/时间地点/正在经历/好感/别名）⇒ 名册的**浮层人物卡**（默认只读，点 ⋮ 可改）
          *   · **任务（主线／支线）**（可改状态、可删）⇒ 浮层里的「任务」块（v0.2.80）
          *   · **「不可靠」提醒** ⇒ 浮层里的警告行（v0.2.80）
          *   · **一键合并（merge-into）** ⇒ 浮层底栏（早已在）
          *
          * ⚠️ 边界（她 02:01／02:05 两度亲定）：**只撕目录入口**；
-         *   ⏔ 凡别处“引用人物”的显示（如世界状态里出现的人名）＝引用名册，**不动**。
+         *   ⛔ 凡别处“引用人物”的显示（如世界状态里出现的人名）＝引用名册，**不动**。
          * （`secCharacters` 函数体先留着：删代码要单独过门；这里只是不摆进目录。）
          */
         secChronicle(stageEl);
@@ -3724,7 +3724,7 @@ export function renderSections(host, opts) {
 
         /*
          * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
-         *   ⏔ 写在每个动作里（那样漏一个就没了）。
+         *   ⛔ 写在每个动作里（那样漏一个就没了）。
          * ⭐ 复审追加 B2（乙）：**同一前提**（后台那一次画 + 台前有窗口）下⛔ 重挂——
          *   否则后台刷一下就把她工作台里开着的卡**拆下来重挂到隐藏抽屉**里（"被偷走"）。
          */
@@ -4377,11 +4377,11 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 case 'roster-func':
                     /* ⭐ #39a：口径跟现状对齐——那个筛选早就换成「全部｜创建时间｜修改时间｜玩家棋子｜名字」了，
-     ——⏔ 再指一个不存在的筛选（她会去找、找不到就以为坏了） */
+     ——⛔ 再指一个不存在的筛选（她会去找、找不到就以为坏了） */
 toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方可按「修改时间」排、筛选里选「玩家棋子」或搜名字');
                     break;
                 case 'roster-search':
-                    // 边打边筛（change 才重画，⏔ 每敲一个字都重画整页）
+                    // 边打边筛（change 才重画，⛔ 每敲一个字都重画整页）
                     if (isChange) {
                         rosterSearch = trimText(target.value);
                         rosterPage = 1;
@@ -4400,9 +4400,9 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 /*
-                 * ⭐ 名册点一行 ⇒ **开浮层**（她 2026-10-14 点名：⏔ 行内展开把表格推下去）。
+                 * ⭐ 名册点一行 ⇒ **开浮层**（她 2026-10-14 点名：⛔ 行内展开把表格推下去）。
                  *    旧的行内编辑器（case 'edit-char' 那段）**先留着**：
-                 *    等浮层距离验收了再说，⏔ 一步到位地把能用的东西换掉。
+                 *    等浮层距离验收了再说，⛔ 一步到位地把能用的东西换掉。
                  */
                 case 'open-person-card':
                     openPersonCard(id);
@@ -4427,7 +4427,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 /*
-                 * ⭐ `card-edit` 是**幂等**的：点多少下都是"进编辑态"，⏔ 翻转。
+                 * ⭐ `card-edit` 是**幂等**的：点多少下都是"进编辑态"，⛔ 翻转。
                  *   为什么：翻转式开关**不可重入**——前面一条用例把它留在开着，
                  *   后面一条再点一下反而**关上了**（真踩：「找不到字段输入框：age」，
                  *   但按钮明明点到了）。退出编辑独立成 `card-view`。
@@ -4442,7 +4442,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 case 'card-save':
                     /*
-                     * ⏔ 关掉浮层！她要的是"改完收起来"，不是"把卡片也关了"。
+                     * ⛔ 关掉浮层！她要的是"改完收起来"，不是"把卡片也关了"。
                      * （原来这里叫 closePersonCard－点一下连卡都没了，下一位都点不到。）
                      */
                     personCardEditing = false;
@@ -4636,7 +4636,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     /*
                      * ⭐ 补③：手加一条"他该知道的"。
                      *   来源必选（亲眼／被告知／公开）；来源楼层用**当前停在的楼**（她手加时就是在看那一楼）。
-                     *   ⏔ 自己造来源类型；⏔ 改已有的（只增）。
+                     *   ⛔ 自己造来源类型；⛔ 改已有的（只增）。
                      */
                     const box = document.getElementById('wxg-know-text');
                     const txt = box && typeof box.value === 'string' ? box.value.trim() : '';
@@ -5002,7 +5002,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 case 'entry-invert': {
                     /*
                      * ⭐ 3③：批量改（同样**只动草稿**，等段底保存）。
-                     *   ⚠️ "全不读"只管**当前这本书的条目**，⏔把别的书的排除也涂了。
+                     *   ⚠️ "全不读"只管**当前这本书的条目**，⛔把别的书的排除也涂了。
                      */
                     const act = action;
                     const all = pickEntries.map((e) => trimText(e && (e.comment || e.key || e.name || e.title)))
@@ -5227,7 +5227,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     const inp = host.querySelector('#wxg-api-model');
                     if (inp && name) {
                         inp.value = name;
-                        // 走同一条草稿（⏔ 直接 patch：她还要点段底保存）
+                        // 走同一条草稿（⛔ 直接 patch：她还要点段底保存）
                         const which = stageOne('stage-api-model', inp);
                         if (which) {
                             refreshSaveBar(host, which);
