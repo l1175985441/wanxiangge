@@ -663,6 +663,27 @@ function secGeneral(host) {
     }
     row(opsRow, button('清空这个世界', 'clear-world-open', 'wxg-del'));
     /*
+     * ⭐ 首夜实测单第 7 条（她原话：「（总控那些操作设置）**纠结半天到底是什么意思，我也没搞懂**」）：
+     *   每个操作钮给**一句人话**（鼠标悬上去就能看）—— ⏔ 再堆黑话。
+     */
+    {
+        const HINT = {
+            'update-now': '立刻把“刚落定的那一楼”算一遍（世界状态＋角色七格）。后台跑，不挡你聊天。',
+            rollback: '撑回上一次更新之前的样子（撑回前那一版也留着，能再撑回来）。',
+            replan: '把当前这一楼重算一遍（比如你改了字、想重算）；⏔ 重新跑整本账。',
+            reconcile: '把“账”和“楼”对齐（看看哪几楼还没入账）。⏔ 改内容，只对账。',
+            'publish-book': '把现在的名册／世界状态／编年，**另写一份**到世界书《万象阁 · 世界后台》（⏔ 动你原来的书）。',
+            backfill: '把之前没算过的楼补算一遍；旁边可以先填“只补最近几楼”（留空＝全部）。跑中可随时取消。',
+            'clear-world-open': '清空这个聊天里的世界账（会先问你一次，⏔ 直接清）。',
+        };
+        for (const a of Object.keys(HINT)) {
+            const b = opsRow.querySelector('[data-action="' + a + '"]');
+            if (b && !b.getAttribute('title')) {
+                b.setAttribute('title', HINT[a]);
+            }
+        }
+    }
+    /*
      * ⭐ 首夜实测单第 4 条（她原话：「我也不知道他更新到什么东西了，**还得翻到总空那里去看看**」
      *   ＋「第一次点了一下推了八成……第二次按完才推完，还是翻到那个地方才看到他推了多少」）：
      *   progress 文案**早就存在**（`pipeline.js` 的「准备补推 N 个楼层」／「补推中：第X楼（n/total）」／
@@ -4815,13 +4836,19 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         if (res.fellBack) {
                             break;   // 兜底那条已经在 readFromBook 里说过了
                         }
-                        toast.ok('读进来 ' + String(res.read) + ' 条'
-                            + (res.disabled ? '（另有 ' + String(res.disabled) + ' 条禁用，跳过）' : '')
-                            + ' ⇒ 认出：人 ' + String(res.added)
-                            + ' · 势力 ' + String(res.factions)
-                            + ' · 局势 ' + String(res.situations)
-                            + ' · 地点 ' + String(res.places)
-                            + '（世界状态里现在共 ' + String(res.situationsTotal) + ' 条）');
+                        /*
+                         * ⭐ 首夜实测单第 7 条：此处**直接拼字段、无兜底** ⇒ 字段缺失就漏 `undefined`
+                         *   （实测漏过整串：`读进来 undefined 条 ⇒ …势力 undefined · 局势 undefined…`）
+                         *   ⇒ 一律兜底成 0／"没读到"，⛔ 不许再把 undefined 漏到她脸上。
+                         */
+                        const num = (v) => (Number.isFinite(Number(v)) ? String(Number(v)) : '0');
+                        toast.ok('读进来 ' + num(res.read) + ' 条'
+                            + (Number(res.disabled) > 0 ? '（另有 ' + num(res.disabled) + ' 条禁用，跳过）' : '')
+                            + ' ⇒ 认出：人 ' + (res.added === undefined ? '没读到' : num(res.added))
+                            + ' · 势力 ' + (res.factions === undefined ? '没读到' : num(res.factions))
+                            + ' · 局势 ' + (res.situations === undefined ? '没读到' : num(res.situations))
+                            + ' · 地点 ' + (res.places === undefined ? '没读到' : num(res.places))
+                            + '（世界状态里现在共 ' + (res.situationsTotal === undefined ? '未知' : num(res.situationsTotal)) + ' 条）');
                     }
                     rerender();
                     break;
