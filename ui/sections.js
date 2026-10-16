@@ -3750,12 +3750,21 @@ function renderWorldEntryCard() {
         kv.appendChild(box2);
     };
     if (isHidden) {
+        /* ⭐修复 15（材料 02）：编辑态**补上「改暗线名字」** ✓
+         *   （旧：只能改到点/走到/阶段/火候，**名字没得改** ✗） */
+        if (openWorldEntryEditing) {
+            put('名称', item.name, '未命名暗线');
+        }
         put('到点', item.trigger, '未定时间');
         put('走到', item.note, '还没走到');
         /* ⭐材料 03：**阶段与火候各归各位** ✓（旧：火候那格里装的是 stage ✗） */
         put('阶段', item.stage, '萌芽');
         put('火候', item.tier, '几天内');
     } else {
+        /* ⭐修复 15：编辑态**补上「改局势标题」** ✓ */
+        if (openWorldEntryEditing) {
+            put('标题', item.title, '未命名局势');
+        }
         put('哪几方', item.sides, '未写');
         put('火候', item.tier, '几天内');
     }
