@@ -297,7 +297,15 @@ export async function callModel(opts) {
     const timeoutMs = Number.isFinite(Number(o.timeoutMs)) ? Number(o.timeoutMs) : REQUEST_TIMEOUT_MS;
     const started = Date.now();
     const timeout = withTimeout(timeoutMs);
-    let autoVia = '';   /* ⭐ 直连被挡、自动改走转发时记下来 ✓ */
+    let autoVia = '';
+    /*
+     * ⭐⭐ 真机对照实验得到的通关组合：**假流式-**前缀的模型名 ＋ **走流式** ✓
+     *   实测：普通名＋非流式 ⇒ Bad Request ✗；普通名＋流式 ⇒ 400 INVALID_ARGUMENT ✗；
+     *         **假流式-**名＋流式 ⇒ **HTTP 200、真数据回来了** ✓✓
+     *   ⇒ 失败且看到 Bad Request／INVALID_ARGUMENT 时，**自动加上这个前缀重试** ✓（⏔ 让她去改模型名 ✗）
+     */
+    let modelTry = model;
+   /* ⭐ 直连被挡、自动改走转发时记下来 ✓ */
 
     try {
         /*
@@ -309,16 +317,16 @@ export async function callModel(opts) {
         let res = null;
         if (api.mode === 'direct') {
             try {
-                res = await callDirect(url, key, model, body, timeout.signal);
+                res = await callDirect(url, key, modelTry, body, timeout.signal);
             } catch (eDirect) {
                 /* ⚠️ 已经超时/取消就不再重试（重试也是白跑 ✗） */
                 const aborted2 = eDirect && (eDirect.name === 'AbortError' || /abort/i.test(asText(eDirect && eDirect.message)));
                 if (aborted2) { throw eDirect; }
-                res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+                res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                 if (res && res.ok) { autoVia = 'proxy-auto'; }
             }
         } else {
-            res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+            res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
         }
         /*
          * ⭐⭐ 真机一试便知（第 51 轮）：正文喂小之后请求**真的到得了对面** ✓
@@ -326,6 +334,20 @@ export async function callModel(opts) {
          *   ⇒ 只差一个数字：**输出上限超了** ⇒ 不推给她去猜 ✗
          *   ⇒ 现在：**对方说超了就自动砍半重试**（最多 2 次 ✓）
          */
+        /* ⭐ 前缀重试：对方说 Bad Request／INVALID_ARGUMENT 且还没加前缀 ⇒ 加上再试一次 ✓ */
+        if (res && res.ok === false && !/^假流式-/.test(modelTry)
+            && /Bad Request|INVALID_ARGUMENT|invalid argument/i.test(String(res.reason || ''))) {
+            modelTry = '假流式-' + modelTry;
+            try {
+                if (api.mode === 'direct') {
+                    try { res = await callDirect(url, key, modelTry, body, timeout.signal); }
+                    catch (eP1) { res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true); }
+                } else {
+                    res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
+                }
+                if (res && res.ok) { autoVia = autoVia || 'prefix-auto'; }
+            } catch (eP2) { /* 保持原结果 ✓ */ }
+        }
         let loweredTo = 0;
         for (let guard = 0; guard < 3 && res && res.ok === false
             && /exceeds the maximum output tokens|max_tokens/i.test(String(res.reason || '')); guard += 1) {
@@ -343,12 +365,12 @@ export async function callModel(opts) {
             }
             if (api.mode === 'direct') {
                 try {
-                    res = await callDirect(url, key, model, body, timeout.signal);
+                    res = await callDirect(url, key, modelTry, body, timeout.signal);
                 } catch (eAgain) {
-                    res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+                    res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                 }
             } else {
-                res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+                res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
             }
         }
         const ms = Date.now() - started;
