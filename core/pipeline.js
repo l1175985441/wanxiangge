@@ -18,7 +18,7 @@ import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
 /*
  * ⭐ 补④：输出被截断之后的重试策略。
  *
- *   她定的规矩：截断 ⇒ **这一轮算失败、账保持原样**，⏔ 猜着补全；
+ *   她定的规矩：截断 ⇒ **这一轮算失败、账保持原样**，⛔ 猜着补全；
  *   重试时**加大输出额度**（但要有帽子）。
  *
  *   帽子怎么定的：基数（她设的 maxTokens）的 1.6 倍、且**不超 4000**。
@@ -28,15 +28,15 @@ import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
 /* ⭐修复 2（材料 02）：解除写死的 Token 枷锁 ✗
  *   旧：推演请求输出上限写死 8000（重试时 4000）✗ ⇒ 长思考模型思考吃完就没正文 ✗
  *   新：上限 65536 ✓（材料 03 定稿：32000→65536 ✓） */
-/* ⏔ 它不是用户可调的那个：这是**重试时**的内部封顶 ✓ */
+/* ⛔ 它不是用户可调的那个：这是**重试时**的内部封顶 ✓ */
 const RETRY_TOKEN_CAP = 65536;
 
 /** 重试时追加的一句（只在第 2 次起才发） */
-const RETRY_TIGHTEN = '【重试提醒】上一次的输出被截断了（JSON 没写完）。'
-    + '这一次请**精简**：只写变化最大、最重要的几条，'
-    + '每个字段尽量短，**必须保证 JSON 完整闭合**（宁可少写几条，也不要写到一半断掉）。';
+/* P8 (material 07): the old notice claimed truncation even on network retries and told
+ *   the model to report only the most important few, so roles went un-updated. */
+const RETRY_TIGHTEN = '【重试提醒】上一次没成功（可能是网络抖动，也可能是 JSON 没写完）：这一次请**把该报的角色一个不漏地报全**（⛔ 只写最重要的几条）；若上次是 JSON 没写完，就把每条写得短一点、确保 JSON 闭合。';
 
-/** 按重试次数算输出额度（⏔ 超帽子） */
+/** 按重试次数算输出额度（⛔ 超帽子） */
 function retryTokens(base, attempt) {
     const b = clampNumber(base, 200, RETRY_TOKEN_CAP, 1600);
     const a = Math.max(0, Math.round(Number(attempt) || 0));
@@ -71,10 +71,10 @@ let running = false;
  * ⭐⭐ 真机抓到：那个持久化的 step 会**卡死**（一轮中途死了没清标记 ✗）
  *   ⇒ 之后每次进来都说“正在跑” ⇒ **重活按钮永久禁用** ✗✗
  *   ⇒ 这里把“本会话真的在跑”暴露成 window 标记（**内存态** ✓ 重载即失效 ✓）
- *   ⇒ 界面只认它（⏔ 只认持久化那个 ✗）：卡死的标记就不再欺骗她了 ✓
+ *   ⇒ 界面只认它（⛔ 只认持久化那个 ✗）：卡死的标记就不再欺骗她了 ✓
  */
 function markLive() {
-    try { if (typeof window !== 'undefined') { window.__wxgLiveRun = Boolean(running || backfilling); } } catch (e) { /* ⏔ 影响主流程 */ }
+    try { if (typeof window !== 'undefined') { window.__wxgLiveRun = Boolean(running || backfilling); } } catch (e) { /* ⛔ 影响主流程 */ }
 }
 let cancelRequested = false;
 
@@ -114,7 +114,7 @@ const PREDICT_PAT = /下一步|接下来(?:要|会|去|就)|后续(?:预测|会|
  *   —— 书里、正文里：「困／解救／围墙／恶作剧」**四词零出处**；
  *   正文里露娜是**主动潜伏、正面接近**（方向正好相反）。
  *   她的口径：暗线**只该写"谁在什么方向上活动、挂在什么时间条件"**，
- *   ⏔ 许发明**具体事件／处境**（⏔"被困在…待解救"式事故叙述）。
+ *   ⛔ 许发明**具体事件／处境**（⛔"被困在…待解救"式事故叙述）。
  *   ⚠️ 只拦**事故／待救／未来态**；正常的冲突（对峙／较量／追查）不拦。
  * @returns 空串＝没问题；非空＝拦下来的理由
  */
@@ -126,7 +126,7 @@ export function looksLikeFabricatedTrouble(text) {
     /*
      * ⭐ 她 10-16 给的“世界背面”例子里，合法的暗流写法是：
      *   「…在樱花树上密切观察初二教室，**准备趁午休寻机接触目标**」
-     *   —— 这是**意图／方向**（需求书：任务＝目标层，"意图／方向可以写"）⇒ **⏔ 误拦**。
+     *   —— 这是**意图／方向**（需求书：任务＝目标层，"意图／方向可以写"）⇒ **⛔ 误拦**。
      *   ← 我上一版把裸词「准备去」也列进了禁区 ⇒ **会把这种合法写法拦下来**（真踩）。⇒ 只留**具体事故／待救／明显未来态**。
      */
     const FUTURE = ['待解救', '等待解救', '急待', '即将发生', '将会发生', '明天就要', '待救'];
@@ -311,7 +311,7 @@ function whoIsOnStage(text, roster) {
  * ⭐⭐ 拆小（她的话：「每个都是一下子弄一点点，然后继续下一轮」）
  *   真机取证：她那站对长请求一律掉线（直连 reset、转发 502+ECONNRESET、**连流式也照掉** ✗）；短请求通 ✓
  *   ⇒ 让请求**本身就短**：喂进去的正文超长时，**只带最近一段** ✓（最近的才是当前世界状态最需要的 ✓）
- *   ⏔ 不动结构：世界钟／地点／总览／局势／暗线照旧全给 ✓（只缩正文那一块 ✓）
+ *   ⛔ 不动结构：世界钟／地点／总览／局势／暗线照旧全给 ✓（只缩正文那一块 ✓）
  */
 const WORLD_MATERIAL_CAP = 6000;   /* 默认值；真正用的是她在面板里填的那个数 ✓ */
 function worldMaterialCap() {
@@ -320,7 +320,7 @@ function worldMaterialCap() {
         const a = getSettings().api || {};
         const num = Number(a.materialCap);
         if (Number.isFinite(num) && num >= 500) { v = num; }
-    } catch (e) { /* ⏔ 影响主流程 */ }
+    } catch (e) { /* ⛔ 影响主流程 */ }
     return Math.min(Math.max(Math.round(v), 500), 40000);
 }
 /*
@@ -359,8 +359,8 @@ function mergeSituations(oldList, freshList) {
 
 function capWorldMaterial(txt, attempt) {
     /* ⭐⭐ 链路是抽风型的（一会儿 400、一会儿回体 null ✗）
-     *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⏔ 缩到没东西可看 ✗）
-     *   ⏔ 不动结构：局势／暗线照旧全给 ✓（只缩正文那一块 ✓） */
+     *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⛔ 缩到没东西可看 ✗）
+     *   ⛔ 不动结构：局势／暗线照旧全给 ✓（只缩正文那一块 ✓） */
     let cap = worldMaterialCap();
     if (Number(attempt) > 0) { cap = Math.max(600, Math.floor(cap / (Number(attempt) + 1))); }
     const s = String(txt == null ? '' : txt);
@@ -448,7 +448,7 @@ async function stepWorld(material, attempt) {
             floor: material.floor,
         })).filter((s) => s.title);
         if (fresh.length) {
-            /* ⭐谷歌复核（三）：增量归并（⏔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
+            /* ⭐谷歌复核（三）：增量归并（⛔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
             const mergedSits = mergeSituations((loadState().world || {}).situations, fresh);
             updateWorld({ situations: mergedSits }, {});
             capList((loadState().world || {}).situations, 'capEvents', (s) => s.title, (s) => s.manual);
@@ -479,7 +479,7 @@ async function stepWorld(material, attempt) {
                 continue;   // 没到点：⛔ 不许提前冒头
             }
             /*
-             * ⭐ 她 [18]/[3]：**推进时也过核闸**（⏔ 只拦新建那一条）。
+             * ⭐ 她 [18]/[3]：**推进时也过核闸**（⛔ 只拦新建那一条）。
              */
             const noteUp = trimText(raw.note) || existing.note;
             const badUp = looksLikeFabricatedTrouble(noteUp);
@@ -561,7 +561,7 @@ async function stepWorld(material, attempt) {
              * ⭐⭐ 她 [18]/[3]（这是最后一条漏网的路）：暗线事件会进 `state.events`，
              *   而召回会从那里挑事件**注入给主模型**（`recall.js` 的 `pickEvents`）。
              *   ⇐ 原来直接把 `h.note`（**含“被困待救”那句**）写进去 ⇒ 标了 suspect 也照样被喂进去。
-             *   ⇒ suspect 的只留**名字＋到点条件**（不可作据），⏔ 把那句编造带进去。
+             *   ⇒ suspect 的只留**名字＋到点条件**（不可作据），⛔ 把那句编造带进去。
              */
             text: (h.suspect === true ? '（⚠ 这条的"现状"被判编造、已剔除）' : (h.note || h.trigger)), kind: 'hidden', stage: h.stage, tier: h.tier, floor: material.floor });
     }
@@ -630,8 +630,8 @@ function applyCharacter(raw, material, conflicts) {
      *         ⇒ 模型不敢留空，全填 “未知” ✗ 而这里**只跳空串** ✗
      *         ⇒ 把角色**原本已读出来的**身份/势力**覆盖成 “未知”** ✗✗
      *         （空白格也被塞满 “未知” ⇒ 体检误判“身份非空” ✗ 名册显示不出 — ✗）
-     *   现在：占位词一律**当作没说** ⇒ skip ✓（⏔ 拿它覆盖已有的好数据 ✗）
-     *   ⏔ 只列明确的占位词：**不收“无”“没有”**（它们可能是有意义的值 ✓） */
+     *   现在：占位词一律**当作没说** ⇒ skip ✓（⛔ 拿它覆盖已有的好数据 ✗）
+     *   ⛔ 只列明确的占位词：**不收“无”“没有”**（它们可能是有意义的值 ✓） */
     const UNKNOWNISH = /^(未知|不详|不明|未接入|暂无|不清楚|待定|未设定|无记录|n\/a|-|—|？|\?)$/i;
     for (const f of textFields) {
         const incoming = trimText(raw && raw[f]);
@@ -693,14 +693,14 @@ function applyCharacter(raw, material, conflicts) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
         } else if (onStage && material.fellBack !== true && !textAppearsIn(cur, material.recentText || material.rawText)) {
             /*
-             * ⭐ 10-16 真语料教训：**清洗失败时⏔ 下“编造”判词**。
+             * ⭐ 10-16 真语料教训：**清洗失败时⛔ 下“编造”判词**。
              *   她那张卡把正文整个包在成对块里 ⇒ 四格清洗把正文也剥了（只剩 30 字）
              *   ⇒ 这时“正文里找不到”**不能说明任何事**（我们压根没读到正文）
-             *   ⇒ **⏔ 献上一排“越界·现场编造”**（那正是她 04:20 那屏噪音）。读不到就不指控。
+             *   ⇒ **⛔ 献上一排“越界·现场编造”**（那正是她 04:20 那屏噪音）。读不到就不指控。
              */
             /*
              * ⭐ 她 [5]/[7] 的原话：她叫"编造"的是**"正文没有描写的事"**，
-             *   ⏔"把正文有的事换个说法"** ⇒ 分两档：
+             *   ⛔"把正文有的事换个说法"** ⇒ 分两档：
              *     · 一点依据都找不到（重合度 0）⇒ 才叫**越界·现场编造**；
              *     · 有部分依据但达不到线 ⇒ **照样出声、照样留档**，但不一嘴定性成"编造"（她说过误报会变噪音）。
              */
@@ -827,7 +827,7 @@ async function stepCharacters(material, attempt) {
 
     // ⭐ 判"谁在现场"要看**原文**（清洗可能剥掉状态栏，剥过的文本会冤枉人）
     /*
-     * ⭐⭐ 她原话 [5]/[7]：**在场＝"正文里露面"的**（⏔"名字被提到"）。
+     * ⭐⭐ 她原话 [5]/[7]：**在场＝"正文里露面"的**（⛔"名字被提到"）。
      *   原话：「正在在线的不准编造。后台不在线的这个是编造的，这个不要紧」
      *        ＋「如果在现场的话，只准出现正文的」。
      *   原来喂的是 `rawText`（**清洗前**，含状态栏／变量台账）⇒
@@ -842,7 +842,7 @@ async function stepCharacters(material, attempt) {
      *   她那条消息**原文 6675 字，四格清洗后只剩 30 字**（`【未定位】`）
      *   —— 她那张卡把**正文整个包在成对块里**（需求书 §8 早提过这种卡，还说要留总开关）。
      *   ⇒ 若直接拿清洗后的去判“谁在场”，**一个人都判不出来** ⇒ 那 6 方全被当“不在场”、该做总结的没做总结。
-     *   ⇒ **兜底**：清洗后**一个名字都没了**就退回原文（宁可多算、⏔ 全判不在场）。
+     *   ⇒ **兜底**：清洗后**一个名字都没了**就退回原文（宁可多算、⛔ 全判不在场）。
      */
     /*
      * ⭐⭐ 修复 5（材料 02）并按材料 03 定稿：**在场判定的窗口尺度** ✓
@@ -850,7 +850,7 @@ async function stepCharacters(material, attempt) {
      *   新：窗口＝**最近 4 楼**（当前回合＋上一回合 ✓）
      *        但若**最新一楼带明确的 <meow_FM> 状态块**（含 scene: 与 relation: ✓）
      *        ⇒ 卡面已给出本回合精确的在场名单 ⇒ **只取最新 2 楼** ✓（切场景当场切干净 ✓）
-     *   ⏔ 普通卡（没有状态栏）照旧用 4 楼 ⇒ 不会漏掉“上一回合还在说话、这回合沉默旁听”的同场角色 ✓
+     *   ⛔ 普通卡（没有状态栏）照旧用 4 楼 ⇒ 不会漏掉“上一回合还在说话、这回合沉默旁听”的同场角色 ✓
      */
     const stageMsgsAll = Array.isArray(material.messages) ? material.messages : [];
     const lastMsgText = trimText(stageMsgsAll.length ? (stageMsgsAll[stageMsgsAll.length - 1] || {}).mes : (material.rawText || ''));
@@ -915,7 +915,7 @@ async function stepCharacters(material, attempt) {
         }
         return [
             '· ' + trimText(me.name) + '（**玩家棋子 ＝ 提示词里说的“我”／user／玩家**）',
-            '  ⏔ 不给他建推演行、不替他行动／说话／决定；他的存在只由**别人**的行侧面承载 ✓',
+            '  ⛔ 不给他建推演行、不替他行动／说话／决定；他的存在只由**别人**的行侧面承载 ✓',
         ];
     })();
     const charLines = picked.map((c) => {
@@ -940,23 +940,23 @@ async function stepCharacters(material, attempt) {
         /* P9 (material 07): feed the existing quests, otherwise the model re-invents a
          *   slightly different title every round and upsertQuest piles up duplicates. */
         if (Array.isArray(c.quests) && c.quests.length) {
-            lines.push('  现有任务（同一件就**沿用原标题**、只更新进展，⏔ 换个说法另开一条 ✓）：'
+            lines.push('  现有任务（同一件就**沿用原标题**、只更新进展，⛔ 换个说法另开一条 ✓）：'
                 + c.quests.map((q) => trimText(q && q.title) + (trimText(q && q.status) ? '（' + trimText(q.status) + '）' : '')).filter(Boolean).join('；'));
         }
         }
         /*
          * ⭐ 补③ 第二步：**防全知**——把"他该知道的"真喂进他的推演。
          *   她的原话：「推演该人物时，喂料按这份清单过滤（不在清单里的世界内幕不进他的推演上下文）」。
-         *   ⚠️ 只告诉模型"他知道什么"，**⏔ 把不该知道的也列出来**（那等于换个方式泄露）。
+         *   ⚠️ 只告诉模型"他知道什么"，**⛔ 把不该知道的也列出来**（那等于换个方式泄露）。
          */
         const kn = Array.isArray(c.knows) ? c.knows : [];
         if (kn.length) {
             lines.push('  他知道的：' + kn.map((k) => trimText(k.text)
                 + '（' + (trimText(k.source) || '公开')
                 + (Number(k.floor) >= 0 ? '·' + floorLabel(Number(k.floor)) : '') + '）').join('；'));
-            lines.push('  ⏔ **不在上面那份清单里的世界内幕，他没渠道知道⇒不许写进他的推演**。');
+            lines.push('  ⛔ **不在上面那份清单里的世界内幕，他没渠道知道⇒不许写进他的推演**。');
         } else {
-            lines.push('  他还没记下知道什么（清单是空的）⇒ 世界内幕一律⏔ 给他，只能写他自己身边看得到的。');
+            lines.push('  他还没记下知道什么（清单是空的）⇒ 世界内幕一律⛔ 给他，只能写他自己身边看得到的。');
         }
         lines.push('  ' + (inScene
             ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
@@ -972,7 +972,7 @@ async function stepCharacters(material, attempt) {
      *   那本身就是"全知"的漏点（谁都能看到）。
      *   ⇒ 只保留**至少有一个被推的人在清单里记下过**的那些；
      *     一个人都没记过的内幕 ⇒ **整块不给**（没人有渠道知道，给了就是全知）。
-     *   ⚠️ 清单全空时（老账，谁都没记）⏔ 一刀切：那样老聊天的推演会突然变空。
+     *   ⚠️ 清单全空时（老账，谁都没记）⛔ 一刀切：那样老聊天的推演会突然变空。
      *     ⇒ 只要**这一批里有任何一个人填过清单**，就按清单过滤；一个都没填 ⇒ 照旧（等他开始用这个功能）。
      */
     /* ⭐⭐ 修复 14（材料 02）：**防全知的认知账不能用整句字面互含** ✗
@@ -1011,7 +1011,7 @@ async function stepCharacters(material, attempt) {
             (trimText(loadState().world.bigPicture) && knownBySomeone(trimText(loadState().world.bigPicture)))
                 ? trimText(loadState().world.bigPicture) : '',
             ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
-        ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⏔ 给）',
+        ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⛔ 给）',
         recent: material.recentText || '（没有可读的正文）',
         chars: playerHintLines.concat(charLines),
     });
@@ -1155,7 +1155,7 @@ function collectQuests(raw, c) {
 export function checkActingAsMe(rows, floor) {
     const hits = [];
     /*
-     * ⭐ 复审追加 B3：无主的顶层任务（没写名字）**只报一次**，⏔ 每行都报一遍。
+     * ⭐ 复审追加 B3：无主的顶层任务（没写名字）**只报一次**，⛔ 每行都报一遍。
      *   用法：把它们归到"第一行"身上（归属口径统一）。
      */
     const rowsArr = Array.isArray(rows) ? rows : [];
@@ -1348,7 +1348,7 @@ export function classifyFailure(msg) {
 
 export async function runUpdate(opts) {
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
-     *   批内只记账 ⇒ 批收尾写一次 ✓（⏔ 改变批外行为 ✗）
+     *   批内只记账 ⇒ 批收尾写一次 ✓（⛔ 改变批外行为 ✗）
      *   try/finally 保证：即使中间抛错，批也一定收尾、该落的盘照落 ✓ */
     beginSaveBatch();
     try {
@@ -1371,7 +1371,7 @@ async function runUpdateInner(opts) {
     running = true;
     markLive();
     /*
-     * ⭐ L3（防御性）：**补批调进来时⏔ 重置取消标记**。
+     * ⭐ L3（防御性）：**补批调进来时⛔ 重置取消标记**。
      *   她按取消后，补批循环会在**每楼开跑前**检查一次（当前路径靠那个检查兜住，所以现在不可达）；
      *   但只要将来有人在入口前面加一个 await，这里就会**把那次取消吞掉**。
      */
@@ -1481,12 +1481,12 @@ async function runUpdateInner(opts) {
                     const stW = loadState();
                     stW.pipeline = Object.assign({}, stW.pipeline || {}, { worldAtFloor: floor });
                     saveState();
-                } catch (eW) { /* ⏔ 影响主流程 */ }
+                } catch (eW) { /* ⛔ 影响主流程 */ }
                 break;
             }
             lastError = worldRes.reason;
             /* ⭐ 业务层别瞎试：参数级的错（你再试一百次也一样 ✗）⇒ 直接放弃重试 ✓
-             *   ⏔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⏔ 402／额度类也照旧多试（免费站会恢复 ✓） */
+             *   ⛔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⛔ 402／额度类也照旧多试（免费站会恢复 ✓） */
             if (/INVALID_ARGUMENT|Model not found|Bad Request/i.test(String(lastError || ''))
                 && !/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|\u8d85\u65f6|\u6ca1\u56de|Failed to Load/i.test(String(lastError || ''))) {
                 break;
@@ -1514,7 +1514,7 @@ async function runUpdateInner(opts) {
             }
             lastError = charRes.reason;
             /* ⭐ 业务层别瞎试：参数级的错（你再试一百次也一样 ✗）⇒ 直接放弃重试 ✓
-             *   ⏔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⏔ 402／额度类也照旧多试（免费站会恢复 ✓） */
+             *   ⛔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⛔ 402／额度类也照旧多试（免费站会恢复 ✓） */
             if (/INVALID_ARGUMENT|Model not found|Bad Request/i.test(String(lastError || ''))
                 && !/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|\u8d85\u65f6|\u6ca1\u56de|Failed to Load/i.test(String(lastError || ''))) {
                 break;
@@ -1728,7 +1728,7 @@ export async function runBackfill(opts) {
 
     let done = 0;
     let failedAt = '';
-    /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⏔ 逐楼一整轮 ✗） */
+    /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⛔ 逐楼一整轮 ✗） */
     // ⭐修复 1：修掉“传错变量” ✓（旧：传 `todo` ✗ ⇒ 她填的“只补最近 N 楼”**生效不了** ✗）
     //   并把“每轮最多喂多少字正文”的上限一并传进去 ✓
     const batches = buildScanBatches(todo2, worldMaterialCap());
@@ -1746,7 +1746,7 @@ export async function runBackfill(opts) {
             failedAt = floorLabel(floor) + '：' + (res.reason || '失败');
             break;
         }
-        done += batch.length;   /* ⭐ 一批算几楼 ✓（⏔ 按 1 楼加 ✗） */
+        done += batch.length;   /* ⭐ 一批算几楼 ✓（⛔ 按 1 楼加 ✗） */
         await sleep(400);   // 让界面喘口气，⛔ 不挡她聊天
     }
 
