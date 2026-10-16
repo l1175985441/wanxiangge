@@ -234,6 +234,20 @@ function whoIsOnStage(text, roster) {
 
 /* ------------------------------ 世界状态那一步 ------------------------------ */
 
+/*
+ * ⭐⭐ 拆小（她的话：「每个都是一下子弄一点点，然后继续下一轮」）
+ *   真机取证：她那站对长请求一律掉线（直连 reset、转发 502+ECONNRESET、**连流式也照掉** ✗）；短请求通 ✓
+ *   ⇒ 让请求**本身就短**：喂进去的正文超长时，**只带最近一段** ✓（最近的才是当前世界状态最需要的 ✓）
+ *   ⏔ 不动结构：世界钟／地点／总览／局势／暗线照旧全给 ✓（只缩正文那一块 ✓）
+ */
+const WORLD_MATERIAL_CAP = 6000;
+function capWorldMaterial(txt) {
+    const s = String(txt == null ? '' : txt);
+    if (!s.trim()) { return '（没有可读的正文）'; }
+    if (s.length <= WORLD_MATERIAL_CAP) { return s; }
+    return '（前文太长，只带最近 ' + String(WORLD_MATERIAL_CAP) + ' 字 ✓）\n' + s.slice(-WORLD_MATERIAL_CAP);
+}
+
 async function stepWorld(material, attempt) {
     const settings = getSettings();
     const state = loadState();
@@ -265,7 +279,7 @@ async function stepWorld(material, attempt) {
             '局势：' + ((world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || '（还没有）'),
         ].filter(Boolean).join('\n'),
         clock: trimText(world.clock) || '未知',
-        recent: material.recentText || '（没有可读的正文）',
+        recent: capWorldMaterial(material.recentText),   /* ⭐ 拆小：超长只带最近一段 ✓ */
         hidden: hiddenLines,
     });
 
