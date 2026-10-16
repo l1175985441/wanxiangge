@@ -675,6 +675,7 @@ function extractChunkPiece(j) {
     if (ch) {
         const d = ch.delta || ch.message || {};
         let piece = '';
+        const thought = asText(d.reasoning_content || d.reasoning || d.thought);
         if (typeof d.content === 'string') {
             piece = d.content;
         } else if (typeof ch.text === 'string') {
@@ -688,7 +689,10 @@ function extractChunkPiece(j) {
                 .join('');
         }
         const finish = asText(ch.finish_reason || ch.stop_reason || ch.finishReason);
-        return { piece, finish, error: '' };
+        /* ⭐修复 10（材料 02）：**认出“只在吐思考”** ✓
+         *   有些模型（Gemini 3.x／DeepSeek R1 等）把思考放在 reasoning_content 里 ✗
+         *   ⇒ 思考吃完额度就没正文 ✗ ⇒ 这里把它标出来、供下游报人话 ✓ */
+        return { piece, finish, error: '', hadThought: Boolean(thought) };
     }
     // ② Gemini 原生流式格式兜底（candidates[0].content.parts，跳过 thought 思考块，参照 sse-stream.js）
     const cand = (Array.isArray(j.candidates) && j.candidates[0]) || null;
@@ -733,7 +737,12 @@ async function readMaybeStream(res) {
                 }
             }
         } catch (eStream) {
-            // 流中途断开：保住已收到的 rawText 供后续判断
+            /* ⭐修复 10：**超时（AbortError）且一字未收 ⇒ 往上报** ✓
+             *   （旧：一律吞掉 ✗ ⇒ 伪装成“HTTP 200 空包”报上去 ✗） */
+            if (eStream && (eStream.name === 'AbortError' || /abort/i.test(asText(eStream.message))) && !trimText(rawText)) {
+                throw eStream;
+            }
+
         }
     } else if (res && typeof res.text === 'function') {
         rawText = await res.text().catch(() => '');
@@ -779,6 +788,7 @@ async function readMaybeStream(res) {
     let fin = '';
     let streamErr = '';
     let validFrames = 0;
+    let sawThought = false;
 
     for (const rawLine of lines) {
         const line = String(rawLine || '').trim();
@@ -792,7 +802,11 @@ async function readMaybeStream(res) {
         try {
             const j = JSON.parse(payload);
             validFrames += 1;
-            const { piece, finish, error } = extractChunkPiece(j);
+            const pieceRes = extractChunkPiece(j);
+            const piece = pieceRes.piece;
+            const finish = pieceRes.finish;
+            const error = pieceRes.error;
+            if (pieceRes.hadThought) { sawThought = true; }
             if (error) {
                 streamErr = error;
             }
@@ -807,9 +821,20 @@ async function readMaybeStream(res) {
         }
     }
 
+    /* ⭐修复 10：收集“看到过思考块”的标志 ✓ */
     const out = trimText(acc);
     if (out) {
         return { text: out, finish: fin, error: '', raw: trimmed };
+    }
+    /* ⭐⭐ 修复 10：**“思考把额度吐完了”要报成人话** ✓
+     *   旧：只回个 null ✗ ⇒ 她看到“怪东西”根本不知道去哪调 ✗ */
+    if (sawThought || /length|max_tokens/i.test(fin)) {
+        return {
+            text: null,
+            finish: fin || 'length',
+            error: '模型在思考阶段就把「单次最多输出（max_tokens）」额度用光了，还没来得及输出正文 ⇒ 请去「自定义 API」把「单次最多输出」调大（建议 8000～16000）',
+            raw: trimmed,
+        };
     }
     if (streamErr) {
         return { text: null, finish: fin, error: streamErr, raw: trimmed };
