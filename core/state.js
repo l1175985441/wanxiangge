@@ -327,6 +327,24 @@ export function saveState() {
     }
     const state = loadState();
     state.version = LEDGER_VERSION;
+    /*
+     * ⭐⭐ R10（材料 05）：**容量锁兜底** ✓
+     *   病根：只有 `addChronicle()` 内部查了 `capChronicle` ✗，
+     *     而“过去经历淡出”、“局势／暗线超限归并”、“角色合并留痕”这几处
+     *     全部**直接 `state.chronicle.push(...)`** ✗ ⇒ 编年可以无限膨胀 ✗
+     *   现在：在**写盘这一处**做一次容量收口 ✓（一处管住全部写入路径 ✓）
+     *   ⏔ 物理删除 ✗（与 addChronicle 同一套语义：到上限就 slice 并在最老的那条上留痕 ✓）
+     */
+    try {
+        const chronCap = Number(LIMITS.capChronicle || CHRONICLE_LIMIT);
+        if (Number.isFinite(chronCap) && chronCap > 0 && state.chronicle.length > chronCap) {
+            state.chronicle = state.chronicle.slice(-chronCap);
+            const marker = state.chronicle[0];
+            if (marker && marker.faded !== true) {
+                marker.faded = true;
+            }
+        }
+    } catch (eChron) { /* 截不动也不能拦着存盘 ✓ */ }
     if (saveBatchDepth > 0) {
         saveBatchDirty = true;   /* ⭐ R1：批内只记账 ✓（⛔ 深拷贝、⛔ 发请求 ✗） */
         return;
