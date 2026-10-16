@@ -397,7 +397,12 @@ async function stepWorld(material, attempt) {
             '世界钟：' + (trimText(world.clock) || '未知'),
             world.place ? '地点：' + trimText(world.place) : '',
             world.bigPicture ? '总览：' + trimText(world.bigPicture) : '',
-            '局势：' + ((world.situations || []).map((s) => trimText(s.title)).filter(Boolean).join('；') || '（还没有）'),
+            /* P10b (material 07): feed sides + tier too, and tell it to keep unchanged titles. */
+            '局势（**没变的就沿用原标题、原样写回去**，⛔ 换句式重写）：'
+                + ((world.situations || []).map((s) => trimText(s.title)
+                    + (trimText(s.sides) ? '（哪几方：' + trimText(s.sides) + '）' : '')
+                    + (trimText(s.tier) ? '（火候：' + trimText(s.tier) + '）' : ''))
+                    .filter(Boolean).join('；') || '（还没有）'),
         ].filter(Boolean).join('\n'),
         clock: trimText(world.clock) || '未知',
         recent: capWorldMaterial(material.recentText, attempt),   /* ⭐ 拆小：超长只带最近一段 ✓ */
