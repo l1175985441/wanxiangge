@@ -240,6 +240,14 @@ export function patchSettings(patch) {
         if (Object.hasOwn(api, 'maxTokens')) {
             api.maxTokens = clampNumber(api.maxTokens, 200, 32000, DEFAULT_SETTINGS.api.maxTokens);
         }
+        /* ⭐⭐ 谷歌诊断修法 1（修的是我自己桶的娄子 ✗）：
+         *   原来 patchSettings 没夹取这两个键 ⇒ 她在面板上调了也**写进没人读的废格** ✗（调了白调 ✗） */
+        if (Object.hasOwn(api, 'materialCap')) {
+            api.materialCap = clampNumber(api.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap);
+        }
+        if (Object.hasOwn(api, 'autoRetryMax')) {
+            api.autoRetryMax = clampNumber(api.autoRetryMax, 0, 5, DEFAULT_SETTINGS.api.autoRetryMax);
+        }
         if (Object.hasOwn(api, 'mode')) {
             api.mode = api.mode === 'direct' ? 'direct' : 'proxy';
         }
