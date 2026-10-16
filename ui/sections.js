@@ -5737,6 +5737,9 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                             modelCheap: one.modelCheap,
                             temperature: one.temperature,
                             maxTokens: one.maxTokens,
+                            /* ⭐修复 15（材料 02）：**切到这套时同步写入 currentProfile** ✓
+                             *   （旧：只切了字段、currentProfile 没跟上 ✗ ⇒ 面板显示的“当前在用”不对 ✗） */
+                            currentProfile: nick,
                         }),
                     });
                     toast.ok('已切到书签「' + nick + '」');
