@@ -1300,7 +1300,7 @@ export async function runUpdate(opts) {
                 /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
                 await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
                 setPipeline({ text: '世界状态这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次（最多 ' + String(RETRY_LIMIT) + ' 次）' });
-                await sleep(800);
+                await sleep(2500 * Math.max(1, attempt));
             }
         }
     }
@@ -1329,7 +1329,7 @@ export async function runUpdate(opts) {
                 /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
                 await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
                 setPipeline({ text: '角色这一步失败（' + lastError + '），重试第 ' + String(attempt + 1) + ' 次' });
-                await sleep(800);
+                await sleep(2500 * Math.max(1, attempt));
             }
         }
     }
