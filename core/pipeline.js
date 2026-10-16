@@ -916,6 +916,12 @@ async function stepCharacters(material, attempt) {
     }
 
     /* P4 part 2 (material 07): tell the model WHO the player is - see the note below. */
+    /* P19 (material 07): say the in-scene / off-scene rules once, not once per character. */
+    const charsHeader = [
+        '【每个角色都适用的两条硬规矩】',
+        '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写。',
+        '· **标了“不在场（暗地）”的**：现状只靠推演写、只写“这一步”（正在进行时／刚做完），⛔ 不写下一步；⛔ 这一段里**不许出现“我”**（“我”的动静影响不到他）。',
+    ];
     const playerHintLines = (() => {
         const me = (Array.isArray(roster) ? roster : []).find((c) => c && c.isPlayer);
         if (!me || !trimText(me.name)) {
@@ -968,12 +974,8 @@ async function stepCharacters(material, attempt) {
      *   imported from the world book could not even know his own faction's business. */
         lines.push('  他还没记下知道什么（清单是空的）⇒ **除他所属势力与自身身份分内的事、以及公开新闻之外**，别的世界内幕⛔ 不给他，只能写他自己身边看得到的。');
         }
-        lines.push('  ' + (inScene
-            ? '⚠️ 他在正文现场：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写。'
-            + '✅ 可以照正文那样**侧面带"我"**（对"我"说／看向"我"／把东西放到"我"面前／对"我"的反应）；'
-            + '⛔ 但"我"自己的动作、台词、神态、位置一个字都不许写。'
-            : '他不在正文现场（暗地）：现状只能靠推演写，只写"这一步"（正在进行时／刚做完），⛔ 不写下一步；'
-            + '⛔ 这一段里**不许出现"我"**（"我"的动静影响不到他）。'));
+        /* P19 (material 07): the long in-scene / off-scene warning used to be copied once
+         *   per character (N times per prompt); it now lives once in the header. */
         return lines.join('\n');
     }).join('\n');
 
@@ -1023,7 +1025,7 @@ async function stepCharacters(material, attempt) {
             ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⛔ 给）',
         recent: material.recentText || '（没有可读的正文）',
-        chars: playerHintLines.concat(charLines),
+        chars: charsHeader.concat(playerHintLines).concat(charLines),
     });
 
     // ⭐ 补④：同世界步（重试加大额度 + 要求精简闭合）
