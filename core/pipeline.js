@@ -958,9 +958,29 @@ async function stepCharacters(material, attempt) {
      *   ⚠️ 清单全空时（老账，谁都没记）⏔ 一刀切：那样老聊天的推演会突然变空。
      *     ⇒ 只要**这一批里有任何一个人填过清单**，就按清单过滤；一个都没填 ⇒ 照旧（等他开始用这个功能）。
      */
-    const pickedKnows = picked.map((c) => (Array.isArray(c.knows) ? c.knows : []).map((k) => trimText(k.text)).filter(Boolean)).flat();
+    /* ⭐⭐ 修复 14（材料 02）：**防全知的认知账不能用整句字面互含** ✗
+     *   病根：只要记了 1 条 knows，`kt.includes(title) || title.includes(kt)` 几乎总不成立 ✗
+     *         ⇒ **一旦启用认知账就把全部世界局势与总览按下去** ✗（她看不到世界了 ✗）
+     *   新：先过 `matchKey` 规范化 ✓；整句互含不成就走**2 字滑动重合** ✓
+     *        （命中 **≥ 2 个双字词组** 即视为该角色已知晓相关风声 ✓） */
+    const pickedKnows = picked.map((c) => (Array.isArray(c.knows) ? c.knows : []).map((k) => matchKey(k.text)).filter(Boolean)).flat();
     const anyKnows = pickedKnows.length > 0;
-    const knownBySomeone = (title) => !anyKnows || pickedKnows.some((kt) => kt.includes(title) || title.includes(kt));
+    const knownBySomeone = (title) => {
+        if (!anyKnows) return true;
+        const tKey = matchKey(title);
+        if (!tKey) return false;
+        return pickedKnows.some((kt) => {
+            if (kt.includes(tKey) || tKey.includes(kt)) return true;
+            let hits = 0;
+            for (let i = 0; i + 2 <= tKey.length; i += 1) {
+                if (kt.includes(tKey.slice(i, i + 2))) {
+                    hits += 1;
+                    if (hits >= 2) return true;
+                }
+            }
+            return false;
+        });
+    };
     const prompt = fillTemplate(effectivePrompt('chars'), {
         clock: trimText(loadState().world.clock) || '未知',
         /*
