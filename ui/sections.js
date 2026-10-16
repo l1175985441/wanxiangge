@@ -1456,6 +1456,7 @@ const STAGE_MAP = {
     'stage-api-temp': ['api', 'temperature', 'value'],
     'stage-api-maxtok': ['api', 'maxTokens', 'value'],
     'stage-api-material-cap': ['api', 'materialCap', 'value'],
+    'stage-auto-retry-max': ['api', 'autoRetryMax', 'value'],
     // 读取控制（四格）
     'stage-extract-tags': ['extract', 'extractTags', 'value'],
     'stage-exclude-tags': ['extract', 'excludeTags', 'value'],
@@ -2445,6 +2446,9 @@ function secApi(host) {
      *   而**只有她知道那站能收多大的请求** ⇒ 把上限交给她，一档一档往下试 ✓
      */
     line(cCh, '每轮最多喂多少字正文', numberInput('wxg-api-material-cap', Number(api.materialCap) || 6000, 500, 40000, 'stage-api-material-cap'));
+    line(cCh, '链路掉线后自己再试几次',
+        numberInput('wxg-auto-retry-max', Number(api.autoRetryMax) || 2, 0, 5, 'stage-auto-retry-max'));
+    cCh.appendChild(el('div', 'wxg-note', '链路掉线（reset／超时／回体空）时，它会自己等一会儿再试：这里填它最多自己试几次（0＝不自动试 ✓；默认 2 ✓）'));
     cCh.appendChild(el('div', 'wxg-note', '这个数**越小越容易穿过慢或爱掉线的站**（每轮只带最近这么多字），但模型看到的上下文也越少。卡住时可以一档一档往下试：6000 → 3000 → 1500 ✓'));
 
     /*
