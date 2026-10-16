@@ -556,6 +556,9 @@ async function callViaServer(url, key, model, body, signal, cheap) {
     const rmsA = await readMaybeStream(res);
     const data = rmsA.raw;
     const text = rmsA.text;
+    if (rmsA.error) {
+        return { ok: false, reason: '转发通道上游报错（HTTP ' + String(res.status) + ' 流内错误）：' + rmsA.error };
+    }
     if (text === null) {
         /*
          * ⭐ 目标核对 3②：失败时**把 ST 的原始回体带出来**。
@@ -564,7 +567,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
          */
         let raw = '';
         try {
-            raw = JSON.stringify(data);
+            raw = (typeof data === 'string') ? data : JSON.stringify(data);
         } catch (e) {
             raw = String(data);
         }
@@ -598,6 +601,9 @@ async function callDirect(url, key, model, body, signal) {
     }
     const rmsB = await readMaybeStream(res);
     const text = rmsB.text;
+    if (rmsB.error) {
+        return { ok: false, reason: '直连上游报错（HTTP ' + String(res.status) + '）：' + rmsB.error };
+    }
     if (text === null) {
         return { ok: false, reason: '直连回了怪东西（不是标准格式）' };
     }
@@ -653,42 +659,169 @@ function looksCut(text, from) {
  *   ⇒ 若那站只是不爱“长时间零输出的连接”，**这一枪就能过** ✓（一试便知 ✓）
  *   ⏔ 不能只会流式：有站不支持流式、直接回 JSON ✗ ⇒ 那就退回原来的读法 ✓
  */
-async function readMaybeStream(res) {
-    let ct = '';
-    try { ct = String((res.headers && res.headers.get && res.headers.get('content-type')) || ''); } catch (e) { ct = ''; }
-    if (!/text\/event-stream/i.test(ct)) {
-        const data = await res.json().catch(() => null);
-        return { text: readCompletionText(data), finish: readFinishReason(data), raw: data };
+/** 从单个已解析的 JSON 块（SSE 帧或整包）里提取增量正文与完成原因 */
+function extractChunkPiece(j) {
+    if (!j || typeof j !== 'object') {
+        return { piece: '', finish: '', error: '' };
     }
+    if (j.error) {
+        const errText = typeof j.error === 'string'
+            ? j.error
+            : asText((j.error && (j.error.message || j.error.code)) || JSON.stringify(j.error));
+        return { piece: '', finish: '', error: errText };
+    }
+    // ① OpenAI 兼容流式 / 非流式（含 delta.content / message.content / text，自动忽略 reasoning_content 思考过程）
+    const ch = (Array.isArray(j.choices) && j.choices[0]) || null;
+    if (ch) {
+        const d = ch.delta || ch.message || {};
+        let piece = '';
+        if (typeof d.content === 'string') {
+            piece = d.content;
+        } else if (typeof ch.text === 'string') {
+            piece = ch.text;
+        } else if (typeof d.text === 'string') {
+            piece = d.text;
+        } else if (Array.isArray(d.content)) {
+            piece = d.content
+                .filter((p) => p && !p.thinking && !p.thought)
+                .map((p) => asText(p.text || p.content))
+                .join('');
+        }
+        const finish = asText(ch.finish_reason || ch.stop_reason || ch.finishReason);
+        return { piece, finish, error: '' };
+    }
+    // ② Gemini 原生流式格式兜底（candidates[0].content.parts，跳过 thought 思考块，参照 sse-stream.js）
+    const cand = (Array.isArray(j.candidates) && j.candidates[0]) || null;
+    if (cand) {
+        const parts = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts : [];
+        const piece = parts
+            .filter((p) => p && p.thought !== true && typeof p.text === 'string')
+            .map((p) => p.text)
+            .join('');
+        const finish = asText(cand.finishReason || cand.finish_reason);
+        return { piece, finish, error: '' };
+    }
+    // ③ Claude / 其它中转格式兜底
+    if (j.delta && typeof j.delta.text === 'string') {
+        return { piece: j.delta.text, finish: asText(j.stop_reason || (j.delta && j.delta.stop_reason)), error: '' };
+    }
+    const direct = readCompletionText(j);
+    return { piece: typeof direct === 'string' ? direct : '', finish: readFinishReason(j), error: '' };
+}
+
+/**
+ * ⭐ 自适应读取响应（⏔ 不看 Content-Type 头：酒馆 forwardFetchResponse 转发流式时不带该头）：
+ *   1. 优先用 reader 边收边拼（真流式保活），无 reader 时退回 res.text() / res.json()（兼容离线自测）；
+ *   2. 按内容自身特征判：含 `data:` 行或 SSE 事件流 ⇒ 逐行解析拼合 delta；否则走整包 JSON.parse（失败再回退逐行扫）；
+ *   3. 若上游在 HTTP 200 流内塞了 {"error":...}，直接拎出真实错误原因。
+ */
+async function readMaybeStream(res) {
+    let rawText = '';
+    // ① 先把字节流稳妥读成文本（支持分块流式消费，且兼容假机 mock）
+    if (res && res.body && typeof res.body.getReader === 'function') {
+        try {
+            const reader = res.body.getReader();
+            const dec = new TextDecoder('utf-8');
+            for (;;) {
+                const step = await reader.read();
+                if (step.done) {
+                    rawText += dec.decode(); // ⭐ 冲刷尾部残留字节
+                    break;
+                }
+                if (step.value) {
+                    rawText += dec.decode(step.value, { stream: true });
+                }
+            }
+        } catch (eStream) {
+            // 流中途断开：保住已收到的 rawText 供后续判断
+        }
+    } else if (res && typeof res.text === 'function') {
+        rawText = await res.text().catch(() => '');
+    } else if (res && typeof res.json === 'function') {
+        const data = await res.json().catch(() => null);
+        const extracted = extractChunkPiece(data);
+        return {
+            text: extracted.piece ? extracted.piece : readCompletionText(data),
+            finish: extracted.finish || readFinishReason(data),
+            error: extracted.error,
+            raw: data,
+        };
+    }
+
+    const trimmed = String(rawText || '').trim();
+    if (!trimmed) {
+        return { text: null, finish: '', error: '响应体为空（0 字节）', raw: '' };
+    }
+
+    // ② 内容判据：像不像 SSE 流（含 data: 前缀行）？
+    const looksLikeSse = /^data\s*:/m.test(trimmed);
+
+    // ②a 若不含 data: 前缀，先试整包 JSON.parse（兼容不支持流式、直接回完整 JSON 的中转站）
+    if (!looksLikeSse) {
+        try {
+            const data = JSON.parse(trimmed);
+            const extracted = extractChunkPiece(data);
+            const text = extracted.piece ? extracted.piece : readCompletionText(data);
+            return {
+                text: text !== null && text !== '' ? text : null,
+                finish: extracted.finish || readFinishReason(data),
+                error: extracted.error,
+                raw: trimmed,
+            };
+        } catch (eJson) {
+            // 整包 JSON 解析失败 ⇒ 继续往下走逐行扫描兜底（例如 NDJSON 多行 JSON）
+        }
+    }
+
+    // ②b 逐行解析 SSE（data: {...}）或 NDJSON
+    const lines = trimmed.split(/\r\n|\r|\n/);
     let acc = '';
     let fin = '';
-    try {
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        for (;;) {
-            const step = await reader.read();
-            if (step.done) { break; }
-            buf += dec.decode(step.value, { stream: true });
-            const lines = buf.split('\n');
-            buf = lines.pop();
-            for (const raw of lines) {
-                const line = String(raw).trim();
-                if (!line || line.indexOf('data:') !== 0) { continue; }
-                const payload = line.slice(5).trim();
-                if (!payload || payload === '[DONE]') { continue; }
-                try {
-                    const j = JSON.parse(payload);
-                    const ch = (j && j.choices && j.choices[0]) || {};
-                    const d = ch.delta || ch.message || {};
-                    if (typeof d.content === 'string') { acc += d.content; }
-                    if (typeof ch.finish_reason === 'string' && ch.finish_reason) { fin = ch.finish_reason; }
-                } catch (e2) { /* 单块坏了不影响整体 ✓ */ }
-            }
+    let streamErr = '';
+    let validFrames = 0;
+
+    for (const rawLine of lines) {
+        const line = String(rawLine || '').trim();
+        if (!line || line.startsWith(':') || /^(event|id|retry)\s*:/i.test(line)) {
+            continue;
         }
-    } catch (e3) { /* 断了就用已经收到的 ✓ */ }
+        const payload = /^data\s*:/i.test(line) ? line.replace(/^data\s*:\s*/i, '').trim() : line;
+        if (!payload || payload === '[DONE]') {
+            continue;
+        }
+        try {
+            const j = JSON.parse(payload);
+            validFrames += 1;
+            const { piece, finish, error } = extractChunkPiece(j);
+            if (error) {
+                streamErr = error;
+            }
+            if (piece) {
+                acc += piece;
+            }
+            if (finish) {
+                fin = finish;
+            }
+        } catch (eFrame) {
+            // 单行非 JSON 忽略，继续扫下一行
+        }
+    }
+
     const out = trimText(acc);
-    return { text: out ? out : null, finish: fin, raw: acc };
+    if (out) {
+        return { text: out, finish: fin, error: '', raw: trimmed };
+    }
+    if (streamErr) {
+        return { text: null, finish: fin, error: streamErr, raw: trimmed };
+    }
+    // 兜底：若 SSE 没抠出内容，再试一次是不是单块 JSON 被误判
+    if (looksLikeSse && !validFrames) {
+        try {
+            const data = JSON.parse(trimmed);
+            return { text: readCompletionText(data), finish: readFinishReason(data), error: '', raw: trimmed };
+        } catch (e) { /* 忽略 */ }
+    }
+    return { text: null, finish: fin, error: '', raw: trimmed };
 }
 
 function readCompletionText(data) {
