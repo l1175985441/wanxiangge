@@ -744,8 +744,11 @@ function applyCharacter(raw, material, conflicts) {
     //    ⇒ 必须**倒着**推，否则顺序会被反过来（自审修正·条 10）
     // ⭐ 带上来源楼层：注入时按"楼层裁"过滤（最近 N 楼之内的不端）
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
-    for (const p of past.slice(0, 5).reverse()) {
-        pushPast(c.id, p, 5, material.floor);
+    /* P22 (material 07): honour the capPast setting (2-20) - it used to be hardcoded to 5,
+     *   so whatever the user configured was silently ignored. */
+    const capPastNow = clampNumber(Number(getSettings().capPast) || 5, 2, 20, 5);
+    for (const p of past.slice(0, capPastNow).reverse()) {
+        pushPast(c.id, p, capPastNow, material.floor);
     }
 
     // 日程：约好的事要记下、到点跟上
