@@ -2366,10 +2366,20 @@ function secApi(host) {
      *   ⇒ 现在统一：**只有那个书签真的在选项里**，才算“当前这套” ✓
      */
     const curNick = (function () {
-        const want = trimText(api.currentProfile);
+        /*
+         * ⚠️ 真机复核抓到（第 11 轮）：选完书签重绘时，这里读的**还是旧快照** ✗
+         *   ⇒ 算出空 ⇒ 「删」不渲染、人话回落到 mode ✗（两处同一个根因）
+         *   ⇒ 现在：**草稿与已存两边都看**（草稿优先 ✓），
+         *        并且只要它**在任一边的书签列表里存在**，就算“当前这套” ✓
+         *   ⏔ 两段式架构不动（只是读的时候多看一眼已存那份 ✓）
+         */
+        const savedPick = getSettings().api || {};
+        const want = trimText(api.currentProfile) || trimText(savedPick.currentProfile);
         if (!want) { return ''; }
-        const list = Array.isArray(api.profiles) ? api.profiles : [];
-        return list.some((x) => trimText(x && x.nick) === want) ? want : '';
+        const draftList = Array.isArray(api.profiles) ? api.profiles : [];
+        const savedList = Array.isArray(savedPick.profiles) ? savedPick.profiles : [];
+        const hit = draftList.some((x) => trimText(x && x.nick) === want) || savedList.some((x) => trimText(x && x.nick) === want);
+        return hit ? want : '';
     })();
     const curPick = curNick ? ('profile:' + curNick) : api.mode;
     /*
