@@ -226,7 +226,10 @@ export function autoDetectDuplicates() {
                 continue;
             }
             const bForms = [b.name].concat(b.aliases || []).map((x) => trimText(x)).filter(Boolean);
-            let related = aForms.some((x) => bForms.some((y) => x === y || x.includes(y) || y.includes(x)));
+            /* ⭐修复 13：名字/别名包含匹配 ⇒ **双方均 ≥2 字**才算 ✓
+             *   （旧：单字名也能互相包含 ✗ ⇒ “丽”这种乱撞 ✗ —— 她吃过这个亏 ✗） */
+            let related = aForms.some((x) => bForms.some((y) => x === y
+                || (x.length >= 2 && y.length >= 2 && (x.includes(y) || y.includes(x)))));
       /*
      * ⭐⭐ 她 [18]：「同一角色被拆成两条记录？**合并一键解决**」
      *   ⚠️ 真机取证：她名册里「水手月亮/水手水星…」还被当独立人物，
@@ -237,9 +240,22 @@ export function autoDetectDuplicates() {
     if (!related) {
         const aId = trimText(a.identity);
         const bId = trimText(b.identity);
-        const hitId = (aId && bForms.some((y) => y.length >= 3 && aId.indexOf(y) >= 0))
-            || (bId && aForms.some((x) => x.length >= 3 && bId.indexOf(x) >= 0));
-        if (hitId) {
+        /*
+         * ⭐⭐ 修复 13（材料 02）：**身份里含对方名字 ≠ 同一个人** ✓
+         *   病根：旧判法“只要身份包含对方名字就算同一人” ✗
+         *     ⇒ **母女／情侣／师生**（身份写着“月野兔的母亲”这种 ✗）被当成重复 ✗
+         *   新：① 身份里带**关系后缀**（的母亲／弟弟／朋友… ✓）⇒ **直接不认** ✓
+         *        ② 否则：把身份**分词**，要求某一段**整段等于**那个名字（或 “变身形态：名字” ✓）才算 ✓
+         *        （即：“水手月亮”归到“月野兔” ✓；“月野兔的母亲”**不**归 ✓）
+         */
+        const isIdentityAlias = (idText, forms) => {
+            if (!idText || /的(?:母亲|妈妈|父亲|爸爸|弟弟|哥哥|姐姐|妹妹|女儿|儿子|朋友|老师|同学|宿敌|上司|下属|伙伴|搭档)/.test(idText)) {
+                return false;
+            }
+            const parts = idText.split(/[\/／、,，｜|\s（）()]+/).map((s2) => s2.trim()).filter(Boolean);
+            return forms.some((nm) => nm.length >= 2 && parts.some((p) => p === nm || p === '变身形态：' + nm));
+        };
+        if (isIdentityAlias(aId, bForms) || isIdentityAlias(bId, aForms)) {
             related = true;
         }
     }
