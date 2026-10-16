@@ -4390,6 +4390,20 @@ export function bindSectionEvents(host, refresh) {
             if (action.indexOf('stage-') === 0) {
                 const which = stageOne(action, target);
                 if (which === 'api-profile-switched') { rerender(); return; }
+                /*
+                 * ⭐⭐ 她 15:xx：「api 保存还是有问题，**好绕**，绕的手感一点都不好」
+                 *   ⇒ 「自定义 API」这一节改成**防抖自动保存**：她停下手 ~0.8 秒就自己存一次 ✓
+                 *   ⏔ **不能每改一格就提交**：已验证那样会丢项（commit 会清草稿，而 stage 以草稿为基底 ✗）
+                 *   ⇒ 防抖 = **一次连续填完才提交一次**（基底是完整的 ✓）⏔ 其它节照旧 ✓
+                 */
+                if (which === 'api') {
+                    try {
+                        if (window.__wxgApiSaveT) { clearTimeout(window.__wxgApiSaveT); }
+                        window.__wxgApiSaveT = setTimeout(function () {
+                            try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { /* ⏔ 影响输入 */ }
+                        }, 800);
+                    } catch (e2) { /* ⏔ 影响输入 */ }
+                }
                 if (which) {
                     refreshSaveBar(host, which);
                     const bar = host.querySelector('.wxg-savebar[data-id="' + which + '"]');
