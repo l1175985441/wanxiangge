@@ -1246,6 +1246,12 @@ export async function runUpdate(opts) {
                 break;
             }
             lastError = worldRes.reason;
+            /* ⭐ 业务层别瞎试：参数级的错（你再试一百次也一样 ✗）⇒ 直接放弃重试 ✓
+             *   ⏔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⏔ 402／额度类也照旧多试（免费站会恢复 ✓） */
+            if (/INVALID_ARGUMENT|Model not found|Bad Request/i.test(String(lastError || ''))
+                && !/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|\u8d85\u65f6|\u6ca1\u56de|Failed to Load/i.test(String(lastError || ''))) {
+                break;
+            }
             if (attempt < RETRY_LIMIT) {
                 /* ⭐ 小退避：链路是“机场＋免费公益站”⇒ 抽风是常态 ✓ */
                 /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
@@ -1269,6 +1275,12 @@ export async function runUpdate(opts) {
                 break;
             }
             lastError = charRes.reason;
+            /* ⭐ 业务层别瞎试：参数级的错（你再试一百次也一样 ✗）⇒ 直接放弃重试 ✓
+             *   ⏔ 网络级（reset／超时／回体是 null）照旧多试 ✓；⏔ 402／额度类也照旧多试（免费站会恢复 ✓） */
+            if (/INVALID_ARGUMENT|Model not found|Bad Request/i.test(String(lastError || ''))
+                && !/ECONNRESET|Failed to fetch|ETIMEDOUT|socket hang up|\u8d85\u65f6|\u6ca1\u56de|Failed to Load/i.test(String(lastError || ''))) {
+                break;
+            }
             if (attempt < RETRY_LIMIT) {
                 /* ⭐ 小退避：链路是“机场＋免费公益站”⇒ 抽风是常态 ✓ */
                 /* 越试越等一会儿（第1次 300ms、第2次 600ms…✓）比连着猛敲更容易过 ✓ */
