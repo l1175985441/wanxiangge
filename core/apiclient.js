@@ -286,7 +286,7 @@ export async function callModel(opts) {
         temperature: Number.isFinite(Number(api.temperature)) ? Number(api.temperature) : 0.4,
         max_tokens: Number.isFinite(Number(o.maxTokens)) ? Number(o.maxTokens)
             : (Number.isFinite(Number(api.maxTokens)) ? Number(api.maxTokens) : 1600),
-        stream: false,
+        stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
     const system = trimText(o.system);
     if (system) {
@@ -445,7 +445,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
         messages: body.messages,
         temperature: body.temperature,
         max_tokens: body.max_tokens,
-        stream: false,
+        stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
     const endpoint = tavernApiPath();
     let res = await fetch(endpoint, {
@@ -572,6 +572,49 @@ function looksCut(text, from) {
 }
 
 /** 从各种返回形状里把正文抠出来 */
+/*
+ * ⭐⭐ 阿砚复核后的一枪：**回包可能是流式**
+ *   他发现：同一台机器上，**酒馆本体跑的长请求（上下文比这两步还大）是通的** ✓
+ *   差别就在它走 **流式**（数据一直滚 ✓），而我们这两步是**非流式**（一次等一个大回包 ✗）
+ *   ⇒ 若那站只是不爱“长时间零输出的连接”，**这一枪就能过** ✓（一试便知 ✓）
+ *   ⏔ 不能只会流式：有站不支持流式、直接回 JSON ✗ ⇒ 那就退回原来的读法 ✓
+ */
+async function readMaybeStream(res) {
+    let ct = '';
+    try { ct = String((res.headers && res.headers.get && res.headers.get('content-type')) || ''); } catch (e) { ct = ''; }
+    if (!/text\/event-stream/i.test(ct)) {
+        const data = await res.json().catch(() => null);
+        return readCompletionText(data);
+    }
+    let acc = '';
+    try {
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        for (;;) {
+            const step = await reader.read();
+            if (step.done) { break; }
+            buf += dec.decode(step.value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop();
+            for (const raw of lines) {
+                const line = String(raw).trim();
+                if (!line || line.indexOf('data:') !== 0) { continue; }
+                const payload = line.slice(5).trim();
+                if (!payload || payload === '[DONE]') { continue; }
+                try {
+                    const j = JSON.parse(payload);
+                    const ch = (j && j.choices && j.choices[0]) || {};
+                    const d = ch.delta || ch.message || {};
+                    if (typeof d.content === 'string') { acc += d.content; }
+                } catch (e2) { /* 单块坏了不影响整体 ✓ */ }
+            }
+        }
+    } catch (e3) { /* 断了就用已经收到的 ✓ */ }
+    const out = trimText(acc);
+    return out ? out : null;   /* 与 readCompletionText 的“空则 null”一致 ✓ */
+}
+
 function readCompletionText(data) {
     if (!data || typeof data !== 'object') {
         return null;
