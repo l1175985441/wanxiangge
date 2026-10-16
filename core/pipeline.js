@@ -1229,7 +1229,26 @@ async function stepCharacters(material, attempt) {
     const meHits = checkActingAsMe(rows, material.floor);
 
     // 世界钟那一步可能带回来更新过的钟，这里再补读一次
-    const clockNow = trimText(v.clock);
+    /*
+     * ⭐⭐ Q5（材料 05 · 她原话 [150][151]）：**世界钟要有保底** ✓
+     *   旧：完全靠模型从清洗后的 {{recent}} 里找 ✗
+     *     ❤️ 她若在「读取控制」里把 <meow_FM> 设为排除标签 ✗
+     *     （或被成对机器块规则剥掉 ✗）⇒ 清洗后的文本里就没了 time: 那一行 ✗
+     *     ⇒ 模型读不到时间就回“未知” ✗ ⇒ **所有挂了世界钟的暗线全部停摆** ✗✗
+     *   现在：模型没给（空／未知）时，从**清洗前**的 rawText 里直接抓 time: ／【时间】 ✓
+     */
+    let clockNow = trimText(v.clock);
+    if (!clockNow || clockNow === '未知') {
+        try {
+            const rawNow = String(material && material.rawText ? material.rawText : '');
+            /* 放宽到整行：把紧跟的时刻（如 07:45）也带上 ✓
+         *   （parseClock 会自己从里面认日期与时刻 ✓，多余的词它不理 ✓） */
+        const mTime = rawNow.match(/(?:time|时间)\s*[:：]\s*([^\n]{3,60})/i);
+            if (mTime && trimText(mTime[1])) {
+                clockNow = trimText(mTime[1]);
+            }
+        } catch (eClk) { /* 抓不到就算了 ✓ */ }
+    }
     if (clockNow && clockNow !== '未知' && !clockWentBackwards(loadState().world.clock, clockNow)) {
         updateWorld({ clock: clockNow }, {});
     }
