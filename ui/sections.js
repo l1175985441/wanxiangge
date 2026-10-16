@@ -2394,8 +2394,8 @@ function secExtract(host) {
     /*
      * ⭐⭐ 材料 01（界面第 2 条）：**打开这一页就自动列世界书** ✓
      *   旧：打开时区域是**空的** ✗ ⇒ 必须手动先点一次「读世界书列表」才出按钮 ✗
-     *   现在：渲染完就自己去点一下那颗按钮 ✓（复用现成的 list-books 路，⏔ 重写逻辑 ✗）
-     *   ⏔ 只在“还没列过”时发 ✓（避免每次重画都去读一遍世界书 ✗）
+     *   现在：渲染完就自己去点一下那颗按钮 ✓（复用现成的 list-books 路，⛔ 重写逻辑 ✗）
+     *   ⛔ 只在“还没列过”时发 ✓（避免每次重画都去读一遍世界书 ✗）
      */
     setTimeout(() => {
         try {
@@ -4460,7 +4460,7 @@ function downloadText(filename, text) {
  *     ⇒ 把她正按着的那颗按钮连同整个浮层 DOM 销毁重建 ✗
  *     ⇒ mouseup 时 click 凭空蒸发 ✗ ⇒ **第一次点击必然失效** ✗
  *   现在：**状态照旧同步写** ✓，只把**重画推迟 ~260ms** ✓，并**记住浮层位置**、重画完还回去 ✓
- *   ⚠️ 只用在**改字段**这类地方 ✓（⏔ 往别的流程里套 ✗：
+ *   ⚠️ 只用在**改字段**这类地方 ✓（⛔ 往别的流程里套 ✗：
  *     “名字跟人设名一样⇒自动认玩家棋子”那条审计就靠**同步重画** ✗）
  */
 function scheduleCardRerender() {
@@ -5079,6 +5079,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     }
                     break;
                 case 'set-player':
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
                     /*
                      * ⚠️ 她**取消勾**的时候要记一笔 `playerOff`：
                      *    名字跟人设名一样就会被自动认成"你"，不记的话下次重画又被自动勾上，
@@ -5384,7 +5385,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         + ' 条：点一下＝不读这一条（点过的不参与推演）；⛔ 不改你的世界书。';
                     if (wrap) {
                         /*
-         * ⭐⭐ 材料 01（界面第 2 条）：**只清“条目区”，⏔ 清整个容器** ✓
+         * ⭐⭐ 材料 01（界面第 2 条）：**只清“条目区”，⛔ 清整个容器** ✓
          *   旧：`while (wrap.firstChild) removeChild` 把 `#wxg-entpick` **整个清空** ✗
          *     ⇒ 里面那些「看条目：某某书」按钮**全被冲没** ✗
          *     （她想看第二本书还得重新点一次“读世界书列表” ✗）
@@ -5648,14 +5649,17 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                 case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
                 case 'set-strip-paired':
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
                     patchSettings({ stripPairedBlocks: target.checked });
                     toast.ok(target.checked ? '会按结构剥掉成对的机器块' : '不再按结构剥（只用你点名的排除标签）');
                     break;
                 case 'set-strip-comments':
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
                     patchSettings({ stripHtmlComments: target.checked });
                     toast.ok(target.checked ? '会剥掉 HTML 注释' : '不再剥 HTML 注释');
                     break;
                 case 'set-only-enabled':
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
                     patchSettings({ onlyEnabledEntries: target.checked });
                     toast.ok(target.checked ? '只读开启着的条目' : '连关掉的条目也一起读');
                     break;
@@ -5818,7 +5822,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     toast.ok((idx >= 0 ? '已覆盖书签「' : '已存成书签「') + nick + '」（存的这一套'
                         + (pendingN ? '；上方还有 ' + String(pendingN) + ' 处没保存的改动' : '')
                         + /* ⚠️ 材料 01 说“另存后应该自动切过去” ✗，但下面那段注释是**当初为她定的**：
-                     *   存书签只存书签、⏔ 不惄惄改掉“当前用的通道”（她可能只是想存起来）✓
+                     *   存书签只存书签、⛔ 不惄惄改掉“当前用的通道”（她可能只是想存起来）✓
                      *   ⇒ 不擅改行为 ✓，只把提示说成实话 ✓ */
                         + '，想现在就用它请点上面那颗「切到这套」）');
                     rerender();
@@ -5928,6 +5932,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'toggle-mini-show': {
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
                     /*
                      * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存"）——
                      *    她是看着球在不在来判断勾没勾上的，要等保存才生效会以为没反应。
