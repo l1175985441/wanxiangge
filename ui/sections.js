@@ -47,6 +47,7 @@ import { toast } from './toast.js';
 // ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
+import { takeSnapshot } from '../core/state.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
@@ -4738,6 +4739,12 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'del-situation': {
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条局势删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这条局势）');
                     const idx = Number(target.getAttribute('data-index'));
                     const list = (loadState().world.situations || []).slice();
                     if (Number.isFinite(idx) && list[idx]) {
@@ -4800,7 +4807,14 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     }
                     break;
                 }
-                case 'del-hidden': removeHidden(id); rerender(); break;
+                case 'del-hidden':
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条暗线删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这条暗线）');
+                    removeHidden(id); rerender(); break;
                 case 'add-hidden': {
                     const name = textOf(host, 'wxg-new-hidden');
                     if (!trimText(name)) {
@@ -4886,6 +4900,12 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'del-know': {
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条认知删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这条认知）');
                     const ki = Math.round(Number(target.getAttribute('data-index')));
                     if (removeKnow(id, ki)) {
                         toast.ok('删了一条');
@@ -4928,7 +4948,14 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                             renderPersonCard();
                         }
                     break;
-                case 'del-char': removeCharacter(id); rerender(); break;
+                case 'del-char':
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个角色删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这个角色）');
+                    removeCharacter(id); rerender(); break;
     /*
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
@@ -4988,7 +5015,7 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
             toast.info('编年本来就是空的');
             break;
         }
-        if (!window.confirm('要把编年**全部清掉**吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把编年**全部清掉**吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
             + '（只清编年；名册、世界状态、暗线、世界书都不动）\n\n清掉就回不来了。')) {
             break;
         }
@@ -5391,6 +5418,12 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'del-quest': {
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个任务删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这个任务）');
                     const title = target.getAttribute('data-title') || '';
                     if (removeQuest(id, title)) {
                         addChronicle({ floor: -1, kind: '任务·手动删除', who: '', text: title });
@@ -5626,11 +5659,20 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'del-profile': {
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⏔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个 API 书签删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这个 API 书签）');
                     const nick = id;
                     const cur = getSettings().api || {};
                     const list = (Array.isArray(cur.profiles) ? cur.profiles : [])
                         .filter((p) => trimText(p && p.nick) !== nick);
-                    patchSettings({ api: Object.assign({}, cur, { profiles: list }) });
+                    /* ⭐材料 06：删掉的若**正是当前在用的那套** ⇒ 顺手清掉 currentProfile ✓
+                     *   （旧：不清 ✗ ⇒ 面板还以为在用它 ✗） */
+                    const nowCur = trimText(cur.currentProfile) === nick ? '' : cur.currentProfile;
+                    patchSettings({ api: Object.assign({}, cur, { profiles: list, currentProfile: nowCur }) });
                     toast.ok('删掉书签「' + nick + '」了');
                     rerender();
                     break;
