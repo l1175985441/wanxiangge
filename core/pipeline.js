@@ -1546,26 +1546,38 @@ export async function runBackfill(opts) {
         return { ok: false, reason: '这个聊天还没有楼' };
     }
 
-    // 用户楼作为分批边界（一层一层往前走）
-    const userFloors = [];
+    /* ⭐修复 1（材料 02）：扫描对象从“只读用户楼”改为“**全部有效正文楼**” ✓
+     *   旧：只收 `is_user` 楼 ✗ ⇒ **AI 正文楼全部漏读** ✗（它们才是剧情主体 ✗）
+     *   新：收所有非系统且有正文的楼（含 AI 楼、用户楼、**隐藏楼** ✓） */
+    const validFloors = [];
     for (let i = 0; i < chat.length; i += 1) {
         const m = chat[i];
-        if (m && m.is_user && !m.is_system) {
-            userFloors.push(i);
+        if (m && !m.is_system && trimText(m.mes)) {
+            validFloors.push(i);
         }
     }
-    if (!userFloors.length) {
-        return { ok: false, reason: '还没有你的发言' };
+    if (!validFloors.length) {
+        return { ok: false, reason: '还没有可读的正文楼层' };
     }
-    const startFrom = Number.isFinite(o.from) && o.from >= 0 ? o.from : 0;
-    const todo = userFloors.filter((f) => f >= startFrom);
+    /* ⭐修复 1：**断点续跑** ✓
+     *   未显式给 from/limit、且上次已推到某楼（还没追平末尾）⇒ 自动从 `atFloor + 1` 接着补 ✓ */
+    const lastAt = Number((loadState().pipeline || {}).atFloor);
+    const limEarly = Number.isFinite(o.limit) ? Math.floor(o.limit) : 0;
+    let startFrom = 0;
+    if (Number.isFinite(o.from) && o.from >= 0) {
+        startFrom = o.from;
+    } else if (limEarly <= 0 && Number.isFinite(lastAt) && lastAt >= 0 && lastAt < validFloors[validFloors.length - 1]) {
+        startFrom = lastAt + 1;
+    }
+    const todo = validFloors.filter((f) => f >= startFrom);
     /*
      * ⭐ 首夜实测单第 3 条（她原话：「这旁边也没有自己设定的，我可以自己设定要补齐多少楼层」）：
      *   `opts.from` 早就有（从第 X 楼起补），缺的是**"就补最近 N 楼"** ⇒ 这里从**队尾往前数**取 N 个。
      *   ⚠️ 默认（不传 limit）＝照旧**全部补**（向后兼容，⛔ 不改老行为）。
      */
     const lim = Number.isFinite(o.limit) ? Math.floor(o.limit) : 0;
-    const todo2 = lim > 0 ? todo.slice(Math.max(0, todo2.length - lim)) : todo;
+    // ⭐修复 1：修掉 TDZ 崩溃 ✓（原来在初始化前就读 `todo2.length` ✗ ⇒ 填范围必崩 ✗）
+    const todo2 = lim > 0 ? todo.slice(Math.max(0, todo.length - lim)) : todo;
     if (!todo2.length) {
         return { ok: true, text: '没有要补的楼了' };
     }
@@ -1580,7 +1592,9 @@ export async function runBackfill(opts) {
         startedAt: Date.now(),
         text: '准备补推 ' + String(todo2.length) + ' 个楼层',
         cursor: 0,
-        atFloor: -1,
+        /* ⭐修复 1：**去掉 `atFloor: -1`** ✓
+         *   旧：每次补推开头把水位抹成 -1 ✗ ⇒ 上次停在哪楼就丢了 ✗（断点续跑失效 ✗）
+         *   新：不碰它 ⇒ 下次点「补推历史」能从停下的楼接着走 ✓ */
         cancelRequested: false,
         conflicts: [],
     });
@@ -1588,7 +1602,9 @@ export async function runBackfill(opts) {
     let done = 0;
     let failedAt = '';
     /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⏔ 逐楼一整轮 ✗） */
-    const batches = buildScanBatches(todo);
+    // ⭐修复 1：修掉“传错变量” ✓（旧：传 `todo` ✗ ⇒ 她填的“只补最近 N 楼”**生效不了** ✗）
+    //   并把“每轮最多喂多少字正文”的上限一并传进去 ✓
+    const batches = buildScanBatches(todo2, worldMaterialCap());
     for (const batch of batches) {
         const floor = batch[batch.length - 1];
         if (cancelRequested) {
