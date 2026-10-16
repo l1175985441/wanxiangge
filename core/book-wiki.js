@@ -18,7 +18,7 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
 import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner, extractFormNames } from './worldbook.js';
@@ -110,6 +110,9 @@ const CLASSIFY_SYSTEM = [
     '· factions＝势力／组织／团体／阵营（例：黑暗王国、水手战士、黑暗四天王）。',
     '· situations＝正在发生的**局势**：谁跟谁顶着、暗中在策划什么阴谋。要能从条目正文里读出来，⛔ 别编。',
     '· places＝地点（例：十番街、水晶东京）。',
+    '· hidden＝**暗线**：还没浮上台面的阴谋／计划／暗中行动（例：在港区的珠宝店收集能量）。',
+    '  每条必须带：名称、**阶段**（萌芽／发酵／逼近／爆发／消散 或 筹备／执行／关键／完成）、**挂在什么时间或条件上**（例：晚上／放学后／三天后）。',
+    '⛔ **公开的局势放 situations，暗中的阴谋放 hidden**，⏔ 两边都放。',
     '',
     '规矩：',
     '1. 名字**照抄条目里的写法**，⛔ 不要翻译、不要加前缀、不要自己起名。',
@@ -125,7 +128,8 @@ const CLASSIFY_SYSTEM = [
     '{"characters":[{"name":"","note":"","identity":"","faction":"","aliases":[]}],'
     + '"factions":[{"name":"","note":""}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
-    + '"places":[{"name":"","note":""}]}',
+    + '"places":[{"name":"","note":""}],'
+    + '"hidden":[{"name":"","stage":"","trigger":"","tier":"","note":""}]}',
 ].join('\n');
 
 /** 把一批条目拼成给模型看的清单 */
@@ -185,6 +189,23 @@ function normalizeWiki(raw) {
             out.places.push({ name, note: trimText(p && p.note) });
         }
     }
+    /* P3 (material 07): hidden bucket - world-book conspiracies become real hidden lines. */
+    /* P3: make sure the bucket exists (out may predate the hidden field). */
+    out.hidden = Array.isArray(out.hidden) ? out.hidden : [];
+    for (const h of pick(raw.hidden)) {
+        const name = trimText(typeof h === 'string' ? h : (h && (h.name || h.title)));
+        if (name) {
+            const tierH = trimText(h && h.tier);
+            out.hidden.push({
+                name,
+                stage: trimText(h && h.stage),
+                kind: trimText(h && h.kind),
+                trigger: trimText(h && (h.trigger || h.due)),
+                tier: TIERS.includes(tierH) ? tierH : '',
+                note: trimText(h && h.note),
+            });
+        }
+    }
     return out;
 }
 
@@ -228,6 +249,8 @@ export async function classifyBook(entries) {
         wiki.factions.push(...one.factions);
         wiki.situations.push(...one.situations);
         wiki.places.push(...one.places);
+    wiki.hidden = Array.isArray(wiki.hidden) ? wiki.hidden : [];
+    wiki.hidden.push(...(Array.isArray(one.hidden) ? one.hidden : []));
     }
     return { ok: true, wiki, chunks };
 }
@@ -310,6 +333,7 @@ export function applyWiki(wiki) {
         factions: Array.isArray(src.factions) ? src.factions : [],
         situations: Array.isArray(src.situations) ? src.situations : [],
         places: Array.isArray(src.places) ? src.places : [],
+        hidden: Array.isArray(src.hidden) ? src.hidden : [],
     };
     /* ⭐⭐ 修复 9：**剥完后不像人名的杂项（如 作息与时间锚）不进名册** ✓
      *   （她原话：「作息与时间锚被读成人」✗；家庭合集名（月野家）也不当一个人 ✗） */
@@ -366,6 +390,24 @@ export function applyWiki(wiki) {
         }
     }
 
+    /* P3 (material 07): conspiracies -> real hidden lines (previously dropped or mixed
+     *   into public situations with no stage and no clock trigger). */
+    for (const h of (Array.isArray(w.hidden) ? w.hidden : [])) {
+        if (!h || !trimText(h.name)) {
+            continue;
+        }
+        try {
+            upsertHidden({
+                name: trimText(h.name),
+                stage: trimText(h.stage),
+                kind: trimText(h.kind),
+                trigger: trimText(h.trigger),
+                tier: trimText(h.tier),
+                note: trimText(h.note),
+                manual: false,
+            });
+        } catch (e) { /* one bad line must not break the import */ }
+    }
     // ② 势力 ＋ 局势 → 世界状态（都记成"局势"，势力名当作一方）
     const merged = [];
     for (const f of facs) {
