@@ -57,8 +57,14 @@ function resultText(lastUpdate, pipe) {
     if (s === 'ok') {
         return '成功';
     }
+    /*
+     * ⚠️ 真机抓到的不一致：这里只看持久化的 status ⇒ 一轮中途死了就**永远说“正在跑”** ✗
+     *   而界面（v0.3.80 起）只认“本会话真的在跑”⇒ 两处**互相矛盾** ✗
+     *   ⇒ 这里也认同一个内存标记（window.__wxgLiveRun ✓）：真在跑⇒“正在跑”；否则⇒“**上次没跑完**” ✓
+     */
     if (String((pipe && pipe.status) || '').trim() === 'running') {
-        return '正在跑';
+        const live = (typeof window !== 'undefined') && window.__wxgLiveRun;
+        return live ? '正在跑' : '上次没跑完';
     }
     // ⭐ 复审追加 A5②：`pending`（刚发消息、AI 还没生成完）不能露英文
     if (s === 'pending') {
@@ -141,7 +147,9 @@ export function buildHealthReport(opts) {
         ['时间', when(st.lastUpdate && st.lastUpdate.at)],
         ['结果', resultText(st.lastUpdate, pipe)],
         ['停在哪楼', stopFloorText(st.lastUpdate, sum)],
-        ['引擎当前状态', pipe.status === 'running' ? '正在跑' : (pipe.status === 'failed' ? '失败' : '闲着')],
+        ['引擎当前状态', pipe.status === 'running'
+            ? (((typeof window !== 'undefined') && window.__wxgLiveRun) ? '正在跑' : '上次没跑完')
+            : (pipe.status === 'failed' ? '失败' : '闲着')],
         ['世界钟', String(sum.clock || '未知')],
         ['—— 自定义 API（⛔ 只报有没有）——', ''],
         ['接口地址', has(api.url)],
