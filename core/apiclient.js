@@ -350,7 +350,7 @@ export async function callModel(opts) {
         }
         let loweredTo = 0;
         for (let guard = 0; guard < 3 && res && res.ok === false
-            && /exceeds the maximum output tokens|max_tokens|怪东西|不是标准格式|null/i.test(String(res.reason || '')); guard += 1) {
+            && /exceeds the maximum output tokens|max_tokens|maximum context length|too many tokens/i.test(String(res.reason || '')); guard += 1) {
             const cur = Number(body.max_tokens);
             if (guard === 2) {
                 /* ⭐ 最后一招：**干脆不传 max_tokens** ✓（有些中转只在“字段存在”时才校验 ✓）
