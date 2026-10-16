@@ -320,9 +320,34 @@ export async function callModel(opts) {
         } else {
             res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
         }
+        /*
+         * ⭐⭐ 真机一试便知（第 51 轮）：正文喂小之后请求**真的到得了对面** ✓
+         *   对面回：“The requested max_tokens (2560) exceeds the maximum output tokens allowed for model …” ✗
+         *   ⇒ 只差一个数字：**输出上限超了** ⇒ 不推给她去猜 ✗
+         *   ⇒ 现在：**对方说超了就自动砍半重试**（最多 2 次 ✓）
+         */
+        let loweredTo = 0;
+        for (let guard = 0; guard < 2 && res && res.ok === false
+            && /exceeds the maximum output tokens|max_tokens/i.test(String(res.reason || '')); guard += 1) {
+            const cur = Number(body.max_tokens);
+            const next = Math.max(256, Math.floor((Number.isFinite(cur) ? cur : 1024) / 2));
+            if (!Number.isFinite(next) || (Number.isFinite(cur) && next >= cur)) { break; }
+            body.max_tokens = next;
+            if (api.mode === 'direct') {
+                try {
+                    res = await callDirect(url, key, model, body, timeout.signal);
+                } catch (eAgain) {
+                    res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+                }
+            } else {
+                res = await callViaServer(url, key, model, body, timeout.signal, o.cheap === true);
+            }
+            loweredTo = next;
+        }
         const ms = Date.now() - started;
         if (!res.ok) {
-            return { ok: false, reason: res.reason, ms };
+            return { ok: false, reason: String(res.reason || '')
+                + (loweredTo ? ('（已自动把输出上限降到 ' + String(loweredTo) + ' 再试过 ✓）') : ''), ms };
         }
         const text = trimText(res.text);
         if (!text) {
