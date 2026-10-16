@@ -48,7 +48,11 @@ const NOT_PERSON_PREFIX = new Set([
 function entryDigest(entry) {
     const title = trimText(entry && (entry.comment || entry.name || entry.key || entry.keys)) || '（无标题）';
     const body = asText(entry && entry.content).replace(/\s+/g, ' ').trim();
-    return { title, body: body.length > 400 ? body.slice(0, 400) + '…' : body };
+    /* ⭐⭐ 修复 9（材料 02）：**正文截断 400 字 ✗ ⇒ 1200 字** ✓
+     *   她的原话：「月野豆绁一家人另外三个没有出来」✗
+     *   真因：《月野家》这种**多人档案**，排在后面的家人（谦之、进悟）**被截断漏读** ✗
+     *   ⇒ 放宽到 1200 字 ✓（三个人全读得到 ✓） */
+    return { title, body: body.length > 1200 ? body.slice(0, 1200) + '…' : body };
 }
 
 /**
@@ -292,7 +296,12 @@ export function applyWiki(wiki) {
         situations: Array.isArray(src.situations) ? src.situations : [],
         places: Array.isArray(src.places) ? src.places : [],
     };
-    const chars = dedupe(w.characters, (c) => c.name);
+    /* ⭐⭐ 修复 9：**剥完后不像人名的杂项（如 作息与时间锚）不进名册** ✓
+     *   （她原话：「作息与时间锚被读成人」✗；家庭合集名（月野家）也不当一个人 ✗） */
+    const chars = dedupe(w.characters, (c) => c.name).filter((c) => {
+        const clean = extractNameFromTitle(c.name);
+        return Boolean(clean) && !/家$/.test(clean);
+    });
     const facs = dedupe(w.factions, (f) => f.name);
     const sits = dedupe(w.situations, (s) => s.title);
 
