@@ -1393,8 +1393,12 @@ function commitSection(secId) {
         }
         // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换
         // （整块替换会把她存好的书签 `profiles` 一起冲掉）
+        if (k === 'api' && box[k] && typeof box[k] === 'object') {
+            patch.api = Object.assign({}, getSettings().api || {}, box[k], patch.api || {});
+            continue;
+        }
         if (API_KEYS.includes(k)) {
-            patch.api = Object.assign({}, patch.api || {}, { [k]: box[k] });
+            patch.api = Object.assign({}, getSettings().api || {}, patch.api || {}, { [k]: box[k] });
         } else {
             patch[k] = box[k];
         }
@@ -1422,7 +1426,7 @@ function commitSection(secId) {
 }
 
 /** 走 api 那一格的键（保存时归到 api 下面） */
-const API_KEYS = ['mode', 'url', 'key', 'model', 'modelCheap', 'temperature', 'maxTokens'];
+const API_KEYS = ['mode', 'url', 'key', 'model', 'modelCheap', 'temperature', 'maxTokens', 'materialCap', 'autoRetryMax', 'currentProfile'];
 
 /**
  * ⭐ `stage-*` 动作总表：动作名 → [这一段, 设置键, 取值方式]。
@@ -4401,6 +4405,7 @@ export function bindSectionEvents(host, refresh) {
         try {
             // ⭐ 通用草稿入口：凡是 `stage-*` 的控件，一律只进草稿（段底一起保存）
             if (action.indexOf('stage-') === 0) {
+                if (!isChange) { return; }
                 const which = stageOne(action, target);
                 if (which === 'api-profile-switched') { rerender(); return; }
                 /*
@@ -4411,11 +4416,9 @@ export function bindSectionEvents(host, refresh) {
                  */
                 if (which === 'api') {
                     try {
-                        if (window.__wxgApiSaveT) { clearTimeout(window.__wxgApiSaveT); }
-                        window.__wxgApiSaveT = setTimeout(function () {
-                            try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { /* ⏔ 影响输入 */ }
-                        }, 800);
-                    } catch (e2) { /* ⏔ 影响输入 */ }
+                        /* Google fix 3 (culprit 2): drop the 800ms debounce. Cause: her Save click
+                     *   raced it and got "nothing unsaved". Now change commits at once. */
+                    try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { }                    } catch (e2) { /* ⏔ 影响输入 */ }
                 }
                 if (which) {
                     refreshSaveBar(host, which);
