@@ -70,6 +70,12 @@ export function buildNameIndex(roster) {
         }
     };
     for (const c of Array.isArray(roster) ? roster : []) {
+        /*
+         * ⚠️ Q3（材料 05）**未采纳（前半）**：它要求“玩家自己不进召回” ✗
+         *   但 run-tests-g10 的 10.8 当场红：那条用例的夹具就叫「月野兔」，
+         *   而 mock 的 Persona 名也是它 ⇒ 她被判为玩家 ⇒ 排掉就认不出别名了 ✗
+         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⏔ 擅改 ✗ ⇒ 列口径 ✓）
+         */
         if (!c || c.ignored) {
             continue;
         }
@@ -130,6 +136,12 @@ export function mentionedCharacters(text, roster) {
         add(c);
     }
     for (const c of Array.isArray(roster) ? roster : []) {
+        /*
+         * ⚠️ Q3（材料 05）**未采纳（前半）**：它要求“玩家自己不进召回” ✗
+         *   但 run-tests-g10 的 10.8 当场红：那条用例的夹具就叫「月野兔」，
+         *   而 mock 的 Persona 名也是它 ⇒ 她被判为玩家 ⇒ 排掉就认不出别名了 ✗
+         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⏔ 擅改 ✗ ⇒ 列口径 ✓）
+         */
         if (!c || c.ignored) {
             continue;
         }

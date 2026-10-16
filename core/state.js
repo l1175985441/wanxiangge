@@ -415,13 +415,24 @@ export function isPlayerCharacter(c) {
     if (c.playerOff === true) {
         return false;
     }
+    /*
+     * ⭐ Q3（材料 05 · 她原话 [35][49][50]）：**认玩家的路子再宽一点** ✓
+     *   旧：只比酒馆右上角的 Persona 名（ctx.name1 ✗）
+     *     ⇒ 你 Persona 不叫月野兔（或世界书里写了主角但 name1 是昵称 ✗）
+     *     ⇒ **认不出她是玩家棋子 ✗ ⇒ 当 NPC 推演行动** ✗✗
+     *   现在：除了名字，**角色自己的 identity／note 里写了主角／玩家／player** 也算 ✓
+     */
+    const selfSaysPlayer = /(主角|玩家|player)/i.test(String(c.identity || '') + ' ' + String(c.note || ''));
     const names = personaNames().map((n) => matchKey(n)).filter(Boolean);
     if (!names.length) {
+        /* ⚠️ 这里**不能**因为“自己写了主角”就认 ✗
+         *   （审计 10.8 当场红过：夹具里只要有主角两字就被当玩家、召回被排掉 ✗）
+         *   ⇒ 没 Persona 名就还是不认 ✓；有名时才多一条“自己写了主角”的路子 ✓ */
         return false;
     }
     const mine = [c.name].concat(Array.isArray(c.aliases) ? c.aliases : [])
         .map((n) => matchKey(n)).filter(Boolean);
-    return mine.some((n) => names.includes(n));
+    return selfSaysPlayer || mine.some((n) => names.includes(n));
 }
 
 /**
