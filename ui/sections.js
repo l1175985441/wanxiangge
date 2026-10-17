@@ -2893,14 +2893,15 @@ function secReport(host, intoBox) {
          *   现在**把它整块搬进浮层**（DOM 搬移），所以不存在"浮层里跟行内不一样"。
          *   ⛔ 没开任何一条时，行为跟以前一模一样（照旧挂回列表）。
          */
+        /* Q2（材料 05）：**先把行挂上（永远挂 ✓）**，再决定要不要弹浮层 ✓
+         *   旧：只有 else 才 appendChild ✗ ⇒ 开浮层时那一行从列表里消失 ✗（与人物名册不一致 ✗） */
+        if (sum) {
+            sum.setAttribute('data-action', 'open-record');
+            sum.setAttribute('data-id', String(idx));
+        }
+        cRep.appendChild(det);
         if (openRecordAt === idx) {
             renderRecordCard(rec, body, idx, shownList.length, statusText, statusTone(rec), shownChars);
-        } else {
-            if (sum) {
-                sum.setAttribute('data-action', 'open-record');
-                sum.setAttribute('data-id', String(idx));
-            }
-            cRep.appendChild(det);
         }
     }
     box.appendChild(cRep);
