@@ -204,6 +204,12 @@ export async function injectBeforeGenerate(chat, contextSize, abort, type) {
             send_date: now(),
             extra: { type: 'narrator' },
         };
+        /*
+         * ⭐ 材料 10 · 第 7 组裁定（她 10-17 授权代拍）：**保持现状，⏔ 动注入机制** ✓
+         *   已知风险：往 coreChat 里 `splice` 插注入消息，**可能让排在后面的其他插件下标错位** ✗
+         *   裁定：**保留**（她 10-17 授权代拍）✓
+         *   理由：这是与酒馆／其他插件共存的**核心路径**，动它风险远大于收益 ✗
+         */
         list.splice(anchor, 0, note);
 
         await enqueue(() => {
