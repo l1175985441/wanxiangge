@@ -134,7 +134,15 @@ export function ledgerText() {
     if (pipe.status === 'failed' && pipe.error) {
         line += ' ｜ 更新那一步失败：' + pipe.error + '（重试有上限；点「立刻更新」可再来一次）';
     }
-    if (pipe.status === 'running') {
+    /*
+     * ⭐⭐ 材料 06【6】③：**重开网页后不能永远挂着“正在更新…”** ✓
+     *   旧：只看 `pipe.status === 'running'` ✗ 而它是**持久化写进存档**的 ✗
+     *     ⇒ 推演中途刷新网页／升级插件 ⇒ **状态页顶栏永远显示“正在更新…”** ✗✗
+     *   现在：加上**内存标记**判断 ✓（与 health.js、体检页同一套判法 ✓）
+     *     ⏔ 真在跑才说“正在更新” ✗；没跑 ⇒ 不挂这句 ✓
+     */
+    const _liveRun = (typeof window !== 'undefined') && window.__wxgLiveRun;
+    if (pipe.status === 'running' && _liveRun) {
         line += ' ｜ 正在更新：' + (pipe.text || '…');
     }
     return line;
