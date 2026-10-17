@@ -21,7 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow, importState } from '../core/state.js';
+    addKnow, removeKnow, importState, pushPast } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
 import {
@@ -1193,11 +1193,28 @@ function secCharacters(host) {
         if (!c.past.length) {
             pastBox.appendChild(el('div', 'wxg-empty', '还没有'));
         } else {
-            for (const p of c.past) {
-                pastBox.appendChild(el('div', 'wxg-fact', '· ' + p.text + (p.manual ? '（已手动修改）' : '')));
-            }
+            /* ⭐ 材料 06【4】：**过去经历要能改能删** ✓（编辑态每条带「删」 ✓） */
+            c.past.forEach((p, pi) => {
+                const prow = el('div', 'wxg-fact', '· ' + p.text + (p.manual ? '（已手动修改）' : ''));
+                if (personCardEditing) {
+                    const pdel = button('删', 'del-past', 'wxg-btn-xs', c.id);
+                    pdel.setAttribute('data-index', String(pi));
+                    prow.appendChild(pdel);
+                }
+                pastBox.appendChild(prow);
+            });
         }
         past.appendChild(pastBox);
+        if (personCardEditing) {
+            const pAdd = el('div', 'wxg-rowitem');
+            const pTxt = el('input', 'wxg-pc-input');
+            pTxt.type = 'text';
+            pTxt.id = 'wxg-past-text';
+            pTxt.placeholder = '加一条过去经历（一句话）';
+            pAdd.appendChild(pTxt);
+            pAdd.appendChild(button('加一条', 'add-past', 'wxg-btn-sm', c.id));
+            past.appendChild(pAdd);
+        }
         detail.appendChild(past);
 
         // 日程
@@ -5139,6 +5156,32 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                         rerender();
                     }
                     break;
+                case 'del-past': {
+                    const pi2 = Number(target.getAttribute('data-index'));
+                    const pc2 = findCharacter(id);
+                    if (pc2 && Array.isArray(pc2.past) && Number.isFinite(pi2) && pc2.past[pi2]) {
+                        takeSnapshot('删过去经历前');
+                        const arr2 = pc2.past.slice();
+                        arr2.splice(pi2, 1);
+                        updateCharacter(id, { past: arr2 }, { manual: true });
+                        toast.ok('删了一条过去经历');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'add-past': {
+                    const inp2 = document.getElementById('wxg-past-text');
+                    const txt2 = trimText(inp2 && inp2.value);
+                    if (!txt2) {
+                        toast.info('先写一句话再点加 ✓');
+                        break;
+                    }
+                    takeSnapshot('手加过去经历前');
+                    pushPast(id, txt2, Number(getSettings().capPast) || 5, -1);
+                    toast.ok('加上了');
+                    rerender();
+                    break;
+                }
                 case 'add-know': {
                     /*
                      * ⭐ 补③：手加一条"他该知道的"。
