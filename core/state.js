@@ -842,6 +842,22 @@ export function updateWorld(patch, options) {
             }
         }
     }
+    /*
+     * ⭐ B9（材料 13·兑现率）：**模型写“未知”不能盖掉已知格** ✓
+     *   旧：只要模型回一个占位词（未知／不清楚／无／null…），就照单全收 ✗
+     *     ⇒ 她辛辛苦苦建的世界钟／地点被一句“未知”覆盖 ✗
+     *   现在：模型写的且只要是占位词、而那一格**已经有字** ⇒ 跳过不写 ✓
+     *   （她自己手改不受影响：`opts.manual === true` 时不走这段 ✓）
+     */
+    if (opts.manual !== true) {
+        const PLACEHOLDER = /^(未知|不知道|不清楚|不详|无|暂无|none|null|n\/a|[—-]+|[-]+)$/i;
+        for (const mk of Object.keys(_patch)) {
+            const v = _patch[mk];
+            if (typeof v === 'string' && PLACEHOLDER.test(v.trim()) && trimText(w[mk])) {
+                delete _patch[mk];
+            }
+        }
+    }
     Object.assign(w, _patch);
     w.updatedAt = now();
     w.manual = opts.manual === true ? true : w.manual === true;
