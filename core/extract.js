@@ -23,9 +23,22 @@ import { toList, trimText, asText, floorLabel } from './utils.js';
  * 标记名认：拉丁字母／下划线／连字符，**也认中文**（例：[状态栏]…[/状态栏]、【正文】…【/正文】）。
  */
 const TAG_CHARS = '[A-Za-z_\\u4e00-\\u9fff\\u3040-\\u30ff\\uac00-\\ud7af][\\w\\-\\u4e00-\\u9fff\\u3040-\\u30ff\\uac00-\\ud7af]*';
+/*
+ * ⭐ U10（材料 12·未覆盖死角）：**纯排版 HTML 标签不能当机器块整块剥** ✓
+ *   旧：`<center>—— 十分钟后 ——</center>` 这类过场正文 ✗
+ *     内容没句读、也不是台账 ⇒ `looksLikeMachineBlock` 判真 ✗ ⇒ **整块被当机器块删掉** ✗
+ *   现在：这些标签只管排版，**不参与整块剥** ✓（内容与标签都留着 ✓）
+ */
+const LAYOUT_TAGS = new Set([
+    'b', 'i', 'u', 's', 'em', 'strong', 'span', 'font', 'center', 'p', 'br', 'ruby', 'rt', 'rp',
+    'small', 'big', 'sub', 'sup', 'mark', 'del', 'ins', 'q', 'cite', 'abbr', 'code', 'pre', 'kbd',
+    'var', 'samp', 'wbr', 'hr', 'img', 'a', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'blockquote',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article', 'aside', 'header', 'footer',
+]);
+
 const PAIR_RULES = [
     { open: new RegExp('\\[(' + TAG_CHARS + ')\\]', 'g'), closeOf: (n) => '[/' + n + ']' },
-    { open: new RegExp('<(' + TAG_CHARS + ')>', 'g'), closeOf: (n) => '</' + n + '>' },
+    { open: new RegExp('<(' + TAG_CHARS + ')>', 'g'), closeOf: (n) => '</' + n + '>', html: true },
     { open: new RegExp('\\{\\{(' + TAG_CHARS + ')\\}\\}', 'g'), closeOf: (n) => '{{/' + n + '}}' },
     { open: new RegExp('【(' + TAG_CHARS + ')】', 'g'), closeOf: (n) => '【/' + n + '】' },
 ];
@@ -76,6 +89,11 @@ export function stripPairedBlocks(text) {
             let m = rx.exec(out);
             while (m) {
                 const name = m[1];
+                /* ⭐ U10：纯排版标签 ⇒ **不参与整块剥** ✓ */
+                if (rule.html && LAYOUT_TAGS.has(String(name || '').toLowerCase())) {
+                    m = rx.exec(out);
+                    continue;
+                }
                 const closeTag = rule.closeOf(name);
                 const from = m.index + m[0].length;
                 const at = out.indexOf(closeTag, from);
