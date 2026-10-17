@@ -277,7 +277,15 @@ function personBlock(item, opts) {
     }
 
     const past = Array.isArray(c.past) ? c.past : [];
-    const fresh = past.filter((p) => p && p.text && !p.injected);
+    /*
+     * ⭐ B5（材料 13·兑现率）：**“端过一次”不等于“以后永远不端”** ✓
+     *   旧：`!p.injected` ✗ —— 只要某条过去经历被端过一次 ✗
+     *     ⇒ 下一轮它就被**永久封死** ⇒ 模型第二轮就“失忆”了 ✗
+     *   现在：只按**楼层裁**（pastFloorCut）避免重复 ✓
+     *     ⇒ 近几楼里已经在上下文里的不端 ✓，真正老的事每轮都能被拿到 ✓
+     *   （与材料 11 RD2 里卡片那边的口径一致 ✓）
+     */
+    const fresh = past.filter((p) => p && p.text);
     /*
      * ⭐ 楼层裁（她拍的）：来源在最近 N 楼之内的**不端**——主模型上下文里已经有那一楼了，
      *    再端一遍等于白占篇幅、还容易让人觉得"重合"；只端更老的（上下文看不到的）。
