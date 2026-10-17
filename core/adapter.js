@@ -159,6 +159,22 @@ export function readLedger() {
             }
             return direct;
         }
+        /*
+         * ⭐ 新增件 5③（材料 13）：**分支／导入档要认领，⏔ 置空毁账** ✓
+         *   旧：只有“同一个聊天改名”才认领 ✗
+         *     ⇒ 酒馆建分支（Branch）或导入聊天文件时，带过来的旧章账被当成“别的聊天” ✗
+         *     ⇒ 收进底稿、本档置空 ⇒ **新分支从空账开始** ✗
+         *   现在：若这份账的章**不在底稿盒里**（＝我们没为那个章存过别的档）
+         *     且当前章也没有底稿 ⇒ **认领它** ✓（分支与导入档都落在这一条 ✓）
+         *   反例：章在底稿盒里 ⇒ 那确实是另一个聊天的账 ✒ 照旧收进底稿、本档置空 ✓
+         */
+        const oldKey5 = keyOf(direct);
+        const knownElsewhere = !!(mirrorBox && typeof mirrorBox === 'object' && oldKey5
+            && Object.prototype.hasOwnProperty.call(mirrorBox, oldKey5));
+        if (!knownElsewhere && !looksLikeLedger(mirror, key)) {
+            adoptLedger(key, direct);
+            return direct;
+        }
         stashToMirror(null, direct, true);   // 真是别的聊天 ⇒ 按它自己的章收进底稿，别丢
         md[LEDGER_KEY] = null;
     }
