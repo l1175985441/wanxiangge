@@ -397,6 +397,30 @@ function select(id, options, value, action, id2) {
  */
 const foldOpenState = new Map();
 
+/**
+ * ⭐ ST4（材料 11·设置层）：**这一段有没有没保存的草稿** ✓
+ *   为什么要它：她改完直接点左栏切页／关工作台时，草稿**无声没了** ✗
+ *   → 这里只回答“有没有”，⏔ 自己落盘、⏔ 拦她切页 ✗（我们不改保存语义 ✓）
+ */
+export function hasUnsavedDraft() {
+    try {
+        const st = stagingOf(stagingMode) || {};
+        for (const k of Object.keys(st)) {
+            const v = st[k];
+            if (v && typeof v === 'object') {
+                if (Object.keys(v).length) {
+                    return true;
+                }
+            } else if (v != null) {
+                return true;
+            }
+        }
+        return false;
+    } catch (eDraft) {
+        return false;
+    }
+}
+
 function foldable(summaryText, open) {
     const d = document.createElement('details');
     d.className = 'wxg-report';

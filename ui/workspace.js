@@ -12,7 +12,8 @@
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, SIDEBAR_SHORT, groupOfSection } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
-import { renderSections, bindSectionEvents, fillText } from './sections.js';
+import { renderSections, bindSectionEvents, fillText, hasUnsavedDraft } from './sections.js';
+import { toast } from './toast.js';
 import { applyAppearance } from './theme.js';
 import { iconSvg } from './icons.js';
 import { loadState } from '../core/state.js';
@@ -411,6 +412,12 @@ function onWorkspaceClick(e) {
         node = node.parentNode;
     }
     if (go !== null) {
+        /* ⭐ ST4：切页前提一句 “有没存的改动” ✓（⏔ 拦她切页，不改保存语义 ✗） */
+        try {
+            if (hasUnsavedDraft()) {
+                toast.info('这一段还有没保存的改动（点段底「保存」才生效）');
+            }
+        } catch (eDr) { /* 提醒不了也不能拦着切页 ✓ */ }
         showIndex(go, true);
         return;
     }
