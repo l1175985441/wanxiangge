@@ -572,7 +572,20 @@ export function buildRecall(input) {
     const leadKeys = new Set(leadHits.map((h) => h.character.id));
     result.chars = kept.map((h) => h.character.name);
     result.items = kept.map((h) => ({
-        character: h.character,
+        /*
+         * ⭐ RD3（材料 11·渲染层）：**记录里存快照，⏔ 存活对象引用** ✓
+         *   旧：`character: h.character` 直接指向 `state.characters` 里的活对象 ✗
+         *     ⇒ 同一会话里第 #5 楼改了她的 current／affinity ✗
+         *     ⇒ 你回头看第 #1 楼的召回记录，看到的已经是**第 #5 楼的新状态** ✗
+         *   现在：存一份**深拷贝快照** ✓（拷不成就退回原引用，⏔ 因此抛错 ✗）
+         */
+        character: (() => {
+            try {
+                return JSON.parse(JSON.stringify(h.character));
+            } catch (eSnap) {
+                return h.character;
+            }
+        })(),
         reason: leadKeys.has(h.character.id) ? '本轮点名' : '最近正文提到',
         inScene: leadKeys.has(h.character.id),
         protected: leadKeys.has(h.character.id) && settings.protectedBypass === true,
