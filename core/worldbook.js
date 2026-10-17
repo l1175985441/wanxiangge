@@ -275,6 +275,31 @@ export function ledgerNamesMissingFromRoster(text, roster) {
         }
         m = re.exec(src);
     }
+    /*
+     * ⭐ U11（材料 12·未覆盖死角）：**`<meow_FM>` 里那套 ◈ 写法也要扫** ✓
+     *   旧：只扫 `"/人物/XXX"` 这种 JSON Patch 写法 ✗
+     *     ⇒ 另一种卡在 `<meow_FM>` 里用 `◈ 名字` 写角色 ⇒ **完全不提醒** ✗
+     *   现在：两种写法都扫 ✓（同一套“能对上就算能对上”的口径 ✓）
+     */
+    const reMeow = /◈\s*([^\n|｜]{1,20})/g;
+    let mm = reMeow.exec(src);
+    while (mm) {
+        const nm2 = trimText(mm[1]).replace(/[（(].*$/, '');
+        const k2 = matchKey(nm2);
+        let known2 = have.has(k2);
+        if (!known2 && k2.length >= 2) {
+            for (const h of have) {
+                if (h.length >= 2 && (h.indexOf(k2) >= 0 || k2.indexOf(h) >= 0)) {
+                    known2 = true;
+                    break;
+                }
+            }
+        }
+        if (k2 && !known2 && out.indexOf(nm2) < 0) {
+            out.push(nm2);
+        }
+        mm = reMeow.exec(src);
+    }
     return out;
 }
 
