@@ -11,19 +11,11 @@
 import { getSettings } from './settings.js';
 import { toList, trimText, asText, floorLabel } from './utils.js';
 
-/** 在一段文本里找"一起匹配的"第 k 组（同一对标记、同一层） */
-function findPair(text, re, k) {
-    const all = [];
-    const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
-    let m = rx.exec(text);
-    while (m) {
-        all.push([m.index, m.index + m[0].length]);
-        m = rx.exec(text);
-    }
-    const left = all.filter((x) => x[0] === all[k][0]);
-    const idx = all.indexOf(all.slice().filter((x) => x[0] > all[k][0] && x[1] <= (left[left.length - 1] || [0, text.length])[1])[0] || all[k]);
-    return idx >= 0 ? all[idx] : all[k];
-}
+/*
+ * ⚠️ U5（材料 12）：这里原本有一个 `findPair()`，**算错括号且全库从未调用** ✗
+ *   代码里只剩它自己那一处定义（grep 全库 0 处使用）⇒ 按 U5 清掉 ✓
+ *   ── 下面直接是真正在用的「按结构剥层」实现 ✓
+ */
 
 /**
  * 按结构剥掉成对的机器块（整块剥，含标记本身）。

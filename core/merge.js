@@ -8,7 +8,7 @@
  * 合并前自动留一版快照（能撤回）。
  */
 
-import { loadState, saveState, takeSnapshot, addChronicle, LIMITS } from './state.js';
+import { loadState, saveState, takeSnapshot, addChronicle, LIMITS, rollbackLast } from './state.js';
 import { trimText, uniqueBy, asText } from './utils.js';
 
 /** 合并两条角色记录：把 fromName 并进 keepId */
@@ -199,6 +199,16 @@ export function undoLastMerge() {
     const snap = state.snapshots[state.snapshots.length - 1];
     if (!snap || !asText(snap.label).includes('合并前')) {
         return { ok: false, reason: '最近这一版快照不是合并留下的' };
+    }
+    /*
+     * ⭐ U5（材料 12·未覆盖死角）：**真撤回** ✓
+     *   旧：只看一眼快照标签里有没有“合并前”，然后**直接 return { ok: true }** ✗
+     *     ⇒ 假装撤回了：界面告诉她成功，数据**一动未动** ✗
+     *   现在：真去扛 `rollbackLast()` ✓（它自带“撤之前再压一版”的保险 ✓）
+     */
+    const rolled = rollbackLast();
+    if (!rolled) {
+        return { ok: false, reason: '撤回没跑成（快照里没数据）' };
     }
     return { ok: true, label: snap.label };
 }
