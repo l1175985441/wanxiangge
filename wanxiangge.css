@@ -3784,3 +3784,25 @@ body.wxg-dragging {
         overflow-x: auto;
     }
 }
+
+/* ---------------- LY3：浮层卡头尾不跟着滚（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 旧：`overflow:auto` 挂在 `.wxg-pc` 外壳上 ✗
+ *   ⇒ 往下滚看「任务」时，顶部角色名与右上 × **滚没了** ✗
+ *   ⇒ 往上滚看「基础信息」时，底部「收起编辑／下一位」又滚没了 ✗
+ *   现在：头尾各自 sticky ✓（⏔ 改结构：用 sticky 就能达到“头尾不动、中间滚”的效果 ✓）
+ */
+.wxg-pc-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--wxg-card-bg, #fff);
+    border-bottom: 1px solid var(--wxg-line, #e6e8ea);
+}
+.wxg-pc-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--wxg-card-bg, #fff);
+    border-top: 1px solid var(--wxg-line, #e6e8ea);
+}

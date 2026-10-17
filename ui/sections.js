@@ -3810,8 +3810,21 @@ function bindPersonCardDrag(pop) {
             return;
         }
         const t = e.touches ? e.touches[0] : e;
-        pop.style.left = String(ox + (t.clientX - sx)) + 'px';
-        pop.style.top = String(oy + (t.clientY - sy)) + 'px';
+        /*
+         * ⭐ LY3（材料 11·布局层）：**拖拽要夹在屏幕里** ✓
+         *   旧：直接赋值 ✗ ⇒ 一旦把标题栏拖出屏幕顶边／侧边 ✗
+         *     ⇒ **再也点不到标题栏拖回来**（卡片就困在外面 ✗）
+         *   现在：至少留 80px 在屏幕内 ✓（⏔ 全部禁止拖出去——那样反而拖不动 ✓）
+         */
+        const vw = window.innerWidth || 1000;
+        const vh = window.innerHeight || 800;
+        const cardW = pop.offsetWidth || 560;
+        const keepX = 80;
+        const keepY = 40;
+        const nx = ox + (t.clientX - sx);
+        const ny = oy + (t.clientY - sy);
+        pop.style.left = String(Math.max(keepX - cardW, Math.min(vw - keepX, nx))) + 'px';
+        pop.style.top = String(Math.max(0, Math.min(vh - keepY, ny))) + 'px';
         e.preventDefault();
     };
     const up = () => {
