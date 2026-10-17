@@ -311,7 +311,8 @@ export function applyPeopleExtras(people) {
                 patch.identity = pp.identityHint;
             }
             if (Object.keys(patch).length) {
-                updateCharacter(c.id, patch);
+                /* ⭐ U1：这是**引擎自己填**，⏔ 记成她的手改 ✓ */
+                updateCharacter(c.id, patch, { trackManual: false });
                 touched += 1;
             }
         }

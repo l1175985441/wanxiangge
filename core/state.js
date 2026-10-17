@@ -570,7 +570,14 @@ export function removeKnow(id, index) {
     return true;
 }
 
-export function updateCharacter(id, patch) {
+/**
+ * ⭐ U1（材料 12·未覆盖死角）：**加一个“只写值、⏔ 记手改”的选项** ✓
+ *   为什么需要它：`book-wiki` 的“从世界书读人”是**引擎自己填**，
+ *   而这个函数原来只要 patch 里有非空状态格就记 `manualFields` ✗
+ *   ⇒ 她一个字没手改，导入进来的人全被盖上“已手动修改” ✗
+ *   ⏔ 用 `patch.manual=false`：那会把她**原有的手改锁一起清掉** ✗
+ */
+export function updateCharacter(id, patch, opts) {
     const state = loadState();
     const idx = state.characters.findIndex((c) => c.id === id);
     if (idx < 0) {
@@ -582,7 +589,8 @@ export function updateCharacter(id, patch) {
         merged.aliases = toList(patch.aliases);
     }
     const fieldSet = new Set(Array.isArray(prev.manualFields) ? prev.manualFields : []);
-    if (patch && typeof patch === 'object') {
+    const trackManual = !(opts && opts.trackManual === false);
+    if (trackManual && patch && typeof patch === 'object') {
         for (const k of STATUS_MANUAL_KEYS) {
             if (!Object.hasOwn(patch, k)) {
                 continue;
