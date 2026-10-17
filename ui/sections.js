@@ -2346,7 +2346,27 @@ function secAppearance(host) {
         field('页面底色', colorInput('wxg-app-bg', app.bg, 'stage-appearance')));
     row(cTheme,
         field('描边', colorInput('wxg-app-border', app.border, 'stage-appearance')),
-        field('文字（可留空）', colorInput('wxg-app-text', app.text, 'stage-appearance')));
+        /*
+         * ⭐ ST6（材料 11·设置层）：**文字色要真的能留空** ✓
+         *   旧：`<input type="color">` ✗ —— 规范强制它的值**永远不可能是空串** ✗
+         *     ⇒ 说明写着“留空＝自动”却永远留不了空 ✗ ⇒ 点过一次就锁死 ✗
+         *   现在：**文本框** ✓＋一颗「自动」按钮 ✓。槽位认法不变（仍看 `target.id` 的 `wxg-app-` 后缀 ✓）
+         */
+        field('文字（可留空）', (() => {
+            const wrapT = el('div', 'wxg-row');
+            const txT = document.createElement('input');
+            txT.type = 'text';
+            txT.id = 'wxg-app-text';
+            txT.className = 'wxg-colortext';
+            txT.placeholder = '留空＝自动（浅底深字／深底浅字）';
+            txT.value = (app.text == null ? '' : String(app.text));
+            txT.setAttribute('data-action', 'stage-appearance');
+            wrapT.appendChild(txT);
+            const autoBtn = button('自动', 'app-text-auto', 'wxg-btn-sm');
+            autoBtn.title = '清空文字色 ⇒ 按底面亮度自动算';
+            wrapT.appendChild(autoBtn);
+            return wrapT;
+        })()));
     row(cTheme,
         button('恢复这个色板', 'reset-appearance'),
         el('span', 'wxg-note', '（只把四个槽位退回所选色板；你手改的颜色会被覆盖）'));
@@ -5971,6 +5991,14 @@ export function bindSectionEvents(host, refresh) {
                     }
                     patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, patch) });
                     toast.ok('配色已更新' + (slot === 'palette' ? '' : '（已标为「自定义」）'));
+                    rerender();
+                    break;
+                }
+                case 'app-text-auto': {
+                    /* ⭐ ST6：把文字色清回“自动” ✓（清空 ⇒ theme.js 按底面亮度算 ✓） */
+                    const curA = Object.assign({}, effectiveAppearance(), { text: '', palette: 'custom' });
+                    patchSettings({ appearance: curA });
+                    toast.ok('文字色改成“自动”了（浅底深字／深底浅字）');
                     rerender();
                     break;
                 }
