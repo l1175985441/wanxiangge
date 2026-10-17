@@ -6194,6 +6194,11 @@ export function bindSectionEvents(host, refresh) {
                         modelCheap: trimText(cur.modelCheap),
                         temperature: Number(cur.temperature),
                         maxTokens: Number(cur.maxTokens),
+                        /* ⭐ ST5（材料 11）：**书签也要存这两个通道参数** ✓
+                         *   （materialCap＝每轮喂多少字／autoRetryMax＝自己再试几次）
+                         *   它们本来就是“针对不同中转站体质调优”的 ✓ ⇒ 切书签时必须跟着切 ✓ */
+                        materialCap: Number(cur.materialCap),
+                        autoRetryMax: Number(cur.autoRetryMax),
                         at: Date.now(),
                     };
                     const list = (Array.isArray(live.profiles) ? live.profiles : []).slice();
@@ -6257,6 +6262,9 @@ export function bindSectionEvents(host, refresh) {
                             modelCheap: one.modelCheap,
                             temperature: one.temperature,
                             maxTokens: one.maxTokens,
+                    /* ⭐ ST5：旧书签里没这两个字段 ⇒ **沿用当前值** ✓（⏔ 写成 undefined ✗） */
+                    materialCap: Number.isFinite(Number(one.materialCap)) ? Number(one.materialCap) : cur.materialCap,
+                    autoRetryMax: Number.isFinite(Number(one.autoRetryMax)) ? Number(one.autoRetryMax) : cur.autoRetryMax,
                             /* ⭐修复 15（材料 02）：**切到这套时同步写入 currentProfile** ✓
                              *   （旧：只切了字段、currentProfile 没跟上 ✗ ⇒ 面板显示的“当前在用”不对 ✗） */
                             currentProfile: nick,

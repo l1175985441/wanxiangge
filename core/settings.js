@@ -164,6 +164,10 @@ function loadSettings() {
             modelCheap: trimText(p.modelCheap),
             temperature: Number.isFinite(Number(p.temperature)) ? Number(p.temperature) : DEFAULT_SETTINGS.api.temperature,
             maxTokens: clampNumber(p.maxTokens, 200, 65536, DEFAULT_SETTINGS.api.maxTokens),
+            /* ⭐ ST5（材料 11）：**归一化表里也要有这两个字段** ✓
+             *   （旧：这张表没写 ⇒ 存进去了也会在下次加载时被过滤掉 ✗） */
+            materialCap: clampNumber(p.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap),
+            autoRetryMax: clampNumber(p.autoRetryMax, 0, 5, DEFAULT_SETTINGS.api.autoRetryMax),
             at: Number(p.at || 0),
         }))
         : [];
