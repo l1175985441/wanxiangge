@@ -2106,6 +2106,23 @@ export function runReconcile() {
  *      every>2 则隔相应楼层步长才触发；
  *   ③ 频率只影响"多久更新一次"，⛔ 不影响暗线推进（那个只看世界钟）。
  */
+/**
+ * ⭐⭐ 材料 06【5】链路断路 3：**换一个回复（Swipe）后这一楼要能重跑** ✓
+ *   旧：`cur <= atFloor` 一律拒绝 ✗（注释写着“重 roll 多少次都不重烧” ✓ = 省额度的故意设计 ✓）
+ *     ⇒ 但你**真的换了一个回复**时，旧推演结果留在账本里、新回复反而永远不更新 ✗
+ *   现在：只在**真的 Swipe 过的那一楼**放行一次 ✓
+ *     ⏔ 改“没 Swipe 就不重烧”的原设计 ✗（它照旧生效 ✓）
+ */
+export function markFloorSwiped(floor) {
+    const f = Number(floor);
+    if (!Number.isFinite(f) || f < 0) {
+        return;
+    }
+    try {
+        setPipeline({ swipedFloor: f });
+    } catch (eSw) { /* 记不上也不能把事件处理搞挂 ✓ */ }
+}
+
 export function shouldUpdateNow(floor) {
     const settings = getSettings();
     const every = clampNumber(settings.updateEvery, 1, 10, 1);
@@ -2116,6 +2133,12 @@ export function shouldUpdateNow(floor) {
     }
     const cur = Number(floor);
     if (!Number.isFinite(cur)) {
+        return every <= 1;
+    }
+    /* ⭐ 链路断路 3：她**真的 Swipe 过**这一楼 ⇒ 放行一次 ✓（其余照旧不重烧 ✓） */
+    const swiped = Number(state.pipeline && state.pipeline.swipedFloor);
+    if (cur === last && Number.isFinite(swiped) && swiped === cur) {
+        try { setPipeline({ swipedFloor: -1 }); } catch (eClear) { /* 清不掉也能继续 ✓ */ }
         return every <= 1;
     }
     if (cur <= last) {

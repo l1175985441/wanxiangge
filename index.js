@@ -28,10 +28,10 @@ import { openWorkspace, isWorkspaceOpen, refreshWorkspace } from './ui/workspace
 import { mountMini, refreshMini } from './ui/mini.js';
 import { ensureWandEntry, syncEntryState } from './ui/wand.js';
 import { getSettings, reloadSettings } from './core/settings.js';
-import { runReconcile } from './core/pipeline.js';
+import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.200';
+const VERSION = '0.3.201';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -167,6 +167,21 @@ function bindEvents(ctx) {
     });
 
     // 楼层被删：账跟着对账
+    /*
+     * ⭐ 材料 06【5】链路断路 3：**她点“换一个回复”（Swipe）** ✓
+     *   一边跟“改楼”一样回滚废稿的推演 ✓（⏔ 假状态留在账本里 ✗）
+     *   一边给这一楼**开一次重跑许可** ✓（⏔ 新回复永远不更新 ✗）
+     */
+    if (typeof types.MESSAGE_SWIPED === 'string') {
+        on(types.MESSAGE_SWIPED, (index) => {
+            const floor = Number.isFinite(Number(index)) ? Number(index) : -1;
+            if (floor >= 0) {
+                onFloorEdited(floor);
+                markFloorSwiped(floor);
+            }
+        });
+    }
+
     if (typeof types.MESSAGE_DELETED === 'string') {
         on(types.MESSAGE_DELETED, () => {
             reconcileAfterDelete();
