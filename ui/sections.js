@@ -6318,7 +6318,12 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
-                case 'stage-max-parallel': if (isChange) { patchSettings({ maxParallelChars: target.value }); rerender(); } break;
+                /*
+                 * ⭐ ST4-A：**这个 case 删掉了** ✓
+                 *   它拦在 STAGE_MAP 前面把“人物并行封顶”**立即落盘** ✗
+                 *   删掉后它会落到 `STAGE_MAP['stage-max-parallel'] = ['recall','maxParallelChars','value']` ✓
+                 *   ⇒ 与同页其他格子一样走草稿 ✓（⏔ 再写一遍草稿代码 ✗）
+                 */
 
                 /* ---- 四格 ---- */
                 /* ⭐ 先进草稿（等段底那颗「保存」一起存），⛔ 不再改一处存一处 */
