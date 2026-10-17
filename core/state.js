@@ -33,7 +33,17 @@ export function normalizeCharacter(raw) {
         name: trimText(c.name),
         aliases: toList(c.aliases),
         faction: trimText(c.faction),
-        affinity: trimText(c.affinity),      // 读自"手机"，不自己加减
+        /*
+         * ⭐⭐ 材料 06【6】③之二：**旧账里的非数字好感，升级后要自动清理** ✓
+         *   旧：只 `trimText(c.affinity)` ✗ ⇒ 旧账里存着“未接入”／“本人”／“敌对”这种**文字** ✗
+         *     ⇒ 每轮注入里照旧写出「好感：未接入（读自…）」 ✗（看着像个数值 ✗）
+         *   现在：**只保留数字型**（含正负号与小数 ✓）；其余一律清成空 ✓
+         *     ⇒ 注入时自然走到「好感：未接入数据源（不显示数值）」 ✓（她定的那句 ✓）
+         */
+        affinity: (function () {
+            const av = trimText(c.affinity);
+            return /^-?\d+(?:\.\d+)?$/.test(av) ? av : '';
+        })(),
         affinitySource: trimText(c.affinitySource),
         age: trimText(c.age),
         identity: trimText(c.identity),

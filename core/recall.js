@@ -229,7 +229,9 @@ function personBlock(item, opts) {
      *   run-tests「没接数据源的人如实写未接入，不填占位值」）✗
      *   —— 那是**她定的“如实说、不填占位值”** ✓ ⇒ 不擅改 ✓（列回执待口径 ✓）
      */
-    if (trimText(c.affinity)) {
+    /* ⭐ 同上（防御性）：内存里已经是旧值也不写出文字型好感 ✓ */
+    const _affOk = /^-?\d+(?:\.\d+)?$/.test(trimText(c.affinity));
+    if (_affOk) {
         lines.push('  好感：' + trimText(c.affinity) + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
     } else {
         lines.push('  好感：未接入数据源（不显示数值）');
