@@ -4737,7 +4737,32 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                      * 上／下一位：按**当前浮层里那位**在名册里的下标推一格。
                      * ⛔ 别自己造一个 personCardNowId()——`personCardId` 就是模块级那个变量，直接用。
                      */
-                    const list = getRoster();
+                    /*
+                     * Q6（材料 05）：**上／下一位跟着“当前显示顺序”走** ✓
+                     *   旧：按 getRoster() 原始下标 ✗ ⇒ 筛过排过之后会跳到看不见的人 ✗
+                     *   现在：从名册表可见行取顺序 ✓（自动跟随筛选与排序 ✓），拿不到就回退 ✓
+                     */
+                    const visibleIds = (() => {
+                        try {
+                            const rows = document.querySelectorAll('.wxg-ctable tbody tr[data-id]');
+                            const out = [];
+                            for (const tr of Array.from(rows)) {
+                                if (tr.classList && tr.classList.contains('wxg-rowfiltered')) {
+                                    continue;
+                                }
+                                const idv = tr.getAttribute('data-id');
+                                if (idv && out.indexOf(idv) < 0) {
+                                    out.push(idv);
+                                }
+                            }
+                            return out;
+                        } catch (eVis) {
+                            return [];
+                        }
+                    })();
+                    const list = visibleIds.length
+                        ? visibleIds.map((idv) => ({ id: idv }))
+                            : getRoster();
                     const at = list.findIndex((x) => x.id === personCardId);
                     if (at >= 0) {
                         const to = action === 'card-next' ? at + 1 : at - 1;
