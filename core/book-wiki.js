@@ -206,6 +206,9 @@ function normalizeWiki(raw) {
                 trigger: trimText(h && (h.trigger || h.due)),
                 tier: TIERS.includes(tierH) ? tierH : '',
                 note: trimText(h && h.note),
+                /* ⭐ C12（材料 13）：**导入的暗线也要带因果** ✓（上一条只补了局势那一支 ✗） */
+                cause: trimText(h && (h.cause || h.from)),
+                effect: trimText(h && (h.effect || h.to)),
             });
         }
     }
