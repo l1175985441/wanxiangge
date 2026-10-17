@@ -3501,8 +3501,22 @@ function renderPersonCard() {
             if (trimText(q.note)) {
                 qr.appendChild(el('div', 'wxg-fact', trimText(q.note)));
             }
+            /* ⭐ 材料 06【4】（对齐）：**浮层卡片里的任务子项也要能勾** ✓
+             *   （v0.3.208 只改了名册行那一份 ✗ ⇒ 两处表现不一致 ✗ ⇒ 这里对齐 ✓） */
             if (Array.isArray(q.items) && q.items.length) {
-                qr.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
+                const qiRow2 = el('div', 'wxg-fact');
+                q.items.forEach((it, ii) => {
+                    const mark2 = it.done ? '☑ ' : '▶ ';
+                    if (personCardEditing) {
+                        const qib2 = button(mark2 + trimText(it.text), 'toggle-quest-item', 'wxg-btn-xs', one.id);
+                        qib2.setAttribute('data-title', trimText(q.title));
+                        qib2.setAttribute('data-index', String(ii));
+                        qiRow2.appendChild(qib2);
+                    } else {
+                        qiRow2.appendChild(el('span', null, mark2 + trimText(it.text) + '　'));
+                    }
+                });
+                qr.appendChild(qiRow2);
             }
             return qr;
         };
