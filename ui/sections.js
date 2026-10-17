@@ -1655,6 +1655,7 @@ const STAGE_MAP = {
     /* ⭐ ST4-A：剥壳两个勾选框也归草稿 ✓ */
     'stage-strip-paired': ['extract', 'stripPairedBlocks', 'checked'],
     'stage-strip-comments': ['extract', 'stripHtmlComments', 'checked'],
+    'stage-only-enabled': ['extract', 'onlyEnabledEntries', 'checked'],
     // 提示词
     'stage-inject-header': ['prompts', 'injectHeader', 'value'],
     'stage-prompt-world': ['prompts', 'promptWorld', 'value'],
@@ -1698,6 +1699,12 @@ function stageFeedback(action, target) {
     if (action === 'stage-strip-paired') {
         /* ⚠️ 消息里带上控件名：toast 有防抖（同文案会被吞 ✗），两个开关共用一句就会只响一次 ✗ */
         toast.info('按结构剥壳：' + (target.checked === true
+            ? '已勾上（点段底「保存」生效）'
+            : '已取消（点段底「保存」生效）'));
+        return;
+    }
+    if (action === 'stage-only-enabled') {
+        toast.info('只读开启着的条目：' + (target.checked === true
             ? '已勾上（点段底「保存」生效）'
             : '已取消（点段底「保存」生效）'));
         return;
@@ -2659,7 +2666,8 @@ function secExtract(host) {
     entNote.id = 'wxg-entnote';
     cBook.appendChild(entNote);
 
-    cBook.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）', s.onlyEnabledEntries, 'set-only-enabled'));
+    cBook.appendChild(checkbox('wxg-only-enabled', '只读开启着的条目（不选世界书时＝角色卡绑定世界里开启的条目）',
+        stagedValue(SECID, 'onlyEnabledEntries', s.onlyEnabledEntries), 'stage-only-enabled'));
     line(cBook, '好感来源（"手机"）',
         textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'),
         el('span', 'wxg-note', '留空＝不接（界面如实写"未接入"）'));
@@ -6365,11 +6373,6 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
                     break;
-                    break;
-                case 'set-only-enabled':
-                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
-                    patchSettings({ onlyEnabledEntries: target.checked });
-                    toast.ok(target.checked ? '只读开启着的条目' : '连关掉的条目也一起读');
                     break;
 
                 /* ---- API ---- */
