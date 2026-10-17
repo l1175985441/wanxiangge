@@ -6206,10 +6206,11 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'app-text-auto': {
                     /* ⭐ ST6：把文字色清回“自动” ✓（清空 ⇒ theme.js 按底面亮度算 ✓） */
-                    const curA = Object.assign({}, effectiveAppearance(), { text: '', palette: 'custom' });
-                    patchSettings({ appearance: curA });
-                    toast.ok('文字色改成“自动”了（浅底深字／深底浅字）');
-                    rerender();
+                    /* ⭐ ST4-A：也走草稿 ✓（旧：patchSettings 立即落盘 ✗） */
+                    stage('appearance', 'appearance', Object.assign({}, effectiveAppearance(), { text: '', palette: 'custom' }));
+                    refreshAppearancePreview();
+                    refreshSaveBar(host, 'appearance');
+                    toast.info('文字色改成“自动”了（点段底「保存」生效；浅底深字／深底浅字）');
                     break;
                 }
                 case 'mini-hover-toggle': {
