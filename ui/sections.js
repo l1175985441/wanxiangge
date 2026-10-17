@@ -386,6 +386,17 @@ function select(id, options, value, action, id2) {
     return s;
 }
 
+/*
+ * ⭐⭐ RD1（材料 11·渲染层）：**重绘不能把她正看着的折叠屎屉全关上** ✓
+ *   旧：`foldable(..., false)` 硬编码 open=false ✗
+ *     ⇒ 一发消息／一次后台更新，她在「提示词」里点开的「展开看这套」、
+ *       在「人物名册」点开的「展开录入」、在「状态 → 进度」点开的「展开看是哪几楼」
+ *       ⇒ **啪一下全关上** ✗
+ *   现在：按**标题**记住展开与否 ✓，重绘时还原 ✓
+ *   （空标题的不记：它们同名、会互串 ✗）
+ */
+const foldOpenState = new Map();
+
 function foldable(summaryText, open) {
     const d = document.createElement('details');
     d.className = 'wxg-report';
@@ -397,8 +408,15 @@ function foldable(summaryText, open) {
         s.appendChild(chev);
     }
     d.appendChild(s);
-    if (open) {
+    const foldKey = trimText(summaryText);
+    const rememberedOpen = foldKey ? foldOpenState.get(foldKey) : null;
+    if (open === true || rememberedOpen === true) {
         d.open = true;
+    }
+    if (foldKey) {
+        d.addEventListener('toggle', () => {
+            foldOpenState.set(foldKey, d.open === true);
+        });
     }
     return d;
 }
