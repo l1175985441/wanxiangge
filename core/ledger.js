@@ -7,7 +7,7 @@
  */
 
 import { formatStamp, formatClock, now } from './adapter.js';
-import { loadState, saveState } from './state.js';
+import { loadState, saveState, flushState } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, countChars, floorLabel } from './utils.js';
 
@@ -114,6 +114,9 @@ export function commitLedger(justNow) {
         markCarried(latest.items, { anchorFloor: latest.floor, injectedText: latest.injectedText });
     }
     saveState();
+    /* ⭐ 新增件 5②：**一轮记账落完就把合并的那次落盘冲出去** ✓（⏔ 等定时器 ✗） */
+    try { flushState(); } catch (eFlush) { }
+
 }
 
 /** 面板顶部那行"上次更新" */

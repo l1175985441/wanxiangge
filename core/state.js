@@ -362,6 +362,43 @@ export function saveState() {
     writeLedger(state);
 }
 
+/* ⭐ 新增件 5②（材料 13）：**合并落盘** ✓
+ *   病根：单轮更新会调八十多次 `saveState()`，每次都把整本账深拷贝一遍 ✗
+ *   现在：紧循环里用 `saveStateDebounced()`（同一轮内合并成一次 ✓），
+ *     每轮结束时用 `flushState()` 强制冲出去 ✓（⏔ 留在定时器里 ✗）
+ *   ⏔ 改 `saveState` 本身：其余调用点仍然立即落盘 ✓
+ */
+let saveDirty5 = false;
+let saveTimer5 = null;
+
+export function saveStateDebounced() {
+    try {
+        if (saveDirty5) {
+            return;
+        }
+        saveDirty5 = true;
+        saveTimer5 = setTimeout(() => {
+            saveDirty5 = false;
+            saveTimer5 = null;
+            try { saveState(); } catch (e5a) { /* 落盘失败不能往上抛 ✓ */ }
+        }, 120);
+    } catch (e5b) {
+        /* 定时器都挂不上 ⇒ 当场落盘 ✓ */
+        try { saveState(); } catch (e5c) { }
+    }
+}
+
+export function flushState() {
+    if (saveTimer5) {
+        try { clearTimeout(saveTimer5); } catch (e5d) { }
+        saveTimer5 = null;
+    }
+    if (saveDirty5) {
+        saveDirty5 = false;
+        try { saveState(); } catch (e5e) { }
+    }
+}
+
 /**
  * ⭐ **存完才算数**（别让"删了刷新又回来"这种事再发生）。
  *
@@ -622,7 +659,8 @@ export function updateCharacter(id, patch, opts) {
     }
     merged.updatedAt = now();
     state.characters[idx] = normalizeCharacter(merged);
-    saveState();
+    /* ⭐ 新增件 5②：高频写入走合并落盘 ✓ */
+    saveStateDebounced();
     return state.characters[idx];
 }
 
