@@ -336,6 +336,21 @@ function personBlock(item, opts) {
             lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }
     }
+    /*
+     * ⭐ B6（材料 13·兑现率）：**认知账也要端给主模型** ✓
+     *   旧：`knows` 只在后台推演的提示词里用 ✗
+     *     ⇒ 写正文的模型**完全不知道“谁知道什么”** ✗ ⇒ 会把不该知道的人写成全知 ✗
+     *   现在：随人物块一起端进去 ✓（最多 6 条 ✓，避免把注入撑爆 ✓）
+     */
+    if (Array.isArray(c.knows) && c.knows.length) {
+        const knLines = c.knows
+            .map((k) => trimText(k && k.text))
+            .filter(Boolean)
+            .slice(0, 6);
+        if (knLines.length) {
+            lines.push('  他知道什么：' + knLines.join('；'));
+        }
+    }
     if (c.isPlayer) {
         lines.push('  备注：这是玩家棋子（由她本人控制），只可作为"别人对TA做的事"出现。');
     }
