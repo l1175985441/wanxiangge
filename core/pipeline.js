@@ -559,6 +559,9 @@ async function stepWorld(material, attempt) {
             title: trimText(s && (s.title || s.text)),
             sides: trimText(s && s.sides),
             tier: trimText(s && s.tier),
+            /* ⭐ C12（材料 13）：**因果两格要存下来** ✓（旧：没这两格 ⇒ 因果永远空 ✗） */
+            cause: trimText(s && (s.cause || s.from || s.起因)),
+            effect: trimText(s && (s.effect || s.to || s.走向)),
             at: Date.now(),
             floor: material.floor,
         })).filter((s) => s.title);

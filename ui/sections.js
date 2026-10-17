@@ -4113,12 +4113,30 @@ function entryCausalRows(label) {
     }
     const chron = typeof getChronicle === 'function' ? getChronicle() : [];
     const list = Array.isArray(chron) ? chron : [];
-    return list
+    /* ⭐ C12（材料 13）：**先看这条自己记的因果** ✓（旧：只搜编年 ⇒ 局势从不写编年 ⇒ 永远空 ✗） */
+    const ownRows = [];
+    try {
+        const st0 = loadState();
+        const w0 = (st0 && st0.world) || {};
+        const pool = [].concat(Array.isArray(w0.situations) ? w0.situations : [],
+            Array.isArray(w0.hidden) ? w0.hidden : []);
+        const hit0 = pool.find((x) => x && trimText(x.title || x.name) === want);
+        if (hit0) {
+            if (trimText(hit0.cause)) {
+                ownRows.push({ text: '上承（怎么来的）：' + trimText(hit0.cause), who: '', at: 0 });
+            }
+            if (trimText(hit0.effect)) {
+                ownRows.push({ text: '下沿（往哪边走）：' + trimText(hit0.effect), who: '', at: 0 });
+            }
+        }
+    } catch (eC12) { /* 拿不到只剩编年那一路 ✓ */ }
+    const chronRows = list
         .filter((c) => {
             const t = String((c && c.text) || '') + ' ' + String((c && c.who) || '');
             return t.includes(want);
         })
         .sort((a, b) => Number(a.at || 0) - Number(b.at || 0));
+    return ownRows.concat(chronRows);
 }
 
 function renderWorldEntryCard() {

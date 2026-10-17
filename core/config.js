@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.304';
+export const APP_VERSION = '0.3.305';
 
 export const LEDGER_VERSION = 3;
 
@@ -223,10 +223,10 @@ export const DEFAULT_PROMPT_WORLD = [
     '',
     '只输出 JSON，不要任何别的文字：',
     '{"clock":"世界内时间（读不出来写未知）","place":"大致地点","bigPicture":"从高处看一眼：这个世界现在什么样（两三句）",',
-    ' "situations":[{"title":"谁和谁在起冲突／在酝酿什么","sides":"哪几方","tier":"身边即时|几天内|长线大势"}],',
+    ' "situations":[{"title":"谁和谁在起冲突／在酝酿什么","sides":"哪几方","tier":"身边即时|几天内|长线大势","cause":"这件事是怎么来的（上承）","effect":"往哪边走（下沿）"}],',
         /* P11/P12 (material 07): advance is no longer hardcoded and the two stage tracks
      *   are spelled out separately, with kind saying which track a line belongs to. */
-    '"hidden":[{"name":"暗线名","kind":"冲突型=conflict 或 推进型=progress","stage":"**冲突型只能这五个**：萌芽|发酵|逼近|爆发|消散；**推进型只能这四个**：筹备|执行|关键|完成（⛔ 两轨互相串）","trigger":"挂在什么时间或条件上","tier":"身边即时|几天内|长线大势","note":"现在到哪一步了","advance":true 或 false（**未到点就填 false**；⛔ 不要照拄示例里的 true）}]}',
+    '"hidden":[{"name":"暗线名","kind":"冲突型=conflict 或 推进型=progress","stage":"**冲突型只能这五个**：萌芽|发酵|逼近|爆发|消散；**推进型只能这四个**：筹备|执行|关键|完成（⛔ 两轨互相串）","trigger":"挂在什么时间或条件上","tier":"身边即时|几天内|长线大势","cause":"这条暗线是怎么埋下的","effect":"它会牵动什么","note":"现在到哪一步了","advance":true 或 false（**未到点就填 false**；⛔ 不要照拄示例里的 true）}]}',
 ].join('\n');
 
 /** 内置提示词：角色状态与平行事件（可看可改；留空＝用内置） */
