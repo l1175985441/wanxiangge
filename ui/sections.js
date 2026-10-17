@@ -3412,6 +3412,19 @@ function openFuncMenu(anchorEl, items) {
      *   ⏔ 改回 body：那样就吃不到宿主的事件委托（菜单项点不了 ✗）
      */
     const anchorParent = (anchorEl && anchorEl.parentNode) ? anchorEl.parentNode : null;
+    /*
+     * ⭐ 真机第 4 次抳回：**父节点是 static ⇒ 绝对定位会跑去更远的祖先** ✗
+     *   真机量到：按钮在 (1350,153)，菜单却落在 **y=956** ✗
+     *   现在：父节点没有定位就给它补一个 `relative` ✓（不改任何偏移量 ✓）
+     */
+    if (anchorParent && anchorParent.style) {
+        const posNow = (typeof window !== 'undefined' && window.getComputedStyle)
+            ? window.getComputedStyle(anchorParent).position
+            : 'relative';
+        if (posNow === 'static' || !posNow) {
+            anchorParent.style.position = 'relative';
+        }
+    }
     const host = anchorParent || lastSectionsHost || document.body;
     const menu = el('div', 'wxg-funcmenu' + (anchorParent ? ' wxg-funcmenu-anchored' : ''));
     menu.__owner = anchorEl;
