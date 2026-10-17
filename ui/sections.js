@@ -3418,9 +3418,19 @@ function openFuncMenu(anchorEl, items) {
     try {
         const r = anchorEl.getBoundingClientRect();
         const vw = window.innerWidth || 1000;
-        const left = Math.max(8, Math.min(vw - 216, r.right - 200));
-        menu.style.left = String(left) + 'px';
-        menu.style.top = String(r.bottom + 6) + 'px';
+        const wantLeft = Math.max(8, Math.min(vw - 216, r.right - 200));
+        const wantTop = r.bottom + 6;
+        /*
+         * ⭐⭐ 真机抳回来的坑（材料 10 第 1 组的后续）：**坐标基准错位** ✓
+         *   菜单挂在工作台宿主里（为了能吃到它的事件委托 ✓），
+         *   而宿主上有 transform ⇒ `position:fixed` **变成相对宿主** ✗
+         *   ⇒ 直接用视口坐标会把菜单打到**左上角、压住左栏** ✗
+         *   现在：把宿主的相对坐标扣掉 ✓（宿主就是 body 时不扣 ✓）
+         */
+        const hostIsBody = !host || host === document.body;
+        const hRect = hostIsBody ? { left: 0, top: 0 } : host.getBoundingClientRect();
+        menu.style.left = String(Math.round(wantLeft - hRect.left)) + 'px';
+        menu.style.top = String(Math.round(wantTop - hRect.top)) + 'px';
     } catch (ePos) { /* 拿不到矩形就按默认位置 ✓ */ }
     funcMenuEl = menu;
     /* 点别处收起（捕获阶段先跑，但不拦菜单里的点击 ✓） */
