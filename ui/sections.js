@@ -2584,8 +2584,10 @@ function secExtract(host) {
     const cTag = card('标签与剥壳');
     line(cTag, '提取标签', textInput('wxg-extract-tags', stagedValue(SECID, 'extractTags', s.extractTags), '例：正文, content', 'stage-extract-tags', 'wxg-short'));
     line(cTag, '排除标签', textInput('wxg-exclude-tags', stagedValue(SECID, 'excludeTags', s.excludeTags), '例：状态栏, 变量（留空＝只按结构剥）', 'stage-exclude-tags', 'wxg-short'));
-    cTag.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）', s.stripPairedBlocks, 'set-strip-paired'));
-    cTag.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）', s.stripHtmlComments, 'set-strip-comments'));
+    cTag.appendChild(checkbox('wxg-strip-paired', '按结构剥掉成对的机器块（配对的开闭标签，整块剥）',
+        stagedValue(SECID, 'stripPairedBlocks', s.stripPairedBlocks), 'stage-strip-paired'));
+    cTag.appendChild(checkbox('wxg-strip-comments', '剥掉 HTML 注释（<!-- … -->）',
+        stagedValue(SECID, 'stripHtmlComments', s.stripHtmlComments), 'stage-strip-comments'));
     box.appendChild(cTag);
 
     /* ---- 世界书：点选（⛔ 不立刻存，攒到段底一起存） ---- */
@@ -6336,15 +6338,19 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
                 case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
-                case 'set-strip-paired':
-                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
-                    patchSettings({ stripPairedBlocks: target.checked });
-                    toast.ok(target.checked ? '会按结构剥掉成对的机器块' : '不再按结构剥（只用你点名的排除标签）');
+                case 'stage-strip-paired':
+                    if (!isChange) { break; }   /* R6（材料 05） */
+                    /* ⭐ ST4-A：走草稿 ✓（旧：patchSettings 立即落盘 ✗） */
+                    stage('extract', 'stripPairedBlocks', target.checked === true);
+                    refreshSaveBar(host, 'extract');
+                    toast.info(target.checked ? '已勾：会按结构剥掉成对的机器块（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
-                case 'set-strip-comments':
-                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
-                    patchSettings({ stripHtmlComments: target.checked });
-                    toast.ok(target.checked ? '会剥掉 HTML 注释' : '不再剥 HTML 注释');
+                case 'stage-strip-comments':
+                    if (!isChange) { break; }   /* R6（材料 05） */
+                    /* ⭐ ST4-A：走草稿 ✓ */
+                    stage('extract', 'stripHtmlComments', target.checked === true);
+                    refreshSaveBar(host, 'extract');
+                    toast.info(target.checked ? '已勾：会剥掉 HTML 注释（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
                 case 'set-only-enabled':
                     if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
