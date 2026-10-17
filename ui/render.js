@@ -219,9 +219,17 @@ function buildCard(rec) {
     if (Array.isArray(rec.notes) && rec.notes.length) {
         foot.appendChild(el('div', 'wxg-notes', '说明：' + rec.notes.join('；')));
     }
-    const world = loadState().world || {};
-    if (trimText(world.clock)) {
-        foot.appendChild(el('div', 'wxg-notes', '世界钟：' + trimText(world.clock) + (trimText(world.place) ? ' · ' + trimText(world.place) : '')));
+    /*
+     * ⭐ RD2-4（材料 11·渲染层）：**卡片下面的世界钟要用“这一轮”的** ✓
+     *   旧：直接读 `loadState().world` ✗ ⇒ 你往回翻第 #1 楼的卡片 ✗
+     *     ⇒ 底下印着的却是第 #20 楼的世界钟与地点（**跨时空串味** ✗）
+     *   现在：记录里存了就用记录里的 ✓（老记录没这两个字段 ⇒ 才回退到当前值 ✓）
+     */
+    const worldNow = loadState().world || {};
+    const recClock = trimText(rec && rec.clock) || trimText(worldNow.clock);
+    const recPlace = trimText(rec && rec.place) || trimText(worldNow.place);
+    if (recClock) {
+        foot.appendChild(el('div', 'wxg-notes', '世界钟：' + recClock + (recPlace ? ' · ' + recPlace : '')));
     }
     foot.appendChild(el('div', 'wxg-notes', '卡片只给你看：不落正文、不进聊天记录。想看这一轮到底送进去什么，去面板「过程报告」。'));
     body.appendChild(foot);

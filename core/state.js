@@ -1281,6 +1281,9 @@ export function putRecallRecord(record) {
         at: now(),
         lead: '',
         from: '',
+        /* ⭐ RD2-4（材料 11）：**记下当轮的世界钟与地点** ✓（卡片就不用去读“最新一轮”了 ✓） */
+        clock: '',
+        place: '',
         items: [],
         events: [],
         chars: [],

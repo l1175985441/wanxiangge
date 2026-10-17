@@ -126,6 +126,9 @@ export function planRecall(options) {
          *   现在：**只留尾巴 400 字** ✓（没人读 rec.from ✓，留一截方便排查 ✓）
          */
         from: String(recall.from == null ? '' : recall.from).slice(-400),
+        /* ⭐ RD2-4：当轮世界钟／地点也存下来 ✓（只存两个短字串，体积影响可忽略 ✓） */
+        clock: trimText((loadState().world || {}).clock),
+        place: trimText((loadState().world || {}).place),
             /*
          * ⭐ 材料 10 · 第 4 组裁定（她 10-17 授权代拍）：**R2 后半保留（知情保留）** ✓
          *   定案：`items`（完整角色对象）**保持现状** ✓
