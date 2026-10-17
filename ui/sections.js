@@ -3762,6 +3762,20 @@ function renderPersonCard() {
                 sh.appendChild(el('span', 'wxg-badge is-warn', '已到点·本轮应履约'));
             }
             sr.appendChild(sh);
+            /* ⭐ 新增件 1（材料 13）：**日程也能她自己了结或删掉** ✓（仅编辑态出现 ✓） */
+            if (personCardEditing) {
+                const acts2 = el('div', 'wxg-rowacts');
+                const what2 = trimText(s && (s.what || s.text));
+                if (s && s.done !== true) {
+                    const doneBtn = button('了结', 'sched-done', 'wxg-btn-xs', c.id);
+                    if (doneBtn && doneBtn.setAttribute) { doneBtn.setAttribute('data-what', what2); }
+                    acts2.appendChild(doneBtn);
+                }
+                const delBtn2 = button('删', 'sched-del', 'wxg-btn-xs', c.id);
+                if (delBtn2 && delBtn2.setAttribute) { delBtn2.setAttribute('data-what', what2); }
+                acts2.appendChild(delBtn2);
+                sr.appendChild(acts2);
+            }
             sSec.appendChild(sr);
         }
         pop.appendChild(sSec);
@@ -5590,6 +5604,32 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     }
                     break;
+                case 'sched-done': {
+                    /* ⭐ 新增件 1：**把这条日程标成已了结** ✓ */
+                    const whatA = trimText(target.getAttribute('data-what'));
+                    const cA = findCharacter(id);
+                    if (cA && Array.isArray(cA.schedule) && whatA) {
+                        const nextA = cA.schedule.map((x) => (trimText(x && (x.what || x.text)) === whatA
+                            ? Object.assign({}, x, { done: true })
+                            : x));
+                        updateCharacter(id, { schedule: nextA });
+                        toast.ok('这条日程标成已了结了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'sched-del': {
+                    /* ⭐ 新增件 1：**删掉这条日程** ✓ */
+                    const whatB = trimText(target.getAttribute('data-what'));
+                    const cB = findCharacter(id);
+                    if (cB && Array.isArray(cB.schedule) && whatB) {
+                        const nextB = cB.schedule.filter((x) => trimText(x && (x.what || x.text)) !== whatB);
+                        updateCharacter(id, { schedule: nextB });
+                        toast.ok('这条日程删掉了');
+                        rerender();
+                    }
+                    break;
+                }
                 case 'del-past': {
                     const pi2 = Number(target.getAttribute('data-index'));
                     const pc2 = findCharacter(id);
