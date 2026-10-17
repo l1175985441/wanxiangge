@@ -629,6 +629,13 @@ export function clearMirror(key, state) {
 }
 
 /** 真正落盘：一格一格对号入座 */
+/*
+ * ⭐ 材料 10 · 第 4 组裁定（她 10-17 授权代拍）：**R2 后半保留（知情保留）** ✓
+ *   定案：这 8 档全量镜像**保持现状** ✓
+ *   理由：它是**多档切换的兜底**（换聊天档时账不丢 ✓）；
+ *     R2 的最大头已由前半削掉（召回记录不再存整楼正文 ✓）✓
+ *   ⇒ ⏔ 再动、⏔ 留成“待定” ✗
+ */
 function flushMirror() {
     const store = getExtensionSettings();
     if (!store || !mirrorPending.size) {

@@ -126,7 +126,14 @@ export function planRecall(options) {
          *   现在：**只留尾巴 400 字** ✓（没人读 rec.from ✓，留一截方便排查 ✓）
          */
         from: String(recall.from == null ? '' : recall.from).slice(-400),
-            items: recall.items,
+            /*
+         * ⭐ 材料 10 · 第 4 组裁定（她 10-17 授权代拍）：**R2 后半保留（知情保留）** ✓
+         *   定案：`items`（完整角色对象）**保持现状** ✓
+         *   理由：`items` 会被 `ledger.js` 深读（削了会连带出事 ✗）；
+         *     R2 的**最大头已由前半削掉**（召回记录不再存整楼正文 ✓），
+         *     现无证据表明它是当下体积／卡顿的主因 ✓ ⇒ ⏔ 再动 ✗
+         */
+        items: recall.items,
             events: recall.events,
             chars: recall.chars,
             notes: [].concat(recall.notes || []).concat(affinityNote ? [affinityNote] : []),
