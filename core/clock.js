@@ -282,85 +282,108 @@ export function isLineDue(line, clockText) {
         return { due: false, why: '世界钟读不出来（挂的条件是「' + trigger + '」），⛔ 不猜、不提前冒头' };
     }
 
-    // "N 天后"类（也认"第三天""第五天"这种写法）
-    // ⭐ 口径：sinceDay＝**建线那天**；"3 天后"＝从建线那天再走 3 天（不是 2 天）
-    const days = t.match(/(?:第)?([0-9]+|[零一二两三四五六七八九十]+)\s*[天日](?:后|之后|以后)?/);
-    if (days && !/(放学|下课|天亮)/.test(t)) {
-        const need = cnToNum(days[1]) || 1;
-        const since = Number(line && line.sinceDay);
-        const nowDay = clock.day === null ? 1 : clock.day;
-        if (!Number.isFinite(since)) {
-            return { due: false, why: '这条线没记下"从哪天起算"，⛔ 不猜（重建一次就会记上）' };
-        }
-        const passed = Math.max(0, nowDay - since);
-        const ok = passed >= need;
-        return {
-            due: ok,
-            why: ok
-                ? ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，到点了')
-                : ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，还要等 ' + String(need - passed) + ' 天'),
-        };
-    }
+    /* ------------------------------------------------------------------
+     * ⭐ U6（材料 12·未覆盖死角）：**日期锁与时段锁必须同时满足** ✓
+     *   旧：一串 if…return，**谁先命中谁说了算** ✗
+     *     ⇒ 「三天后晚上」在第 3 天**早上**就爆（把“晚上”吞了 ✗）
+     *     ⇒ 「明天晚上」**今天**一到晚上就爆（把“明天”吞了 ✗）
+     *   现在：两边各算一次，**两个都“已知且到点”才算到点** ✓
+     *   （只有一边知道时，行为与改前**一模一样** ✓：纯日期、纯时段都照旧 ✓）
+     * ------------------------------------------------------------------ */
+    const nowDayU6 = clock.day === null ? 1 : clock.day;
+    const sinceDayU6 = Number(line && line.sinceDay);
 
-    // 时段类：条件的时段与现在的时段对上、或同日之内已越过目标时段，即算到点
-    for (const p of PERIODS) {
-        if (t.includes(p.key)) {
-            const nowMin = clock.minutesOfDay !== null ? clock.minutesOfDay : -1;
-            const sinceAbs = Number(line && line.sinceMinutes);
-            const nowDay = clock.day === null ? 1 : clock.day;
-            const sinceDay = Number.isFinite(Number(line && line.sinceDay))
-                ? Number(line.sinceDay)
-                : (Number.isFinite(sinceAbs) ? Math.floor(sinceAbs / 1440) : null);
-            const sinceMinOfDay = Number.isFinite(sinceAbs) ? (sinceAbs % 1440) : null;
-            // 同日内若建线时刻已晚于目标时段末尾，则需等次日，不算当日已越过
-            const createdAfterTargetSameDay = sinceDay !== null && nowDay === sinceDay
+    const dateLock = (() => {
+        const mDays = t.match(/(?:第)?([0-9]+|[零一二两三四五六七八九十]+)\s*[天日](?:后|之后|以后)?/);
+        if (mDays && !/(放学|下课|天亮)/.test(t)) {
+            if (!Number.isFinite(sinceDayU6)) {
+                return { known: true, ok: false, why: '这条线没记下"从哪天起算"，⛔ 不猜（重建一次就会记上）' };
+            }
+            const need = cnToNum(mDays[1]) || 1;
+            const passed = Math.max(0, nowDayU6 - sinceDayU6);
+            const ok = passed >= need;
+            return {
+                known: true,
+                ok,
+                why: ok
+                    ? ('建线第 ' + String(sinceDayU6) + ' 天，今天第 ' + String(nowDayU6) + ' 天，到点了（等 ' + String(need) + ' 天）')
+                    : ('建线第 ' + String(sinceDayU6) + ' 天，今天第 ' + String(nowDayU6) + ' 天，还要等 ' + String(need - passed) + ' 天'),
+            };
+        }
+        if (/(明天|次日|明日)/.test(t)) {
+            if (!Number.isFinite(sinceDayU6)) {
+                return { known: true, ok: false, why: '这条线没记下"从哪天起算"，⛔ 不猜' };
+            }
+            const ok = nowDayU6 > sinceDayU6;
+            return {
+                known: true,
+                ok,
+                why: ok
+                    ? ('建线第 ' + String(sinceDayU6) + ' 天，今天第 ' + String(nowDayU6) + ' 天，到第二天了')
+                    : ('建线第 ' + String(sinceDayU6) + ' 天，今天第 ' + String(nowDayU6) + ' 天，还没到第二天'),
+            };
+        }
+        return { known: false, ok: true, why: '' };
+    })();
+
+    const slotLock = (() => {
+        const nowMin = clock.minutesOfDay !== null ? clock.minutesOfDay : -1;
+        const sinceAbs = Number(line && line.sinceMinutes);
+        const sinceDay = Number.isFinite(Number(line && line.sinceDay))
+            ? Number(line.sinceDay)
+            : (Number.isFinite(sinceAbs) ? Math.floor(sinceAbs / 1440) : null);
+        const sinceMinOfDay = Number.isFinite(sinceAbs) ? (sinceAbs % 1440) : null;
+        for (const p of PERIODS) {
+            if (!t.includes(p.key)) {
+                continue;
+            }
+            const createdAfterTargetSameDay = sinceDay !== null && nowDayU6 === sinceDay
                 && sinceMinOfDay !== null && sinceMinOfDay >= p.to * 60;
             const passedSameDay = p.key !== '凌晨'
                 && nowMin >= p.from * 60
                 && !createdAfterTargetSameDay;
             const ok = clock.period === p.key || passedSameDay;
             return {
-                due: ok,
+                known: true,
+                ok,
                 why: ok
-                    ? (clock.period === p.key ? ('钟走到「' + p.key + '」了') : ('钟已走到' + (clock.period || clock.raw) + '（已过「' + p.key + '」）'))
+                    ? (clock.period === p.key ? ('钟走到「' + p.key + '」了') : ('钟已走到' + (clock.period || clock.raw) + '，算过了「' + p.key + '」'))
                     : ('现在是' + (clock.period || clock.raw) + '，还没到「' + p.key + '」'),
             };
         }
-    }
-    if (/(放学|下课)/.test(t)) {
-        const ok = clock.period === '下午' || clock.period === '傍晚' || clock.period === '晚上' || clock.period === '深夜';
-        return { due: ok, why: ok ? '钟走到放学后了' : '还没放学（现在' + (clock.period || clock.raw) + '）' };
-    }
-    if (/(天亮|清晨|早晨)/.test(t)) {
-        /*
-         * ⭐ 修复单 #15②：**"天亮"是过了那个点就一直算数**。
-         *   原来只认 `早上／上午` ⇒ 钟走到中午／下午／傍晚／晚上时反而报"**天还没亮**"（下午误判）。
-         *   ⇒ 改成"**到过天亮那一刻（早上 5 点）或更晚**"都算数；
-         *     钟读不出分钟时，退化成"时段在天亮之后"。
-         */
-        const dawn = 5 * 60;
-        const AFTER_DAWN = ['早上', '上午', '中午', '下午', '傍晚', '晚上', '深夜'];
-        const ok = Number.isFinite(clock.minutesOfDay)
-            ? clock.minutesOfDay >= dawn
-            : AFTER_DAWN.includes(clock.period);
-        return { due: ok, why: ok ? '天亮了' : '天还没亮' };
-    }
-    if (/(夜里|深夜|半夜)/.test(t)) {
-        const ok = clock.period === '深夜' || clock.period === '晚上';
-        return { due: ok, why: ok ? '到夜里了' : '还没到夜里' };
-    }
-    if (/(明天|次日)/.test(t)) {
-        const since = Number(line && line.sinceDay);
-        const nowDay = clock.day === null ? 1 : clock.day;
-        if (!Number.isFinite(since)) {
-            return { due: false, why: '这条线没记下"从哪天起算"，⛔ 不猜' };
+        if (/(放学|下课)/.test(t)) {
+            const ok = clock.period === '下午' || clock.period === '傍晚' || clock.period === '晚上' || clock.period === '深夜';
+            return { known: true, ok, why: ok ? '钟走到放学后了' : '还没放学（现在' + (clock.period || clock.raw) + '）' };
         }
-        const ok = nowDay > since;
-        return { due: ok, why: ok ? ('建线第 ' + String(since) + ' 天，今天第 ' + String(nowDay) + ' 天，到第二天了') : '还没到第二天' };
-    }
+        if (/(天亮|清晨|早晨)/.test(t)) {
+            const dawn = 5 * 60;
+            const AFTER_DAWN = ['早上', '上午', '中午', '下午', '傍晚', '晚上', '深夜'];
+            const ok = Number.isFinite(clock.minutesOfDay) ? clock.minutesOfDay >= dawn : AFTER_DAWN.includes(clock.period);
+            return { known: true, ok, why: ok ? '天亮了' : '天还没亮' };
+        }
+        if (/(夜里|深夜|半夜)/.test(t)) {
+            const ok = clock.period === '深夜' || clock.period === '晚上';
+            return { known: true, ok, why: ok ? '到夜里了' : '还没到夜里' };
+        }
+        return { known: false, ok: true, why: '' };
+    })();
 
-    // 认不出来的条件：不推（⛔ 宁可不推，也不提前冒头）
-    return { due: false, why: '条件「' + trigger + '」认不出来（可以改成"晚上""放学后""三天后"这类写法）' };
+    if (dateLock.known && slotLock.known) {
+        const ok = dateLock.ok && slotLock.ok;
+        return {
+            due: ok,
+            why: ok
+                ? (dateLock.why + '；' + slotLock.why)
+                : ((dateLock.ok ? slotLock.why : dateLock.why) + '（日期与时段要同时到 ✓）'),
+        };
+    }
+    if (dateLock.known) {
+        return { due: dateLock.ok, why: dateLock.why };
+    }
+    if (slotLock.known) {
+        return { due: slotLock.ok, why: slotLock.why };
+    }
+    return { due: false, why: '条件「' + trigger + '」认不出来（可以改成"晚上""放学后""三天后""明天晚上"这类写法）' };
 }
 
 /** 阶段往下走一级（到头就停住，⛔ 不循环） */
