@@ -274,6 +274,10 @@ function withTimeout(ms) {
  *   timeoutMs 覆盖默认超时
  * @returns {Promise<{ok:boolean, text?:string, reason?:string, ms?:number}>}
  */
+/* ⭐ U16：本会话内“已知能走通”的路径提示（⏔ 落设置 ✗） */
+let sessionViaHint = '';
+let viaHintTold = false;
+
 export async function callModel(opts) {
     const o = opts || {};
     const prompt = trimText(o.prompt);
@@ -326,6 +330,14 @@ export async function callModel(opts) {
     const timeout = withTimeout(timeoutMs);
     let autoVia = '';
     /*
+     * ⭐ U16（材料 12·未覆盖死角）：**自动切换要记住、也要告诉她** ✓
+     *   旧：直接被挡 ⇒ 自动改走转发成功（或自动加前缀成功）✗
+     *     但只把它藏在返回值的 `via` 里，上层没人读 ✗
+     *     ⇒ 提点不告诉她、下一轮又从直连开始 ⇒ **每轮都先白撞一次墙** ✗
+     *   现在：记进会话内的 `sessionViaHint` ✓，并弹**一次**提示 ✓
+     *   （⏔ 改她的设置：只在本会话内生效，刷新页面就重置 ✓）
+     */
+    /*
      * ⭐⭐ 真机对照实验得到的通关组合：**假流式-**前缀的模型名 ＋ **走流式** ✓
      *   实测：普通名＋非流式 ⇒ Bad Request ✗；普通名＋流式 ⇒ 400 INVALID_ARGUMENT ✗；
      *         **假流式-**名＋流式 ⇒ **HTTP 200、真数据回来了** ✓✓
@@ -342,7 +354,13 @@ export async function callModel(opts) {
          *   ⇒ 现在：**直连抛了就自动改走转发再试一次** ✓（⛔ 让她手动切 ✗），并记下 via='proxy-auto' ✓
          */
         let res = null;
-        if (api.mode === 'direct') {
+        /* ⭐ U16：上次已知直连会被挡 ⇒ **这次直接走转发**（⏔ 再白撞一次 ✗） */
+        const preferProxy = (api.mode === 'direct' && sessionViaHint === 'proxy-auto');
+        /* ⭐ U16：已知要加前缀 ⇒ 一开始就带上（⏔ 先撞一次再重试 ✗） */
+        if (sessionViaHint === 'prefix-auto' && !/^假流式-/.test(modelTry)) {
+            modelTry = '假流式-' + modelTry;
+        }
+        if (api.mode === 'direct' && !preferProxy) {
             try {
                 res = await callDirect(url, key, modelTry, body, timeout.signal);
             } catch (eDirect) {
@@ -350,7 +368,7 @@ export async function callModel(opts) {
                 const aborted2 = eDirect && (eDirect.name === 'AbortError' || /abort/i.test(asText(eDirect && eDirect.message)));
                 if (aborted2) { throw eDirect; }
                 res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
-                if (res && res.ok) { autoVia = 'proxy-auto'; }
+                if (res && res.ok) { autoVia = 'proxy-auto'; sessionViaHint = 'proxy-auto'; }
             }
         } else {
             res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
@@ -373,7 +391,7 @@ export async function callModel(opts) {
                 } else {
                     res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                 }
-                if (res && res.ok) { autoVia = autoVia || 'prefix-auto'; }
+                if (res && res.ok) { autoVia = autoVia || 'prefix-auto'; sessionViaHint = sessionViaHint || 'prefix-auto'; }
             } catch (eP2) { /* 保持原结果 ✓ */ }
         }
         let loweredTo = 0;
@@ -411,6 +429,18 @@ export async function callModel(opts) {
         const text = trimText(res.text);
         if (!text) {
             return { ok: false, reason: '模型回了空内容（可以试试调大输出上限或换模型）', ms };
+        }
+        /* ⭐ U16：自动切换成功 ⇒ **告诉她一次**（同一会话只叫一次 ✓） */
+        if (autoVia && !viaHintTold) {
+            viaHintTold = true;
+            try {
+                const msgU16 = autoVia === 'proxy-auto'
+                    ? '这一轮直连被挡，已自动改走转发并成功；今天这个会话里以后直接走转发（不再白撞一次）'
+                    : '对面不认普通模型名，已自动加上前缀并成功；这个会话里以后直接带前缀发送'
+                import('../ui/toast.js').then((m) => {
+                    if (m && m.toast && typeof m.toast.info === 'function') { m.toast.info(msgU16); }
+                }).catch(() => {});
+            } catch (eU16) { /* 提示弹不出来也不能影响这一轮 ✓ */ }
         }
         return { ok: true, text, ms, via: (autoVia || res.via), finish: res.finish };
         /* ⭐ 走了自动转发时，via 会是 'proxy-auto' ⇒ 上层可以告诉她“直连被挡，已自动改走转发” ✓ */
