@@ -24,15 +24,15 @@ import {
 } from './core/actions.js';
 import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen, refreshPanel } from './ui/shell.js';
-import { openWorkspace, isWorkspaceOpen, refreshWorkspace } from './ui/workspace.js';
-import { mountMini, refreshMini } from './ui/mini.js';
+import { openWorkspace, isWorkspaceOpen, refreshWorkspace, closeWorkspace } from './ui/workspace.js';
+import { mountMini, refreshMini, closeMini } from './ui/mini.js';
 import { ensureWandEntry, syncEntryState } from './ui/wand.js';
 import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 
-const VERSION = '0.3.287';
+const VERSION = '0.3.288';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -294,6 +294,33 @@ function startEntryTimer() {
     });
 }
 
+/**
+ * ⭐ U13（材料 12·未覆盖死角）：**停用／卸载时把界面也摘干净** ✓
+ *   旧：只拆监听与定时器 ✗ ⇒ 她在扩展管理里取消勾选之后，
+ *     **悬浮球还挂在右下角、点开还能用** ✗（插件明明已经停了 ✗）
+ *   现在：小球／工作台／面板都关掉、魔法棒入口摘掉、楼层卡片也收起来 ✓
+ *   ⏔ 动数据：账本照旧留在聊天档与世界书里 ✓
+ */
+function teardownUi() {
+    try { closeMini(); } catch (eMini) { /* 摘不掉也不能拦着停用 ✓ */ }
+    try { closeWorkspace(); } catch (eWs) { }
+    try { closePanel(); } catch (ePnl) { }
+    try {
+        /* 魔法棒里那一项：它没有专属类名 ⇒ 按文字认（只动菜单里那一项 ✓） */
+        document.querySelectorAll('#extensionsMenu .list-group-item').forEach((el) => {
+            if ((el.textContent || '').indexOf(APP_NAME) >= 0) {
+                el.remove();
+            }
+        });
+        /* 楼层召回卡片：只删**带 wxg- 类名的 details**（⏔ 碰酒馆自己的 ✗） */
+        document.querySelectorAll('details').forEach((d) => {
+            if (/\bwxg-/.test(String(d.className || ''))) {
+                d.remove();
+            }
+        });
+    } catch (eDom) { }
+}
+
 export function onDelete() {
     /*
      * 卸载：⛔ **一个字节的数据都不删**（账本在聊天档案与世界书里，插件删了也还在）；
@@ -303,6 +330,7 @@ export function onDelete() {
      *    卸载之后监听**一个都没拆**（sent 6→6、recv 16→16）⇒ 现在跟停用一样拆。
      */
     const n = teardownListeners();
+    teardownUi();
     console.info('[' + APP_NAME + '] 已卸载：拆掉 ' + n + ' 个监听，数据原样留着');
 }
 
@@ -367,6 +395,7 @@ export function onDisable() {
      * 把长命监听真拆掉。⛔ 数据一个字节都不动（账本照旧在聊天档案与世界书里）。
      */
     const n = teardownListeners();
+    teardownUi();
     console.info('[' + APP_NAME + '] 已停用：拆掉 ' + n + ' 个监听（数据保留）');
 }
 
