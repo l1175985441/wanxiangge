@@ -6647,9 +6647,10 @@ export function bindSectionEvents(host, refresh) {
                 /* ---- 动作 ---- */
                                 case 'use-hold-one': {
                     // 「改成 2（推荐）」：只改频率这一个值，⛔ 不碰别的设置
-                    patchSettings({ updateEvery: 2 });
-                    toast.ok('已改成「停在上一轮」：只算落定的楼，省额度');
-                    rerender();
+                    /* ⭐ ST4-A（她 10-17 定案：统一走草稿＋段底保存）✓ 旧：patchSettings 立即落盘 ✗ */
+                    stage('general', 'updateEvery', 2);
+                    refreshSaveBar(host, 'general');
+                    toast.info('已改成「停在上一轮」：只算落定的楼，省额度（点段底「保存」生效）');
                     break;
                 }
                 case 'toggle-lock': {
