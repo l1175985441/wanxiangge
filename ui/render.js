@@ -111,7 +111,14 @@ function buildCard(rec) {
                 row.appendChild(el('div', 'wxg-fact', '所在势力：' + trimText(c.faction)));
             }
             if (trimText(c.current)) {
-                row.appendChild(el('div', 'wxg-fact', '正在经历：' + trimText(c.current)));
+                /*
+                 * ⭐ RD2（材料 11·渲染层）：**注入侧带了“不可靠”警告，卡片这边也要带** ✓
+                 *   旧：卡片照原样显示那句被判为编造／预判的当前，**没有任何标记** ✗
+                 *     ⇒ 她以为引擎就这么认了 ✗
+                 */
+                const curBad = c.currentSuspect === true;
+                row.appendChild(el('div', 'wxg-fact' + (curBad ? ' wxg-fact-missing' : ''),
+                    '正在经历：' + (curBad ? '⚠ 引擎判定这条不可靠（可能是编造／预判）：' : '') + trimText(c.current)));
             }
             /*
              * ⭐ 修复单 #30：卡片这边也要**遵守「楼层裁」（pastFloorCut）**，跟注入侧**同一口径**
@@ -145,7 +152,30 @@ function buildCard(rec) {
             };
             const pastShown = past.filter(keepPast);
             if (pastShown.length) {
-                row.appendChild(el('div', 'wxg-fact', '过去经历：' + trimText(pastShown[0].text)));
+                /* ⭐ RD2：该端的**全部**都列出来 ✓（旧：只显示第 1 条 ✗ ⇒ 与注入侧“最多 5 条”不一致 ✗） */
+                row.appendChild(el('div', 'wxg-fact', '过去经历：' + pastShown.map((pp) => trimText(pp.text)).join('　·　')));
+            }
+            /* ⭐ RD2：注入侧本来就带了这三项，卡片这边也要画 ✓（旧：一个都没画 ✗） */
+            if (trimText(c.age)) {
+                row.appendChild(el('div', 'wxg-fact', '年龄：' + trimText(c.age)));
+            }
+            if (Array.isArray(c.quests) && c.quests.length) {
+                const qTxt = c.quests.slice(0, 6)
+                    .map((q) => trimText(q && q.title) + (trimText(q && q.status) ? '（' + trimText(q && q.status) + '）' : ''))
+                    .filter(Boolean).join('　·　');
+                if (qTxt) {
+                    row.appendChild(el('div', 'wxg-fact', '任务：' + qTxt));
+                }
+            }
+            if (Array.isArray(c.schedule) && c.schedule.length) {
+                const sTxt = c.schedule.slice(0, 6).map((s) => {
+                    const w = trimText(s && (s.what || s.text));
+                    const dd = trimText(s && s.due);
+                    return w ? (w + (dd ? '·' + dd : '')) : '';
+                }).filter(Boolean).join('　·　');
+                if (sTxt) {
+                    row.appendChild(el('div', 'wxg-fact', '日程：' + sTxt));
+                }
             }
             if (trimText(c.timePlace)) {
                 row.appendChild(el('div', 'wxg-fact', '时间·地点：' + trimText(c.timePlace)));
