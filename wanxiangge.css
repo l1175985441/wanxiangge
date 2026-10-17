@@ -3753,9 +3753,22 @@ body.wxg-dragging {
  *   现在：携手机尺寸收紧左栏、减内边距、表格允许横向滚（⏔ 硬挤 ✗）
  */
 @media (max-width: 700px) {
+    /* ⭐ 真机纠正：侧栏是 `.wxg-ws-main` 的**兄弟**，不在 `.wanxiangge` 里 ✗
+     *   ⇒ 写成 `.wxg-ws .wxg-ws-side` 才命中 ✓（真机量到旧选择器下左栏仍 132px ✗） */
+    .wxg-ws .wxg-ws-side,
     .wanxiangge .wxg-ws-side {
         width: 78px;
         min-width: 78px;
+    }
+    /* ⭐ 真机纠正：窄屏下页面横向溢出 281px ✗ ⇒ 把容器链的 min-width 放开 ✓ */
+    .wxg-ws-page,
+    .wxg-ws-main,
+    .wxg-sec-body,
+    .wxg-two > * {
+        min-width: 0;
+    }
+    .wxg-ws-strip {
+        flex-wrap: wrap;
     }
     .wanxiangge .wxg-ws-pagehead,
     .wanxiangge .wxg-sec-body {
