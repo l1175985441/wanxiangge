@@ -4946,6 +4946,36 @@ function scheduleCardRerender() {
 }
 
 export function bindSectionEvents(host, refresh) {
+    /*
+     * ⭐ U17（材料 12·交互与边缘）：**「新增」输入框按回车＝点它旁边那颗按钮** ✓
+     *   旧：那批输入框的 data-action 是 noop，也没监听回车 ✗
+     *     ⇒ 她打完名字习惯性按 Enter，**什么都不发生** ✗
+     *   现在：回车 ⇒ 在同一行里找第一颗真有动作的按钮并点它 ✓
+     *   ⏔ 改按钮行为；⏔ 弄文本框（只接 input）；拿不到按钮就什么都不做 ✓
+     */
+    try {
+        host.addEventListener('keydown', (ev) => {
+            if (!ev || ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey) {
+                return;
+            }
+            const el = ev.target;
+            if (!el || el.tagName !== 'INPUT') {
+                return;
+            }
+            if ((el.getAttribute('data-action') || '') !== 'noop') {
+                return;
+            }
+            const row = el.closest('.wxg-row') || el.closest('.wxg-line') || el.parentElement;
+            if (!row || !row.querySelector) {
+                return;
+            }
+            const btn = row.querySelector('button[data-action]');
+            if (btn && (btn.getAttribute('data-action') || '') !== 'noop') {
+                ev.preventDefault();
+                btn.click();
+            }
+        });
+    } catch (eU17) { /* 加不上也不能拦着整段绑定 ✓ */ }
     if (!host || host.__wxgBound) {
         return;
     }
