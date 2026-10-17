@@ -6293,6 +6293,17 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'reset-prompts':
                     setAllPromptsDefault();
+                    /*
+                     * ⭐ ST9（材料 11·设置层）：**恢复内置默认后要连草稿一起清** ✓
+                     *   旧：只调 setAllPromptsDefault() 清已存设置 ✗ ⇒ staging.prompts 草稿还在 ✗
+                     *     ⇒ 保存条仍亮着“改了 N 处”✗ ⇒ 手滑一保存又把旧草稿盖回去 ✗
+                     */
+                    try {
+                        const st9 = stagingOf(stagingMode);
+                        if (st9 && typeof st9 === 'object') {
+                            delete st9.prompts;
+                        }
+                    } catch (eSt9) { /* 清不掉也不能把恢复默认搞挂 ✓ */ }
                     toast.ok('三套提示词都恢复成内置默认了');
                     rerender();
                     break;
