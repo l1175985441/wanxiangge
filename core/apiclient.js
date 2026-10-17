@@ -80,8 +80,35 @@ export function extractJson(text, opts) {
         return { ok: false, reason: '模型没输出内容', value: null };
     }
     // ① 去掉围栏
-    const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const body = fence ? fence[1] : raw;
+    /*
+     * ⭐ U9（材料 12·未覆盖死角）：**围栏不止一个时，要挑能解析出 JSON 的那个** ✓
+     *   旧：`/```(?:json)?\s*([\s\S]*?)```/i` 只抓**第一个**围栏 ✗
+     *     ⇒ 模型先吐一段 ```thinking…``` 或普通说明，真 JSON 在后面 ✗
+     *     ⇒ 拿到的是废话，真 JSON 被丢 ✗
+     *   现在：列出所有围栏块 ✓ 优先「标了 json 且看起来是 JSON」
+     *     → 标了 json → **长得像 JSON 的** → 只有一个围栏时照旧用它 ✓
+     */
+    let body = raw;
+    try {
+        const fences = [];
+        const rxAll = /```([A-Za-z0-9_+-]*)[ \t]*\r?\n?([\s\S]*?)```/g;
+        let fm = rxAll.exec(raw);
+        while (fm) {
+            fences.push({ tag: String(fm[1] || '').toLowerCase(), body: fm[2] });
+            fm = rxAll.exec(raw);
+        }
+        const looksJson = (s2) => /^[\s\r\n]*[\[{]/.test(String(s2 == null ? '' : s2));
+        const pick = fences.find((x) => x.tag === 'json' && looksJson(x.body))
+            || fences.find((x) => x.tag === 'json')
+            || fences.find((x) => looksJson(x.body));
+        if (pick) {
+            body = pick.body;
+        } else if (fences.length === 1) {
+            body = fences[0].body;
+        }
+    } catch (eU9) {
+        body = raw;
+    }
 
     // ② 收集候选起点（优先尝试完整配对的 {…} 或 [… ]，跳过像 [结果] 这种非 JSON 方括号前缀）
     const firstBrace = body.search(/[[{]/);
