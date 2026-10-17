@@ -120,8 +120,15 @@ export function mountMini() {
     wrapEl.addEventListener('click', onMiniClick);
     // ⭐ 展开后**不自动收回**（原来鼠标一移开就缩回去 ⇒ 真机上想点面板里的东西会被它躲开，
     //    真人用也会烦）。收起方式：再点一下球／点面板右上角 ✕「收起」／Esc。
+    /*
+     * ⭐ 材料 06【4】（悬浮球）：**别让鼠标扫过就弹开** ✓
+     *   旧：`hoverOpen !== false` ✗ 而默认设置里**根本没有 hoverOpen**（undefined ✗）
+     *     ⇒ `undefined !== false` 成立 ⇒ **在聊天界面不小心扫过就啪一下弹开** ✗✗
+     *   现在：改成**需要她显式开启**（`=== true` ✓）⇒ 默认不会被扫开 ✓
+     *   ⏔ 动“展开后不自动收回”：那是下面注释里写明的**故意设计** ✓ ⇒ 照旧保留 ✓
+     */
     wrapEl.addEventListener('mouseenter', () => {
-        if ((getSettings().mini || {}).hoverOpen !== false && !isExpanded()) {
+        if ((getSettings().mini || {}).hoverOpen === true && !isExpanded()) {
             setExpanded(true, { auto: true });
         }
     });
