@@ -31,8 +31,9 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
+import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.311';
+const VERSION = '0.3.312';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -563,6 +564,12 @@ function startOnce(why) {
      */
     source.on(types.APP_READY, () => {
         try { resetChannelCache(); } catch (eU3) { /* 清不掉也不能拦着启动 ✓ */ }
+        /*
+         * ⭐ B10（材料 14 · 代拍 A）：**老的全库共用「不读」表一次性落到当前这本书名下** ✓
+         *   放在启动就绪这一刻：此时当前书已经能确定 ✓
+         *   （拖到面板首次打开才迁移的话，下一次提取会拿不到旧表 ✗）
+         */
+        try { migrateExcludeToPerBook(); } catch (eB10) { /* 迁移失败不能拦着启动 ✓ */ }
         startOnce('app-ready-event');
     });
         if (typeof ctx.isReady === 'boolean' && ctx.isReady === true) {

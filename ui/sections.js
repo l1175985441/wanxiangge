@@ -33,7 +33,7 @@ import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION } from '../core/config.js';
 import { replanCurrentFloor } from '../core/actions.js';
-import { listWorldbookNames, getEntries } from '../core/worldbook.js';
+import { listWorldbookNames, getEntries, excludeTextFor } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
 import { importBookWiki } from '../core/book-wiki.js';
 import { channelReport } from '../core/wb-channel.js';
@@ -1521,6 +1521,23 @@ function commitSection(secId) {
         // （整块替换会把她存好的书签 `profiles` 一起冲掉）
         if (k === 'api' && box[k] && typeof box[k] === 'object') {
             patch.api = Object.assign({}, getSettings().api || {}, box[k], patch.api || {});
+            continue;
+        }
+        /*
+         * ⭐ B10（材料 14 · 代拍 A）：**「不读」表落盘时写进「当前这本书」那一格** ✓
+         *   随点随存会串味：换过书之后行为不对，几乎想不到是上一本的不读表还在 ✗
+         *   同时把老的共用表清空 ✓（迁移已在 worldbook.migrateExcludeToPerBook 做过 ✓）
+         */
+        if (k === 'excludeEntries' && secId === 'extract') {
+            const bookNow = trimText(pickBook);
+            if (bookNow) {
+                const byBookOld = (getSettings().excludeEntriesByBook && typeof getSettings().excludeEntriesByBook === 'object')
+                    ? getSettings().excludeEntriesByBook : {};
+                patch.excludeEntriesByBook = Object.assign({}, byBookOld, { [bookNow]: asText(box[k]) });
+                patch.excludeEntries = '';
+            } else {
+                patch[k] = box[k];
+            }
             continue;
         }
         if (API_KEYS.includes(k)) {
@@ -4611,7 +4628,7 @@ export function renderEntryPick(host, offList) {
     if (!wrap) {
         return;
     }
-    const off = Array.isArray(offList) ? offList : toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+    const off = Array.isArray(offList) ? offList : toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
     while (wrap.firstChild) {
         wrap.removeChild(wrap.firstChild);
     }
@@ -6209,7 +6226,7 @@ export function bindSectionEvents(host, refresh) {
                         note.textContent = '「' + name + '」里没读到条目（或这本没开）。';
                         break;
                     }
-                    const off = toList(getSettings().excludeEntries);
+                    const off = toList(excludeTextFor(name));
                     note.textContent = '「' + name + '」共 ' + String(entries.length)
                         + ' 条：点一下＝不读这一条（点过的不参与推演）；⛔ 不改你的世界书。';
                     if (wrap) {
@@ -6260,7 +6277,7 @@ export function bindSectionEvents(host, refresh) {
                     const act = action;
                     const all = pickEntries.map((e) => trimText(e && (e.comment || e.key || e.name || e.title)))
                         .filter(Boolean);
-                    let offNow = toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+                    let offNow = toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
                     const inOff = (x) => offNow.some((y) => asText(y) === asText(x));
                     if (act === 'entry-all-on') {
                         offNow = offNow.filter((x) => !all.some((y) => asText(y) === asText(x)));
@@ -6302,7 +6319,7 @@ export function bindSectionEvents(host, refresh) {
                         break;
                     }
                     // ⭐ 同样只改"待保存"缓冲（她拍的：别点一下就生效、面板别跳）
-                    const off = toList(stagedValue('extract', 'excludeEntries', getSettings().excludeEntries));
+                    const off = toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
                     const i = off.findIndex((x) => asText(x) === asText(title));
                     if (i >= 0) {
                         off.splice(i, 1);

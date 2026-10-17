@@ -11,7 +11,7 @@
 import { matchKey, trimText, asText, toList } from './utils.js';
 import { getCtx } from './adapter.js';
 import { loadState, saveState } from './state.js';
-import { getSettings } from './settings.js';
+import { getSettings, patchSettings } from './settings.js';
 import { WORLD_BOOK_NAME } from './config.js';
 // ⭐ 世界书**多通道**（酒馆助手／旧通道／新版接口，有哪个用哪个）
 import { listBooks, readBookEntries, channelReport } from './wb-channel.js';
@@ -664,6 +664,50 @@ export function resolveBookName(bookName) {
     return name;
 }
 
+/**
+ * ⭐ B10（材料 14 · 阿砚代拍 A）：**某本世界书的「不读」表** ✓
+ *   为何是 A（不只写结论）：串味是最难查的一类故障 ——
+ *   她换过书之后行为不对，几乎不可能想到「上一本书留下的不读表还在生效」。
+ *   → 一次做对，比以后翻账省事 ✓
+ */
+export function excludeTextFor(bookName) {
+    const name = trimText(bookName);
+    const s = getSettings() || {};
+    const box = s.excludeEntriesByBook && typeof s.excludeEntriesByBook === 'object' ? s.excludeEntriesByBook : {};
+    if (name && Object.prototype.hasOwnProperty.call(box, name)) {
+        return asText(box[name]);
+    }
+    return '';
+}
+
+/**
+ * ⭐ B10 迁移（一次性）：老账只有**一份全库共用**的「不读」表
+ *   ⇒ 落到**当前这本书**名下（当作这本书的选择），其余书回到「默认全读」 ✓
+ *   ⏔ 不把旧表复制给所有书 ✗（那等于把串味固化成数据 ✗）
+ *   ⏔ 不在这里做别的事；没有当前书就不动（下次启动再试 ✓）
+ */
+export function migrateExcludeToPerBook() {
+    const s = getSettings() || {};
+    const legacy = toList(s.excludeEntries);
+    const box = s.excludeEntriesByBook && typeof s.excludeEntriesByBook === 'object' ? s.excludeEntriesByBook : {};
+    if (!legacy.length) {
+        return { migrated: 0, reason: 'nothing' };
+    }
+    const cur = resolveBookName('');
+    if (!cur) {
+        return { migrated: 0, reason: 'no-book' };
+    }
+    if (Object.prototype.hasOwnProperty.call(box, cur)) {
+        patchSettings({ excludeEntries: '' });
+        return { migrated: 0, reason: 'already' };
+    }
+    patchSettings({
+        excludeEntriesByBook: Object.assign({}, box, { [cur]: legacy.join('、') }),
+        excludeEntries: '',
+    });
+    return { migrated: legacy.length, book: cur };
+}
+
 export async function getEntries(bookName) {
     const name = resolveBookName(bookName);
     if (!name) {
@@ -675,7 +719,8 @@ export async function getEntries(bookName) {
     const data = await readBookEntries(name);
     // ⭐ 条目级"不读"名单（她在面板上点「看条目」挑的那些）——在这里统一过掉，
     //    ⛔ 不是只存不用；按条目名匹配（她在世界书界面里看到的那一行）。
-    const off = settings ? toList(settings.excludeEntries) : [];
+    /* ⭐ B10：**按书取「不读」表** ✓（旧：全库一份 ⇒ 换书串味 ✗） */
+    const off = toList(excludeTextFor(name));
     if (!off.length) {
         return data;
     }

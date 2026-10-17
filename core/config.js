@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.311';
+export const APP_VERSION = '0.3.312';
 
 export const LEDGER_VERSION = 3;
 
@@ -362,6 +362,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
      * 按**条目名**匹配（世界书界面里看到的那一行名字）。⛔ 引擎只读，⛔ 不改她的世界书。
      */
     excludeEntries: '',
+    /* ⭐ B10（材料 14 代拍 A）：「不读」表**按书各存一份** ✓（键＝世界书名 ⇒ 曼分隔的条目名） */
+    excludeEntriesByBook: {},
     onlyEnabledEntries: true, // 不选时＝角色卡绑定世界里"开启着的"条目
 
     /* 自定义 API */
