@@ -32,7 +32,7 @@ import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 
-const VERSION = '0.3.286';
+const VERSION = '0.3.287';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -435,8 +435,14 @@ function boot() {
         // ③ 首屏：补挂卡片、对一次账（不阻塞酒馆就绪）
         setTimeout(() => {
             try {
-                mountAllCards(3, 1200);
-                renderPanel();
+        /*
+         * ⭐ U14（材料 12）：**开机不能把同一件活儿干两遍** ✓
+         *   旧：这里先 `mountAllCards(3, 1200)`，紧接着 `restoreCards()` ✗
+         *     而 `restoreCards()` 内部第一句**又是** `mountAllCards(3, 1200)`＋`refreshAllViews()` ✗
+         *     ⇒ 一开机就把一模一样的挂载与渲染连干两遍（白耗一倍）✗
+         *   现在：这里只留 `renderPanel()`，挂牌交给 `restoreCards()` 做一次 ✓
+         */
+        renderPanel();
                 restoreCards();
                 syncEntryState();
 
