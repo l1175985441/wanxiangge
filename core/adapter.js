@@ -82,6 +82,11 @@ export function currentChatKey() {
             info.chat_file_name,
             info.file,
             ctx.chatId,
+            /* ⭐ U20（材料 12）：**群聊也要归位** ✓
+             *   旧：候选里只有 chatId 与 characterId ✗ ⇒ 群聊档在初始那一瞬 chatId 未就绪就掉进 default-chat ✗
+             *   现在：补上 groupId ✓（带 group- 前缀，与 char- 同一套口径 ✓）
+             */
+            ctx.groupId !== undefined && ctx.groupId !== null ? 'group-' + String(ctx.groupId) : '',
             ctx.characterId !== undefined && ctx.characterId !== null ? 'char-' + String(ctx.characterId) : '',
         ];
         for (const c of candidates) {
