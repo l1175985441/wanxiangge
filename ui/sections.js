@@ -4965,9 +4965,25 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-protected': patchSettings({ protectedBypass: target.checked }); break;
                 case 'set-strict': patchSettings({ strictMention: target.checked }); break;
                 case 'set-auto-update': patchSettings({ autoUpdate: target.checked }); break;
-                case 'set-update-every': if (isChange) { patchSettings({ updateEvery: target.value }); } break;
+                /*
+                 * ⭐ ST4（材料 11·设置层）：**静默落盘要给一句回执** ✓
+                 *   旧：选完就存了，但界面**一声不吱** ✗
+                 *     ⇒ 她不知道“这个算不算已经生效”、“还要不要点保存” ✗
+                 *   现在：存完就告诉她存成了什么 ✓（⏔ 改保存语义，仍是立即落盘 ✓）
+                 */
+                case 'set-update-every':
+                    if (isChange) {
+                        patchSettings({ updateEvery: target.value });
+                        toast.ok('已存：每 ' + trimText(target.value) + ' 楼算一次（已立即生效，⏔需再点保存）');
+                    }
+                    break;
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'stage-backfill-n': if (isChange) { patchSettings({ backfillN: target.value }); } break;
+                case 'stage-backfill-n':
+                    if (isChange) {
+                        patchSettings({ backfillN: target.value });
+                        toast.ok('已存：补推范围 ' + (trimText(target.value) || '全部') + '（已立即生效）');
+                    }
+                    break;
                 /* ---- 角色状态：明细开关 / 排序 ---- */
                 case 'toggle-cdetail': {
                     // 点「明细」展开那一行（只切显示，⛔ 不重画，免得丢她正在改的字）
