@@ -913,6 +913,9 @@ export function upsertHidden(line) {
             trigger: trimText(line.trigger) || existing.trigger,
             tier: trimText(line.tier) || existing.tier,
             note: trimText(line.note) || existing.note,
+            /* ⭐ C12（材料 13）：**因果两格不能在推进时丢掉** ✓ */
+            cause: trimText(line.cause) || existing.cause,
+            effect: trimText(line.effect) || existing.effect,
             updatedAt: now(),
         });
         // 补齐起算点（老数据没有的话补上，⛔ 已有的不覆盖——覆盖等于把时间表往后推）
@@ -940,6 +943,9 @@ export function upsertHidden(line) {
         trigger: trimText(line.trigger),
         tier: trimText(line.tier) || '几天内',
         note: trimText(line.note),
+        /* ⭐ C12（材料 13）：**新建暗线也要带上因果** ✓ */
+        cause: trimText(line.cause),
+        effect: trimText(line.effect),
         sinceDay: Number.isFinite(sinceDayNow) ? sinceDayNow : null,
         sinceMinutes: Number.isFinite(sinceMinutesNow) ? sinceMinutesNow : null,
         log: [],

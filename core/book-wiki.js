@@ -180,6 +180,9 @@ function normalizeWiki(raw) {
                 sides: trimText(s && s.sides),
                 tier: TIERS.includes(tier) ? tier : '',
                 note: trimText(s && s.note),
+                /* ⭐ C12：导入的局势也要带因果 ✓ */
+                cause: trimText(s && (s.cause || s.from)),
+                effect: trimText(s && (s.effect || s.to)),
             });
         }
     }
