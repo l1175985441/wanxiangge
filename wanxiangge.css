@@ -3745,3 +3745,42 @@ body.wxg-dragging {
     height: 100%;
     box-sizing: border-box;
 }
+
+/* ---------------- LY9：窄屏／手机端分档（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 窄屏下左栏占死 132px，加上内容区双层 28px 内边距 ✗
+ *   ⇒ 正文区被挤成窄缝，.wxg-ptab td 硬写 padding 9px 30px、.wxg-pc-kv 硬写 4 列 ✗
+ *   现在：携手机尺寸收紧左栏、减内边距、表格允许横向滚（⏔ 硬挤 ✗）
+ */
+@media (max-width: 700px) {
+    .wanxiangge .wxg-ws-side {
+        width: 78px;
+        min-width: 78px;
+    }
+    .wanxiangge .wxg-ws-pagehead,
+    .wanxiangge .wxg-sec-body {
+        padding: 12px;
+    }
+    .wanxiangge .wxg-ptab td {
+        padding: 7px 10px;
+    }
+    .wanxiangge .wxg-pc-kv {
+        grid-template-columns: 62px minmax(0, 1fr);
+    }
+    .wanxiangge .wxg-pc-v.wxg-pc-full {
+        grid-column: 1 / -1;
+    }
+    .wanxiangge .wxg-pc {
+        left: 8px !important;
+        top: 64px !important;
+        width: calc(100vw - 16px) !important;
+        max-height: calc(100vh - 80px);
+    }
+    .wanxiangge .wxg-two {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .wanxiangge .wxg-ctable {
+        display: block;
+        overflow-x: auto;
+    }
+}
