@@ -411,6 +411,15 @@ function onKeydown(e) {
         return;
     }
     /*
+     * ⭐ 材料 06【6】①：**Esc 要吞掉，⏔ 把酒馆自己的弹窗一并关掉** ✓
+     *   （她同时开着其他插件；原来没调 stopPropagation ✗
+     *    ⇒ 她想关的是万象阁子浮层，结果酒馆自己的抽屉／弹窗也跟着关了 ✗）
+     *   ⏔ preventDefault：酒馆自己也要用 Esc ✓ ⇒ 只止传播、⏔ 拦默认行为 ✗
+     */
+    if (typeof e.stopPropagation === 'function') {
+        e.stopPropagation();
+    }
+    /*
      * ⭐ 修复单 #29：**先把开着的子浮层关掉**，⛔ 别一按 Esc 就把整个工作台关了。
      *   原来无条件 `closeWorkspace()` ⇒ 她在人物卡／世界条目／记录卡／体检报告里按 Esc，
      *   想关的是**那一张卡**，结果**整页工作台没了**（得重开一遍）。
