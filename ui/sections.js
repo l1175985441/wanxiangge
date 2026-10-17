@@ -5623,6 +5623,18 @@ export function bindSectionEvents(host, refresh) {
                     syncApiFromDom(host);
                     const n = commitSection(id);
                     refreshToastSection(id, n);
+        /*
+         * ⭐ RD7（材料 11·渲染层）：**关掉召回卡片开关并保存后，聊天里已挂着的卡片要当场刷** ✓
+         *   旧：只重画了设置面板 ✗ ⇒ 聊天流里的卡片**纹丝不动** ✗
+         *   现在：保存「召回」段后补一次 mountAllCards ✓（动态 import，⏔ 加静态依赖 ✗）
+         */
+        if (id === 'recall') {
+            import('./render.js').then((m) => {
+                if (m && typeof m.mountAllCards === 'function') {
+                    m.mountAllCards(2, 900);
+                }
+            }).catch(() => {});
+        }
                     /*
                      * ⭐⭐ 谷歌方案 A（她 2026-10-17 选定）：保存按钮＝**确定性回执** ✓
                      *   病根：她填完去点保存，而值已经（失焦）落盘 ⇒ 旧行为只弹
