@@ -5431,7 +5431,7 @@ export function bindSectionEvents(host, refresh) {
             toast.info('编年本来就是空的');
             break;
         }
-        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把编年**全部清掉**吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把编年全部清掉吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
             + '（只清编年；名册、世界状态、暗线、世界书都不动）\n\n清掉就回不来了。')) {
             break;
         }

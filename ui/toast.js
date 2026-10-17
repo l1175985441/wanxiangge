@@ -22,6 +22,13 @@ function shouldShow(key) {
 }
 
 function fire(level, message, title) {
+    /*
+     * ⭐ RD8（材料 11·渲染层）：**toast 是纯文本，`**粗体**` 会原样露出星号** ✓
+     *   （界面 DOM 那边有 fillText 会转 <strong>，但 toast 不过它 ✗ ⇒ 弹窗里直接露 `**` ✗）
+     *   这里统一抹掉标记、**只留文字** ✓
+     */
+    message = String(message == null ? '' : message).replace(/\*\*/g, '');
+    title = String(title == null ? '' : title).replace(/\*\*/g, '');
     const text = String(message === undefined || message === null ? '' : message);
     if (!text) {
         return;
