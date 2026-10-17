@@ -3417,6 +3417,8 @@ function secSteps(host, intoBox) {
  *   ⇒ 数据层**一行不改**（保存路径、手改锁、快照都还是原来那条），⛔ 不另起一套。
  */
 let personCardId = null;
+/* ⭐ B8（材料 13）：当前正在选“并进哪一位”的角色 id（⏔ 再弹 window.prompt ✗） */
+let mergePickFor = null;
 /*
  * ⭐ 浮层要挂在**段容器里**而不是 body：
  *   点击处理器只绑在段容器上（`bindSectionEvents(host)`）⇒
@@ -5810,15 +5812,68 @@ export function bindSectionEvents(host, refresh) {
                 /* ⭐ 材料 06【4】#4：**被忽略了也要能恢复** ✓ */
                 case 'unignore-char': updateCharacter(id, { ignored: false }); toast.ok('恢复了：他又能参与推演与召回了'); rerender(); break;
                 case 'merge-into': {
-                    const name = window.prompt('把哪一条合并进这一条？（写要并掉的那个名字）');
-                    if (!trimText(name)) {
+                    /*
+                     * ⭐ B8（材料 13）：**不再弹 window.prompt，就地展开下拉选项** ✓
+                     *   ⏔ 走 rerender：浮层人物卡**不在段容器里** ⇒ 重画拿不到它 ✗
+                     *   所以直接往卡底那一行里插 ✓
+                     */
+                    mergePickFor = id || null;
+                    try {
+                        const footEl = document.querySelector('.wxg-pc-foot');
+                        if (footEl) {
+                            const oldEl = footEl.querySelector('.wxg-merge-pick');
+                            if (oldEl && oldEl.parentNode) {
+                                oldEl.parentNode.removeChild(oldEl);
+                            }
+                            const rowEl = el('div', 'wxg-row wxg-merge-pick');
+                            rowEl.appendChild(el('span', 'wxg-note', '并进：'));
+                            const others = (getRoster() || []).filter((x) => x && String(x.id) !== String(id));
+                            if (others.length) {
+                                const selEl = document.createElement('select');
+                                selEl.id = 'wxg-merge-target';
+                                selEl.className = 'text_pole';
+                                for (const x of others) {
+                                    const o = document.createElement('option');
+                                    o.value = String(x.name || '');
+                                    const al2 = Array.isArray(x.aliases) && x.aliases.length ? '（' + x.aliases.slice(0, 2).join('／') + '）' : '';
+                                    o.textContent = String(x.name || '') + al2;
+                                    selEl.appendChild(o);
+                                }
+                                rowEl.appendChild(selEl);
+                                rowEl.appendChild(button('确认并进', 'merge-into-confirm', 'wxg-btn-sm wxg-primary', id));
+                                rowEl.appendChild(button('取消', 'merge-into-cancel', 'wxg-btn-sm', id));
+                            } else {
+                                rowEl.appendChild(el('span', 'wxg-note', '名册里没别人可并了'));
+                                rowEl.appendChild(button('取消', 'merge-into-cancel', 'wxg-btn-sm'));
+                            }
+                            footEl.appendChild(rowEl);
+                        }
+                    } catch (eB8) { /* 插不进去也不能报错 ✓ */ }
+                    break;
+                }
+                case 'merge-into-cancel': {
+                    mergePickFor = null;
+                    try {
+                        const rowOld = document.querySelector('.wxg-merge-pick');
+                        if (rowOld && rowOld.parentNode) {
+                            rowOld.parentNode.removeChild(rowOld);
+                        }
+                    } catch (eB8c) { }
+                    break;
+                }
+                case 'merge-into-confirm': {
+                    const selNow = byId(host, 'wxg-merge-target');
+                    const target = selNow ? trimText(selNow.value) : '';
+                    if (!target) {
+                        toast.warn('先在下拉框里选一个要并进来的名字');
                         break;
                     }
-                    const result = mergeCharacters(id, trimText(name));
+                    const result = mergeCharacters(id, target);
+                    mergePickFor = null;
                     if (result && result.ok) {
                         toast.ok('合并完成：别名、数据、历史都归到一条上了');
                     } else {
-                        toast.warn('没找到叫「' + trimText(name) + '」的另一条记录');
+                        toast.warn('没找到叫「' + target + '」的另一条记录');
                     }
                     rerender();
                     break;
