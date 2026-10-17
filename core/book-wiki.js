@@ -18,7 +18,7 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
 import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner, extractFormNames } from './worldbook.js';
@@ -493,6 +493,33 @@ export function expandMultiNameEntries(entries) {
             out.push(Object.assign({}, e, { comment: '[\u89d2\u8272] ' + nm }));
         }
     }
+    /*
+     * ⭐ B7（材料 13·兑现率）：**导入的局势与暗线要同步进召回用的事件池** ✓
+     *   旧：只写进 state.world.situations／hidden ✗ ⇒ state.events 一直空着 ✗
+     *     ⇒ 发消息时按 events 挑世界事件 ⇒ **0 召回** ✗
+     *   现在：把这次导入的局势（kind=situation）与暗线（kind=hidden）补进事件池 ✓
+     *   按标题去重，⏔ 冲掉她原有的 ✗；同步失败不影响导入本身 ✓
+     */
+    try {
+        const oldEv = Array.isArray(loadState().events) ? loadState().events.slice() : [];
+        const haveEv = new Set(oldEv.map((e) => trimText(e && e.title)));
+        const addEv = [];
+        for (const s of (Array.isArray(out.situations) ? out.situations : [])) {
+            const t1 = trimText(s && s.title);
+            if (!t1 || haveEv.has(t1)) { continue; }
+            haveEv.add(t1);
+            addEv.push({ title: t1, text: trimText(s.note) || t1, kind: 'situation', sides: trimText(s.sides), tier: trimText(s.tier) });
+        }
+        for (const h of (Array.isArray(out.hidden) ? out.hidden : [])) {
+            const t2 = trimText(h && h.name);
+            if (!t2 || haveEv.has(t2)) { continue; }
+            haveEv.add(t2);
+            addEv.push({ title: t2, text: trimText(h.note) || t2, kind: 'hidden', stage: trimText(h.stage) });
+        }
+        if (addEv.length) {
+            setEvents(oldEv.concat(addEv));
+        }
+    } catch (eB7) { /* 同步失败不能影响导入本身 ✓ */ }
     return out;
 }
 
