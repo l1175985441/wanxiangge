@@ -737,6 +737,32 @@ function secGeneral(host) {
             } else {
                 progRow.textContent = '（还没跑过；点「补推历史」按范围补，跑中这里会显示 n/N）';
             }
+            /*
+             * ⭐ RD4（材料 11·渲染层）：**这个轮询不能只改文字** ✓
+             *   旧：只 `progRow.textContent = ...` ✗ ⇒ 后台在你停在总控页时开始／结束，
+             *     文字变了，但 6 颗操作按钮**该灰的没灰、该恢复的没恢复** ✗
+             *   现在：同一个 tick 里把按钮禁用态与「取消」钮也刷一遍 ✓（只动 DOM 属性 ✓）
+             */
+            try {
+                const opActs = ['update-now', 'rollback', 'reconcile', 'publish-book', 'backfill'];
+                for (const act of opActs) {
+                    const b2 = opsRow.querySelector('[data-action="' + act + '"]');
+                    if (!b2) {
+                        continue;
+                    }
+                    if (running2) {
+                        b2.setAttribute('disabled', 'disabled');
+                        if (b2.style) { b2.style.opacity = '0.5'; }
+                    } else {
+                        b2.removeAttribute('disabled');
+                        if (b2.style) { b2.style.opacity = ''; }
+                    }
+                }
+                const cxl2 = opsRow.querySelector('[data-action^="cancel"]');
+                if (cxl2 && cxl2.style) {
+                    cxl2.style.display = running2 ? '' : 'none';
+                }
+            } catch (eRD4) { /* 同步不了也不能把进度搞挂 ✓ */ }
         };
         draw();
         let n = 0;
