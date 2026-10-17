@@ -3818,3 +3818,16 @@ body.wxg-dragging {
     flex: 1 1 24em;
     max-width: 42em;
 }
+
+/* ---------------- 功能菜单：**贴在按钮下面**（不靠矩形算 ✓） ---------------- */
+/*
+ * ⭐ 真机抳回：`-func` 按钮报回的矩形是 0×0 ✗
+ *   ⇒ 用矩形算坐标把菜单打到左上角、压住左栏 ✗
+ *   ⇒ 改成挂在按钮的父节点里并用绝对定位贴它下面 ✓
+ */
+.wxg-funcmenu.wxg-funcmenu-anchored {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    left: auto;
+}

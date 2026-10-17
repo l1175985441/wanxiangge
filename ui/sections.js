@@ -3404,8 +3404,16 @@ function openFuncMenu(anchorEl, items) {
     if (wasOpen) {
         return;   // 再点一下收起 ✓
     }
-    const host = lastSectionsHost || document.body;
-    const menu = el('div', 'wxg-funcmenu');
+    /*
+     * ⭐⭐ 定位：**挂成按钮的兄弟，用 CSS 贴住它** ✓
+     *   为什么不用矩形算：真机探针里这些按钮报回的矩形是 **0×0** ✗
+     *   （而它们明明画在屏上）⇒ 用矩形算出来的坐标必然是乱的 ✗
+     *   现在：放到按钮的父节点里（层级变一级），`top:100%; right:0` ⇒ 永远贴在它下面 ✓
+     *   ⏔ 改回 body：那样就吃不到宿主的事件委托（菜单项点不了 ✗）
+     */
+    const anchorParent = (anchorEl && anchorEl.parentNode) ? anchorEl.parentNode : null;
+    const host = anchorParent || lastSectionsHost || document.body;
+    const menu = el('div', 'wxg-funcmenu' + (anchorParent ? ' wxg-funcmenu-anchored' : ''));
     menu.__owner = anchorEl;
     for (const it of items) {
         const b = button(it.label, it.action, 'wxg-funcmenu-item', it.id);
