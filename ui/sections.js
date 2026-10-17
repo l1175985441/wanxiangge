@@ -6238,12 +6238,16 @@ export function bindSectionEvents(host, refresh) {
                      */
                     const curEff = effectiveAppearance();
                     const palKey = (curEff.palette && curEff.palette !== 'custom') ? curEff.palette : 'ink';
-                    delete stagingOf(stagingMode).appearance;
-                    patchSettings({
-                        appearance: Object.assign({}, getSettings().appearance || {}, palettePatch(palKey), { text: '' }),
-                    });
-                    toast.ok('已退回所选色板');
-                    rerender();
+                    /*
+                     * ⭐ ST4-A（她定案 A：统一走草稿＋段底保存）✓
+                     *   旧：先清草稿、再 `patchSettings` **立即落盘** ✗
+                     *     ⇒ 同一张「外观」卡里：颜色框需要点保存，「恢复色板」反而点完就生效 ✗
+                     *   现在：把这一笔写进 appearance 草稿 ✓（覆盖她之前改的槽 —— 这正是“恢复”的语义 ✓）
+                     */
+                    stage('appearance', 'appearance', Object.assign({}, curEff, palettePatch(palKey), { text: '' }));
+                    refreshAppearancePreview();
+                    refreshSaveBar(host, 'appearance');
+                    toast.info('已退回所选色板（点段底「保存」生效）');
                     break;
                 }
                 case 'set-app-to-panel':
