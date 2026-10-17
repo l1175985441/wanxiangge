@@ -4992,22 +4992,21 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-strict': patchSettings({ strictMention: target.checked }); break;
                 case 'set-auto-update': patchSettings({ autoUpdate: target.checked }); break;
                 /*
-                 * ⭐ ST4（材料 11·设置层）：**静默落盘要给一句回执** ✓
-                 *   旧：选完就存了，但界面**一声不吱** ✗
-                 *     ⇒ 她不知道“这个算不算已经生效”、“还要不要点保存” ✗
-                 *   现在：存完就告诉她存成了什么 ✓（⏔ 改保存语义，仍是立即落盘 ✓）
+                 * ⚠️ v0.3.257 我在这里加过一条“已存”回执 ✗
+                 *   但真机核对发现：界面上挂的是 `stage-update-every`（走草稿）✓
+                 *   ⇒ 这个 `set-update-every` **永远不会被执行** ✗ ⇒ 那句回执从未生效 ✗
+                 *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
-                case 'set-update-every':
-                    if (isChange) {
-                        patchSettings({ updateEvery: target.value });
-                        toast.ok('已存：每 ' + trimText(target.value) + ' 楼算一次（已立即生效，⏔需再点保存）');
-                    }
-                    break;
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
                 case 'stage-backfill-n':
+                    /*
+                     * ⭐ ST4-A（她 10-17 18:36 定案：**统一走草稿＋段底保存**）✓
+                     *   旧：这一格是“选完即存” ✗ ⇒ 同一页里别的格要点保存、这一格不用 ✗
+                     *   现在：写进 `general` 段的草稿 ✓ ⇒ 她点段底「保存」才生效 ✓（与 API 那块一致 ✓）
+                     */
                     if (isChange) {
-                        patchSettings({ backfillN: target.value });
-                        toast.ok('已存：补推范围 ' + (trimText(target.value) || '全部') + '（已立即生效）');
+                        stage('general', 'backfillN', trimText(target.value));
+                        refreshSaveBar(host, 'general');
                     }
                     break;
                 /* ---- 角色状态：明细开关 / 排序 ---- */
