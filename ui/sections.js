@@ -2868,7 +2868,9 @@ function secReport(host, intoBox) {
         const rec = shownList[idx];
         const shownChars = countChars(rec.injectedText);
         const statusText = statusOf(rec);
-        const det = foldable('', false);
+        /* ⭐ LY8（材料 11）：传空字符串就不加展开箭头 ⇒ 整行看不出可点 ✗
+     *   现在传一个空格（有值但不显字 ✓）⇒ chevron 会加上 ✓ */
+    const det = foldable(' ', false);
         // 折叠条标题行改成"行化"排法（时间骨架｜状态胶囊｜楼层·字数｜人）
         if (det.classList) {
             det.classList.add('is-row');
