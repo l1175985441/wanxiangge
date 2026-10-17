@@ -3590,3 +3590,39 @@ body.wxg-dragging {
     transform: translateY(1px) scale(.985);
     background: color-mix(in srgb, currentColor 22%, transparent);
 }
+
+/* ---------------- 页头「功能 ⋮」的真菜单（材料 10 · 第 1 组裁定） ---------------- */
+/*
+ * ⭐ 三颗假「功能 ⋮」接成真菜单 ✓ ⇒ 靠这两个类把它画成一张小盖层 ✓
+ *   （⏔ 用 .wanxiangge 前缀：菜单是追加进 host 的子节点 ✓ 选择器仍然命中 ✓）
+ */
+.wanxiangge .wxg-funcmenu {
+    position: fixed;
+    z-index: 40;
+    min-width: 200px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--wxg-card-bg, var(--wxg-fill, #ffffff));
+    border: 1px solid var(--wxg-border, #d5dade);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.wanxiangge .wxg-funcmenu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--wxg-text, #1a1d1f);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.wanxiangge .wxg-funcmenu-item:hover {
+    background: var(--wxg-hover, rgba(0, 0, 0, 0.06));
+}

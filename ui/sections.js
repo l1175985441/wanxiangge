@@ -3206,6 +3206,58 @@ let personCardId = null;
  *   用 `position: fixed` 照样浮在最上层，不受宿主滚动影响。
  */
 let lastSectionsHost = null;
+
+/* ------------------------- 页头「功能 ⋮」的真菜单 ------------------------- */
+/*
+ * ⭐⭐ 材料 10 · 第 1 组裁定（她 10-17 10:07 授权代拍）：**三颗假「功能 ⋮」⇒ 接真菜单** ✓
+ *   旧：三处点下去只弹一句 toast.info 指路（“导出在…”／“入口位…”）✗ = **假按钮** ✗
+ *   现在：点开是一张**真菜单**，每一项都直接调**现成动作** ✓（⏔ 一句“开发中”都没有 ✗）
+ *   菜单挂在 `lastSectionsHost` 里 ✓ ⇒ 复用页面既有的点击委派 ✓（⏔ 另写一套监听 ✗）
+ */
+let funcMenuEl = null;
+function closeFuncMenu() {
+    if (funcMenuEl && funcMenuEl.parentNode) {
+        funcMenuEl.parentNode.removeChild(funcMenuEl);
+    }
+    funcMenuEl = null;
+}
+function openFuncMenu(anchorEl, items) {
+    const wasOpen = !!(funcMenuEl && funcMenuEl.__owner === anchorEl);
+    closeFuncMenu();
+    if (wasOpen) {
+        return;   // 再点一下收起 ✓
+    }
+    const host = lastSectionsHost || document.body;
+    const menu = el('div', 'wxg-funcmenu');
+    menu.__owner = anchorEl;
+    for (const it of items) {
+        const b = button(it.label, it.action, 'wxg-funcmenu-item', it.id);
+        if (it.title) {
+            b.title = it.title;
+        }
+        menu.appendChild(b);
+    }
+    host.appendChild(menu);
+    try {
+        const r = anchorEl.getBoundingClientRect();
+        const vw = window.innerWidth || 1000;
+        const left = Math.max(8, Math.min(vw - 216, r.right - 200));
+        menu.style.left = String(left) + 'px';
+        menu.style.top = String(r.bottom + 6) + 'px';
+    } catch (ePos) { /* 拿不到矩形就按默认位置 ✓ */ }
+    funcMenuEl = menu;
+    /* 点别处收起（捕获阶段先跑，但不拦菜单里的点击 ✓） */
+    setTimeout(() => {
+        const off = (ev) => {
+            if (menu && ev && ev.target && menu.contains && menu.contains(ev.target)) {
+                return;
+            }
+            document.removeEventListener('click', off, true);
+            closeFuncMenu();
+        };
+        document.addEventListener('click', off, true);
+    }, 0);
+}
 /**
  * 浮层在**编辑态**吗？默认 false＝**只读**；点右上「⋮」才进编辑。
  * （她的原话：不点是只读改不了免得弄错；目标包：⋮点开＝编辑这一位）
@@ -4777,9 +4829,16 @@ export function bindSectionEvents(host, refresh) {
                     openWorldEntryEditing = !openWorldEntryEditing;
                     renderWorldEntryCard();
                     break;
-                case 'world-func':
-                    toast.info('世界账的记录在各条的悬浮框「因果」区里看；编辑点那儿右上的 ⋮（点了才能改，不点只读）');
+                case 'world-func': {
+                    /* 材料 10 · 第 1 组裁定：真菜单（每项都是现成动作 ✓） */
+                    openFuncMenu(target, [
+                        { label: '立刻更新（重算世界账）', action: 'update-now' },
+                        { label: '写入世界书', action: 'publish-book' },
+                        { label: '对账（账与楼对齐）', action: 'reconcile' },
+                        { label: '清空这个世界…', action: 'clear-world-open' },
+                    ]);
                     break;
+                }
                 case 'health-open':
                     healthOpen = true;
                     renderHealthCard();
@@ -4802,16 +4861,27 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
-                case 'status-func':
-                    /* ⭐ 复审追加 A5①：口径跟现状对齐——「操作」卡早撕了，
-                     导出备份实际在「人物名册 → 录入」卡里；可撤回数在「世界四值」框。 */
-                    toast.info('导出与统计在「人物名册 → 录入」卡里；可撤回的版本数看本页「世界四值」框里那行「可撤回 N 版」');
+                case 'status-func': {
+                    /* 材料 10 · 第 1 组裁定：真菜单（每项都是现成动作 ✓） */
+                    openFuncMenu(target, [
+                        { label: '体检（跑一遍自检）', action: 'health-open' },
+                        { label: '立刻更新（跑一轮）', action: 'update-now' },
+                        { label: '补推历史（分批跑）', action: 'backfill' },
+                        { label: '撤回上一次', action: 'rollback' },
+                        { label: '导出备份（JSON）', action: 'export-data' },
+                    ]);
                     break;
-                case 'roster-func':
-                    /* ⭐ #39a：口径跟现状对齐——那个筛选早就换成「全部｜创建时间｜修改时间｜玩家棋子｜名字」了，
-     ——⛔ 再指一个不存在的筛选（她会去找、找不到就以为坏了） */
-toast.info('这里是去重合并／删除／清空的入口位；当前用法：行上的「⋯」里有合并与删除，名册上方可按「修改时间」排、筛选里选「玩家棋子」或搜名字');
+                }
+                case 'roster-func': {
+                    /* 材料 10 · 第 1 组裁定：真菜单（每项都是现成动作 ✓） */
+                    openFuncMenu(target, [
+                        { label: '查重（找出被拆成两条的）', action: 'detect-dupes' },
+                        { label: '一键合并重复组', action: 'merge-all-dupes' },
+                        { label: '导出备份（JSON）', action: 'export-data' },
+                        { label: '导入备份（JSON）', action: 'import-data' },
+                    ]);
                     break;
+                }
                 case 'roster-search':
                     // 边打边筛（change 才重画，⛔ 每敲一个字都重画整页）
                     if (isChange) {
