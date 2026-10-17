@@ -5750,7 +5750,28 @@ export function bindSectionEvents(host, refresh) {
                 case 'save-section': {
                     syncApiFromDom(host);
                     const n = commitSection(id);
-                    refreshToastSection(id, n);
+                    /*
+         * ⭐ ST8（材料 11·设置层）：**切「打开方式」保存后要当场换形态** ✓
+         *   旧：在工作台里改成「浮层面板」并点保存 ✗ ⇒ **当前开着的工作台不动** ✗
+         *     ⇒ 得手动关掉工作台、再去点魔法棒才生效 ✗
+         *   现在：保存「外观」段后看一眼当前形态 ✓
+         *     形态**不对** ⇒ 关一个开另一个 ✓；形态**已经对了** ⇒ **什么都不做** ✓（⏔ 无事重开打断她 ✗）
+         */
+        if (id === 'appearance') {
+            import('./workspace.js').then((wsm) => import('./shell.js').then((shm) => {
+                const want = getSettings().layoutMode === 'panel' ? 'panel' : 'workspace';
+                const wsOpen = (wsm && typeof wsm.isWorkspaceOpen === 'function') ? wsm.isWorkspaceOpen() : false;
+                const pnOpen = (shm && typeof shm.isPanelOpen === 'function') ? shm.isPanelOpen() : false;
+                if (want === 'panel' && !pnOpen) {
+                    if (wsm && typeof wsm.closeWorkspace === 'function') { wsm.closeWorkspace(); }
+                    if (shm && typeof shm.openPanel === 'function') { shm.openPanel(); }
+                } else if (want === 'workspace' && !wsOpen) {
+                    if (shm && typeof shm.closePanel === 'function') { shm.closePanel(); }
+                    if (wsm && typeof wsm.openWorkspace === 'function') { wsm.openWorkspace(); }
+                }
+            })).catch(() => {});
+        }
+        refreshToastSection(id, n);
         /*
          * ⭐ RD7（材料 11·渲染层）：**关掉召回卡片开关并保存后，聊天里已挂着的卡片要当场刷** ✓
          *   旧：只重画了设置面板 ✗ ⇒ 聊天流里的卡片**纹丝不动** ✗
