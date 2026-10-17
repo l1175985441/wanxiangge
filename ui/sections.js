@@ -4783,6 +4783,8 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-strict': patchSettings({ strictMention: target.checked }); break;
                 case 'set-auto-update': patchSettings({ autoUpdate: target.checked }); break;
                 case 'set-update-every': if (isChange) { patchSettings({ updateEvery: target.value }); } break;
+                /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
+                case 'stage-backfill-n': if (isChange) { patchSettings({ backfillN: target.value }); } break;
                 /* ---- 角色状态：明细开关 / 排序 ---- */
                 case 'toggle-cdetail': {
                     // 点「明细」展开那一行（只切显示，⛔ 不重画，免得丢她正在改的字）

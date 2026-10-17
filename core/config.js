@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.236';
+export const APP_VERSION = '0.3.237';
 
 export const LEDGER_VERSION = 3;
 
@@ -330,7 +330,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
      *    只算到 `floor - 1`（上一层已落定的楼），且 `shouldUpdateNow` 要求楼层推进 `>= updateEvery`
      *    才触发（同楼重 roll 绝不重复跑）。想当场算刚生成的最新楼，点「立刻更新」即可。
      */
-    updateEvery: 2,         // 推进几层楼自动更新一次（1回合=2楼；2＝每轮更新且停在上一轮，推荐）
+    updateEvery: 2,
+    backfillN: '',          // 补推历史的范围（留空＝全部；材料 11 · ST4 补上）         // 推进几层楼自动更新一次（1回合=2楼；2＝每轮更新且停在上一轮，推荐）
     protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
     maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
     autoUpdate: true,       // 新楼生成后自动更新
