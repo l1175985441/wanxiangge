@@ -1503,6 +1503,21 @@ export async function runUpdate(opts) {
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
      *   批内只记账 ⇒ 批收尾写一次 ✓（⛔ 改变批外行为 ✗）
      *   try/finally 保证：即使中间抛错，批也一定收尾、该落的盘照落 ✓ */
+    /*
+     * ⭐⭐ 材料 06【5】链路断路 2：**“立刻更新”与“补推历史”也要读好感** ✓
+     *   旧：`refreshAffinity()` **只在她发消息触发 planRecall 时调用一次** ✗
+     *     ⇒ 拿已有的十几层聊天记录去点“补推历史”时 ✗
+     *     ⇒ 整个推演过程**根本不去读 <meow_FM> 或手机世界书里的好感** ✗
+     *     ⇒ 跑完一看，名册里全部人的好感还是空的（“未接入”）✗✗
+     *   现在：每次跑更新（含补推）前先读一次 ✓（读不到就算了 ✓ ⏔ 拦主流程 ✗）
+     *   （用动态 import ✓ ⏔ 在模块顶部引入 worldbook，避开环依赖 ✗）
+     */
+    try {
+        const _wbMod = await import('./worldbook.js');
+        if (_wbMod && typeof _wbMod.refreshAffinity === 'function') {
+            await _wbMod.refreshAffinity();
+        }
+    } catch (eAff) { /* 好感读不到 ⏔ 能拦着不更新 ✓ */ }
     bindChatForRun();   /* R3：记下开跑时的聊天档 ✓ */
     beginSaveBatch();
     try {
