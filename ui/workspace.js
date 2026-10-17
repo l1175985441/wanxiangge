@@ -294,7 +294,14 @@ function renderChips() {
     if (p.status === 'failed') {
         items.push(['⚠ 上次更新失败', trimText(p.error) || '看「过程报告」']);
     }
+    /*
+     * ⭐⭐ 真机抳回来的大坑（材料 10 第 2 组的后续）：**快捷入口会被这里抹掉** ✗
+     *   旧：这里只救回 `close` 一颗 ✗ ⇒ 页头那颗「读取控制」默默消失 ✗
+     *   真机上就是：刚打开时有 ✓，一刷新（renderChips）就没了 ✗
+     *   现在：两颗都先救下、重建后按原顺序放回 ✓
+     */
     const close = box.querySelector('[data-ws-action="close"]');
+    const keepQuick = box.querySelector('[data-ws-action="goto-readctl"]');
     while (box.firstChild) {
         box.removeChild(box.firstChild);
     }
@@ -306,6 +313,9 @@ function renderChips() {
         }
         chip.textContent = k + '：' + v;
         box.appendChild(chip);
+    }
+    if (keepQuick) {
+        box.appendChild(keepQuick);
     }
     if (close) {
         box.appendChild(close);   // 关闭按钮始终在最后
