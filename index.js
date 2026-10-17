@@ -30,8 +30,9 @@ import { ensureWandEntry, syncEntryState } from './ui/wand.js';
 import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
+import { resetChannelCache } from './core/wb-channel.js';
 
-const VERSION = '0.3.277';
+const VERSION = '0.3.278';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -517,7 +518,17 @@ function startOnce(why) {
     const types = ctx && ctx.event_types;
 
     if (source && types && typeof types.APP_READY === 'string') {
-        source.on(types.APP_READY, () => startOnce('app-ready-event'));
+        /*
+     * ⭐ U3（材料 12·未覆盖死角）：**探测缓存要在就绪时清一次** ✓
+     *   旧：`resetChannelCache()` 导出了、注释也写了“酒馆助手可能是后加载的” ✗
+     *     但**全库 0 调用** ✗ ⇒ 启动那一瞬没摸到 TavernHelper，
+     *     结果就锁死在 legacy／none 直到刷新整个网页 ✗
+     *   现在：APP_READY（就绪）时清一次 ✓（之后回到正常缓存 ✓，⏔ 每轮都清 ✗）
+     */
+    source.on(types.APP_READY, () => {
+        try { resetChannelCache(); } catch (eU3) { /* 清不掉也不能拦着启动 ✓ */ }
+        startOnce('app-ready-event');
+    });
         if (typeof ctx.isReady === 'boolean' && ctx.isReady === true) {
             startOnce('isReady=true');
             return;
