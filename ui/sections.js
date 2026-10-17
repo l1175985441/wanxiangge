@@ -3679,6 +3679,29 @@ function renderPersonCard() {
             if (p && Number.isFinite(Number(p.fromFloor)) && Number(p.fromFloor) >= 0) {
                 line.insertBefore(el('span', 'wxg-pc-when', floorLabel(p.fromFloor)), line.firstChild);
             }
+            /*
+             * ⭐ 新增件 1（材料 13）：**过去经历逐条就地改与删** ✓
+             *   旧：浮层卡这块**只读** ✗（只有旧角色状态页那份有删与加 ✗）
+             *   现在：编辑态下每条带一个就地输入框＋存＋删 ✓
+             *   （用**真实下标**定位：`past` 是 slice，用 `one.past.indexOf(p)` 回去对 ✓）
+             */
+            if (personCardEditing) {
+                const ridx = (one.past || []).indexOf(p);
+                if (ridx >= 0) {
+                    const ep = document.createElement('input');
+                    ep.type = 'text';
+                    ep.className = 'wxg-pc-input';
+                    ep.id = 'wxg-past-edit-' + String(ridx);
+                    ep.value = trimText(p && p.text);
+                    const sbtn = button('存', 'past-save', 'wxg-btn-xs', c.id);
+                    sbtn.setAttribute('data-idx', String(ridx));
+                    const dbtn = button('删', 'past-del', 'wxg-btn-xs', c.id);
+                    dbtn.setAttribute('data-idx', String(ridx));
+                    line.appendChild(ep);
+                    line.appendChild(sbtn);
+                    line.appendChild(dbtn);
+                }
+            }
             q.appendChild(line);
         }
         sec2.appendChild(q);
@@ -5626,6 +5649,33 @@ export function bindSectionEvents(host, refresh) {
                         const nextB = cB.schedule.filter((x) => trimText(x && (x.what || x.text)) !== whatB);
                         updateCharacter(id, { schedule: nextB });
                         toast.ok('这条日程删掉了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'past-save': {
+                    /* ⭐ 新增件 1：**就地改一条过去经历** ✓ */
+                    const pi = Number(target.getAttribute('data-idx'));
+                    const cPs = findCharacter(id);
+                    const inpPs = document.getElementById('wxg-past-edit-' + String(pi));
+                    if (cPs && Array.isArray(cPs.past) && Number.isFinite(pi) && cPs.past[pi] && inpPs) {
+                        const nextPs = cPs.past.map((x, xi) => (xi === pi
+                            ? Object.assign({}, x, { text: trimText(inpPs.value), manual: true })
+                            : x));
+                        updateCharacter(id, { past: nextPs });
+                        toast.ok('这条过去经历改好了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'past-del': {
+                    /* ⭐ 新增件 1：**删一条过去经历** ✓ */
+                    const pp = Number(target.getAttribute('data-idx'));
+                    const cPd = findCharacter(id);
+                    if (cPd && Array.isArray(cPd.past) && Number.isFinite(pp)) {
+                        const nextPd = cPd.past.filter((x, xi) => xi !== pp);
+                        updateCharacter(id, { past: nextPd });
+                        toast.ok('这条过去经历删掉了');
                         rerender();
                     }
                     break;
