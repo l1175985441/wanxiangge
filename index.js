@@ -31,7 +31,7 @@ import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 
-const VERSION = '0.3.215';
+const VERSION = '0.3.216';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -125,6 +125,20 @@ function bindEvents(ctx) {
         lastUserFloor = Number.isFinite(Number(index)) ? Number(index) : chat.length - 1;
         const text = chat[lastUserFloor] ? chat[lastUserFloor].mes : '';
         planRecall({ floor: lastUserFloor, leadText: text });
+        /*
+         * ⭐⭐ 材料 10 · 第 3 组裁定（她 10-17 授权代拍）：**首轮＝「点发送就算」** ✓
+         *   旧：只有 MESSAGE_RECEIVED 才跑 ✗，且首轮（floor < 2）传 -1 ⇒ **啥也不算** ✗
+         *     ⇒ 她要等“下一楼／第 4 楼”才第一次进账 ✗
+         *   现在：**她一按发送**，就把「刚结束的那一轮」（上一个 AI 楼 ＝ 本楼 - 1）当场算掉 ✓
+         *   ⏔ 只改触发时机：同一楼不重烧（`shouldUpdateNow`）／Swipe 才重跑／频率门槛 全部照旧 ✓
+         *   ⚠️ 只在 `every >= 2`（默认，留一层缓冲）时补这一枪：
+         *      `every <= 1` 本来就是“生成完当场算新楼”，再补会**一轮跑两次** ✗（额度）
+         */
+        const every = Number(getSettings().updateEvery) || 2;
+        const prevAi = lastUserFloor - 1;
+        if (every >= 2 && prevAi >= 0) {
+            afterMessageReceived(prevAi);
+        }
     });
 
     // 正文生成完：卡片、面板、（按频率）后台更新世界与角色
