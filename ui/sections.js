@@ -1652,6 +1652,9 @@ const STAGE_MAP = {
     'stage-extract-books': ['extract', 'extractBooks', 'value'],
     'stage-exclude-books': ['extract', 'excludeBooks', 'value'],
     'stage-affinity-source': ['extract', 'affinitySource', 'value'],
+    /* ⭐ ST4-A：剥壳两个勾选框也归草稿 ✓ */
+    'stage-strip-paired': ['extract', 'stripPairedBlocks', 'checked'],
+    'stage-strip-comments': ['extract', 'stripHtmlComments', 'checked'],
     // 提示词
     'stage-inject-header': ['prompts', 'injectHeader', 'value'],
     'stage-prompt-world': ['prompts', 'promptWorld', 'value'],
@@ -1683,6 +1686,27 @@ function refreshAppearancePreview() {
         }
     } catch (e) {
         console.warn('[万象阁] 预览盒没刷新：', e);
+    }
+}
+
+/**
+ * ⭐ ST4-A：走草稿的同时，**少数几个开关仍要给一句反馈** ✓
+ *   （p3 字面要求：剥壳两个开关“也有反馈” ✓；其余格子靠保存条变色就够 ✓）
+ *   ⏔ 每个格子都弹一句（那样弹得没完没了 ✗）
+ */
+function stageFeedback(action, target) {
+    if (action === 'stage-strip-paired') {
+        /* ⚠️ 消息里带上控件名：toast 有防抖（同文案会被吞 ✗），两个开关共用一句就会只响一次 ✗ */
+        toast.info('按结构剥壳：' + (target.checked === true
+            ? '已勾上（点段底「保存」生效）'
+            : '已取消（点段底「保存」生效）'));
+        return;
+    }
+    if (action === 'stage-strip-comments') {
+        toast.info('剥 HTML 注释：' + (target.checked === true
+            ? '已勾上（点段底「保存」生效）'
+            : '已取消（点段底「保存」生效）'));
+        return;
     }
 }
 
@@ -4986,6 +5010,8 @@ export function bindSectionEvents(host, refresh) {
                      *   raced it and got "nothing unsaved". Now change commits at once. */
                     try { commitSection('api'); refreshSaveBar(host, 'api'); } catch (e1) { }                    } catch (e2) { /* ⛔ 影响输入 */ }
                 }
+                /* ⭐ ST4-A：个别开关仍要一句回执 ✓（一般格子看保存条 has-changes 就够 ✓） */
+                try { stageFeedback(action, target); } catch (eFb) { /* 回执报不出来也不能影响草稿 ✓ */ }
                 if (which) {
                     refreshSaveBar(host, which);
                     const bar = host.querySelector('.wxg-savebar[data-id="' + which + '"]');
@@ -6338,19 +6364,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
                 case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
-                case 'stage-strip-paired':
-                    if (!isChange) { break; }   /* R6（材料 05） */
-                    /* ⭐ ST4-A：走草稿 ✓（旧：patchSettings 立即落盘 ✗） */
-                    stage('extract', 'stripPairedBlocks', target.checked === true);
-                    refreshSaveBar(host, 'extract');
-                    toast.info(target.checked ? '已勾：会按结构剥掉成对的机器块（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
-                case 'stage-strip-comments':
-                    if (!isChange) { break; }   /* R6（材料 05） */
-                    /* ⭐ ST4-A：走草稿 ✓ */
-                    stage('extract', 'stripHtmlComments', target.checked === true);
-                    refreshSaveBar(host, 'extract');
-                    toast.info(target.checked ? '已勾：会剥掉 HTML 注释（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
                 case 'set-only-enabled':
                     if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
