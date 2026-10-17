@@ -3423,23 +3423,18 @@ function openFuncMenu(anchorEl, items) {
         menu.appendChild(b);
     }
     host.appendChild(menu);
-    try {
-        const r = anchorEl.getBoundingClientRect();
-        const vw = window.innerWidth || 1000;
-        const wantLeft = Math.max(8, Math.min(vw - 216, r.right - 200));
-        const wantTop = r.bottom + 6;
-        /*
-         * ⭐⭐ 真机抳回来的坑（材料 10 第 1 组的后续）：**坐标基准错位** ✓
-         *   菜单挂在工作台宿主里（为了能吃到它的事件委托 ✓），
-         *   而宿主上有 transform ⇒ `position:fixed` **变成相对宿主** ✗
-         *   ⇒ 直接用视口坐标会把菜单打到**左上角、压住左栏** ✗
-         *   现在：把宿主的相对坐标扣掉 ✓（宿主就是 body 时不扣 ✓）
-         */
-        const hostIsBody = !host || host === document.body;
-        const hRect = hostIsBody ? { left: 0, top: 0 } : host.getBoundingClientRect();
-        menu.style.left = String(Math.round(wantLeft - hRect.left)) + 'px';
-        menu.style.top = String(Math.round(wantTop - hRect.top)) + 'px';
-    } catch (ePos) { /* 拿不到矩形就按默认位置 ✓ */ }
+    /*
+     * ⭐ 只有“没有父节点”时才用矩形兜底 ✓
+     *   有父节点时靠 `wxg-funcmenu-anchored`（absolute + top:100% + right:0）贴住按钮 ✓
+     *   ⏔ 两套同时跑：内联 left/top 会把 CSS 那式盖掉 ✗（v0.3.259 真犯过 ✗）
+     */
+    if (!anchorParent) {
+        try {
+            const r = anchorEl.getBoundingClientRect();
+            menu.style.left = String(Math.max(8, Math.round(r.right - 200))) + 'px';
+            menu.style.top = String(Math.round(r.bottom + 6)) + 'px';
+        } catch (ePos) { /* 实在拿不到就用 CSS 默认位置 ✓ */ }
+    }
     funcMenuEl = menu;
     /* 点别处收起（捕获阶段先跑，但不拦菜单里的点击 ✓） */
     setTimeout(() => {
