@@ -98,7 +98,15 @@ export function openPanel() {
 
     // 内容区
     sectionsHost = document.createElement('div');
-    sectionsHost.className = 'wxg-panel-body';
+    /*
+     * ⭐ LY2（材料 11·布局层）：**浮层面板也要吃工作台那套布局规则** ✓
+     *   旧：面板体只有 `wxg-panel-body` ✗ 而大量布局规则前缀写死了 `.wxg-ws-main` ✗
+     *     ⇒ 切到「浮层面板」时：名册 4 列表格/状态页双栏/搜索框右对齐/五页标题居中 ✗
+     *     **全部坍塌** ✗
+     *   现在：给它补上 `wxg-ws-main`（布局子类 ✓）与 `wanxiangge`（视觉作用域 ✓）
+     *   ⏔ 补 `wxg-ws`：那个类是 `position:fixed; inset:0` 的**整窗**，借过来会把面板撞碎 ✗
+     */
+    sectionsHost.className = 'wxg-panel-body wxg-ws-main wanxiangge';
     root.appendChild(sectionsHost);
 
     // 缩放把手

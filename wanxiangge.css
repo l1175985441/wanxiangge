@@ -3806,3 +3806,15 @@ body.wxg-dragging {
     background: var(--wxg-card-bg, #fff);
     border-top: 1px solid var(--wxg-line, #e6e8ea);
 }
+
+/* ---------------- LY2：浮层面板也吃工作台布局（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 上面在 shell.js 给面板体补了 wxg-ws-main（那大批前缀分配规则就命中了）✓
+ *   但这一条前缀写的是 `.wxg-ws`（整窗类）✗ ⇒ 面板里用不到 ✗
+ *   ⇒ 这里补一份**面板体**的等价版 ✓（两层输入框不再缩成一团 ✓）
+ */
+.wxg-panel-body.wanxiangge .wxg-line > .wxg-line-v > input.text_pole:not([type="number"]),
+.wxg-panel-body.wanxiangge .wxg-line > .wxg-line-v > textarea.text_pole {
+    flex: 1 1 24em;
+    max-width: 42em;
+}
