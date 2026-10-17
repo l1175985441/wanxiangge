@@ -297,7 +297,16 @@ function elBtn(text, action, title) {
 
 /* ------------------------------ 事件 ------------------------------ */
 
+/* ⭐ 材料 06【4】（悬浮球）：**拖完松手那一下不能当点击** ✓
+ *   （原来 mouseup 后紧跟的 click 会误视一次展开／收起 ✗）
+ *   ⚠️ 这个标志必须在**模块级**（⏔ 在 makeDraggable 里声明——两个函数看不到彼此 ✗） */
+let miniJustDragged = false;
+
 function onMiniClick(e) {
+    if (miniJustDragged) {
+        miniJustDragged = false;
+        return;
+    }
     // 自己往上找目标（⛔ 不赌 closest 在环境里可用）
     let node = e && e.target ? e.target : null;
     let action = null;
@@ -499,6 +508,11 @@ function makeDraggable(root, handle) {
     const up = () => {
         if (!dragging) {
             return;
+        }
+        /* 真拖过 ⇒ 给紧跟的那次 click 留个标记 ✓（她松手时不会被弹开／收起 ✓） */
+        if (moved) {
+            miniJustDragged = true;
+            setTimeout(() => { miniJustDragged = false; }, 400);   /* 安全网：万一没来 click 也不能一直吞 ✓ */
         }
         dragging = false;
         if (moved) {
