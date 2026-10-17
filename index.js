@@ -32,7 +32,7 @@ import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 
-const VERSION = '0.3.288';
+const VERSION = '0.3.289';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -306,14 +306,15 @@ function teardownUi() {
     try { closeWorkspace(); } catch (eWs) { }
     try { closePanel(); } catch (ePnl) { }
     try {
+        /* ⚠️ 静态检查要求：`querySelectorAll` 上不能直接 `forEach` ⇒ 先 `Array.from` ✓ */
         /* 魔法棒里那一项：它没有专属类名 ⇒ 按文字认（只动菜单里那一项 ✓） */
-        document.querySelectorAll('#extensionsMenu .list-group-item').forEach((el) => {
+        Array.from(document.querySelectorAll('#extensionsMenu .list-group-item')).forEach((el) => {
             if ((el.textContent || '').indexOf(APP_NAME) >= 0) {
                 el.remove();
             }
         });
         /* 楼层召回卡片：只删**带 wxg- 类名的 details**（⏔ 碰酒馆自己的 ✗） */
-        document.querySelectorAll('details').forEach((d) => {
+        Array.from(document.querySelectorAll('details')).forEach((d) => {
             if (/\bwxg-/.test(String(d.className || ''))) {
                 d.remove();
             }
