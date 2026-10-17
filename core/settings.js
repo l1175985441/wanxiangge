@@ -311,6 +311,16 @@ export function fillTemplate(template, values) {
     for (const key of Object.keys(map)) {
         out = out.split('{{' + key + '}}').join(asText(map[key]));
     }
+    /*
+     * ⭐⭐ 材料 11 · 零（P4 补充）：**`{{user}}` 不许被抹成空** ✓
+     *   旧：下面那句把**所有**没填上的占位都换成空 ✗
+     *     ⇒ 她亲手写的「不能写 {{user}}」发出去那一刻变成「不能写 」✗
+     *     ⇒ 模型**永远不知道 user 是谁** ✗（这就是她报的那个病 ✗）
+     *   现在：`{{user}}` **单独兜底** ✓（谁没传就补成「玩家」✓），其余占位照旧清掉 ✓
+     */
+    if (!Object.prototype.hasOwnProperty.call(map, 'user')) {
+        out = out.split('{{user}}').join('玩家');
+    }
     // 没填上的占位换成空，⛔ 不把 {{xx}} 这种黑话喂给模型
     out = out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, '');
     return out;

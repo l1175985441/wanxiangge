@@ -46,7 +46,7 @@ function retryTokens(base, attempt) {
     /* ⭐ 重试时**只增不减** ✓（旧：底下限 200 ⇒ 会把用户额度倒扣砍半 ✗） */
     return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
-import { getChat } from './adapter.js';
+import { getChat, personaNames } from './adapter.js';
 import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
 import {
@@ -430,6 +430,42 @@ function mergeSituations(oldList, freshList) {
     return merged;
 }
 
+/**
+ * ⭐ 材料 11 · 零（P4 补充）：**把「user 是谁」真的喂进提示词** ✓
+ *   来源：`personaNames()`（酒馆当前人设名 ✓）＋ 名册里**标了玩家棋子**的名字与别名 ✓
+ *   去重后拼成一串 ✓；一个都没有 ⇒ 回「玩家」 ✓（⏔ 回空字串 ✗）
+ */
+function playerNamesForPrompt() {
+    try {
+        const out = [];
+        const seen = new Set();
+        const push = (raw) => {
+            const nm = trimText(raw);
+            const k = matchKey(nm);
+            if (!nm || !k || seen.has(k)) {
+                return;
+            }
+            seen.add(k);
+            out.push(nm);
+        };
+        for (const nm of (personaNames() || [])) {
+            push(nm);
+        }
+        for (const c of (loadState().characters || [])) {
+            if (!c || (c.isPlayer !== true && c.isYou !== true)) {
+                continue;
+            }
+            push(c.name);
+            for (const al of (Array.isArray(c.aliases) ? c.aliases : [])) {
+                push(al);
+            }
+        }
+        return out.length ? out.join('／') : '玩家';
+    } catch (eUser) {
+        return '玩家';
+    }
+}
+
 function capWorldMaterial(txt, attempt) {
     /* ⭐⭐ 链路是抽风型的（一会儿 400、一会儿回体 null ✗）
      *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⛔ 缩到没东西可看 ✗）
@@ -466,6 +502,7 @@ async function stepWorld(material, attempt) {
         .join('\n') || '（还没有暗线）';
 
     const prompt = fillTemplate(effectivePrompt('world'), {
+        user: playerNamesForPrompt(),
         world: [
             '世界钟：' + (trimText(world.clock) || '未知'),
             world.place ? '地点：' + trimText(world.place) : '',
@@ -1133,6 +1170,7 @@ async function stepCharacters(material, attempt) {
         });
     };
     const prompt = fillTemplate(effectivePrompt('chars'), {
+        user: playerNamesForPrompt(),
         clock: trimText(loadState().world.clock) || '未知',
         /*
          * ⭐ 修复单 #20：**bigPicture 也要过认知过滤**。
