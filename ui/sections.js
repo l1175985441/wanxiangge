@@ -2401,9 +2401,9 @@ function secAppearance(host) {
      *     但界面上**一个开关都没给** ✗ ⇒ 她只能被鼠标路过就弹开，关不掉 ✗
      *   现在：两个勾选框 ✓（立即落盘 ✓ ⏔ 走草稿 ✗ —— mini 不在暂存表里）
      */
-    cTheme.appendChild(checkbox('wxg-mini-hover', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
+    cTheme.appendChild(checkbox('wxg-hover-open', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
         getSettings().mini || {}.hoverOpen === true, 'mini-hover-toggle'));
-    cTheme.appendChild(checkbox('wxg-mini-pin', '钉住悬浮球（一挂上就展开）',
+    cTheme.appendChild(checkbox('wxg-pin-ball', '钉住悬浮球（一挂上就展开）',
         getSettings().mini || {}.pinned === true, 'mini-pin-toggle'));
 
     // 实时预览：四个槽位长什么样，直接给她看
