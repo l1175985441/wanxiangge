@@ -928,8 +928,25 @@ export function addHiddenManually(line) {
 export function removeHidden(id) {
     const state = loadState();
     const before = state.world.hidden.length;
+    const gone = state.world.hidden.find((h) => h && h.id === id) || null;   /* 先记下被删的那条 ✓ */
     state.world.hidden = state.world.hidden.filter((h) => h.id !== id);
     if (state.world.hidden.length !== before) {
+        /*
+         * ⭐⭐ 材料 06【5】链路断路 1（最痛那半）：**刚手删的暗线不能再被召回** ✓
+         *   旧：只从 `state.events` 挑世界事件 ✗，而写 events 的只有 stepWorld ✗
+         *     ⇒ 她手删一条假暗线后，**只要还没跑下一次后台推演** ✗
+         *     ⇒ 它**依然被召回、继续塞给主模型** ✗✗
+         *   现在：删掉暗线的同时，把对应的世界事件从召回池里也拿掉 ✓
+         */
+        try {
+            const goneName = trimText(gone && gone.name);
+            if (goneName && Array.isArray(state.events) && state.events.length) {
+                state.events = state.events.filter((ev) => {
+                    const evT = trimText(ev && (ev.title || ev.name));
+                    return !(evT && matchKey(evT) === matchKey(goneName));
+                });
+            }
+        } catch (eEv) { /* 清不掉也不能把删除搞挂 ✓ */ }
         saveState();
         // ⭐ 复审追加 C1：她亲手删的 ⇒ 底稿直接跟着变（⛔ 等下次被捞回来）
         syncMirrorAfterDelete(state);
