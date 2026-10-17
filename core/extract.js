@@ -29,11 +29,16 @@ const TAG_CHARS = '[A-Za-z_\\u4e00-\\u9fff\\u3040-\\u30ff\\uac00-\\ud7af][\\w\\-
  *     内容没句读、也不是台账 ⇒ `looksLikeMachineBlock` 判真 ✗ ⇒ **整块被当机器块删掉** ✗
  *   现在：这些标签只管排版，**不参与整块剥** ✓（内容与标签都留着 ✓）
  */
+/*
+ * ⚠️ 收紧：只收**纯排版的行内标签** ✓
+ *   我上一版把 `var`、`code`、`pre`、`table`、`div` 这些也放进来了 ✗
+ *   ⇒ 撞了既有用例（`A<var>x=1</var>B` 本该剥成 `AB` ✗）
+ *   现在：只留材料点名的那几个＋同类行内排版标签 ✓
+ */
 const LAYOUT_TAGS = new Set([
     'b', 'i', 'u', 's', 'em', 'strong', 'span', 'font', 'center', 'p', 'br', 'ruby', 'rt', 'rp',
-    'small', 'big', 'sub', 'sup', 'mark', 'del', 'ins', 'q', 'cite', 'abbr', 'code', 'pre', 'kbd',
-    'var', 'samp', 'wbr', 'hr', 'img', 'a', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'blockquote',
-    'table', 'thead', 'tbody', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article', 'aside', 'header', 'footer',
+    'small', 'big', 'sub', 'sup', 'mark', 'del', 'ins', 'q', 'cite', 'abbr', 'wbr', 'hr', 'img',
+    'a',
 ]);
 
 const PAIR_RULES = [
