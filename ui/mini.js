@@ -416,6 +416,17 @@ function onMiniClick(e) {
     if (action === 'toggle') {
         setExpanded(!isExpanded());
     }
+    /*
+     * ⭐ 材料 06【4】（悬浮球）：**通用动作也要刷小框与工作台** ✓
+     *   旧：只有 `update` 那条路刷了 ✗
+     *     ⇒ 她点「撤回上一次／对账／重算本楼」后 ✗
+     *     ⇒ **工作台还是旧的**（得手动再开一次才看得到变化 ✗）
+     *   现在：这些动作跑完也刷一次 ✓（⏔ 去动展开／收起／隐藏 ✗）
+     */
+    if (action && action !== 'toggle' && action !== 'collapse' && action !== 'hide') {
+        refreshMini();
+        try { refreshWorkspace(); } catch (eWs2) { /* 工作台没开就算了 ✓ */ }
+    }
 }
 
 /* ------------------------------ 拖拽 ------------------------------ */
