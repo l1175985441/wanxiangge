@@ -3771,8 +3771,17 @@ body.wxg-dragging {
     .wxg-two > * {
         min-width: 0;
     }
+    /* ⭐ 真机第 3 次：根层 `.wxg-ws` 还溢出 281px ✗
+     *   内层 page/main 都已经是 0 ✓ ⇒ 剩下的就是顶部条那一行气泡（不能换行时撑破）✗
+     *   现在：顶部条允许自己滚 + 根层把溢出**裁掉**（它是全屏覆盖层，裁掉就是应该的 ✓）
+     */
     .wxg-ws-strip {
         flex-wrap: wrap;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .wxg-ws {
+        overflow-x: clip;
     }
     .wanxiangge .wxg-ws-pagehead,
     .wanxiangge .wxg-sec-body {
