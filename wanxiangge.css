@@ -1235,10 +1235,17 @@
      *    底下聊天文字会透上来 ⇒ 面板里外两层字叠一起，看着脏。
      *    这里先在底下垫一层**不透明**的底，再叠主题色 ⇒ 保留她的色调，但不再透字。
      */
-    background-color: #1b1d21;
-    background-image: linear-gradient(var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96)),
-            var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96)));
-    color: var(--SmartThemeBodyColor, inherit);
+    /*
+     * ⭐ RD6（材料 11·渲染层）：**壳子要跟着她选的配色走** ✓
+     *   旧：这里硬写了 #1b1d21＋酒馆主题色 ✗
+     *     ⇒ `syncPanelAppearance` 写在面板根上的 --wxg-bg／--wxg-text **压根没被引用** ✗
+     *     ⇒ 「浮层面板也用这套配色」开关**完全失灵**（里面浅色、外壳黑乎乎 ✗）
+     *   现在：优先用 --wxg-bg／--wxg-text ✓，两个变量没写时才回到原来的深色底 ✓
+     */
+    background-color: var(--wxg-bg, #1b1d21);
+    background-image: linear-gradient(var(--wxg-bg, var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96))),
+            var(--wxg-bg, var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.96))));
+    color: var(--wxg-text, var(--SmartThemeBodyColor, inherit));
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
     overflow: hidden;
     resize: none;
