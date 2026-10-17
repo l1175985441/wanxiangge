@@ -1809,6 +1809,9 @@ export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
 let listBooksCache = [];
 
+/* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
+let lastModelList = [];
+
 /** 角色状态：搜索与排序的"记忆"（重画之后还在，不会因为改一个字就被清空） */
 export const charSearch = { query: '', sort: 'recent' };
 
@@ -2584,6 +2587,8 @@ function secExtract(host) {
     setTimeout(() => {
         try {
             if (Array.isArray(listBooksCache) && listBooksCache.length) {
+                /* ⭐ RD1-2：缓存里有 ⇒ **直接把芯片画回来** ✓（旧：直接 return ⇒ 重绘后全没 ✗） */
+                try { paintBookPicks(host); } catch (ePB) { /* 画不出来也不能把这一页搞挂 ✓ */ }
                 return;
             }
             const btn = host.querySelector('[data-action="list-books"]');
@@ -2706,7 +2711,11 @@ function secApi(host) {
      */
     line(cCh, '', button('拉取模型列表', 'fetch-models', 'wxg-btn-sm'),
         el('span', 'wxg-note', '（向地址 + /models 要一份清单；拉不到也可以自己填）'));
-    cCh.appendChild(el('div', 'wxg-chipwrap', '')).id = 'wxg-api-modellist';
+    const modelBoxEl = el('div', 'wxg-chipwrap', '');
+    modelBoxEl.id = 'wxg-api-modellist';
+    cCh.appendChild(modelBoxEl);
+    /* ⭐ RD1-3：拉过就画回来 ✓（旧：重绘变空盒 ✗） */
+    try { paintModelChips(modelBoxEl); } catch (eMP) { /* 同上 ✓ */ }
     line(cCh, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
     /* ⭐修复 15（材料 02）：**温度框设 step="0.1"** ✓
      *   （旧：步长默认 1 ✗ ⇒ 她想填 0.6 这种小数很别扭 ✗） */
@@ -4386,6 +4395,31 @@ export function renderSections(host, opts) {
  * @param {Array<string>} ex 待保存的"提取"名单
  * @param {Array<string>} no 待保存的"排除"名单
  */
+/**
+ * ⭐ RD1-3（材料 11）：把 `lastModelList` 画成芯片 ✓
+ *   （重建与拉取两边共用同一份标记 ✓，⏔ 两套写法 ✗）
+ */
+function paintModelChips(boxEl) {
+    if (!boxEl || !boxEl.appendChild) {
+        return;
+    }
+    while (boxEl.firstChild) {
+        boxEl.removeChild(boxEl.firstChild);
+    }
+    if (!Array.isArray(lastModelList) || !lastModelList.length) {
+        return;
+    }
+    const rowEl = el('div', 'wxg-chiprow');
+    for (const nm of lastModelList) {
+        const chip = el('button', 'wxg-chip', nm);
+        chip.type = 'button';
+        chip.setAttribute('data-action', 'pick-model');
+        chip.setAttribute('data-name', nm);
+        rowEl.appendChild(chip);
+    }
+    boxEl.appendChild(rowEl);
+}
+
 export function paintBookPicks(host, ex, no) {
     const wrap = host && host.querySelector ? host.querySelector('#wxg-bookpick') : null;
     if (!wrap) {
@@ -6277,6 +6311,8 @@ export function bindSectionEvents(host, refresh) {
                         toast.fail('没拉到：' + res.reason + '（你仍可以自己填模型名）');
                         break;
                     }
+                    /* ⭐ RD1-3：先存下来 ✓（重绘时 paintModelChips 靠它 ✓） */
+                    lastModelList = res.list.slice(0, 80);
                     const chipRow = el('div', 'wxg-chiprow');
                     for (const nm of res.list.slice(0, 80)) {
                         const chip = el('button', 'wxg-chip', nm);
