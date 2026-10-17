@@ -3775,10 +3775,20 @@ body.wxg-dragging {
      *   内层 page/main 都已经是 0 ✓ ⇒ 剩下的就是顶部条那一行气泡（不能换行时撑破）✗
      *   现在：顶部条允许自己滚 + 根层把溢出**裁掉**（它是全屏覆盖层，裁掉就是应该的 ✓）
      */
-    .wxg-ws-strip {
+    /* ⭐ 真机第 4 次：我上一条写的 `.wxg-ws-strip` **这个类不存在** ✗
+     *   真正超出的是顶部右侧那组芯片（`.wxg-ws-right`，真机量到它右边界到 901px/620）✗
+     *   ⇒ 让它换行、芯片自己截断，就不会被根层裁掉 ✓
+     */
+    .wxg-ws-right {
         flex-wrap: wrap;
-        overflow-x: auto;
+        justify-content: flex-end;
+        min-width: 0;
         max-width: 100%;
+    }
+    .wxg-ws-chip {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .wxg-ws {
         overflow-x: clip;
