@@ -937,7 +937,14 @@ function applyCharacter(raw, material, conflicts) {
             continue;
         }
         if (s.dueReached) {
-            s.done = true;
+            /*
+             * ⭐ B4（材料 13·兑现率）：**到点不等于办完** ✓
+             *   旧：这里立刻 `s.done = true` ✗
+             *     而两处注入（personBlock 与 chars）只发 `!s.done` 的 ✗
+             *     ⇒ 日程好不容易到点，**到点那一刻就从提示里消失了** ✗
+             *   现在：保留“已到点”这个标记 ✓（不重复记账 ✓）但**不置 done** ✓
+             *     ⇒ 她与主模型都能看到“这件事到点了、还没了结” ✓
+             */
             continue;
         }
         if (!trimText(s.due)) {
