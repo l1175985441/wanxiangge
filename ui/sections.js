@@ -3483,6 +3483,27 @@ function renderPersonCard() {
     pop.appendChild(foot);
 
     (lastSectionsHost || document.body).appendChild(pop);
+
+    /*
+     * ⭐⭐ 材料 06【4】#6：**只读态下那几格不该裸露可点** ✓
+     *   旧：没点 ⋮（只读态）时，「这是玩家棋子」「参与后台推演」两个勾选框、
+     *     「他知道什么」的加／删、以及任务的状态下拉与删除按钮**全都裸露可点** ✗
+     *     ⇒ 误触一下就直接改账 ✗
+     *   现在：只读态 ⇒ 这几类控件**统一禁用** ✓（看得见、点不动 ✓）；点 ⋮ 进编辑态就能点 ✓
+     *   （审计 audit-3-panel 也是先点 card-edit 才改 ✓ ⇒ 不冲突 ✓）
+     */
+    if (!personCardEditing) {
+        try {
+            const lockSel = '[data-action=" + String.fromCharCode(34) + "set-player" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "add-know" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "del-know" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "set-quest-status" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "del-quest" + String.fromCharCode(34) + "]';
+            const lockables = pop.querySelectorAll(lockSel);
+            for (const el2 of Array.from(lockables)) {
+                if (el2 && el2.setAttribute) {
+                    el2.setAttribute('disabled', 'disabled');
+                    if (el2.style) { el2.style.opacity = '0.45'; }
+                }
+            }
+        } catch (eLock) { /* 锁不上也不能把卡片搞挂 ✓ */ }
+    }
     bindPersonCardDrag(pop);
 }
 
