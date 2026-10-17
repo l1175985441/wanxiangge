@@ -1747,9 +1747,13 @@ body.wxg-dragging {
  */
 
 /* 工作台里：卡片比页面底亮一档（用文字色罩色，深浅都成立），竖条用我们自己的强调色 */
-.wxg-ws .wanxiangge .wxg-card {
-    background: rgba(128, 128, 128, 0.1);
-}
+/*
+ * ⭐ RD5（材料 11·渲染层）：**这条旧规则已删** ✓
+ *   旧：选择器权重 0,3,0 比下面「.wanxiangge .wxg-card」（0,2,0）更高 ✗
+ *     ⇒ 把工作台里**所有**卡片压成 rgba(128,128,128,0.1) 的脏灰底 ✗
+ *     ⇒ theme.js 专门给白底主题算的 --wxg-card-bg 白卡片**全白算** ✗
+ *   现在：这条删成注释 ✓ ⇒ 卡片底色只由 --wxg-card-bg 决定 ✓（深浅主题都对 ✓）
+ */
 
 .wxg-ws .wanxiangge .wxg-card::before {
     background: var(--wxg-accent, var(--wxg-line));
