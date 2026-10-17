@@ -1503,6 +1503,37 @@ export function setLimits(limits) {
 
 /* ------------------------------ 导出与统计 ------------------------------ */
 
+/**
+ * ⭐ 材料 06【4】#1：**把导出的备份导回来** ✓
+ *   （她只能导出、不能导回 ✗ —— 27 个文件里一个导入函数都没有 ✗）
+ *   行为：拿导入的对象过一遍 normalizeState ✓ ⇒ **整本换掉当前聊天档的账** ✓
+ *   ⏔ 自己留快照：由调用方（UI）先 takeSnapshot ✓（她点了确认才到这里 ✓）
+ * @returns {{ok: boolean, reason?: string, counts?: object}}
+ */
+export function importState(raw) {
+    try {
+        if (!raw || typeof raw !== 'object') {
+            return { ok: false, reason: '这个文件不像万象阁的备份（不是 JSON 对象）' };
+        }
+        const norm = normalizeState(raw);
+        norm.version = LEDGER_VERSION;
+        cache = norm;
+        cacheKey = currentChatKey();
+        writeLedger(norm);
+        return {
+            ok: true,
+            counts: {
+                characters: (norm.characters || []).length,
+                hidden: ((norm.world || {}).hidden || []).length,
+                situations: ((norm.world || {}).situations || []).length,
+                chronicle: (norm.chronicle || []).length,
+            },
+        };
+    } catch (e) {
+        return { ok: false, reason: e && e.message ? e.message : String(e) };
+    }
+}
+
 export function exportState() {
     return deepClone(loadState());
 }

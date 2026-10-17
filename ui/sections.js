@@ -21,8 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow,
-} from '../core/state.js';
+    addKnow, removeKnow, importState } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
 import {
@@ -2037,7 +2036,9 @@ function secRoster(host) {
     row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'),
                 /* ⭐修复 15（材料 02）：**一键合并查重出的所有重复组** ✓ */
                 button('一键合并重复组', 'merge-all-dupes'),
-                button('导出备份（JSON）', 'export-data'));
+                button('导出备份（JSON）', 'export-data'),
+                /* ⭐ 材料 06【4】#1：**导入／恢复备份** ✓（她只能导出、不能导回 ✗） */
+                button('导入备份（JSON）', 'import-data'));
     box.appendChild(cIn);
 
     /*
@@ -5609,6 +5610,52 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                             box.textContent = '疑似重复：' + dupes.map((d) => d.map((x) => x.name).join(' ⇄ ')).join(' ｜ ')
                                 + '（用「按这条合并…」处理）';
                         }
+                    }
+                    break;
+                }
+                case 'import-data': {
+                    /* 她选一个 .json ⇒ 先问一句 ⇒ 留快照 ⇒ 整本导入 ✓ */
+                    try {
+                        const inp = document.createElement('input');
+                        inp.type = 'file';
+                        inp.accept = '.json,application/json';
+                        inp.style.display = 'none';
+                        document.body.appendChild(inp);
+                        inp.addEventListener('change', () => {
+                            const f = inp.files && inp.files[0];
+                            if (!f) { return; }
+                            const rd = new FileReader();
+                            rd.onload = () => {
+                                try {
+                                    const data = JSON.parse(String(rd.result || '{}'));
+                                    const ask = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+                                        ? window.confirm('要把这份备份导入进来吗？\n\n（会先留一份快照，「撤回上一次」能撤回来 ✓）')
+                                        : true;
+                                    if (!ask) { return; }
+                                    takeSnapshot('导入备份前');
+                                    const res = importState(data);
+                                    if (!res || res.ok !== true) {
+                                        toast.fail('导入没成：' + ((res && res.reason) || '不知道为什么'));
+                                        return;
+                                    }
+                                    const cnt = (res && res.counts) || {};
+                                    toast.ok('导入好了：人 ' + String(cnt.characters || 0)
+                                        + ' ｜ 暗线 ' + String(cnt.hidden || 0)
+                                        + ' ｜ 局势 ' + String(cnt.situations || 0)
+                                        + ' ｜ 编年 ' + String(cnt.chronicle || 0));
+                                    rerender();
+                                } catch (eP) {
+                                    toast.fail('这个文件读不成：' + ((eP && eP.message) || String(eP)));
+                                } finally {
+                                    try { inp.remove(); } catch (eR) { /* 删不掉也不要紧 ✓ */ }
+                                }
+                            };
+                            rd.onerror = () => { toast.fail('读这个文件失败'); };
+                            rd.readAsText(f);
+                        });
+                        inp.click();
+                    } catch (eImp) {
+                        toast.fail('打不开选文件的窗口：' + ((eImp && eImp.message) || String(eImp)));
                     }
                     break;
                 }
