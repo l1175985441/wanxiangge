@@ -230,6 +230,18 @@ export function onFloorEdited(floor) {
         if (dropRecallRecord(floor)) {
             refreshCardOnFloor(floor);
         }
+        /*
+         * ⭐ U12（材料 12·未覆盖死角）：**编辑过的楼层要重算一次** ✓
+         *   旧：只把那一楼的召回记录摘掉，**从不重算** ✗
+         *     ⇒ 那一楼从此再也没有召回卡片 ✗
+         *   现在：摘掉之后再跑一次 planRecall ✓（把这一楼重新算好、卡片重新挂上 ✓）
+         *   ⏔ 动其他楼层：planRecall 只围绕这一楼算 ✓
+         */
+        try {
+            planRecall({ floor });
+        } catch (eU12) {
+            console.warn('[' + '万象阁' + '] 编辑后重算召回失败：', eU12);
+        }
         refreshAllViews();
     });
 }
