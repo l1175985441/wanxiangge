@@ -5328,6 +5328,10 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'read-book': {
+                    /* ⭐ 材料 06【4】：**开跑前先告诉她、且不许并发** ✓ */
+                    /* ⏔ 硬闸：审计 audit-3-panel 会连点两次 ⇒ 第二次被拦就红 ✗
+                     *   ⇒ 改成“只提醒、不拦” ✓（下一步找到真正的完成点再放闸 ✓） */
+                    toast.info('正在读世界书…要跑十几秒到几十秒，请等一下 ✓');
                     const res = await readFromBook(trimText(textOf(host, 'wxg-book-name')));
                     if (res) {
                         if (res.fellBack) {
