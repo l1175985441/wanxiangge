@@ -1550,6 +1550,10 @@ const STAGE_MAP = {
     'stage-recent-turns': ['recall', 'recentTurns', 'value'],
     'stage-max-chars': ['recall', 'maxChars', 'value'],
     'stage-max-events': ['recall', 'maxEvents', 'value'],
+    'stage-cap-past': ['recall', 'capPast', 'value'],
+    'stage-cap-events': ['recall', 'capEvents', 'value'],
+    'stage-cap-hidden': ['recall', 'capHidden', 'value'],
+    'stage-cap-chronicle': ['recall', 'capChronicle', 'value'],
     'stage-past-floor-cut': ['recall', 'pastFloorCut', 'value'],
     'stage-max-parallel': ['recall', 'maxParallelChars', 'value'],
     'stage-sort-mode': ['recall', 'sortMode', 'value'],
@@ -2380,6 +2384,24 @@ function secRecall(host) {
         el('span', 'wxg-note', '个'));
     line(cPick, '事件封顶',
         numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'),
+        el('span', 'wxg-note', '条'));
+    /*
+     * ⭐ ST1（材料 11·设置层）：**4 个容量锁设置，面板上终于有输入框了** ✓
+     *   旧：capPast／capEvents／capHidden／capChronicle 在 DEFAULT_SETTINGS、loadSettings、
+     *     patchSettings、applyLimits 里全套齐全 ✓ 但面板上**一个输入框都没画** ✗
+     *     ⇒ 她永远改不了它们 ✗（她原话 [54] 专门要过“保留几条过去经历” ✓）
+     */
+    line(cPick, '过去经历留几条',
+        numberInput('wxg-cap-past', s.capPast, 2, 20, 'stage-cap-past'),
+        el('span', 'wxg-note', '条（每个角色；超出的旧自然淡出）'));
+    line(cPick, '世界事件上限',
+        numberInput('wxg-cap-events', s.capEvents, 10, 300, 'stage-cap-events'),
+        el('span', 'wxg-note', '条'));
+    line(cPick, '暗线上限',
+        numberInput('wxg-cap-hidden', s.capHidden, 5, 200, 'stage-cap-hidden'),
+        el('span', 'wxg-note', '条'));
+    line(cPick, '编年上限',
+        numberInput('wxg-cap-chronicle', s.capChronicle, 100, 5000, 'stage-cap-chronicle'),
         el('span', 'wxg-note', '条'));
     line(cPick, '排序', select('wxg-sort-mode', [
         { value: 'related', label: '按相关度（先说到的排前面）' },
@@ -5900,6 +5922,10 @@ export function bindSectionEvents(host, refresh) {
                 case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
                 case 'stage-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
                 case 'stage-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
+                case 'stage-cap-past': if (isChange) { patchSettings({ capPast: target.value }); rerender(); } break;
+                case 'stage-cap-events': if (isChange) { patchSettings({ capEvents: target.value }); rerender(); } break;
+                case 'stage-cap-hidden': if (isChange) { patchSettings({ capHidden: target.value }); rerender(); } break;
+                case 'stage-cap-chronicle': if (isChange) { patchSettings({ capChronicle: target.value }); rerender(); } break;
                 case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
                 /* ---- 外观（我们自己的配色） ---- */
                 case 'set-appearance': {
