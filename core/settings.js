@@ -116,7 +116,15 @@ function loadSettings() {
     merged.pastFloorCut = clampNumber(merged.pastFloorCut, 0, 50, DEFAULT_SETTINGS.pastFloorCut);
 
     merged.sortMode = merged.sortMode === 'name' ? 'name' : 'related';
-    merged.enabled = merged.enabled !== false;
+    /*
+     * ⭐ ST3（材料 11·设置层）：**幽灵总开关归一化为开** ✓
+     *   旧：`merged.enabled = merged.enabled !== false` ✗
+     *     ⇒ 面板上早已拆掉总开关复选框（她去酒馆扩展列表关 ✓）✗
+     *     ⇒ 但旧存档里一旦是 false ✗ ⇒ **全插件所有功能直接罢工**（报总开关关着 ✗）
+     *     ⇒ 且面板上**没有任何开关能把它重新打开** ✗
+     *   现在：加载时**强制归一化为开** ✓（开关真实位置＝酒馆扩展列表 ✓）
+     */
+    merged.enabled = true;
     merged.cardEnabled = merged.cardEnabled !== false;
     merged.showEmptyCard = merged.showEmptyCard !== false;
     merged.strictMention = merged.strictMention === true;
