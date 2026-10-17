@@ -811,9 +811,34 @@ export function updateWorld(patch, options) {
     const state = loadState();
     const w = state.world;
     const opts = options || {};
-    Object.assign(w, patch || {});
+    /*
+     * ⭐⭐ 材料 06【5】链路断路 4（收口）：**模型写的 ⏔ 盖掉她手改过的格** ✓
+     *   她手改时传 `manual: true` ✓ ⇒ 照旧能写 ✓（包括改回去 ✓）
+     *   模型（stepWorld）不传 ✗ ⇒ 她手改过的那几格**不被覆盖** ✓（其余格照常更新 ✓）
+     */
+    const _patch = Object.assign({}, patch || {});
+    if (opts.manual !== true && w.manualFields && typeof w.manualFields === 'object') {
+        for (const mk of Object.keys(_patch)) {
+            if (w.manualFields[mk] === true) {
+                delete _patch[mk];
+            }
+        }
+    }
+    Object.assign(w, _patch);
     w.updatedAt = now();
     w.manual = opts.manual === true ? true : w.manual === true;
+    /*
+     * ⭐⭐ 材料 06【5】链路断路 4：**手改要按字段锁住** ✓
+     *   旧：只有一个粗标志 `w.manual` ✗（一格手改 = 整块世界状态，没法用 ✗）
+     *   现在：`w.manualFields` 记下**具体哪几格** ✓
+     *     （stepWorld 回写时只跳过这几格 ✓、其余照常更新 ✓）
+     */
+    if (opts.manual === true && patch && typeof patch === 'object') {
+        w.manualFields = Object.assign({}, w.manualFields || {});
+        for (const mk of Object.keys(patch)) {
+            w.manualFields[mk] = true;
+        }
+    }
     saveState();
     return w;
 }
@@ -833,6 +858,13 @@ export function upsertHidden(line) {
 
     const existing = state.world.hidden.find((h) => h.name === name);
     if (existing) {
+    /* ⭐ 材料 06【5】链路断路 4：**她手改过的暗线，模型⏔ 能冲掉** ✓
+     *   （旧：状态/火候照单全收 ✗ ⇒ 刚手改完、下一轮后台一跑就被冲掉 ✗）
+     *   现在：只跳过**她手改的那几格**（当前实现：整条跳过模型推进 ✓）
+     *   ⏔ 跳过统计：`sinceDay`等起算点照旧维护 ✓ */
+    if (existing && existing.manual === true) {
+        return existing;
+    }
         const before = existing.stage;
         const newStage = trimText(line.stage) || existing.stage;
         // ⭐ 族类不许被"没给"冲掉（条 1 的连带）：给了就用给的，没给就沿用原来的，
