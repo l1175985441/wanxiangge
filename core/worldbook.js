@@ -412,7 +412,13 @@ export async function refreshAffinity() {
      */
     try {
         const ctx0 = getCtx();
-        const msgs = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat.slice(-8) : [];
+        /*
+         * 好感块（手机／relation）**不一定每轮都写**：只扫最近八楼时，
+         * 隔了十几轮没写块就会整段读不到，名册上的好感静静停在旧值。
+         * 解析是“后出现覆盖先出现”（取最新），所以放宽窗口不会让旧值盖掉新值 ✓
+         */
+        const AFFINITY_SCAN_FLOORS = 60;
+        const msgs = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat.slice(-AFFINITY_SCAN_FLOORS) : [];
         const text = msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n');
         const hit = affinityFromText(text, roster, source);
         if (hit.length) {
