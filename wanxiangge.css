@@ -3731,3 +3731,17 @@ body.wxg-dragging {
     grid-column: 1 / -1;
     justify-self: start;
 }
+
+/* ---------------- LY4：状态页上排两框高度失调（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 左边「进度」卡高约 360px，右边「世界四值」只有 1 行字（约 90px）✗
+ *   ⇒ 右上角一个矮框下面**空出 270px 的大白洞**，左右视觉极不平衡 ✗
+ *   现在：两框拉齐高度（stretch + 子卡 height:100% ✓），右框内容靠上 ✓
+ */
+.wanxiangge .wxg-two {
+    align-items: stretch;
+}
+.wanxiangge .wxg-two > .wxg-card {
+    height: 100%;
+    box-sizing: border-box;
+}
