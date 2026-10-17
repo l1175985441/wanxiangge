@@ -2472,10 +2472,18 @@ function secAppearance(host) {
      *     但界面上**一个开关都没给** ✗ ⇒ 她只能被鼠标路过就弹开，关不掉 ✗
      *   现在：两个勾选框 ✓（立即落盘 ✓ ⏔ 走草稿 ✗ —— mini 不在暂存表里）
      */
+    /*
+     * ⭐⭐ 真机自查抳回：**两个勾选框恒为真** ✗
+     *   旧：`getSettings().mini || {}.hoverOpen === true` ✗
+     *     优先级：`===` 先结合 ⇒ `mini || (undefined === true)` ⇒ **mini 对象本身（恒为真）** ✗
+     *     ⇒ 她不管怎么取消，重开面板两个勾**又都是勾上的** ✗
+     *   现在：先合并出生效值（已存＋草稿），再考量它是不是 `=== true` ✓
+     */
+    const miniEff = Object.assign({}, getSettings().mini || {}, stagedValue(SECID, 'mini', null) || {});
     cTheme.appendChild(checkbox('wxg-hover-open', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
-        getSettings().mini || {}.hoverOpen === true, 'mini-hover-toggle'));
+        miniEff.hoverOpen === true, 'mini-hover-toggle'));
     cTheme.appendChild(checkbox('wxg-pin-ball', '钉住悬浮球（一挂上就展开）',
-        getSettings().mini || {}.pinned === true, 'mini-pin-toggle'));
+        miniEff.pinned === true, 'mini-pin-toggle'));
 
     // 实时预览：四个槽位长什么样，直接给她看
     const pv = el('div', 'wxg-app-preview');
@@ -5888,6 +5896,8 @@ export function bindSectionEvents(host, refresh) {
          *     形态**不对** ⇒ 关一个开另一个 ✓；形态**已经对了** ⇒ **什么都不做** ✓（⏔ 无事重开打断她 ✗）
          */
         if (id === 'appearance') {
+            /* ⭐ ST4-A：小框两个开关现在走草稿 ⇒ **保存后**才取到新值 ✓ */
+            import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
             import('./workspace.js').then((wsm) => import('./shell.js').then((shm) => {
                 const want = getSettings().layoutMode === 'panel' ? 'panel' : 'workspace';
                 const wsOpen = (wsm && typeof wsm.isWorkspaceOpen === 'function') ? wsm.isWorkspaceOpen() : false;
@@ -6214,19 +6224,21 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'mini-hover-toggle': {
-                    /* ⭐ ST2：鼠标移入是否自动展开 ✓（立即落盘 + 重创小框 ✓） */
+                    /* ⭐ ST4-A：走草稿 ✓（旧：立即落盘 ✗） */
                     const hv = target.checked === true;
-                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { hoverOpen: hv }) });
-                    import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
-                    toast.ok(hv ? '开了：鼠标移入就展开' : '关了：扫过不会再自动展开');
+                    const miniBase = Object.assign({}, getSettings().mini || {}, stagedValue('appearance', 'mini', null) || {});
+                    stage('appearance', 'mini', Object.assign({}, miniBase, { hoverOpen: hv }));
+                    refreshSaveBar(host, 'appearance');
+                    toast.info(hv ? '已勾上：鼠标移入就展开（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
                 }
                 case 'mini-pin-toggle': {
-                    /* ⭐ ST2：钉住（挂载即展开）✓ */
+                    /* ⭐ ST4-A：走草稿 ✓ */
                     const pn = target.checked === true;
-                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { pinned: pn }) });
-                    import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
-                    toast.ok(pn ? '已钉住：下次挂上就是展开的' : '取消钉住了');
+                    const miniBase2 = Object.assign({}, getSettings().mini || {}, stagedValue('appearance', 'mini', null) || {});
+                    stage('appearance', 'mini', Object.assign({}, miniBase2, { pinned: pn }));
+                    refreshSaveBar(host, 'appearance');
+                    toast.info(pn ? '已勾上：下次挂上就是展开的（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
                     break;
                 }
                 case 'reset-appearance': {
