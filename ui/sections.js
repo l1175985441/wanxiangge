@@ -2196,7 +2196,13 @@ function secRoster(host) {
     funcBtn.style.whiteSpace = 'nowrap';
     funcBtn.title = '去重合并／删除／清空（入口位；包里就是这么标的）';
     topbar.appendChild(funcBtn);
-    cList.appendChild(topbar);
+    /*
+     * ⭐ LY5（材料 11·布局层）：**页头那颗 ⋮ 要在页面最顶端** ✓
+     *   旧：`cList.appendChild(topbar)` ⇒ 被塞进「名册」卡**内部** ✗
+     *     ⇒ 夹在筛选胶囊条与表头**正中间** ✗（酒馆里看着很突兀 ✗）
+     *   现在：插到**第一张卡之前** ✓（与状态页／世界状态页同一个做法 ✓）
+     */
+    box.insertBefore(topbar, cIn);
     const list = el('div', 'wxg-roster wxg-table-4');
     // ⭐ 表头（照包：浅灰底，四列名：角色名称｜好感｜身份｜势力）
     const rhead = el('div', 'wxg-thead wxg-table-4');
