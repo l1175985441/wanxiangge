@@ -1097,6 +1097,19 @@ function secCharacters(host) {
         if (c.ignored) {
             chipLine.appendChild(el('span', 'wxg-badge is-off', '已忽略'));
         }
+        /*
+         * ⭐ 材料 06【4】#3＋#4：**「收下／忽略／恢复」要摆在她点得到的地方** ✓
+         *   旧：这三个动作（accept-new／ignore-char／merge-into）只写在**已停用的旧「角色状态」页**里 ✗
+         *     ⇒ 她在新名册里**根本点不到「收下」「忽略」** ✗；被忽略了也**没有任何按钮能恢复** ✗
+         */
+        if (c.isNew) {
+            chipLine.appendChild(button('收下', 'accept-new', 'wxg-btn-xs', c.id));
+        }
+        if (c.ignored) {
+            chipLine.appendChild(button('恢复参与推演', 'unignore-char', 'wxg-btn-xs', c.id));
+        } else {
+            chipLine.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-xs', c.id));
+        }
         if (chipLine.childNodes && chipLine.childNodes.length) {
             nameCell.appendChild(chipLine);
         }
@@ -5253,6 +5266,8 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     break;
                 }
                 case 'ignore-char': updateCharacter(id, { ignored: true }); rerender(); break;
+                /* ⭐ 材料 06【4】#4：**被忽略了也要能恢复** ✓ */
+                case 'unignore-char': updateCharacter(id, { ignored: false }); toast.ok('恢复了：他又能参与推演与召回了'); rerender(); break;
                 case 'merge-into': {
                     const name = window.prompt('把哪一条合并进这一条？（写要并掉的那个名字）');
                     if (!trimText(name)) {
