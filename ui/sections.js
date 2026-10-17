@@ -1664,8 +1664,30 @@ function stageOne(action, target) {
         const cur = effectiveAppearance();
         if (slot === 'palette') {
             stage('appearance', 'appearance', Object.assign({}, cur, palettePatch(trimText(target.value))));
+            /*
+             * ⭐ ST7（材料 11·设置层）：**换色板 ⇒ 上面 5 个颜色格当场跟着变** ✓
+             *   旧：只存草稿 ✗ ⇒ 下拉框切成「暖灯」了、下面预览盒变了 ✗
+             *     而上面 5 个颜色框**还显示着砚墨的旧颜色** ✗
+             *   现在：把生效值回填进那几个框格 ✓（⏔ 整页重画 ✗ ⇒ 不打断她的操作 ✓）
+             */
+            try {
+                const effNow = effectiveAppearance();
+                for (const slotName of ['accent', 'surface', 'bg', 'border', 'text']) {
+                    const boxEl = document.getElementById('wxg-app-' + slotName);
+                    if (boxEl && typeof boxEl.value === 'string') {
+                        boxEl.value = (effNow[slotName] == null ? '' : String(effNow[slotName]));
+                    }
+                }
+            } catch (eSt7a) { /* 回填不了也不能让换色板失效 ✓ */ }
         } else {
             stage('appearance', 'appearance', Object.assign({}, cur, { [slot]: trimText(target.value), palette: 'custom' }));
+            /* ⭐ ST7 反向：手改任一槽 ⇒ 色板下拉框**当场切到 custom** ✓ */
+            try {
+                const palSel = document.getElementById('wxg-app-palette');
+                if (palSel && typeof palSel.value === 'string') {
+                    palSel.value = 'custom';
+                }
+            } catch (eSt7b) { /* 同上 ✓ */ }
         }
         /*
          * ⭐ 修复单 #35②：**预览盒要跟着变**。
