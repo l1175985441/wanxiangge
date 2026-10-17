@@ -3920,7 +3920,9 @@ function renderPersonCard() {
      */
     if (!personCardEditing) {
         try {
-            const lockSel = '[data-action=" + String.fromCharCode(34) + "set-player" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "add-know" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "del-know" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "set-quest-status" + String.fromCharCode(34) + "],[data-action=" + String.fromCharCode(34) + "del-quest" + String.fromCharCode(34) + "]';
+            /* 这五类控件在只读态下必须点不动；选择器用双引号写在单引号里 ✓ */
+            const lockSel = '[data-action="set-player"],[data-action="add-know"],[data-action="del-know"],'
+                + '[data-action="set-quest-status"],[data-action="del-quest"]';
             const lockables = pop.querySelectorAll(lockSel);
             for (const el2 of Array.from(lockables)) {
                 if (el2 && el2.setAttribute) {
