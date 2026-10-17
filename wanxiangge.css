@@ -3741,7 +3741,11 @@ body.wxg-dragging {
 .wanxiangge .wxg-two {
     align-items: stretch;
 }
-.wanxiangge .wxg-two > .wxg-card {
+/* ⭐ 真机纠正：左边那框**不是** `.wxg-card`（是 `.wxg-empty.is-hero`）✗
+ *   ⇒ 只写 `.wxg-card` 时只拉齐了右边一个 ✗ ⇒ 改成子元素通配 ✓ */
+.wanxiangge .wxg-two > .wxg-card,
+.wanxiangge .wxg-two > .wxg-empty,
+.wanxiangge .wxg-two > .wxg-hero {
     height: 100%;
     box-sizing: border-box;
 }
