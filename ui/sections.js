@@ -2567,7 +2567,15 @@ function secApi(host) {
     }
     const modeLine = el('div', 'wxg-line');
     modeLine.appendChild(el('span', 'wxg-line-k', '连接方式'));
-    modeLine.appendChild(modeRow);
+    /*
+     * ⭐ LY6（材料 11·布局层）：**「连接方式」那一行要套 .wxg-line-v** ✓
+     *   旧：把 .wxg-row 直接挂在 .wxg-line 下 ✗ ⇒ 少了标准的 .wxg-line-v 包装层 ✗
+     *     ⇒ `.wxg-line > .wxg-line-v > select.text_pole` 的宽度样式**完全没命中** #wxg-api-mode ✗
+     *     ⇒ 而 .wxg-row 自带 margin:7px 0 ⇒ 这一行的上下间距比别的行大一圈 ✗
+     */
+    const modeWrap = el('div', 'wxg-line-v');
+    modeWrap.appendChild(modeRow);
+    modeLine.appendChild(modeWrap);
     cCh.appendChild(modeLine);
     /* 一句人话：现在走的是哪条 ✓（照世界背面那句“我跟着…”的写法） */
     cCh.appendChild(el('div', 'wxg-note', '现在走的是：' + (curNickForDel
