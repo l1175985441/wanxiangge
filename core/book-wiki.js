@@ -19,6 +19,7 @@
 
 import { TIERS } from './config.js';
 import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents } from './state.js';
+import { mergeCharacters } from './merge.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
 import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner, extractFormNames } from './worldbook.js';
@@ -321,6 +322,25 @@ export function applyPeopleExtras(people) {
                 updateCharacter(c.id, patch, { trackManual: false });
                 touched += 1;
             }
+            /*
+             * ⭐ B7（材料 13）：**同批里已经建出的形态卡要并回真身** ✓
+             *   旧：提示词说“别拆成两个人”，但**老账里已经存在的独立形态卡就永远留着** ✗
+             *   现在：这些别名里若有一个**正好等于名册里另一个人的名字** ⇒ 并回真身 ✓
+             *   （只认名字完全相等，⏔ 模糊匹配 ✗ —— 她吃过“母女被当同一人”的亏 ✗）
+             */
+            try {
+                for (const a7 of (pp.aliases || [])) {
+                    const nm7 = trimText(a7);
+                    if (!nm7 || matchKey(nm7) === matchKey(c.name)) {
+                        continue;
+                    }
+                    const dup7 = findCharacterByName(nm7);
+                    if (dup7 && dup7.id !== c.id) {
+                        mergeCharacters(c.id, nm7);
+                        touched += 1;
+                    }
+                }
+            } catch (eMerge7) { /* 并失败不能拦着导入 ✓ */ }
         }
     } catch (e) {
         console.warn('[万象阁] 分条归位没落上：', e);
