@@ -191,8 +191,31 @@ async function upsertEntries(api, wanted) {
 
     // 清理已从名册删除或被合并掉的旧人物条目（⛔ 只清「人物/」前缀且仅当名册非空时执行；编年归档绝不删）
     const wantedTitles = new Set(wanted.map((w) => w.title));
-    const hasWantedChars = wanted.some((w) => w.title.indexOf(ENTRY.charPrefix) === 0);
-    if (api.deleteEntry && hasWantedChars) {
+    /* ⭐ U15：多出来的编年分页也要删 ✓（编年从 3 页缩回 1 页时，编年/02、03 会带着旧数据永远留着 ✗） */
+    if (api.deleteEntry) {
+        const chroniclePagesNow = wanted.filter((w) => w.title.indexOf(ENTRY.chroniclePrefix) === 0).length;
+        for (const old of existing) {
+            const t2 = entryTitle(old);
+            if (!t2 || t2.indexOf(ENTRY.chroniclePrefix) !== 0) {
+                continue;
+            }
+            const num2 = Number(String(t2.slice(ENTRY.chroniclePrefix.length)));
+            if (Number.isFinite(num2) && num2 > chroniclePagesNow) {
+                try {
+                    const keyOrUid2 = old.uid !== undefined ? old.uid : t2;
+                    await api.deleteEntry(WORLD_BOOK_NAME, keyOrUid2);
+                } catch (eChr) { /* 清理失败不影响主流程 ✓ */ }
+            }
+        }
+    }
+    /*
+     * ⭐ U15（材料 12·未覆盖死角）：**名册清空时更要清** ✓
+     *   旧：`if (api.deleteEntry && hasWantedChars)` ✗
+     *     ⇒ 她把名册清空（或删掉最后 1 人）时 `hasWantedChars === false` ✗
+     *     ⇒ 世界书里那些“人物/…”条目**反而一直留着不删** ✗
+     *   现在：只要宿主支持删就清 ✓（循环里仍只动 `人物/` 前缀 ✓）
+     */
+    if (api.deleteEntry) {
         for (const old of existing) {
             const t = entryTitle(old);
             if (t && t.indexOf(ENTRY.charPrefix) === 0 && !wantedTitles.has(t)) {
