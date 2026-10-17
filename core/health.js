@@ -14,6 +14,7 @@
 // ⭐ L1：版本兜底用它（调用方不传 opts.version 时，不该报「未知」）
 import { LEDGER_VERSION, APP_VERSION } from './config.js';
 import { loadState } from './state.js';
+import { getChat } from './adapter.js';
 import { getSettings } from './settings.js';
 import { buildStateSummary } from './summary.js';
 import { floorLabel, trimText } from './utils.js';
@@ -279,7 +280,26 @@ export function buildHealthReport(opts) {
             if (!last) {
                 lines.push('· 正文：还没有本回合记录（这一局还没跑过更新）');
             } else {
-                const n = last.lead ? String(last.lead).length : 0;
+                /*
+                 * ⭐ U2（材料 12·未覆盖死角）：**这里量的必须是 AI 正文** ✓
+                 *   旧：`last.lead`（＝**她自己发的那句**，且根本没经过四格清洗 ✗）
+                 *     ⇒ 只要她自己打字不到 200 字，体检就**永远谎报**“被四格剥太狠” ✗
+                 *   现在：从聊天里取**最后一条非用户、非系统消息**的长度 ✓
+                 */
+                let n = 0;
+                try {
+                    const chatU2 = getChat() || [];
+                    for (let iU2 = chatU2.length - 1; iU2 >= 0; iU2 -= 1) {
+                        const mU2 = chatU2[iU2];
+                        if (!mU2 || mU2.is_user || mU2.is_system) {
+                            continue;
+                        }
+                        n = String(mU2.mes == null ? '' : mU2.mes).length;
+                        break;
+                    }
+                } catch (eU2) {
+                    n = 0;
+                }
                 const inj = Number(last.injectedChars) || 0;
                 /*
                  * ⚠️ 真机上看到的：`from` 会把**整段 HTML 注释＋后面正文**都打出来（一行刷半屏）✗
@@ -291,9 +311,9 @@ export function buildHealthReport(opts) {
                     .replace(/\s+/g, ' ')
                     .trim()
                     .slice(0, 24);
-                lines.push('· 正文：上一楼原文 ' + String(n) + ' 字，注入 ' + String(inj) + ' 字'
+                lines.push('· 正文：上一楼 AI 正文 ' + String(n) + ' 字，注入 ' + String(inj) + ' 字'
                     + (src ? '（来源：' + src + '）' : '')
-                    + (n >= 200 ? ' ✓' : ' ⇒ ⚠ 原文偏少：可能被「四格」剥太狠，去读取控制看看'));
+                    + (n >= 200 ? ' ✓' : ' ⇒ ⚠ 上一楼 AI 正文偏少：可能被「四格」剥太狠，去读取控制看看'));
             }
         } catch (e) {
             lines.push('· 正文：自检没跑成（' + String(e && e.message ? e.message : e) + '）');
