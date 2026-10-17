@@ -1264,8 +1264,24 @@ function secCharacters(host) {
                 if (trimText(q.note)) {
                     row2.appendChild(el('div', 'wxg-fact', trimText(q.note)));
                 }
+                /* ⭐ 材料 06【4】：**任务子项要能勾 / 取消** ✓
+                 *   旧：子项一次性拼成**一段文字** ✗ ⇒ 点不了、改不了 ✗
+                 *   现在：编辑态下**每个子项一颗可点的钮** ✓（▶ ⇄ ☑）；只读态照旧只看 ✓ */
                 if (Array.isArray(q.items) && q.items.length) {
-                    row2.appendChild(el('div', 'wxg-fact', q.items.map((i) => (i.done ? '☑ ' : '▶ ') + trimText(i.text)).join('　')));
+                    const qiRow = el('div', 'wxg-fact');
+                    q.items.forEach((it, ii) => {
+                        const mark = it.done ? '☑ ' : '▶ ';
+                        if (personCardEditing) {
+                            const qib = button(mark + trimText(it.text), 'toggle-quest-item', 'wxg-btn-xs', one.id);
+                            qib.setAttribute('data-title', trimText(q.title));
+                            qib.setAttribute('data-index', String(ii));
+                            qib.title = it.done ? '点一下：取消已完成' : '点一下：标成已完成';
+                            qiRow.appendChild(qib);
+                        } else {
+                            qiRow.appendChild(el('span', null, mark + trimText(it.text) + '　'));
+                        }
+                    });
+                    qr.appendChild(qiRow);
                 }
                 return row2;
             };
@@ -5832,6 +5848,24 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                     rerender();
                     break;
                 /* ---- 任务（主线／支线）：她也能改 ---- */
+                case 'toggle-quest-item': {
+                    /* ⭐ 材料 06【4】：**子项打勾 / 取消** ✓ */
+                    const qt = trimText(target.getAttribute('data-title'));
+                    const qi = Number(target.getAttribute('data-index'));
+                    const qc = findCharacter(id);
+                    if (qc && Array.isArray(qc.quests)) {
+                        const qs2 = qc.quests.map((q) => {
+                            if (!q || trimText(q.title) !== qt || !Array.isArray(q.items)) {
+                                return q;
+                            }
+                            const items2 = q.items.map((it, ii) => (ii === qi ? Object.assign({}, it, { done: !(it && it.done === true) }) : it));
+                            return Object.assign({}, q, { items: items2 });
+                        });
+                        updateCharacter(id, { quests: qs2 }, { manual: true });
+                        rerender();
+                    }
+                    break;
+                }
                 case 'set-quest-status': {
                     if (!isChange) {
                         break;
