@@ -252,6 +252,7 @@ export function refreshMini() {
     mkOp('对账（账与楼对齐）', 'op-reconcile', '把账与楼对齐');
     mkOp('写入世界书', 'op-publish', '把账写进世界书');
     mkOp('补推历史', 'op-backfill', '补推历史（分批跑）');
+    mkOp('取消', 'op-cancel', '取消正在跑的更新／补推');
     mkOp('清空这个世界', 'op-clear', '清空这个聊天的世界（会开工作台让你确认）');
     body.appendChild(ops);
     // 球的颜色：失败红、没跑过灰、其余强调色
@@ -368,11 +369,33 @@ function onMiniClick(e) {
     }
     if (action === 'op-backfill') {
         import('../core/pipeline.js').then(({ runBackfill }) => {
-            // ⭐ #26：同上——补推是分批跑的，跑完也该再刷一次
-            Promise.resolve(runBackfill()).then(() => {
+            /*
+             * ⭐ 材料 06【4】（悬浮球）：**别假报“开始补推”** ✓
+             *   旧：不管被防重拦下与否，都先 toast 一句“开始补推历史” ✗
+             *     ⇒ 她以为跑上了，实际上上一轮还在跑 ✗
+             *   现在：**看结果再报** ✓（ok === false ⇒ 如实说为什么没跑 ✓）
+             */
+            Promise.resolve(runBackfill()).then((r) => {
                 refreshMini();
-            }).catch(() => {});
-            toast.info('开始补推历史（分批跑，可随时取消）');
+                try { refreshWorkspace(); } catch (eWs3) { /* 工作台没开就算了 ✓ */ }
+                if (r && r.ok === false) {
+                    toast.info('没开始：' + (r.reason || '上一轮还在跑'));
+                } else {
+                    toast.info('开始补推历史（分批跑，可随时取消）');
+                }
+            }).catch((eBf) => {
+                refreshMini();
+                toast.fail('补推没跑成：' + ((eBf && eBf.message) || String(eBf)));
+            });
+        });
+        return;
+    }
+    if (action === 'op-cancel') {
+        /* ⭐ 材料 06【4】：**悬浮球上也要有「取消」** ✓（走工作台同一个 cancelUpdate ✓） */
+        import('../core/pipeline.js').then(({ cancelUpdate }) => {
+            cancelUpdate();
+            toast.info('已请求取消（正在跑的那一步跑完就停 ✓）');
+            refreshMini();
         });
         return;
     }
