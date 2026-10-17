@@ -117,8 +117,16 @@ export function parseClock(text) {
     } else if (/次[日天]|第二天/.test(raw)) {
         out.day = 2;
     } else if (/今天|当日|当天/.test(raw)) {
-        out.day = 1;
-    }
+     /*
+      * ⭐⭐ 材料 06【5】链路断路 5：**“今天”不能硬当第 1 天** ✓
+      *   旧：`out.day = 1` ✗ ⇒ 剧情已到第 3 天时，模型写一句“今天 下午 · 学校” ✗
+      *     ⇒ day 算成 1 ✗ ⇒ `clockWentBackwards` 判定“从第 3 天倒退到第 1 天” ✗
+      *     ⇒ **当场拒收并报错** ✗✗
+      *   现在：只**标记**“这是今天” ✓，**⏔ 硬塞 day** ✗
+      *     （day 留空 ⇒ ⏔ 会产生假倒退 ✓；谁需要“沿用上一天”谁自己取旧值 ✓）
+      */
+     out.today = true;
+ }
 
     // 时段词（先判，别被"八点半"这种干扰）
     for (const p of PERIODS) {
