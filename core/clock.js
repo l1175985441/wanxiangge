@@ -67,6 +67,25 @@ function cnToNum(text) {
  * 从一句"世界内时间"里读出结构：{ day, period, hour, minute, raw, has }
  * 读不出来就 has=false（⛔ 不猜、不拿占位值凑数）
  */
+/*
+ * 世界钟的日历基准日（绝对天序）。
+ * 为什么得是模块级：这个基准必须在**所有调用之间共用**。
+ * 若每次调用都重新取“本次读到的日期”当基准，那仍何一个公历日期都会落在第 1 天，
+ * 而日程／暗线的“几天后”靠的是两次调用相减，相减就永远是 0。
+ * 首次读到公历日期时定下来，之后一律用它换算相对天。
+ */
+let clockEpochDay = null;
+
+function absToRelativeDay(abs) {
+    if (!Number.isFinite(abs)) {
+        return null;
+    }
+    if (!Number.isFinite(clockEpochDay)) {
+        clockEpochDay = abs;
+    }
+    return abs - clockEpochDay + 1;
+}
+
 export function parseClock(text) {
     const raw = trimText(text);
     /*
@@ -78,16 +97,6 @@ export function parseClock(text) {
      *   现在：日历日只写进 `ymd`（绝对值 ✓）；`day` 一律＝ ymd - epochDay + 1 ✓
      *     基准日 epochDay 取**第一次**读到的日历日 ✓（1992-04-02 ⇒ day=2 ✓）
      */
-    let clockEpochDay = null;
-    function absToRelativeDay(abs) {
-        if (!Number.isFinite(abs)) {
-            return null;
-        }
-        if (!Number.isFinite(clockEpochDay)) {
-            clockEpochDay = abs;
-        }
-        return abs - clockEpochDay + 1;
-    }
     const out = { raw, has: false, day: null, period: '', hour: null, minute: null, minutesOfDay: null };
     if (!raw || raw === '未知') {
         return out;
