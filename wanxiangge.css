@@ -3626,3 +3626,21 @@ body.wxg-dragging {
 .wanxiangge .wxg-funcmenu-item:hover {
     background: var(--wxg-hover, rgba(0, 0, 0, 0.06));
 }
+
+/* ---------------- 页头「读取控制」快捷入口（材料 10 · 第 2 组裁定） ---------------- */
+.wanxiangge .wxg-ws-quick {
+    flex: 0 0 auto;
+    margin-right: 8px;
+    padding: 4px 10px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--wxg-dim, #6d747a);
+    background: transparent;
+    border: 1px solid var(--wxg-border, #d5dade);
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.wanxiangge .wxg-ws-quick:hover {
+    color: var(--wxg-text, #1a1d1f);
+}

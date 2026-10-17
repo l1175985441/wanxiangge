@@ -99,6 +99,19 @@ export function openWorkspace() {
     const right = document.createElement('div');
     right.className = 'wxg-ws-right';
     right.id = 'wxg-ws-chips';
+    /*
+     * ⭐ 材料 10 · 第 2 组裁定（她 10-17 授权代拍）：**「读取控制」要有一个顶层快捷入口** ✓
+     *   旧：只在左栏「调设置 → 读取控制（四格）」里 ✗ ⇒ 藏得深（她与谷歌审都点过“找不到” ✗）
+     *   现在：页头右上**常驻一颗「读取控制」** ✓（在哪一页都看得见 ✓），点它直达那一页 ✓
+     *   ⏔ 写死页码：按左栏条目名**现找** ✓（顺序变了也不会点错页 ✓）
+     */
+    const quickRead = document.createElement('button');
+    quickRead.className = 'wxg-ws-quick';
+    quickRead.type = 'button';
+    quickRead.textContent = '读取控制';
+    quickRead.title = '直达「读取控制（四格）」那一页';
+    quickRead.setAttribute('data-ws-action', 'goto-readctl');
+    right.appendChild(quickRead);
     const close = document.createElement('button');
     close.className = 'wxg-ws-x';
     close.type = 'button';
@@ -399,6 +412,15 @@ function onWorkspaceClick(e) {
     }
     if (go !== null) {
         showIndex(go, true);
+        return;
+    }
+    if (action === 'goto-readctl') {
+        /* 按左栏条目名现找那一页 ✓（⏔ 写死页码 ✗） */
+        const items = asArray(sideEl ? sideEl.querySelectorAll('.wxg-ws-side-item') : []);
+        const hit = items.findIndex((b) => String(b && b.textContent || '').indexOf('读取控制') >= 0);
+        if (hit >= 0) {
+            showIndex(hit, true);
+        }
         return;
     }
     if (action === 'close') {
