@@ -3408,6 +3408,32 @@ function renderPersonCard() {
     kAdd.appendChild(kBtn);
     kSec.appendChild(kAdd);
     pop.appendChild(kSec);
+    /*
+     * ⭐⭐ 材料 06【4】#6：**「日程」整块在人物卡上消失了** ✗
+     *   她的原话：把旧「角色状态」页并进浮层卡时，**只搬了七格、认知账和任务，漏搬了 c.schedule** ✗
+     *   ⇒ 约好的事（出差几天后回来等）在卡上**看不到也改不了** ✗
+     *   现在：把日程块搬回来 ✓（只读展示；改动走后台推演，⏔ 让她手改算账 ✗）
+     */
+    if (Array.isArray(one.schedule) && one.schedule.length) {
+        const sSec = el('div', 'wxg-pc-sec');
+        sSec.appendChild(el('div', 'wxg-pc-sech', '日程（约好的事）'));
+        for (const s of one.schedule) {
+            const sr = el('div', 'wxg-rowitem');
+            const sh = el('div', 'wxg-rowname');
+            sh.appendChild(el('span', 'wxg-name', trimText(s && (s.what || s.text)) || '（没记名）'));
+            if (trimText(s && s.due)) {
+                sh.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(s.due)));
+            }
+            if (s && s.done === true) {
+                sh.appendChild(el('span', 'wxg-badge is-off', '已完成'));
+            } else if (s && s.dueReached === true) {
+                sh.appendChild(el('span', 'wxg-badge is-warn', '已到点·本轮应履约'));
+            }
+            sr.appendChild(sh);
+            sSec.appendChild(sr);
+        }
+        pop.appendChild(sSec);
+    }
 
     /*
      * ⭐「任务」块（原本**只在角色状态页**）。
