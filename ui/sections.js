@@ -961,6 +961,15 @@ function secWorld(host) {
     } else {
         addHidRow.className += ' wxg-add-row';
     }
+    /*
+     * ⭐ LY7（材料 11·布局层）：**这一行单独给个类，好把它排成两栏** ✓
+     *   旧：5 个控件（名字／条件／火候／族类／按钮）塞在同一个 .wxg-row 里 ✗
+     *     ⇒ 常规宽度下必然断成两行，且第二行与第一行**左边缘不对齐** ✗
+     *   现在：给它一个独有类 ✓（⏔ 动 .wxg-add-row 本身 ✗ —— 那会连带别的“加一条”行 ✗）
+     */
+    if (addHidRow.classList && typeof addHidRow.classList.add === 'function') {
+        addHidRow.classList.add('wxg-add-row-hidden');
+    }
     addHidRow.setAttribute('data-no-lock', '1');
     box.appendChild(cHid);
     host.appendChild(box);

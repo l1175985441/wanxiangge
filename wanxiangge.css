@@ -3712,3 +3712,22 @@ body.wxg-dragging {
     min-width: 120px;
     max-width: 260px;
 }
+
+/* ---------------- LY7：新增暗线那一行排成两栏（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 五个控件塞一行 ⇒ 断行后左边缘对不齐 ✗
+ *   现在：两列网格（名字／条件 ─ 火候／族类 ─ 按钮占满整行 ✓）
+ */
+.wanxiangge .wxg-add-row-hidden {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: center;
+}
+.wanxiangge .wxg-add-row-hidden > * {
+    min-width: 0;
+}
+.wanxiangge .wxg-add-row-hidden > [data-action="add-hidden"] {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
