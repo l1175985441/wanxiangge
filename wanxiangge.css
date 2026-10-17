@@ -3655,3 +3655,60 @@ body.wxg-dragging {
 .wanxiangge .wxg-ws-quick:hover {
     color: var(--wxg-text, #1a1d1f);
 }
+
+/* ---------------- LY1：5 个“有类名、没样式”的类补上（材料 11·布局层） ---------------- */
+/*
+ * ⭐ 五个类在 sections.js 里建了元素，但 CSS 里一个字都没写 ✗
+ *   ⇒ 拉取出来的几十个模型按钮没间距、没胶囊圆角，紧挨在一团 ✗
+ *   ⇒ 「看条目」顶部的全读／全不读／反选与裸 <input> 贴死在一块 ✗
+ */
+.wanxiangge .wxg-chipwrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    max-height: 220px;
+    overflow: auto;
+}
+.wanxiangge .wxg-chiprow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+}
+.wanxiangge .wxg-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 260px;
+    padding: 3px 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--wxg-text, #1a1d1f);
+    background: var(--wxg-soft, rgba(0, 0, 0, 0.04));
+    border: 1px solid var(--wxg-border, #d5dade);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wanxiangge .wxg-chip:hover {
+    border-color: var(--wxg-accent, #3a7afe);
+}
+.wanxiangge .wxg-entbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 10px;
+    padding: 8px 10px;
+    background: var(--wxg-soft, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--wxg-line, #e6e8ea);
+    border-radius: 9px;
+}
+.wanxiangge .wxg-pick-filter {
+    flex: 1 1 160px;
+    min-width: 120px;
+    max-width: 260px;
+}
