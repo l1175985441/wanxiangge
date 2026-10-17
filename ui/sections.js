@@ -1089,6 +1089,9 @@ function secCharacters(host) {
         if (c.manual) {
             chipLine.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
         }
+        /* ⚠️ 材料 06【4】#4 的“看得见”那半**本来就有** ✓
+         *   （下面那行 `.wxg-badge is-off` 就是它 ✗ → 我刚才重复加了一颗，已删 ✓）
+         *   剩下的“**没有任何按钮能把 ignored 改回 false**”那半留到下一步 ✓ */
         if (c.currentSuspect) {
             chipLine.appendChild(el('span', 'wxg-badge is-warn', '⚠ 不可靠'));
         }
@@ -4779,7 +4782,13 @@ toast.info('这里是去重合并／删除／清空的入口位；当前用法�
                  *   但按钮明明点到了）。退出编辑独立成 `card-view`。
                  */
                 case 'card-edit':
-                    personCardEditing = true;
+                    /*
+                     * ⭐ 材料 06【4】#5：**⋮ 进得去也要出得来** ✓
+                     *   旧：data-action 写死 'card-edit'、case 里写死 `= true`（⏔ 翻转 ✗）
+                     *     ⇒ 再点 ⋮ 收不起编辑态 ✗（只能去点最底部的「收起编辑」✗）
+                     *   现在：**翻转** ✓（开着就收、收着就开 ✓）
+                     */
+                    personCardEditing = !personCardEditing;
                     renderPersonCard();
                     break;
                 case 'card-view':
