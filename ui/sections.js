@@ -1634,6 +1634,8 @@ const STAGE_MAP = {
     // 总控
     'stage-auto-update': ['general', 'autoUpdate', 'checked'],
     'stage-update-every': ['general', 'updateEvery', 'value'],
+    /* 补推范围也走草稿；这个键必须在表里，否则输入先被通用分支接走、switch 里那段永远走不到 ✓ */
+    'stage-backfill-n': ['general', 'backfillN', 'value'],
     'stage-protected': ['general', 'protectedBypass', 'checked'],
     'stage-strict': ['general', 'strictMention', 'checked'],
     'stage-panel-on-start': ['general', 'showPanelOnStart', 'checked'],
@@ -5160,34 +5162,6 @@ export function bindSectionEvents(host, refresh) {
                  *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'stage-backfill-n':
-                    /*
-                     * ⭐ ST4-A（她 10-17 18:36 定案：**统一走草稿＋段底保存**）✓
-                     *   旧：这一格是“选完即存” ✗ ⇒ 同一页里别的格要点保存、这一格不用 ✗
-                     *   现在：写进 `general` 段的草稿 ✓ ⇒ 她点段底「保存」才生效 ✓（与 API 那块一致 ✓）
-                     */
-                    if (isChange) {
-                        stage('general', 'backfillN', trimText(target.value));
-                        refreshSaveBar(host, 'general');
-                    }
-                    break;
-                /* ---- 角色状态：明细开关 / 排序 ---- */
-                case 'toggle-cdetail': {
-                    // 点「明细」展开那一行（只切显示，⛔ 不重画，免得丢她正在改的字）
-                    const drow = host.querySelector('.wxg-cdetail-row[data-detail-of="' + id + '"]');
-                    if (drow) {
-                        const openNow = drow.getAttribute('data-hide') !== '1';
-                        drow.setAttribute('data-hide', openNow ? '1' : '0');
-                        const inner = drow.querySelector('.wxg-cdetail');
-                        if (inner && inner.style) {
-                            inner.style.display = openNow ? 'none' : 'block';
-                        }
-                        if (target.textContent === '明细' || target.textContent === '收起') {
-                            target.textContent = openNow ? '明细' : '收起';
-                        }
-                    }
-                    break;
-                }
                 case 'chron-filter': {
                     // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
                     chronFilter = trimText(id) || 'all';
