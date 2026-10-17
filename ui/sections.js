@@ -2395,6 +2395,17 @@ function secAppearance(host) {
     cTheme.appendChild(checkbox('wxg-app-to-panel', '浮层面板与悬浮小框也用这套配色（不勾＝它们跟随酒馆主题）',
         app.applyToPanel, 'stage-app-to-panel'));
 
+    /*
+     * ⭐ ST2（材料 11·设置层）：**悬浮球那两个行为终于有开关了** ✓
+     *   旧：`pinned`（挂载就展开）与 `hoverOpen`（鼠标移入展开）在代码里写了逻辑 ✗
+     *     但界面上**一个开关都没给** ✗ ⇒ 她只能被鼠标路过就弹开，关不掉 ✗
+     *   现在：两个勾选框 ✓（立即落盘 ✓ ⏔ 走草稿 ✗ —— mini 不在暂存表里）
+     */
+    cTheme.appendChild(checkbox('wxg-mini-hover', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
+        getSettings().mini || {}.hoverOpen === true, 'mini-hover-toggle'));
+    cTheme.appendChild(checkbox('wxg-mini-pin', '钉住悬浮球（一挂上就展开）',
+        getSettings().mini || {}.pinned === true, 'mini-pin-toggle'));
+
     // 实时预览：四个槽位长什么样，直接给她看
     const pv = el('div', 'wxg-app-preview');
     pv.setAttribute('data-role', 'app-preview');
@@ -6022,6 +6033,22 @@ export function bindSectionEvents(host, refresh) {
                     patchSettings({ appearance: curA });
                     toast.ok('文字色改成“自动”了（浅底深字／深底浅字）');
                     rerender();
+                    break;
+                }
+                case 'mini-hover-toggle': {
+                    /* ⭐ ST2：鼠标移入是否自动展开 ✓（立即落盘 + 重创小框 ✓） */
+                    const hv = target.checked === true;
+                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { hoverOpen: hv }) });
+                    import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
+                    toast.ok(hv ? '开了：鼠标移入就展开' : '关了：扫过不会再自动展开');
+                    break;
+                }
+                case 'mini-pin-toggle': {
+                    /* ⭐ ST2：钉住（挂载即展开）✓ */
+                    const pn = target.checked === true;
+                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { pinned: pn }) });
+                    import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
+                    toast.ok(pn ? '已钉住：下次挂上就是展开的' : '取消钉住了');
                     break;
                 }
                 case 'reset-appearance': {

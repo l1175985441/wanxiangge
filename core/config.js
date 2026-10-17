@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.245';
+export const APP_VERSION = '0.3.246';
 
 export const LEDGER_VERSION = 3;
 
@@ -393,7 +393,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     layoutMode: 'workspace',
 
     /** 悬浮球（当前状态）开关与位置；平时就是个小球，点一下展开信息面板 */
-    mini: { show: true, x: null, y: null, collapsed: true, pinned: false },
+    mini: { show: true, x: null, y: null, collapsed: true, pinned: false, hoverOpen: false },
 
     /**
      * ⭐ 外观（**我们自己的配色**，见 ui/theme.js）：
