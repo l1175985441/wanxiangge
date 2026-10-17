@@ -2404,6 +2404,18 @@ function secRoster(host) {
         }
 
         const act = el('div', 'wxg-r-act');
+        /*
+         * 新认的人与手动忽略的人，各给一颗当场处置的钮：
+         * · 新认的「收下／忽略」——认错了要能当面否掉，不必进卡再找；
+         * · 已忽略的「恢复」——否则关了就只能改账本才能放回来。
+         * 只在这两种行上挂 ✓ 名单不会糊满按钮 ✓
+         */
+        if (c.ignored === true) {
+            act.appendChild(button('恢复参与推演', 'unignore-char', 'wxg-btn-xs', c.id));
+        } else if (c.isNew === true || isFresh(c)) {
+            act.appendChild(button('收下', 'accept-new', 'wxg-btn-xs', c.id));
+            act.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-xs', c.id));
+        }
         act.appendChild(el('span', 'wxg-r-caret' + (open ? ' is-open' : ''), open ? '⌄' : '›'));
         /*
          * ⭐ 行上留一个「⋯」＝还开**老的完整编辑器**（删除／收下／忽略／合并那些都在里头）。
