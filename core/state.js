@@ -733,6 +733,7 @@ export function upsertQuest(characterId, quest) {
         const dropFirst = c.quests.findIndex((q) => q.status !== '活跃');
         c.quests.splice(dropFirst >= 0 ? dropFirst : 0, 1);
     }
+    try { syncWorldEvents(); } catch (eSync3) { }
     saveState();
     return fresh;
 }
@@ -873,6 +874,7 @@ export function updateWorld(patch, options) {
             w.manualFields[mk] = true;
         }
     }
+    try { syncWorldEvents(); } catch (eSync1) { /* 同步失败不能拦着写盘 ✓ */ }
     saveState();
     return w;
 }
@@ -1012,6 +1014,37 @@ export function setEvents(events) {
     })).filter((e) => e.title || e.text);
     capList(state.events, 'capEvents', (e) => e.id, (e) => e.manual);
     saveState();
+    return state.events;
+}
+
+/**
+ * ⭐ 新增件 5②（材料 13）：**改完世界就顺手重算召回事件池** ✓
+ *   旧：面板上手改局势／暗线只写进 world，**从不重算 events** ✗
+ *     ⇒ 改完发消息仍然 0 召回 ✗
+ *   现在：把 world 里的局势／暗线按标题去重**补进** events ✓
+ *   ⏔ 删除现有 events（只补不删 ✓ ⇒ 不会把 stepWorld 正常维护的那些弄丢 ✓）
+ */
+export function syncWorldEvents() {
+    const state = loadState();
+    const w = state.world || {};
+    const olds = Array.isArray(state.events) ? state.events.slice() : [];
+    const have = new Set(olds.map((e) => trimText(e && e.title)).filter(Boolean));
+    const add = [];
+    for (const s of (Array.isArray(w.situations) ? w.situations : [])) {
+        const tt = trimText(s && s.title);
+        if (!tt || have.has(tt)) { continue; }
+        have.add(tt);
+        add.push({ title: tt, text: trimText(s && s.note) || tt, kind: 'situation', sides: trimText(s && s.sides), tier: trimText(s && s.tier) });
+    }
+    for (const h of (Array.isArray(w.hidden) ? w.hidden : [])) {
+        const tn = trimText(h && h.name);
+        if (!tn || have.has(tn)) { continue; }
+        have.add(tn);
+        add.push({ title: tn, text: trimText(h && h.note) || tn, kind: 'hidden', stage: trimText(h && h.stage) });
+    }
+    if (add.length) {
+        setEvents(olds.concat(add));
+    }
     return state.events;
 }
 
