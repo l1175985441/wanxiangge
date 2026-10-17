@@ -1120,12 +1120,13 @@ async function stepCharacters(material, attempt) {
         }
         if (c.schedule.length) {
             lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+        }
+        /* 任务与日程是两件事：没有日程的人也得收到任务 ✓ */
         /* P9 (material 07): feed the existing quests, otherwise the model re-invents a
          *   slightly different title every round and upsertQuest piles up duplicates. */
         if (Array.isArray(c.quests) && c.quests.length) {
             lines.push('  现有任务（同一件就**沿用原标题**、只更新进展，⛔ 换个说法另开一条 ✓）：'
                 + c.quests.map((q) => trimText(q && q.title) + (trimText(q && q.status) ? '（' + trimText(q.status) + '）' : '')).filter(Boolean).join('；'));
-        }
         }
         /*
          * ⭐ 补③ 第二步：**防全知**——把"他该知道的"真喂进他的推演。
