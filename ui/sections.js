@@ -6217,7 +6217,7 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'export-data':
-                    downloadText('万象阁备份-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(exportState(), null, 2));
+                    downloadText('万象阁备份-' + (function () { /* ⭐ U19：用**本地**日期（⏔ UTC：北京凌晨 0–8 点导出会显示成“昨天” ✗） */ var d0 = new Date(); return d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0'); })() + '.json', JSON.stringify(exportState(), null, 2));
                     toast.ok('备份已导出');
                     break;
 
