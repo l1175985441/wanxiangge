@@ -541,6 +541,22 @@ export function assembleInjectText(items, events, headerText, opts) {
  * 算一次召回（纯本地，不发请求）。
  * @returns {object} { floor, mesId, lead, from, items, events, chars, notes, at }
  */
+/**
+ * ★ P1-4（修复单 20261019）：**已结的只带最近 N 条**，未结的全带。
+ *   为什么：已结的事是“背景库”，越堆越多但越堆越不相关；
+ *   把它们全塞进每一轮，会把真正进行中的事挤掉名额。
+ *   排序：已结按时间从新到旧，取前 N 条；未结一条不动 ✓
+ */
+export function usableEvents(events, keepClosed) {
+    const list = Array.isArray(events) ? events.filter(Boolean) : [];
+    const open = list.filter((e) => e.closed !== true);
+    const closed = list.filter((e) => e.closed === true)
+        .slice()
+        .sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
+    const n = Math.max(0, Math.floor(Number(keepClosed) || 0));
+    return open.concat(n > 0 ? closed.slice(0, n) : []);
+}
+
 export function buildRecall(input) {
     const opts = input || {};
     const settings = getSettings();
@@ -630,7 +646,8 @@ export function buildRecall(input) {
     }));
 
     // 世界事件：按她最新发言相关度筛
-    const evRes = pickEvents(leadText, ctxText, loadState().events || [], settings.maxEvents);
+    const evPool = usableEvents(loadState().events || [], settings.closedEventKeep);
+    const evRes = pickEvents(leadText, ctxText, evPool, settings.maxEvents);
     /*
      * ⭐ 补②：**转入编年的条目 ⛔ 不再塞进去**（她：「连续 3 轮没进 ⇒ 转编年留档、不再占注入位、不再强塞」）。
      *   为什么在这一层做：这里才是"这一轮到底带什么进去"的**唯一出口**；

@@ -220,6 +220,7 @@ export function patchSettings(patch) {
         updateEvery: [1, 10, DEFAULT_SETTINGS.updateEvery],
         maxParallelChars: [0, 12, DEFAULT_SETTINGS.maxParallelChars],
         capEvents: [10, 300, DEFAULT_SETTINGS.capEvents],
+        closedEventKeep: [0, 200, DEFAULT_SETTINGS.closedEventKeep],
         capChronicle: [100, 5000, DEFAULT_SETTINGS.capChronicle],
         capHidden: [5, 200, DEFAULT_SETTINGS.capHidden],
         capPast: [2, 20, DEFAULT_SETTINGS.capPast],

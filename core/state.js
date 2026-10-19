@@ -240,7 +240,7 @@ function normalizeState(raw) {
     state.chatKey = s.chatKey === undefined || s.chatKey === null ? '' : String(s.chatKey);
     state.characters = Array.isArray(s.characters) ? s.characters.map(normalizeCharacter) : [];
     state.world = Object.assign(base.world, s.world && typeof s.world === 'object' ? s.world : {});
-    state.world.situations = Array.isArray(state.world.situations) ? state.world.situations : [];
+    state.world.situations = (Array.isArray(state.world.situations) ? state.world.situations : []).map((s) => Object.assign({}, s, { closed: s && s.closed === true }));
     state.world.factions = (Array.isArray(state.world.factions) ? state.world.factions : []).map((f) => ({
         id: trimText(f && f.id) || makeId('faction'),
         name: trimText(f && f.name),
@@ -1139,6 +1139,7 @@ export function setEvents(events) {
         floor: Number.isFinite(e.floor) ? e.floor : -1,
         /* ★ P1-3：来源类型（situation/hidden/book/manual）＋原文引用＋指纹 ✓ */
         source: trimText(e.source) || '',
+        closed: e.closed === true,
         quote: trimText(e.quote),
         fingerprint: trimText(e.fingerprint) || fingerprintOf(trimText(e.title) + '|' + trimText(e.text)),
         manual: e.manual === true,
