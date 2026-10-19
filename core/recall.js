@@ -371,13 +371,14 @@ function personBlock(item, opts) {
      *   名单上没有的事，主模型就不该写给他。beliefs 另起一行：那是“他以为”，可能是误会 ✓
      */
     const kf = Array.isArray(c.knownFactKeys) ? c.knownFactKeys.filter(Boolean) : [];
+    /* ★ 补单 1：知识面是“这个人”的一部分，人带了就整份带；总量由 injectCharCap 统一管 ✓ */
     if (kf.length) {
-        lines.push('他知道这些事（名单里没有的，⏔ 不许写给他）：' + kf.slice(0, 12).join('、'));
+        lines.push('他知道这些事（名单里没有的，⏔ 不许写给他）：' + kf.join('、'));
     }
     const kb = Array.isArray(c.knownFactBeliefs) ? c.knownFactBeliefs.filter((b) => b && b.key && b.belief) : [];
     if (kb.length) {
         lines.push('他以为（可能是误会，⏔ 当事实写）：'
-            + kb.slice(0, 6).map((b) => b.key + '＝' + b.belief).join('；'));
+            + kb.map((b) => b.key + '＝' + b.belief).join('；'));
     }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows
