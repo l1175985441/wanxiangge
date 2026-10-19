@@ -1203,6 +1203,8 @@ export function normalizeSituation(s) {
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
         closed: src.closed === true,
         manual: src.manual === true,
+        /* ★ P2-7：来源（engine／book／manual）——面板上要分开显示 ✓ */
+        source: trimText(src.source),
     };
 }
 

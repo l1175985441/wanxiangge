@@ -455,7 +455,7 @@ export function applyWiki(wiki) {
         try { upsertFaction({ name: f.name, note: f.note, scale: f.scale }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
     for (const s of sits) {
-        merged.push({ title: s.title, sides: s.sides, tier: s.tier });
+        merged.push({ title: s.title, sides: s.sides, tier: s.tier, source: 'book' });
     }
     const before = (loadState().world && loadState().world.situations) || [];
     let situationsTotal = before.length;

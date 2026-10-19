@@ -46,7 +46,7 @@ import { toast } from './toast.js';
 // ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
-import { takeSnapshot } from '../core/state.js';
+import { takeSnapshot, openHiddenCount } from '../core/state.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
@@ -890,6 +890,8 @@ function secWorld(host) {
     wFunc.style.whiteSpace = 'nowrap';
     wTop.appendChild(wFunc);
     box.appendChild(wTop);
+    /* ★ P2-7：**面板四分区**——世界总览／人物清单与状态／活跃暗线／记忆状态 ✓ */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '① 世界总览'));
     const cWorld = lockable(card('世界钟・地点'), 'world-clock');
     line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'));
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
@@ -935,6 +937,12 @@ function secWorld(host) {
             if (item.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
             }
+            /* ★ P2-7：**引擎推的 / 书里写着的 / 你改的**——三者分开显示 ✓ */
+            {
+                const srcTag = (item.source === 'book') ? '书里写着的'
+                    : (item.source === 'manual') ? '你改的' : '引擎推的';
+                title.appendChild(el('span', 'wxg-badge is-soft', srcTag));
+            }
             main.appendChild(title);
             main.appendChild(el('div', 'wxg-r-sub', '哪几方：' + (trimText(item.sides) || '暂无')));
             r.appendChild(main);
@@ -967,6 +975,19 @@ function secWorld(host) {
     box.appendChild(cSit);
 
     // 同上：暗线卡也不套 `lockable`（⛔ 卡头留一颗「编辑」）
+    /* ② 人物清单与状态（只给汇总＋入口，⏔ 在这里再列一遍名册） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '② 人物清单与状态'));
+    const cPeople = card('人物');
+    {
+        const rosterAll = getRoster();
+        const onStageN = rosterAll.filter((c) => c && c.lastSeenFloor !== undefined
+            && Number.isFinite(Number(c.lastSeenFloor)) && Number(c.lastSeenFloor) >= 0).length;
+        cPeople.appendChild(el('div', 'wxg-note', '在册 ' + String(rosterAll.length) + ' 人；有过在场记录 ' + String(onStageN) + ' 人。状态与过去经历在名册里逐人看。'));
+        row(cPeople, button('去人物名册', 'goto-roster'));
+    }
+    box.appendChild(cPeople);
+    /* ③ 活跃暗线（带未完计数） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '③ 活跃暗线（未完 ' + String(openHiddenCount()) + ' 条）'));
     const cHid = card('暗线（自己有时间表，到点才动）');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
@@ -1040,6 +1061,22 @@ function secWorld(host) {
     }
     addHidRow.setAttribute('data-no-lock', '1');
     box.appendChild(cHid);
+    /* ④ 记忆状态（只给数字与容量，⏔ 把正文搬进来 ✗） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '④ 记忆状态'));
+    const cMem = card('记忆');
+    {
+        const st2 = loadState();
+        const chronN = (st2.chronicle || []).length;
+        const tombN = (st2.world.hiddenTombstones || []).length;
+        const atF = Number((st2.pipeline || {}).atFloor);
+        const luF = Number((st2.lastUpdate || {}).floor);
+        cMem.appendChild(el('div', 'wxg-note',
+            '编年 ' + String(chronN) + ' 条（容量锁 ' + String(getSettings().capChronicle) + '）'
+            + '；暗线碑 ' + String(tombN) + ' 条'
+            + '；上次更新停在第 ' + String(Number.isFinite(luF) ? luF : -1) + ' 楼'
+            + '（流水锚点第 ' + String(Number.isFinite(atF) ? atF : -1) + ' 楼）。'));
+    }
+    box.appendChild(cMem);
     host.appendChild(box);
 }
 
@@ -5539,6 +5576,19 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
+                case 'goto-roster': {
+                    /* ★ P2-7：人物那一区只给汇总，要看细节去名册（⏔ 在这里再列一遍 ✗） */
+                    try {
+                        const items = Array.from(document.querySelectorAll('button.wxg-ws-side-item'));
+                        const hit = items.find((b2) => (b2.textContent || '').indexOf('人物名册') >= 0);
+                        if (hit && typeof hit.click === 'function') {
+                            hit.click();
+                        } else {
+                            toast.info('在左侧切到「人物名册」');
+                        }
+                    } catch (eGo) { toast.info('在左侧切到「人物名册」'); }
+                    break;
+                }
                 case 'add-situation': {
                     const title = trimText(textOf(host, 'wxg-new-situation'));
                     if (!title) {
@@ -5546,7 +5596,7 @@ export function bindSectionEvents(host, refresh) {
                         break;
                     }
                     const list = (loadState().world.situations || []).slice();
-                    list.push({ title, sides: '', tier: '几天内', at: Date.now(), floor: -1, manual: true });
+                    list.push({ title, sides: '', tier: '几天内', at: Date.now(), floor: -1, manual: true, source: 'manual' });
                     updateWorld({ situations: list }, { manual: true });
                     toast.ok('加上了');
                     rerender();

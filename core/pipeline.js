@@ -584,6 +584,7 @@ async function stepWorld(material, attempt) {
             trend: trimText(s && s.trend),
             visibility: trimText(s && s.visibility),
             evidence: trimText(s && (s.evidence || s.quote)),
+            source: 'engine',
             at: Date.now(),
             floor: material.floor,
         })).filter((s) => s.title);
