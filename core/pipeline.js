@@ -521,7 +521,9 @@ async function stepWorld(material, attempt) {
             '局势（**没变的就沿用原标题、原样写回去**，⛔ 换句式重写）：'
                 + ((world.situations || []).map((s) => trimText(s.title)
                     + (trimText(s.sides) ? '（哪几方：' + trimText(s.sides) + '）' : '')
-                    + (trimText(s.tier) ? '（火候：' + trimText(s.tier) + '）' : ''))
+                    + (trimText(s.tier) ? '（火候：' + trimText(s.tier) + '）' : '')
+                    /* ★ P2-2：告诉模型它上次是什么时候动的 ⇒ 它才能轮换 ✓ */
+                    + (Number.isFinite(Number(s.floor)) && Number(s.floor) >= 0 ? '（上次动：第' + String(Number(s.floor)) + '楼）' : ''))
                     .filter(Boolean).join('；') || '（还没有）'),
         ].filter(Boolean).join('\n'),
         clock: trimText(world.clock) || '未知',
