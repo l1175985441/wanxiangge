@@ -57,7 +57,7 @@ import {
     restoreSnapshot,
     dropSnapshot,
     capList,
-    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate } from './state.js';
+    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock } from './clock.js';
@@ -498,6 +498,20 @@ export function situationLineForPrompt(s) {
         bits.push('上次动：第' + String(Number(src.floor)) + '楼');
     }
     return trimText(src.title) + (bits.length ? '（' + bits.join('；') + '）' : '');
+}
+
+/**
+ * ★ 补单 1-⑤：**不额外调一次模型**——就在本来就要跑的那一轮里，顺手要一条 L1 阶段小结。
+ *   剪刀规则照世界背面：180–320 字；只留会影响未来理解的事，枝节可以主动放下 ✓
+ */
+export function rollupInstructionFor(c) {
+    const victims = dueRollup(c);
+    if (!victims.length) {
+        return '';
+    }
+    const oldest = victims.map((v) => trimText(v.text)).filter(Boolean).slice(0, 12);
+    return '  【压缩】这个人已攒了 ' + String(victims.length) + ' 条逐轮摘要，请压成**一条**阶段小结（180–320 字），'
+        + '只留会影响未来理解的事，枝节可以主动放下；输出字段 rollup（就这一条）。原句：' + oldest.join('；');
 }
 
 async function stepWorld(material, attempt) {
@@ -943,6 +957,10 @@ function applyCharacter(raw, material, conflicts) {
     const capPastNow = clampNumber(Number(getSettings().capPast) || 5, 2, 20, 5);
     for (const p of past.slice(0, capPastNow).reverse()) {
         pushPast(c.id, p, capPastNow, material.floor);
+        /* ★ 补单 1-⑤：模型交了 rollup 就地压成一条 L1 ✓ */
+        if (p && trimText(p.rollup)) {
+            try { rollupPast(c.id, p.rollup); } catch (eRoll) { }
+        }
     }
 
     // 日程：约好的事要记下、到点跟上
@@ -1158,6 +1176,10 @@ async function stepCharacters(material, attempt) {
         }
         if (c.past.length) {
             lines.push('  过去经历（由近到远）：' + c.past.map((p) => p.text).join('；'));
+        }
+        {
+            const rollHint = rollupInstructionFor(c);
+            if (rollHint) { lines.push(rollHint); }
         }
         if (c.schedule.length) {
             lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));

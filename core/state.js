@@ -866,6 +866,56 @@ export function removeQuest(characterId, title) {
  *   最近 N 楼之内的不端（主模型上下文里已有），只端更老的。
  *   ⚠️ 老数据没有来源楼层 ⇒ 当"很老"、照端（⛔ 不丢）。
  */
+/**
+ * ★ 补单 1-⑤（世界背面四层阶梯，先只落 L0+L1）：
+ *   L0＝每轮一条摘要；L1＝12 条 L0 压成一条阶段小结。
+ *   为什么只做两层：她要看的是"不炸、不丢、越老越短"，L2/L3 等两层跑通再说 ✓
+ */
+export const ROLLUP_NEED = 12;
+
+/** 该不该压：返回最老的 N 条 L0（不够 N 条就返回空数组） */
+export function dueRollup(c, need) {
+    const n = Number(need) > 0 ? Number(need) : ROLLUP_NEED;
+    const past = (c && Array.isArray(c.past)) ? c.past : [];
+    const l0 = past.filter((x) => x && trimText(x.text) && (trimText(x.tier) || 'L0') !== 'L1');
+    if (l0.length < n) {
+        return [];
+    }
+    return l0.slice(l0.length - n);   /* past 是"由近到远"，末尾是最老的 ✓ */
+}
+
+/** 把那 N 条 L0 换成一条 L1（带 covers＝覆盖了多少条） */
+export function rollupPast(characterId, text) {
+    const body = trimText(text);
+    if (!body) {
+        return false;
+    }
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === characterId);
+    if (!c) {
+        return false;
+    }
+    const victims = dueRollup(c);
+    if (!victims.length) {
+        return false;
+    }
+    const keep = c.past.filter((x) => victims.indexOf(x) < 0);
+    const oldestFloor = victims.map((v) => Number(v.fromFloor))
+        .filter((x) => Number.isFinite(x)).sort((a, b) => a - b)[0];
+    keep.push({
+        text: body,
+        tier: 'L1',
+        covers: victims.length,
+        at: now(),
+        manual: false,
+        injected: false,
+        fromFloor: Number.isFinite(oldestFloor) ? oldestFloor : undefined,
+    });
+    c.past = keep;
+    saveStateDebounced();
+    return true;
+}
+
 export function pushPast(characterId, text, cap, fromFloor) {
     const state = loadState();
     const c = state.characters.find((x) => x.id === characterId);
@@ -877,6 +927,8 @@ export function pushPast(characterId, text, cap, fromFloor) {
     const existing = c.past.find((p) => p && trimText(p.text) === body);
     const entry = {
         text: body,
+        tier: (existing && trimText(existing.tier)) || 'L0',   /* ★ 补单 1-⑤：每轮一条→L0 */
+        covers: Number(existing && existing.covers) > 0 ? Number(existing.covers) : 1,
         injected: existing ? existing.injected === true : false,
         at: existing && existing.at ? existing.at : now(),
         manual: existing ? existing.manual === true : false,
