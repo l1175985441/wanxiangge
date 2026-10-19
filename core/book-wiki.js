@@ -161,7 +161,9 @@ function normalizeWiki(raw) {
                 faction: trimText(c && c.faction),
                 /* P2 (material 07): carry the aliases through (the model is told to put
                  *   transformation-form names here) - previously they were dropped. */
-                aliases: Array.isArray(c && c.aliases)
+                behaviorBounds: trimText(c && c.behaviorBounds),
+        knowledgeBounds: trimText(c && c.knowledgeBounds),
+        aliases: Array.isArray(c && c.aliases)
                     ? c.aliases.map((x) => trimText(x)).filter(Boolean) : [],
             });
         }

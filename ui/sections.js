@@ -3713,6 +3713,8 @@ function renderPersonCard() {
     const cid = one.id !== undefined && one.id !== null ? one.id : c.id;
     row2('年龄', 'age', '未知', '身份', 'identity', '未知');
     row2('所在势力', 'faction', '暂无', '好感', 'affinity', '未接入');
+    /* ★ 她 22:2x 点头加的两格（事实，不是表演层）✓ */
+    row2('行为边界', 'behaviorBounds', '他绝不会做的事', '知识边界', 'knowledgeBounds', '他不知道的事');
     /*
      * ⭐ 别名／玩家棋子也放进来。
      * ⚠️ 它们原来只在**行内展开**里（`set-alias` / `set-player`）——把行改成开浮层之后

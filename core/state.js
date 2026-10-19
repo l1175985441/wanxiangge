@@ -20,7 +20,7 @@ import { parseClock, isLineDone } from './clock.js';
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */
-const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current'];
+const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds'];
 
 /** 人物记录的标准结构（缺键补齐，多余的键保留） */
 export function normalizeCharacter(raw) {
@@ -35,6 +35,9 @@ export function normalizeCharacter(raw) {
         faction: trimText(c.faction),
         /* ★ P1-2：角色抽「实力」（与势力的「规模」不同字段 ✓） */
         power: trimText(c.power),
+        /* ★ 她 22:2x 点头加的两格（不是表演层：是“他会做什么/他不知道什么”） */
+        behaviorBounds: trimText(c.behaviorBounds),
+        knowledgeBounds: trimText(c.knowledgeBounds),
         /* ★ 3-1（修复单 20261019）：**知识面**——防全知的“原料”法。
            名单上没有的事，就不该写给他；beliefs 能表达“他以为的是 X（可能是误会）” ✓ */
         knownFactKeys: toList(c.knownFactKeys),

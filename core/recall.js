@@ -394,6 +394,13 @@ function personBlock(item, opts) {
         lines.push('他以为（可能是误会，⏔ 当事实写）：'
             + kb.map((b) => b.key + '＝' + b.belief).join('；'));
     }
+    /* ★ 她 22:2x：行为边界／知识边界——事实，可喂；⏔ 写成表演描写 ✓ */
+    if (trimText(c.behaviorBounds)) {
+        lines.push('行为边界：' + trimText(c.behaviorBounds) + '（⏔ 与这不符的演法不要）');
+    }
+    if (trimText(c.knowledgeBounds)) {
+        lines.push('知识边界：' + trimText(c.knowledgeBounds) + '（⏔ 他不知道的就别让他知道）');
+    }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows
             .map((k) => trimText(k && k.text))
