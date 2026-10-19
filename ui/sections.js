@@ -2651,6 +2651,9 @@ function secRecall(host) {
     line(cPick, '过去经历只端',
         numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
         el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
+    line(cPick, '注入字数上限',
+        numberInput('wxg-inject-cap', s.injectCharCap, 1, 5000, 'stage-inject-cap'),
+        el('span', 'wxg-note', '字符（1–5000，不填默认 1400）'));
     line(cPick, '一轮最多推演',
         numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
         el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));

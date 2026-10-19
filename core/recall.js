@@ -15,7 +15,16 @@ import { getRoster, loadState } from './state.js';
 import { getSettings, effectivePrompt } from './settings.js';
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
+/**
+ * ★ 补单 1（她 20:25）：**注入字数不该写死**。
+ *   1400 只是默认值；真正生效的是她在面板上填的 `injectCharCap`（1–5000，上限是她亲口给的）。
+ */
 export const INJECT_CHAR_CAP = 1400;
+export function injectCharCap() {
+    const n = Number((getSettings() || {}).injectCharCap);
+    if (!Number.isFinite(n)) { return INJECT_CHAR_CAP; }
+    return Math.max(1, Math.min(5000, Math.round(n)));
+}
 
 /** 一人一块，封顶条数在代码里再夹一次 */
 const HARD_CHAR_LIMIT = 8;
@@ -472,12 +481,24 @@ function pickEvents(leadText, ctxText, events, cap) {
 export function assembleInjectText(items, events, headerText, opts) {
     const header = trimText(headerText) || effectivePrompt('header');
     const anchorFloor = opts && Number.isFinite(Number(opts.anchorFloor)) ? Number(opts.anchorFloor) : NaN;
-    const blocks = [];
+    /*
+     * ★ 补单 1：人物块**按“谁更该被看见”排**，⏔ 按数组自然序（否则总是先入库的几个人被保住）。
+     *   优先级：在场（2）> 最近动过（1）> 其他（0）；同级里“最近出现的楼更大”在前 ✓
+     */
+    const entries = [];
     for (const item of Array.isArray(items) ? items : []) {
         if (item && item.character) {
-            blocks.push(personBlock(item, { anchorFloor }));
+            const c0 = item.character;
+            const onStage = item.inScene === true || item.protected === true;
+            const recent = Number(c0.lastSeenFloor);
+            const pr = onStage ? 2 : (Number.isFinite(recent) && recent >= 0 ? 1 : 0);
+            entries.push({ item, pr, floor: Number.isFinite(recent) ? recent : -1, text: personBlock(item, { anchorFloor }) });
         }
     }
+    entries.sort((a, b) => (b.pr - a.pr)
+        || (b.floor - a.floor)
+        || String((a.item.character && a.item.character.name) || '').localeCompare(String((b.item.character && b.item.character.name) || ''), 'zh'));
+    const blocks = entries.map((e) => e.text).filter(Boolean);
     const evBlocks = (Array.isArray(events) ? events : []).map(eventBlock).filter(Boolean);
 
     // ⭐ 没有人物也没有事件 ⇒ 一个字都不注入（免得只灌一段世界钟，白占上下文）
@@ -508,7 +529,8 @@ export function assembleInjectText(items, events, headerText, opts) {
         text += '\n【世界上正在发生的事】\n' + evBlocks.join('');
     }
 
-    if (countChars(text) > INJECT_CHAR_CAP) {
+    const cap = injectCharCap();
+    if (countChars(text) > cap) {
         // 超了就砍尾巴，并如实说明砍了多少条
         // ⭐【世界】那一段（世界钟／地点／总览）**必须保住**：它是防"时间瞎"的底，
         //    ⛔ 不能因为篇幅先从它身上砍（自审修正：原来重组时把它整个弄丢了）。
@@ -528,7 +550,7 @@ export function assembleInjectText(items, events, headerText, opts) {
             keptChars += 4;
         }
         for (const b of blocks) {
-            if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
+            if (keptChars + countChars(b) > cap) {
                 break;
             }
             kept += b;
@@ -540,7 +562,7 @@ export function assembleInjectText(items, events, headerText, opts) {
             keptChars += 4;
         }
         for (const b of evBlocks) {
-            if (keptChars + countChars(b) > INJECT_CHAR_CAP) {
+            if (keptChars + countChars(b) > cap) {
                 break;
             }
             kept += b;

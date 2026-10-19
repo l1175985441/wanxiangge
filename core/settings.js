@@ -222,6 +222,7 @@ export function patchSettings(patch) {
         capEvents: [10, 300, DEFAULT_SETTINGS.capEvents],
         closedEventKeep: [0, 200, DEFAULT_SETTINGS.closedEventKeep],
         blastRadiusMax: [1, 20, DEFAULT_SETTINGS.blastRadiusMax],
+        injectCharCap: [1, 5000, DEFAULT_SETTINGS.injectCharCap],
         capChronicle: [100, 5000, DEFAULT_SETTINGS.capChronicle],
         capHidden: [5, 200, DEFAULT_SETTINGS.capHidden],
         capPast: [2, 20, DEFAULT_SETTINGS.capPast],

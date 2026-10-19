@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.338';
+export const APP_VERSION = '0.3.339';
 
 export const LEDGER_VERSION = 3;
 
@@ -387,6 +387,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     closedEventKeep: 20,
     /* ★ P2-4：一次事件波及上限（她可填） */
     blastRadiusMax: 3,
+    /* ★ 补单 1：注入字数上限（她自己填，1–5000） */
+    injectCharCap: 1400,
     /* ⭐ B10（材料 14 代拍 A）：「不读」表**按书各存一份** ✓（键＝世界书名 ⇒ 曼分隔的条目名） */
     excludeEntriesByBook: {},
     onlyEnabledEntries: true, // 不选时＝角色卡绑定世界里"开启着的"条目
