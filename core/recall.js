@@ -388,7 +388,9 @@ function eventBlock(ev) {
     if (trimText(ev.tier)) {
         bits.push('火候：' + trimText(ev.tier));
     }
-    return '· ' + title + (bits.length ? '：' + bits.join(' ｜ ') : '') + '\n';
+    /* ★ P1-6：不够公开的事要标出来，⏔ 让世界推演把它当“世界新闻”广播出去 ✓ */
+    const pubTag = (ev && ev.public === false) ? '（未公开：⏔ 别当世界新闻广播）' : '';
+    return '· ' + title + pubTag + (bits.length ? '：' + bits.join(' ｜ ') : '') + '\n';
 }
 
 /** 她把"世界状态"和"平行事件"按相关度筛出来 */

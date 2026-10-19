@@ -1116,6 +1116,20 @@ export function removeHidden(id) {
  *   为什么：只存一句“局势标题”时，出事只能猜“这句是从哪来的”（模型自己写的？
  *   世界书里读的？还是她手改的）。指纹不变则同一件事可被认出，重复扩散也能拦。
  */
+/**
+ * ★ P1-6（修复单 20261019）：**够不够公开**。
+ *   为什么：屋里私聊、两人说的话，不该被当成“世界新闻”广播出去；
+ *   反过来，官方通报、报道、警方通告这类才是真正的公开事件。
+ *   判法：看文字里有没有“公开传播”的信号词（⏔ 看长度 ✗）。
+ */
+const PUBLIC_SIGNALS = /公告|通报|报道|新闻|媒体|记者|电视台|广播|报纸|官方|政府|警方|宣布|发布会|公开|传闻|头条|通缉|消息称|外界|街边|人们都在议论/;
+
+export function isPublicText(text) {
+    const s = trimText(text);
+    if (!s) { return false; }
+    return PUBLIC_SIGNALS.test(s);
+}
+
 export function fingerprintOf(text) {
     const s = String(text == null ? '' : text);
     let h = 5381;
@@ -1139,6 +1153,8 @@ export function setEvents(events) {
         floor: Number.isFinite(e.floor) ? e.floor : -1,
         /* ★ P1-3：来源类型（situation/hidden/book/manual）＋原文引用＋指纹 ✓ */
         source: trimText(e.source) || '',
+        /* ★ P1-6：够不够公开（不够 ⇒ 不当世界新闻广播 ✓） */
+        public: typeof e.public === 'boolean' ? e.public : isPublicText(trimText(e.title) + ' ' + trimText(e.text)),
         closed: e.closed === true,
         quote: trimText(e.quote),
         fingerprint: trimText(e.fingerprint) || fingerprintOf(trimText(e.title) + '|' + trimText(e.text)),
