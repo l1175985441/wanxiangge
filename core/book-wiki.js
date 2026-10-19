@@ -535,13 +535,13 @@ export function expandMultiNameEntries(entries) {
             const t1 = trimText(s && s.title);
             if (!t1 || haveEv.has(t1)) { continue; }
             haveEv.add(t1);
-            addEv.push({ title: t1, text: trimText(s.note) || t1, kind: 'situation', sides: trimText(s.sides), tier: trimText(s.tier) });
+            addEv.push({ title: t1, text: trimText(s.note) || t1, kind: 'situation', source: 'book', quote: trimText(s.note) || t1, sides: trimText(s.sides), tier: trimText(s.tier) });
         }
         for (const h of (Array.isArray(out.hidden) ? out.hidden : [])) {
             const t2 = trimText(h && h.name);
             if (!t2 || haveEv.has(t2)) { continue; }
             haveEv.add(t2);
-            addEv.push({ title: t2, text: trimText(h.note) || t2, kind: 'hidden', stage: trimText(h.stage) });
+            addEv.push({ title: t2, text: trimText(h.note) || t2, kind: 'hidden', source: 'book', quote: trimText(h.note) || t2, stage: trimText(h.stage) });
         }
         if (addEv.length) {
             setEvents(oldEv.concat(addEv));

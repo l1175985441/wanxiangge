@@ -1111,6 +1111,20 @@ export function removeHidden(id) {
 }
 
 /** 世界事件（召回用）：带有效期与来源 */
+/**
+ * ★ P1-3（修复单 20261019）：**事件要能溯源**。
+ *   为什么：只存一句“局势标题”时，出事只能猜“这句是从哪来的”（模型自己写的？
+ *   世界书里读的？还是她手改的）。指纹不变则同一件事可被认出，重复扩散也能拦。
+ */
+export function fingerprintOf(text) {
+    const s = String(text == null ? '' : text);
+    let h = 5381;
+    for (let i = 0; i < s.length; i += 1) {
+        h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+}
+
 export function setEvents(events) {
     const state = loadState();
     state.events = (Array.isArray(events) ? events : []).map((e) => ({
@@ -1123,6 +1137,10 @@ export function setEvents(events) {
         stage: trimText(e.stage),
         at: Number(e.at || now()),
         floor: Number.isFinite(e.floor) ? e.floor : -1,
+        /* ★ P1-3：来源类型（situation/hidden/book/manual）＋原文引用＋指纹 ✓ */
+        source: trimText(e.source) || '',
+        quote: trimText(e.quote),
+        fingerprint: trimText(e.fingerprint) || fingerprintOf(trimText(e.title) + '|' + trimText(e.text)),
         manual: e.manual === true,
     })).filter((e) => e.title || e.text);
     capList(state.events, 'capEvents', (e) => e.id, (e) => e.manual);
@@ -1147,13 +1165,13 @@ export function syncWorldEvents() {
         const tt = trimText(s && s.title);
         if (!tt || have.has(tt)) { continue; }
         have.add(tt);
-        add.push({ title: tt, text: trimText(s && s.note) || tt, kind: 'situation', sides: trimText(s && s.sides), tier: trimText(s && s.tier) });
+        add.push({ title: tt, text: trimText(s && s.note) || tt, kind: 'situation', source: 'situation', quote: trimText(s && s.note) || tt, sides: trimText(s && s.sides), tier: trimText(s && s.tier) });
     }
     for (const h of (Array.isArray(w.hidden) ? w.hidden : [])) {
         const tn = trimText(h && h.name);
         if (!tn || have.has(tn)) { continue; }
         have.add(tn);
-        add.push({ title: tn, text: trimText(h && h.note) || tn, kind: 'hidden', stage: trimText(h && h.stage) });
+        add.push({ title: tn, text: trimText(h && h.note) || tn, kind: 'hidden', source: 'hidden', quote: trimText(h && h.note) || tn, stage: trimText(h && h.stage) });
     }
     if (add.length) {
         setEvents(olds.concat(add));
