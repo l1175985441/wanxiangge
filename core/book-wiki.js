@@ -127,7 +127,7 @@ const CLASSIFY_SYSTEM = [
     '',
     '只回 JSON，⛔ 不要解释、不要 markdown 代码块：',
     '{"characters":[{"name":"","note":"","identity":"","faction":"","aliases":[]}],'
-    + '"factions":[{"name":"","note":""}],'
+    + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型）"}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
     + '"places":[{"name":"","note":""}],'
     + '"hidden":[{"name":"","stage":"","trigger":"","tier":"","note":""}]}',
@@ -169,7 +169,7 @@ function normalizeWiki(raw) {
     for (const f of pick(raw.factions)) {
         const name = trimText(typeof f === 'string' ? f : (f && (f.name || f.title)));
         if (name) {
-            out.factions.push({ name, note: trimText(f && f.note) });
+            out.factions.push({ name, note: trimText(f && f.note), scale: trimText(f && f.scale) });
         }
     }
     for (const s of pick(raw.situations)) {
@@ -452,7 +452,7 @@ export function applyWiki(wiki) {
     const merged = [];
     /* ★ P1-1：势力进独立实体（带 id），⏔ 再摊成一条“局势”冒充它 ✓ */
     for (const f of facs) {
-        try { upsertFaction({ name: f.name, note: f.note }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
+        try { upsertFaction({ name: f.name, note: f.note, scale: f.scale }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
     for (const s of sits) {
         merged.push({ title: s.title, sides: s.sides, tier: s.tier });

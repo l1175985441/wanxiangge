@@ -33,6 +33,8 @@ export function normalizeCharacter(raw) {
         name: trimText(c.name),
         aliases: toList(c.aliases),
         faction: trimText(c.faction),
+        /* ★ P1-2：角色抽「实力」（与势力的「规模」不同字段 ✓） */
+        power: trimText(c.power),
         /*
          * ⭐⭐ 材料 06【6】③之二：**旧账里的非数字好感，升级后要自动清理** ✓
          *   旧：只 `trimText(c.affinity)` ✗ ⇒ 旧账里存着“未接入”／“本人”／“敌对”这种**文字** ✗
@@ -243,6 +245,8 @@ function normalizeState(raw) {
         id: trimText(f && f.id) || makeId('faction'),
         name: trimText(f && f.name),
         core_person: trimText(f && f.core_person),
+        scale: trimText(f && f.scale),
+        scale: trimText(f && f.scale),
         note: trimText(f && f.note),
         at: Number(f && f.at) || 0,
         floor: Number.isFinite(Number(f && f.floor)) ? Number(f.floor) : -1,
@@ -928,6 +932,33 @@ export function updateWorld(patch, options) {
 
 /** 推进（或新增）一条暗线 */
 /**
+ * ★ P1-2（修复单 20261019）：**势力分量闸**。
+ *   为什么要闸：小规模势力（比如一个街口帮会）如果也进推演名单，
+ *   每一轮都会占掉名额、把真正有分量的势力挤出去。
+ *   取值：字面数字（≤100 当百分制）或规模词；没写 ⇒ 按 0.5（不静默：不知道的不该被我们自作主张隐掉 ✓）
+ */
+export const FACTION_SCALE_GATE = 0.5;
+
+export function factionWeight(scale) {
+    const raw = trimText(scale);
+    if (!raw) { return 0.5; }
+    const num = Number(String(raw).replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(num) && String(raw).match(/[0-9]/)) {
+        return num > 1 ? Math.min(1, num / 100) : Math.max(0, Math.min(1, num));
+    }
+    if (/巨型|庞大|巨大|大陆级|世界级/.test(raw)) { return 1; }
+    if (/大型|大规模/.test(raw)) { return 0.8; }
+    if (/中型|中规模/.test(raw)) { return 0.6; }
+    if (/小型|小规模|零散/.test(raw)) { return 0.3; }
+    if (/微型|个体|一两人/.test(raw)) { return 0.1; }
+    return 0.5;
+}
+
+export function factionPassesGate(f) {
+    return factionWeight(f && f.scale) >= FACTION_SCALE_GATE;
+}
+
+/**
  * ★ P1-1（修复单 20261019）：**势力是独立实体**，不是人物上的一个字符串。
  *   为什么：只有一个名字时，“这个势力有哪些人 / 它的核心人是谁 / 它的状态”都无处存，
  *   世界书里读到的势力只能被摊成一条“局势”。现在给它一个实体：
@@ -947,6 +978,7 @@ export function upsertFaction(line) {
     if (hit) {
         hit.core_person = core || hit.core_person;
         hit.note = note || hit.note;
+        hit.scale = trimText(line && line.scale) || hit.scale;
         saveState();
         return hit;
     }
@@ -955,7 +987,7 @@ export function upsertFaction(line) {
     if (!id || used.has(id)) {
         do { id = makeId('faction'); } while (used.has(id));
     }
-    const fresh = { id, name, core_person: core, note, at: Date.now(), floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1 };
+    const fresh = { id, name, core_person: core, scale: trimText(line && line.scale), note, at: Date.now(), floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1 };
     box.push(fresh);
     saveState();
     return fresh;

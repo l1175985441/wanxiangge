@@ -57,7 +57,7 @@ import {
     restoreSnapshot,
     dropSnapshot,
     capList,
-    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun } from './state.js';
+    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock } from './clock.js';
@@ -505,8 +505,9 @@ async function stepWorld(material, attempt) {
      * ★ P1-1：**已知势力随世界步一起给模型**（它看不见这张名单，但它要用同一个名字）。
      *   只给名字与核心人；⏔ 给它编造势力的机会 ✓
      */
+    /* ★ P1-2：小分量势力不进推演名单（⏔ 丢它的账，只是不每轮喂 ✓） */
     const knownFactions = (loadState().world.factions || [])
-        .filter((f) => f && trimText(f.name))
+        .filter((f) => f && trimText(f.name) && factionPassesGate(f))
         .map((f) => trimText(f.name) + (trimText(f.core_person) ? '（核心人：' + trimText(f.core_person) + '）' : ''))
         .filter(Boolean);
 
