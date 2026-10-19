@@ -357,6 +357,19 @@ function personBlock(item, opts) {
      *     ⇒ 写正文的模型**完全不知道“谁知道什么”** ✗ ⇒ 会把不该知道的人写成全知 ✗
      *   现在：随人物块一起端进去 ✓（最多 6 条 ✓，避免把注入撑爆 ✓）
      */
+    /*
+     * ★ 3-1：**知识面随人物块一起端**——不靠“视角纪律”，靠原料：
+     *   名单上没有的事，主模型就不该写给他。beliefs 另起一行：那是“他以为”，可能是误会 ✓
+     */
+    const kf = Array.isArray(c.knownFactKeys) ? c.knownFactKeys.filter(Boolean) : [];
+    if (kf.length) {
+        lines.push('他知道这些事（名单里没有的，⏔ 不许写给他）：' + kf.slice(0, 12).join('、'));
+    }
+    const kb = Array.isArray(c.knownFactBeliefs) ? c.knownFactBeliefs.filter((b) => b && b.key && b.belief) : [];
+    if (kb.length) {
+        lines.push('他以为（可能是误会，⏔ 当事实写）：'
+            + kb.slice(0, 6).map((b) => b.key + '＝' + b.belief).join('；'));
+    }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows
             .map((k) => trimText(k && k.text))

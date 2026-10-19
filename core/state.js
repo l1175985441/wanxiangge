@@ -35,6 +35,15 @@ export function normalizeCharacter(raw) {
         faction: trimText(c.faction),
         /* ★ P1-2：角色抽「实力」（与势力的「规模」不同字段 ✓） */
         power: trimText(c.power),
+        /* ★ 3-1（修复单 20261019）：**知识面**——防全知的“原料”法。
+           名单上没有的事，就不该写给他；beliefs 能表达“他以为的是 X（可能是误会）” ✓ */
+        knownFactKeys: toList(c.knownFactKeys),
+        knownEventIds: toList(c.knownEventIds),
+        knownClueIds: toList(c.knownClueIds),
+        knownFactBeliefs: (Array.isArray(c.knownFactBeliefs) ? c.knownFactBeliefs : [])
+            .filter(Boolean)
+            .map((b) => ({ key: trimText(b && b.key), belief: trimText(b && b.belief) }))
+            .filter((b) => b.key && b.belief),
         /*
          * ⭐⭐ 材料 06【6】③之二：**旧账里的非数字好感，升级后要自动清理** ✓
          *   旧：只 `trimText(c.affinity)` ✗ ⇒ 旧账里存着“未接入”／“本人”／“敌对”这种**文字** ✗
