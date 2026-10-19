@@ -46,7 +46,7 @@ import { toast } from './toast.js';
 // ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
-import { takeSnapshot, openHiddenCount } from '../core/state.js';
+import { takeSnapshot, openHiddenCount, sortRosterList } from '../core/state.js';
 
 /* ------------------------------ 元素小件 ------------------------------ */
 
@@ -2315,15 +2315,9 @@ function secRoster(host) {
     if (rosterFilter === 'player') {
         shownRoster = shownRoster.filter((c) => c.isPlayer);
     }
-    // 排序（创建时间／修改时间／名字）：⛔ 改原数组，拷一份再排
+    /* ★ R62：排序交给纯函数（可测），并带正反序 ✓ */
     if (rosterFilter === 'created' || rosterFilter === 'changed' || rosterFilter === 'name') {
-        const key = rosterFilter === 'created' ? 'createdAt' : (rosterFilter === 'changed' ? 'updatedAt' : '');
-        shownRoster = shownRoster.slice();
-        if (key) {
-            shownRoster.sort((a, b) => Number(b[key] || 0) - Number(a[key] || 0));
-        } else {
-            shownRoster.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh'));
-        }
+        shownRoster = sortRosterList(shownRoster, rosterFilter, rosterSortDir);
     }
     const rf = el('div', 'wxg-filters');
     const mkR = (key, label, n) => {
@@ -2336,11 +2330,12 @@ function secRoster(host) {
         }
         return b;
     };
+    const dirMark = (k) => (rosterFilter === k ? (rosterSortDir === 'desc' ? ' ▼' : ' ▲') : '');
     rf.appendChild(mkR('all', '全部', roster.length));
-    rf.appendChild(mkR('created', '创建时间', null));
-    rf.appendChild(mkR('changed', '修改时间', null));
+    rf.appendChild(mkR('created', '创建时间' + dirMark('created'), null));
+    rf.appendChild(mkR('changed', '修改时间' + dirMark('changed'), null));
     rf.appendChild(mkR('player', '玩家棋子', roster.filter((c) => c.isPlayer).length));
-    rf.appendChild(mkR('name', '名字', null));
+    rf.appendChild(mkR('name', '名字' + dirMark('name'), null));
     // 右侧搜索框（内嵌放大镜）
     const sw = el('div', 'wxg-searchwrap');
     sw.appendChild(el('span', 'wxg-searchico', '⌕'));
@@ -5226,7 +5221,14 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'roster-filter': {
                     // 名册的筛选胶囊（同上）
-                    rosterFilter = trimText(id) || 'all';
+                    /* ★ R62：点已选中的创建/修改时间 ⇒ 切正反序 ✓ */
+                    const wantR = trimText(id) || 'all';
+                    if (wantR === rosterFilter && (wantR === 'created' || wantR === 'changed' || wantR === 'name')) {
+                        rosterSortDir = rosterSortDir === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        rosterFilter = wantR;
+                        rosterSortDir = wantR === 'name' ? 'asc' : 'desc';
+                    }
                     rosterPage = 1; // 同上
                     rerender();
                     break;

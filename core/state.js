@@ -513,6 +513,26 @@ export function isPlayerCharacter(c) {
  * ⭐ 在这里把"自动认出来的你"并进 `isPlayer`（**只在返回值上并，⛔ 不写存档**）：
  *    这样 `pipeline`／`recall`／界面三边都不用改，行为立刻就对。
  */
+/**
+ * ★ R62（第二批 1019）：**名册排序（创建时间／修改时间／名字，可正反序）**。
+ *   抽成纯函数的原因：排序是“一件事”，要能被测；⏔ 埋在界面里拼。
+ *   dir：'desc'（默认，最近/最新在前）／'asc'。名字按中文排序，不受时间影响。
+ */
+export function sortRosterList(list, key, dir) {
+    const arr = (Array.isArray(list) ? list : []).slice();
+    const d = dir === 'asc' ? 1 : -1;
+    if (key === 'created' || key === 'changed') {
+        const k = key === 'created' ? 'createdAt' : 'updatedAt';
+        arr.sort((a, b) => d * (Number(a && a[k] || 0) - Number(b && b[k] || 0)));
+        return arr;
+    }
+    if (key === 'name') {
+        arr.sort((a, b) => d * String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'zh'));
+        return arr;
+    }
+    return arr;
+}
+
 export function getRoster() {
     const list = loadState().characters;
     for (const c of list) {
