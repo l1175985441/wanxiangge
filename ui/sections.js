@@ -259,6 +259,49 @@ function field(labelText, control) {
     return wrap;
 }
 
+/**
+ * ★ 她 22:1x：**查重结果要能勾选**。
+ *   每组：保留第一条；其余每条一个勾选框（默认勾）；底下一个「合并勾选的」。
+ *   ⏔ 只给一串名字让她自己回去找人 ✓
+ */
+function renderDupPicker(host) {
+    const box = byId(host, 'wxg-dup-picker');
+    if (!box) {
+        return;
+    }
+    box.textContent = '';
+    if (!dupGroups.length) {
+        return;
+    }
+    box.appendChild(el('div', 'wxg-note',
+        '疑似重复 ' + String(dupGroups.length) + ' 组：每组保留第一条，'
+        + '勾选要并进去的（会先留快照，「撤回上一次」可反悔）'));
+    dupGroups.forEach((g, gi) => {
+        const wrap = el('div', 'wxg-dup-group');
+        wrap.appendChild(el('div', 'wxg-note',
+            '第 ' + String(gi + 1) + ' 组 · 保留：' + ((g[0] && g[0].name) || '（未记名）')));
+        for (let i = 1; i < g.length; i += 1) {
+            const m = g[i] || {};
+            const lab = el('label', 'wxg-dup-item');
+            const cb = el('input');
+            cb.type = 'checkbox';
+            cb.checked = !!(m.id && dupPick.has(m.id));
+            cb.setAttribute('data-action', 'dup-toggle');
+            cb.setAttribute('data-id', m.id || '');
+            lab.appendChild(cb);
+            lab.appendChild(el('span', '', ' ' + (m.name || '（未记名）')));
+            wrap.appendChild(lab);
+        }
+        box.appendChild(wrap);
+    });
+    const bar = el('div', 'wxg-row');
+    bar.appendChild(button('全选', 'dup-toggle-all', 'wxg-btn-sm', 'on'));
+    bar.appendChild(button('全不选', 'dup-toggle-all', 'wxg-btn-sm', 'off'));
+    bar.appendChild(button('合并勾选的（' + String(dupPick.size) + '）', 'merge-selected-dupes', 'wxg-btn-sm wxg-primary'));
+    bar.appendChild(button('关掉这张清单', 'dup-clear', 'wxg-btn-sm'));
+    box.appendChild(bar);
+}
+
 function row(host, ...children) {
     const r = el('div', 'wxg-row');
     for (const c of children) {
@@ -2272,6 +2315,9 @@ function secRoster(host) {
     const bookList = el('div', 'wxg-note', '');
     bookList.id = 'wxg-book-list';
     inTarget.appendChild(bookList);
+    const dupBox = el('div', 'wxg-note', '');
+    dupBox.id = 'wxg-dup-picker';
+    inTarget.appendChild(dupBox);
     row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'),
                 /* ⭐修复 15（材料 02）：**一键合并查重出的所有重复组** ✓ */
                 button('一键合并重复组', 'merge-all-dupes'),
@@ -3485,6 +3531,9 @@ function secSteps(host, intoBox) {
 let personCardId = null;
 /* ⭐ B8（材料 13）：当前正在选“并进哪一位”的角色 id（⏔ 再弹 window.prompt ✗） */
 let mergePickFor = null;
+/* ★ 她 22:1x：查重结果与勾选（可勾选后一键合并） */
+let dupGroups = [];
+let dupPick = new Set();
 /*
  * ⭐ 浮层要挂在**段容器里**而不是 body：
  *   点击处理器只绑在段容器上（`bindSectionEvents(host)`）⇒
@@ -6423,22 +6472,110 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'detect-dupes': {
-                    const dupes = autoDetectDuplicates();
+                    /*
+                     * ★ 她 22:1x：**查完重要能勾选**——否则查出重复也没法用，只能一条条手动"按这条合并"。
+                     *   现在：结果存进 dupGroups，并在名册页下方渲染一张可勾选清单（每组先勾"并进去的那些"），
+                     *   右下角一个「合并勾选的（N）」⇒ 一键只并她勾的那几条 ✓
+                     */
+                    dupGroups = autoDetectDuplicates();
+                    dupPick = new Set();
+                    for (const g of dupGroups) {
+                        for (let i = 1; i < g.length; i += 1) {
+                            if (g[i] && g[i].id) {
+                                dupPick.add(g[i].id);
+                            }
+                        }
+                    }
                     const box = byId(host, 'wxg-book-list');
-                    if (!dupes.length) {
+                    if (!dupGroups.length) {
                         toast.ok('没发现疑似重复的记录');
                         if (box) {
                             box.textContent = '';
                         }
                     } else {
-                        toast.info('发现 ' + String(dupes.length) + ' 组疑似重复');
+                        toast.info('发现 ' + String(dupGroups.length) + ' 组疑似重复，下面勾选要并的');
+                        /* 备注区那句话保留（她习惯在那里看一眼；审计也盯着它） ✓ */
                         if (box) {
-                            box.textContent = '疑似重复：' + dupes.map((d) => d.map((x) => x.name).join(' ⇄ ')).join(' ｜ ')
-                                + '（用「按这条合并…」处理）';
+                            box.textContent = '疑似重复：' + dupGroups.map((d) => d.map((x) => x.name).join(' ⇄ ')).join(' ｜ ')
+                                + '（在下面勾选后点「合并勾选的」）';
                         }
+                    }
+                    renderDupPicker(host);
+                    break;
+                }
+                case 'merge-selected-dupes': {
+                    const picks = Array.from(dupPick);
+                    if (!picks.length) {
+                        toast.warn('先勾选要并进去的人');
+                        break;
+                    }
+                    let done = 0;
+                    let failed = 0;
+                    for (const g of dupGroups) {
+                        if (!g || !g.length || !g[0]) {
+                            continue;
+                        }
+                        const keep = g[0];
+                        for (let i = 1; i < g.length; i += 1) {
+                            const m = g[i];
+                            if (!m || !m.id || !dupPick.has(m.id)) {
+                                continue;
+                            }
+                            try {
+                                if (mergeCharacters(keep.id, m.name)) {
+                                    done += 1;
+                                } else {
+                                    failed += 1;
+                                }
+                            } catch (eM) {
+                                failed += 1;
+                            }
+                        }
+                    }
+                    dupGroups = [];
+                    dupPick = new Set();
+                    if (done) {
+                        toast.ok('合并了 ' + String(done) + ' 条' + (failed ? ('（' + String(failed) + ' 条没成功）') : ''));
+                    } else {
+                        toast.warn('一条都没并成');
+                    }
+                    rerender();
+                    break;
+                }
+                case 'dup-toggle': {
+                    const cid = trimText(id);
+                    if (cid) {
+                        if (dupPick.has(cid)) {
+                            dupPick.delete(cid);
+                        } else {
+                            dupPick.add(cid);
+                        }
+                        renderDupPicker(host);
                     }
                     break;
                 }
+                case 'dup-toggle-all': {
+                    const on = id === 'on';
+                    dupPick = new Set();
+                    if (on) {
+                        for (const g of dupGroups) {
+                            for (let i = 1; i < g.length; i += 1) {
+                                if (g[i] && g[i].id) {
+                                    dupPick.add(g[i].id);
+                                }
+                            }
+                        }
+                    }
+                    renderDupPicker(host);
+                    break;
+                }
+                case 'dup-clear': {
+                    dupGroups = [];
+                    dupPick = new Set();
+                    renderDupPicker(host);
+                    break;
+                }
+
                 case 'import-data': {
                     /* 她选一个 .json ⇒ 先问一句 ⇒ 留快照 ⇒ 整本导入 ✓ */
                     try {
