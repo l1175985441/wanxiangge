@@ -18,7 +18,7 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents, upsertFaction } from './state.js';
 import { mergeCharacters } from './merge.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
@@ -450,8 +450,9 @@ export function applyWiki(wiki) {
     }
     // ② 势力 ＋ 局势 → 世界状态（都记成"局势"，势力名当作一方）
     const merged = [];
+    /* ★ P1-1：势力进独立实体（带 id），⏔ 再摊成一条“局势”冒充它 ✓ */
     for (const f of facs) {
-        merged.push({ title: f.name + (f.note ? '（' + f.note + '）' : ''), sides: f.name, tier: '' });
+        try { upsertFaction({ name: f.name, note: f.note }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
     for (const s of sits) {
         merged.push({ title: s.title, sides: s.sides, tier: s.tier });

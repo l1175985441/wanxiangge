@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.320';
+export const APP_VERSION = '0.3.321';
 
 export const LEDGER_VERSION = 3;
 
@@ -201,6 +201,9 @@ export const DEFAULT_PROMPT_WORLD = [
     '',
     '【最近正文】（供你判断"世界上正在发生什么"）',
     '{{recent}}',
+    '',
+    '【已知势力】（名字要用同一个，⏔ 另起名 ✗；没登记的不要自己造）',
+    '{{factions}}',
     '',
     '【已有的暗线】（每条都带：阶段、触发条件、进度）',
     '{{hidden}}',

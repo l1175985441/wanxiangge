@@ -501,6 +501,15 @@ async function stepWorld(material, attempt) {
         })
         .join('\n') || '（还没有暗线）';
 
+    /*
+     * ★ P1-1：**已知势力随世界步一起给模型**（它看不见这张名单，但它要用同一个名字）。
+     *   只给名字与核心人；⏔ 给它编造势力的机会 ✓
+     */
+    const knownFactions = (loadState().world.factions || [])
+        .filter((f) => f && trimText(f.name))
+        .map((f) => trimText(f.name) + (trimText(f.core_person) ? '（核心人：' + trimText(f.core_person) + '）' : ''))
+        .filter(Boolean);
+
     const prompt = fillTemplate(effectivePrompt('world'), {
         user: playerNamesForPrompt(),
         world: [
@@ -517,6 +526,7 @@ async function stepWorld(material, attempt) {
         clock: trimText(world.clock) || '未知',
         recent: capWorldMaterial(material.recentText, attempt),   /* ⭐ 拆小：超长只带最近一段 ✓ */
         hidden: hiddenLines,
+        factions: knownFactions.join('；') || '（还没登记势力）',
     });
 
     // ⭐ 补④：重试时加大输出额度（带帽子）＋ 一并要求精简闭合

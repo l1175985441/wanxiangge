@@ -199,6 +199,7 @@ function emptyState() {
         world: {
             bigPicture: '',
             situations: [],      // 势力的碰撞：{title, sides, tier, at, floor}
+            factions: [],        // 势力：{id, name, core_person, note, at, floor}（独立实体，按名字复用 id ✓）
             hidden: [],          // 暗线：{id, name, stage, kind, trigger, tier, note, log[], manual}
             clock: '',           // 世界内时间（只有钟是准的）
             place: '',
@@ -238,6 +239,14 @@ function normalizeState(raw) {
     state.characters = Array.isArray(s.characters) ? s.characters.map(normalizeCharacter) : [];
     state.world = Object.assign(base.world, s.world && typeof s.world === 'object' ? s.world : {});
     state.world.situations = Array.isArray(state.world.situations) ? state.world.situations : [];
+    state.world.factions = (Array.isArray(state.world.factions) ? state.world.factions : []).map((f) => ({
+        id: trimText(f && f.id) || makeId('faction'),
+        name: trimText(f && f.name),
+        core_person: trimText(f && f.core_person),
+        note: trimText(f && f.note),
+        at: Number(f && f.at) || 0,
+        floor: Number.isFinite(Number(f && f.floor)) ? Number(f.floor) : -1,
+    })).filter((f) => f.name);
     state.world.hidden = Array.isArray(state.world.hidden) ? state.world.hidden.map((h) => Object.assign({
         id: makeId('line'),
         name: '',
@@ -918,6 +927,40 @@ export function updateWorld(patch, options) {
 }
 
 /** 推进（或新增）一条暗线 */
+/**
+ * ★ P1-1（修复单 20261019）：**势力是独立实体**，不是人物上的一个字符串。
+ *   为什么：只有一个名字时，“这个势力有哪些人 / 它的核心人是谁 / 它的状态”都无处存，
+ *   世界书里读到的势力只能被摊成一条“局势”。现在给它一个实体：
+ *   按名字复用已有 id（重复导入不会重号），只填空、不把已有值清掉。
+ */
+export function upsertFaction(line) {
+    const name = trimText(line && line.name);
+    if (!name) {
+        return null;
+    }
+    const state = loadState();
+    const box = state.world.factions = Array.isArray(state.world.factions) ? state.world.factions : [];
+    const key = matchKey(name);
+    const hit = box.find((f) => f && matchKey(f.name) === key);
+    const core = trimText(line && line.core_person);
+    const note = trimText(line && line.note);
+    if (hit) {
+        hit.core_person = core || hit.core_person;
+        hit.note = note || hit.note;
+        saveState();
+        return hit;
+    }
+    const used = new Set(box.map((f) => trimText(f && f.id)).filter(Boolean));
+    let id = trimText(line && line.id);
+    if (!id || used.has(id)) {
+        do { id = makeId('faction'); } while (used.has(id));
+    }
+    const fresh = { id, name, core_person: core, note, at: Date.now(), floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1 };
+    box.push(fresh);
+    saveState();
+    return fresh;
+}
+
 export function upsertHidden(line) {
     const state = loadState();
     const name = trimText(line && line.name);
