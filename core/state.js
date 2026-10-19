@@ -261,6 +261,8 @@ function normalizeState(raw) {
         floor: Number.isFinite(Number(f && f.floor)) ? Number(f.floor) : -1,
     })).filter((f) => f.name);
     state.world.hidden = Array.isArray(state.world.hidden) ? state.world.hidden.map((h) => Object.assign({
+        owner: '', goal: '', visibility: '', maxSteps: 0, progress: 0,
+        memory: { promise: '', done: '', blocked: '', rounds: 0 },
         id: makeId('line'),
         name: '',
         stage: '萌芽',
@@ -1040,6 +1042,12 @@ export function upsertHidden(line) {
             /* ⭐ C12（材料 13）：**因果两格不能在推进时丢掉** ✓ */
             cause: trimText(line.cause) || existing.cause,
             effect: trimText(line.effect) || existing.effect,
+            owner: trimText(line.owner) || existing.owner,
+            goal: trimText(line.goal) || existing.goal,
+            visibility: trimText(line.visibility) || existing.visibility,
+            maxSteps: Number.isFinite(Number(line.maxSteps)) ? Math.max(0, Number(line.maxSteps)) : existing.maxSteps,
+            progress: Number.isFinite(Number(line.progress)) ? Math.max(0, Number(line.progress)) : existing.progress,
+            memory: Object.assign({}, existing.memory || {}, (line && line.memory) || {}),
             updatedAt: now(),
         });
         // 补齐起算点（老数据没有的话补上，⛔ 已有的不覆盖——覆盖等于把时间表往后推）
@@ -1069,6 +1077,13 @@ export function upsertHidden(line) {
         note: trimText(line.note),
         /* ⭐ C12（材料 13）：**新建暗线也要带上因果** ✓ */
         cause: trimText(line.cause),
+        /* ★ P2-5（修复单 20261019）：暗线补齐七格 ✓ */
+        owner: trimText(line.owner),
+        goal: trimText(line.goal),
+        visibility: trimText(line.visibility),
+        maxSteps: Number.isFinite(Number(line.maxSteps)) ? Math.max(0, Number(line.maxSteps)) : 0,
+        progress: Number.isFinite(Number(line.progress)) ? Math.max(0, Number(line.progress)) : 0,
+        memory: Object.assign({ promise: '', done: '', blocked: '', rounds: 0 }, (line && line.memory) || {}),
         effect: trimText(line.effect),
         sinceDay: Number.isFinite(sinceDayNow) ? sinceDayNow : null,
         sinceMinutes: Number.isFinite(sinceMinutesNow) ? sinceMinutesNow : null,

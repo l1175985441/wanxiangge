@@ -486,7 +486,10 @@ async function stepWorld(material, attempt) {
         .filter((h) => !isLineDone(h.stage))
         .map((h) => {
             const due = isLineDue(h, world.clock);
-            return '· ' + h.name + '【' + h.stage + '】 到点条件：' + (h.trigger || '（没写）')
+            return '· ' + h.name + '【' + h.stage + '】'
+                + (trimText(h.owner) ? '（盘算人：' + trimText(h.owner) + '）' : '')
+                + (trimText(h.goal) ? '（目标：' + trimText(h.goal) + '）' : '')
+                + '到点条件：' + (h.trigger || '（没写）')
                 + ' ｜ 火候：' + (h.tier || '几天内')
                 + ' ｜ 现状：' + (h.suspect === true
                     /*
