@@ -593,6 +593,21 @@ export function buildRecall(input) {
     }
 
     const leadKeys = new Set(leadHits.map((h) => h.character.id));
+    /*
+     * ★ P0-1（修复单 20261019）：**“在场”看的是他最近几楼是不是都在，——不是这一句点没点到名**。
+     *   为什么：本轮点名的人里大多数是后台的人**第一次被提到**，
+     *   若把“点名”当“在场”，他们就会丢掉“正在经历”——与“后台人出场要带全”恰恰相反。
+     *   取数：`lastSeenFloor`（每轮在场时由 pipeline 写成当前楼）与当前楼相差 ≤ ONSTAGE_RECENT_FLOORS ⇒ 算一直在场。
+     */
+    const ONSTAGE_RECENT_FLOORS = 2;
+    const nowFloor = chat.length - 1;
+    const onStageRecently = (c) => {
+        if (!c) { return false; }
+        const seen = Number(c.lastSeenFloor);
+        if (!Number.isFinite(seen) || seen < 0) { return false; }
+        if (!Number.isFinite(nowFloor) || nowFloor < 0) { return false; }
+        return (nowFloor - seen) <= ONSTAGE_RECENT_FLOORS;
+    };
     result.chars = kept.map((h) => h.character.name);
     result.items = kept.map((h) => ({
         /*
@@ -611,7 +626,7 @@ export function buildRecall(input) {
         })(),
         reason: leadKeys.has(h.character.id) ? '本轮点名' : '最近正文提到',
         inScene: leadKeys.has(h.character.id),
-        protected: leadKeys.has(h.character.id) && settings.protectedBypass === true,
+        protected: settings.protectedBypass === true && onStageRecently(h.character),
     }));
 
     // 世界事件：按她最新发言相关度筛
