@@ -1610,6 +1610,13 @@ async function runUpdateInner(opts) {
     }
     const chat = getChat();
     const floor = Number.isFinite(o.floor) && o.floor >= 0 ? o.floor : chat.length - 1;
+    /* ★ P1-5：同一楼同一版已经成功算过 ⇒ **不再发请求**（她随便刷多少次都不烧额度 ✓） */
+    const swipeId = currentSwipeId(floor);
+    const commitKey = commitKeyOf(floor, swipeId);
+    if (o.force !== true && alreadyCommitted(loadState(), floor, swipeId)) {
+        running = false;
+        return { ok: true, skipped: true, reason: '这一楼的这一版已经算过了（重刷同一版不重复烧额度）' };
+    }
 
     // 留一版快照（撤回用）
     const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
@@ -1884,6 +1891,9 @@ async function runUpdateInner(opts) {
         at: Date.now(),
         status: failed ? 'failed' : 'ok',
         note: text,
+        /* ★ P1-5：这笔提交属于哪一楼的第几版（失败不记，不占用提交身份 ✓） */
+        swipeId: failed ? null : swipeId,
+        commitKey: failed ? '' : commitKey,
         /*
          * ⭐ 修复单 #19：失败时**停在原来那楼**（⛔ 不许推进）——
          *   推进了会让进度条显示"已经追平正文"，而实际上账被回滚了、这一楼根本没算。
@@ -2173,6 +2183,33 @@ export function runReconcile() {
  *   现在：只在**真的 Swipe 过的那一楼**放行一次 ✓
  *     ⏔ 改“没 Swipe 就不重烧”的原设计 ✗（它照旧生效 ✓）
  */
+/**
+ * ★ P1-5（修复单 20261019）：**重 roll 解耦** —— 每笔提交都记下「哪一楼的第几版」。
+ *   为什么：同一楼同一版重算一次 = 白烧一轮额度；而她真切了 swipe 又必须重算。
+ *   所以把「楼号:版本号」当成一次提交的身份：已经成功算过的同一个身份 ⇒ 跳过；换了版本 ⇒ 重算 ✓
+ */
+export function currentSwipeId(floor) {
+    try {
+        const chat = getChat();
+        const m = chat[Number(floor)];
+        const s = Number(m && m.swipe_id);
+        return Number.isFinite(s) ? s : 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+export function commitKeyOf(floor, swipeId) {
+    return String(Number(floor)) + ':' + String(Number(swipeId) || 0);
+}
+
+export function alreadyCommitted(state, floor, swipeId) {
+    const lu = (state && state.lastUpdate) || {};
+    if (lu.status !== 'ok') { return false; }
+    const key = commitKeyOf(floor, swipeId);
+    return String(lu.commitKey || '') === key;
+}
+
 export function markFloorSwiped(floor) {
     const f = Number(floor);
     if (!Number.isFinite(f) || f < 0) {
@@ -2180,6 +2217,13 @@ export function markFloorSwiped(floor) {
     }
     try {
         setPipeline({ swipedFloor: f });
+        /* 切了版本 ⇒ 这一楼的提交身份作废，下次必须重算 ✓ */
+        const st = loadState();
+        const lu = st.lastUpdate || {};
+        if (Number(lu.floor) === f) {
+            st.lastUpdate = Object.assign({}, lu, { commitKey: '', swipeStale: true });
+            saveState();
+        }
     } catch (eSw) { /* 记不上也不能把事件处理搞挂 ✓ */ }
 }
 
