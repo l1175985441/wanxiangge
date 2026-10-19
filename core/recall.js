@@ -10,6 +10,7 @@
  */
 
 import { clampNumber, countChars, matchKey, trimText, uniqueBy, eventTitle } from './utils.js';
+import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
 import { getSettings, effectivePrompt } from './settings.js';
 
@@ -294,11 +295,25 @@ function personBlock(item, opts) {
      *   · 端过与否（fresh）的逻辑保留不动。
      */
     const cut = Number.isFinite(Number(getSettings().pastFloorCut)) ? Number(getSettings().pastFloorCut) : 0;
+    /*
+     * ★ 3-2（修复单 20261019）：过去经历**只看那一楼有没有被隐藏**。
+     *   隐藏楼 ⇒ 主模型看不见 ⇒ 必须端；可见且近 ⇒ 上下文里已有 ⇒ 不端。
+     *   老数据（没 fromFloor）或这一楼没有隐藏楼 ⇒ 照旧用 pastFloorCut 按距离兜底 ✓
+     */
+    const hidSet = new Set(Array.isArray(item && item.hiddenFloors) ? item.hiddenFloors : []);
     const keepByFloor = (p) => {
+        const from = Number(p && p.fromFloor);
+        if (Number.isFinite(from) && hidSet.size) {
+            if (hidSet.has(from)) {
+                return true;    // 隐藏楼 ⇒ 端
+            }
+            if (cut > 0 && Number.isFinite(anchorFloor) && (anchorFloor - from) < cut) {
+                return false;   // 可见且近 ⇒ 不端
+            }
+        }
         if (!cut || !Number.isFinite(anchorFloor)) {
             return true;
         }
-        const from = Number(p && p.fromFloor);
         if (!Number.isFinite(from)) {
             return true;   // 老数据：当很老
         }
@@ -593,6 +608,14 @@ export function buildRecall(input) {
     const ctxText = recentContext(chat, leadFloor, settings.recentTurns);
     result.from = ctxText;
 
+    /* ★ 3-2：这一楼哪些楼层是隐藏的（归一次算好，随 item 带给 personBlock ✓） */
+    const hiddenFloors = (() => {
+        const arr = [];
+        for (let i = 0; i < chat.length; i += 1) {
+            try { if (isHiddenMessage(chat[i])) { arr.push(i); } } catch (eH) { }
+        }
+        return arr;
+    })();
     const leadHits = findMentions(leadText, index);
     let picked = leadHits;
     if (!settings.strictMention) {
@@ -644,6 +667,7 @@ export function buildRecall(input) {
         })(),
         reason: leadKeys.has(h.character.id) ? '本轮点名' : '最近正文提到',
         inScene: leadKeys.has(h.character.id),
+        hiddenFloors,
         protected: settings.protectedBypass === true && onStageRecently(h.character),
     }));
 
