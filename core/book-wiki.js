@@ -18,7 +18,7 @@
  */
 
 import { TIERS } from './config.js';
-import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents, upsertFaction } from './state.js';
+import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents, upsertFaction, getRoster } from './state.js';
 import { mergeCharacters } from './merge.js';
 import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
@@ -619,6 +619,48 @@ export function ruleBasedPeople(entries) {
 }
 
 /**
+ * ★ 补单 1-③：**知识面＝读世界书出来的东西**，不是每轮现抽。
+ *   匹配规则：这本书里"挂在他名下"的条目 —— 条目 key 里含他的名字／别名，或条目标题里含他的名字。
+ *   落成：`knownFactKeys` ＝ 这些条目的标题（他名下的事）。
+ */
+export function knowledgeKeysFromEntries(entries, name, aliases) {
+    const names = [trimText(name)].concat(Array.isArray(aliases) ? aliases.map((a) => trimText(a)) : [])
+        .filter(Boolean);
+    if (!names.length) {
+        return [];
+    }
+    const out = [];
+    for (const e of (Array.isArray(entries) ? entries : [])) {
+        if (!e) {
+            continue;
+        }
+        const rawKeys = Array.isArray(e.key) ? e.key : (Array.isArray(e.keys) ? e.keys : [e.key]);
+        const keys = rawKeys.map((k) => trimText(k)).filter(Boolean);
+        const title = trimText(e.comment || e.title || '');
+        const hitKey = keys.some((k) => names.some((n) => k.indexOf(n) >= 0));
+        const hitTitle = title && names.some((n) => title.indexOf(n) >= 0);
+        if ((hitKey || hitTitle) && title) {
+            out.push(title);
+        }
+    }
+    return Array.from(new Set(out));
+}
+
+/** 把整本书里"挂在他名下"的条目落成他的知识面；返回落了几个人的 */
+export function applyKnowledgeFromEntries(entries, roster) {
+    const list = Array.isArray(roster) ? roster : getRoster();
+    let touched = 0;
+    for (const c of list) {
+        const keys = knowledgeKeysFromEntries(entries, c.name, c.aliases);
+        if (keys.length) {
+            updateCharacter(c.id, { knownFactKeys: keys });
+            touched += 1;
+        }
+    }
+    return touched;
+}
+
+/**
  * 一条龙：读书 → 分类 → 落账。
  * @param {string} bookName
  * @param {{allowRuleFallback?: boolean}} [opts]
@@ -647,6 +689,8 @@ export async function importBookWiki(bookName, opts) {
         return { ok: false, reason: cls.reason, read: read.entries.length };
     }
     const applied = applyWiki(cls.wiki);
+    /* ★ 补单 1-③：知识面从这本书读（挂在他名下的条目），⏔ 每轮现抽 ✓ */
+    try { applyKnowledgeFromEntries(read.entries); } catch (eKnow) { }
     /*
      * ⭐ 她 [18]：**模型线也得落别名／身份**。
      *   这里 `read` 在作用域内（上一版插在 `applyWiki` 里取不到 read ⇒ 砸了 3 套）。
