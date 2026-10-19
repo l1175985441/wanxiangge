@@ -387,19 +387,19 @@ function personBlock(item, opts) {
     const kf = Array.isArray(c.knownFactKeys) ? c.knownFactKeys.filter(Boolean) : [];
     /* ★ 补单 1：知识面是“这个人”的一部分，人带了就整份带；总量由 injectCharCap 统一管 ✓ */
     if (kf.length) {
-        lines.push('他知道这些事（名单里没有的，⏔ 不许写给他）：' + kf.join('、'));
+        lines.push('知识面（他知道这些事；名单里没有的，⏔ 不许写给他）：' + kf.join('、'));
     }
     const kb = Array.isArray(c.knownFactBeliefs) ? c.knownFactBeliefs.filter((b) => b && b.key && b.belief) : [];
     if (kb.length) {
-        lines.push('他以为（可能是误会，⏔ 当事实写）：'
+        lines.push('知识面（他以为的，可能是误会，⏔ 当事实写）：'
             + kb.map((b) => b.key + '＝' + b.belief).join('；'));
     }
     /* ★ 她 22:2x：行为边界／知识边界——事实，可喂；⏔ 写成表演描写 ✓ */
     if (trimText(c.behaviorBounds)) {
-        lines.push('行为边界：' + trimText(c.behaviorBounds) + '（⏔ 与这不符的演法不要）');
+        lines.push('认知账（他会怎么做）：' + trimText(c.behaviorBounds) + '（⏔ 与这不符的演法不要）');
     }
     if (trimText(c.knowledgeBounds)) {
-        lines.push('知识边界：' + trimText(c.knowledgeBounds) + '（⏔ 他不知道的就别让他知道）');
+        lines.push('知识面（他不知道什么）：' + trimText(c.knowledgeBounds) + '（⏔ 他不知道的就别让他知道）');
     }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows
