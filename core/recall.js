@@ -506,7 +506,8 @@ export function assembleInjectText(items, events, headerText, opts) {
             const c0 = item.character;
             const onStage = item.inScene === true || item.protected === true;
             const recent = Number(c0.lastSeenFloor);
-            const pr = onStage ? 2 : (Number.isFinite(recent) && recent >= 0 ? 1 : 0);
+            /* ★ 补单 1-⑥：**后台先保、前台后砍**——在场的人正文里有他，后台的人记忆插件抓不到，只能靠召回 ✓ */
+            const pr = onStage ? 0 : 2;
             entries.push({ item, pr, floor: Number.isFinite(recent) ? recent : -1, text: personBlock(item, { anchorFloor }) });
         }
     }
