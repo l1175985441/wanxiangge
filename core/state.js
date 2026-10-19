@@ -240,7 +240,7 @@ function normalizeState(raw) {
     state.chatKey = s.chatKey === undefined || s.chatKey === null ? '' : String(s.chatKey);
     state.characters = Array.isArray(s.characters) ? s.characters.map(normalizeCharacter) : [];
     state.world = Object.assign(base.world, s.world && typeof s.world === 'object' ? s.world : {});
-    state.world.situations = (Array.isArray(state.world.situations) ? state.world.situations : []).map((s) => Object.assign({}, s, { closed: s && s.closed === true }));
+    state.world.situations = (Array.isArray(state.world.situations) ? state.world.situations : []).map(normalizeSituation).filter((s) => s.title);
     state.world.factions = (Array.isArray(state.world.factions) ? state.world.factions : []).map((f) => ({
         id: trimText(f && f.id) || makeId('faction'),
         name: trimText(f && f.name),
@@ -1128,6 +1128,31 @@ export function isPublicText(text) {
     const s = trimText(text);
     if (!s) { return false; }
     return PUBLIC_SIGNALS.test(s);
+}
+
+/**
+ * ★ P1-7（修复单 20261019）：**世界脉动**（局势不是空话，带压力／趋势／可见度／原文证据）。
+ *   为什么：一句“谁和谁在起冲突”看不出它有多重、在往哪边走、外界知不知道；
+ *   而“证据”是为了事后能回答“这句从哪来”。
+ */
+export function normalizeSituation(s) {
+    const src = s && typeof s === 'object' ? s : {};
+    const pNum = Number(src.pressure);
+    return {
+        title: trimText(src.title || src.text),
+        sides: trimText(src.sides),
+        tier: trimText(src.tier),
+        cause: trimText(src.cause),
+        effect: trimText(src.effect),
+        pressure: Number.isFinite(pNum) ? Math.max(0, Math.min(5, pNum)) : null,
+        trend: trimText(src.trend),
+        visibility: trimText(src.visibility),
+        evidence: trimText(src.evidence),
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+        closed: src.closed === true,
+        manual: src.manual === true,
+    };
 }
 
 export function fingerprintOf(text) {

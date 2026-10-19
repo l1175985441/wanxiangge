@@ -573,6 +573,11 @@ async function stepWorld(material, attempt) {
             /* ⭐ C12（材料 13）：**因果两格要存下来** ✓（旧：没这两格 ⇒ 因果永远空 ✗） */
             cause: trimText(s && (s.cause || s.from || s.起因)),
             effect: trimText(s && (s.effect || s.to || s.走向)),
+            /* ★ P1-7：世界脉动四格 ✓ */
+            pressure: Number.isFinite(Number(s && s.pressure)) ? Math.max(0, Math.min(5, Number(s.pressure))) : null,
+            trend: trimText(s && s.trend),
+            visibility: trimText(s && s.visibility),
+            evidence: trimText(s && (s.evidence || s.quote)),
             at: Date.now(),
             floor: material.floor,
         })).filter((s) => s.title);
