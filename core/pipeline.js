@@ -530,6 +530,7 @@ async function stepWorld(material, attempt) {
         recent: capWorldMaterial(material.recentText, attempt),   /* ⭐ 拆小：超长只带最近一段 ✓ */
         hidden: hiddenLines,
         factions: knownFactions.join('；') || '（还没登记势力）',
+        blastMax: String(clampNumber(settings.blastRadiusMax, 1, 20, 3)),
     });
 
     // ⭐ 补④：重试时加大输出额度（带帽子）＋ 一并要求精简闭合

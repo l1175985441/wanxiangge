@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.332';
+export const APP_VERSION = '0.3.333';
 
 export const LEDGER_VERSION = 3;
 
@@ -227,6 +227,8 @@ export const DEFAULT_PROMPT_WORLD = [
     '',
     /* ★ P2-1：世界不是每轮重生一次，它是**同一批线在往下走**。 */
     /* ★ P2-3：把一部分创作权交给模型，但用**三分法**画清边界。 */
+    /* ★ P2-4：波及上限，数字由她填 ✓ */
+    '⛔ **一次事件波及的人数上限：{{blastMax}} 个**（超过就把其余人留到下一次，⛔ 一次把全世界都卷进去 ✗）。',
     '⭐ **小说家条款**：你可以从**在册的人物／势力**里牵出新人进场（比如某个势力派了个人来），**每轮最多一个** ✓，⛔ 一次冒一堆 ✗。',
     '⛔ **三分法边界**：**编数**（数量／金额／楼层／时间这类硬数字）❗禁编，只能从正文里读；'
         + '**编故事**（情节、冲突、氛围）❗放开，但要有来路；'
@@ -383,6 +385,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     excludeEntries: '',
     /* ★ P1-4：已结事件只带最近 N 条（⏔ 把几十条老事全塞进每轮 ✗） */
     closedEventKeep: 20,
+    /* ★ P2-4：一次事件波及上限（她可填） */
+    blastRadiusMax: 3,
     /* ⭐ B10（材料 14 代拍 A）：「不读」表**按书各存一份** ✓（键＝世界书名 ⇒ 曼分隔的条目名） */
     excludeEntriesByBook: {},
     onlyEnabledEntries: true, // 不选时＝角色卡绑定世界里"开启着的"条目
