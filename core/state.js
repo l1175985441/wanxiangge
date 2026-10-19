@@ -15,7 +15,7 @@ import {
 } from './config.js';
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
-import { parseClock } from './clock.js';
+import { parseClock, isLineDone } from './clock.js';
 
 /* ------------------------------ 人物 ------------------------------ */
 
@@ -212,6 +212,7 @@ function emptyState() {
             situations: [],      // 势力的碰撞：{title, sides, tier, at, floor}
             factions: [],        // 势力：{id, name, core_person, note, at, floor}（独立实体，按名字复用 id ✓）
             hidden: [],          // 暗线：{id, name, stage, kind, trigger, tier, note, log[], manual}
+            hiddenTombstones: [],  // ★ P2-6：删掉的暗线留碑「谁、什么时候被删」
             clock: '',           // 世界内时间（只有钟是准的）
             place: '',
             updatedAt: 0,
@@ -260,6 +261,7 @@ function normalizeState(raw) {
         at: Number(f && f.at) || 0,
         floor: Number.isFinite(Number(f && f.floor)) ? Number(f.floor) : -1,
     })).filter((f) => f.name);
+    state.world.hiddenTombstones = (Array.isArray(state.world.hiddenTombstones) ? state.world.hiddenTombstones : []).slice(-50);
     state.world.hidden = Array.isArray(state.world.hidden) ? state.world.hidden.map((h) => Object.assign({
         owner: '', goal: '', visibility: '', maxSteps: 0, progress: 0,
         memory: { promise: '', done: '', blocked: '', rounds: 0 },
@@ -1099,6 +1101,15 @@ export function upsertHidden(line) {
     return fresh;
 }
 
+/**
+ * ★ P2-6：**未完的暗线有几条**（已走完阶段的不算）。
+ *   用来给她一个数字，而不是让她自己数。
+ */
+export function openHiddenCount() {
+    const list = (loadState().world.hidden || []);
+    return list.filter((h) => h && !isLineDone(h.stage)).length;
+}
+
 /** 她自己加暗线 */
 export function addHiddenManually(line) {
     return upsertHidden(Object.assign({}, line, { manual: true }));
@@ -1108,6 +1119,22 @@ export function removeHidden(id) {
     const state = loadState();
     const before = state.world.hidden.length;
     const gone = state.world.hidden.find((h) => h && h.id === id) || null;   /* 先记下被删的那条 ✓ */
+    /* ★ P2-6：**删了要留碑**（谁、什么时候被删、当时是什么样）——否则“那条暗线怎么不见了”永远查不到 ✓ */
+    if (gone) {
+        state.world.hiddenTombstones = (Array.isArray(state.world.hiddenTombstones) ? state.world.hiddenTombstones : []);
+        state.world.hiddenTombstones.push({
+            id: trimText(gone.id),
+            name: trimText(gone.name),
+            owner: trimText(gone.owner),
+            goal: trimText(gone.goal),
+            stage: trimText(gone.stage),
+            note: trimText(gone.note),
+            at: now(),
+        });
+        if (state.world.hiddenTombstones.length > 50) {
+            state.world.hiddenTombstones = state.world.hiddenTombstones.slice(-50);
+        }
+    }
     state.world.hidden = state.world.hidden.filter((h) => h.id !== id);
     if (state.world.hidden.length !== before) {
         /*
