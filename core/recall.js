@@ -328,9 +328,18 @@ function personBlock(item, opts) {
         }
         return (anchorFloor - from) >= cut;
     };
+    /*
+     * ★ 补单 1-④：这一段是**过去式**，不能被当成现在的状态；
+     *   用成对标签整块包夹，块头固定一句声明 ✓
+     */
+    const PAST_HEAD = '  <Historical_Occurrences>';
+    const PAST_DECL = '  【注意】所有回忆为过去式，请勿将回忆中的任何状态理解为当前状态，仅作剧情参考。';
+    const PAST_TAIL = '  </Historical_Occurrences>';
     const freshByFloor = fresh.filter(keepByFloor);
     if (freshByFloor.length) {
+        lines.push(PAST_HEAD, PAST_DECL);
         lines.push('  过去经历（由近到远）：' + freshByFloor.map((p) => p.text).join('；'));
+        lines.push(PAST_TAIL);
     } else if (fresh.length && freshByFloor.length !== fresh.length) {
         // 全都被"楼层裁"挡下了 ⇒ 如实说明（⛔ 不静默，也不拿近处的凑数）
         /*
@@ -339,9 +348,14 @@ function personBlock(item, opts) {
          *   ⚠️ 但 run-tests-inject 盯着“要如实说明为什么不端”（子串「最近 3 楼内」✓）
          *   ⇒ 保留**一句最短的实话** ✓（不再提“你的上下文”与“更老的暂时没有” ✓）
          */
-        lines.push('  过去经历：（最近 ' + String(cut) + ' 楼内的不再重复）');
+        /* ★ 补单 1-④：⏔ 把楼层号与账本黑话喂给写正文的模型 ✓ */
+        lines.push(PAST_HEAD, PAST_DECL);
+        lines.push('  过去经历：近处的回忆已在正文里，这里不重复。');
+        lines.push(PAST_TAIL);
     } else if (past.length && trimText(past[0].text) && keepByFloor(past[0])) {
+        lines.push(PAST_HEAD, PAST_DECL);
         lines.push('  过去经历（最近一条）：' + trimText(past[0].text));
+        lines.push(PAST_TAIL);
     }
 
     // ⛔ 这里原来会把"推断"喂回模型 —— 按需求书去掉了：
