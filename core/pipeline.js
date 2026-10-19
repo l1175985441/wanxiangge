@@ -478,6 +478,28 @@ function capWorldMaterial(txt, attempt) {
     return '（前文太长，只带最近 ' + String(cap) + ' 字 ✓）\n' + s.slice(-cap);
 }
 
+/**
+ * ★ R32（第二批 1019）：**世界脉动四格要真的喂给主模型**，不能只存在账里。
+ *   pressure（压力 0-5）／trend（趋势）／visibility（可见度）／evidence（**原文引用**，不是评语）。
+ *   ⏔ 这里只排事实：不写“所以接下来会…”——那是抢主模型的活 ✓
+ */
+export function situationLineForPrompt(s) {
+    const src = s && typeof s === 'object' ? s : {};
+    const bits = [];
+    if (trimText(src.sides)) { bits.push('哪几方：' + trimText(src.sides)); }
+    if (trimText(src.tier)) { bits.push('火候：' + trimText(src.tier)); }
+    if (Number.isFinite(Number(src.pressure)) && src.pressure !== null && src.pressure !== '') {
+        bits.push('压力：' + String(Number(src.pressure)) + '/5');
+    }
+    if (trimText(src.trend)) { bits.push('趋势：' + trimText(src.trend)); }
+    if (trimText(src.visibility)) { bits.push('可见度：' + trimText(src.visibility)); }
+    if (trimText(src.evidence)) { bits.push('原文证据：“' + trimText(src.evidence) + '”'); }
+    if (Number.isFinite(Number(src.floor)) && Number(src.floor) >= 0) {
+        bits.push('上次动：第' + String(Number(src.floor)) + '楼');
+    }
+    return trimText(src.title) + (bits.length ? '（' + bits.join('；') + '）' : '');
+}
+
 async function stepWorld(material, attempt) {
     const settings = getSettings();
     const state = loadState();
@@ -522,11 +544,7 @@ async function stepWorld(material, attempt) {
             world.bigPicture ? '总览：' + trimText(world.bigPicture) : '',
             /* P10b (material 07): feed sides + tier too, and tell it to keep unchanged titles. */
             '局势（**没变的就沿用原标题、原样写回去**，⛔ 换句式重写）：'
-                + ((world.situations || []).map((s) => trimText(s.title)
-                    + (trimText(s.sides) ? '（哪几方：' + trimText(s.sides) + '）' : '')
-                    + (trimText(s.tier) ? '（火候：' + trimText(s.tier) + '）' : '')
-                    /* ★ P2-2：告诉模型它上次是什么时候动的 ⇒ 它才能轮换 ✓ */
-                    + (Number.isFinite(Number(s.floor)) && Number(s.floor) >= 0 ? '（上次动：第' + String(Number(s.floor)) + '楼）' : ''))
+                + ((world.situations || []).map((s) => situationLineForPrompt(s))
                     .filter(Boolean).join('；') || '（还没有）'),
         ].filter(Boolean).join('\n'),
         clock: trimText(world.clock) || '未知',
