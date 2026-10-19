@@ -364,6 +364,8 @@ export function applyWiki(wiki) {
     };
     /* ⭐⭐ 修复 9：**剥完后不像人名的杂项（如 作息与时间锚）不进名册** ✓
      *   （她原话：「作息与时间锚被读成人」✗；家庭合集名（月野家）也不当一个人 ✗） */
+    /* ★ 她 22:0x：先合并“变身／前世”别名，再走后面的去重与过滤 ✓ */
+    w.characters = mergeAliasGroups(w.characters);
     const chars = dedupe(w.characters, (c) => c.name).filter((c) => {
         const clean = extractNameFromTitle(c.name);
         /*
@@ -616,6 +618,60 @@ export function ruleBasedPeople(entries) {
         }
     }
     return { people, skipped };
+}
+
+/**
+ * ★ 她 22:0x：**同一个人不要因为“变身形态”被拆成两条**（地场卫／夜礼服假面／安迪米欧国王 ⇒ 一个人）。
+ *   判据（确定性、不看模型脸色）：B 的档案里提到 A 的名字 ⇒ A 是真名，B 是 A 的别名。
+ *   （她的世界书里就是两条：地场卫一条、夜礼服假面一条，后者写着“地场卫的变身形态”。）
+ *   ⛔ 不猜、不合并“只是同姓/同势力”的人；⛔ 不丢任何一条的正文（并进 note）。
+ */
+export function mergeAliasGroups(list) {
+    const items = (Array.isArray(list) ? list : [])
+        .filter((x) => x && trimText(x.name))
+        .map((x) => ({
+            name: trimText(x.name),
+            note: trimText(x.note),
+            identity: trimText(x.identity),
+            faction: trimText(x.faction),
+            aliases: Array.isArray(x.aliases) ? x.aliases.map((a) => trimText(a)).filter(Boolean) : [],
+        }));
+    const merged = [];
+    const used = new Set();
+    for (let i = 0; i < items.length; i += 1) {
+        const host = items[i];
+        if (used.has(i)) {
+            continue;
+        }
+        for (let j = 0; j < items.length; j += 1) {
+            if (j === i || used.has(j)) {
+                continue;
+            }
+            const b = items[j];
+            const bMentionsHost = (b.note + ' ' + b.identity).indexOf(host.name) >= 0;
+            const hostMentionsB = (host.note + ' ' + host.identity).indexOf(b.name) >= 0;
+            if (!bMentionsHost || hostMentionsB) {
+                continue;
+            }
+            used.add(j);
+            host.aliases = Array.from(new Set(host.aliases.concat(b.aliases, [b.name])));
+            if (b.note) {
+                host.note = host.note ? (host.note + '；' + b.note) : b.note;
+            }
+            if (!host.identity && b.identity) {
+                host.identity = b.identity;
+            }
+        }
+        used.add(i);
+        merged.push({
+            name: host.name,
+            note: host.note,
+            identity: host.identity,
+            faction: host.faction,
+            aliases: host.aliases.filter((x) => x && x !== host.name),
+        });
+    }
+    return merged;
 }
 
 /**
