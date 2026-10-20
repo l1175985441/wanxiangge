@@ -238,6 +238,47 @@ function questBlock(c, inScene) {
 function personBlock(item, opts) {
     const c = item.character;
     const anchorFloor = Number(opts && opts.anchorFloor);
+    /*
+     * ★ 需求清单 [579]（她 10-19 总括原话）：**前台薄／后台厚**。
+     *   前台召回＝人物属性＋读手机好感；过去经历**只**端隐藏楼的；
+     *   ⛔ 正在进行时、没有被隐藏的过去经历都不召回（正文里已有／记忆插件能摘到）。
+     *   后台：没进正文 ⇒ 过去经历＋正在进行＋好感＋知识面全厚。
+     *   ⛔ [579]：**下一步行动／长期目标（任务 quests）前台后台都不召回、不注入**。
+     *   判据（[579]）：**一直在场**＝`protected`（近几楼都在）→ 薄；
+     *   **本轮刚点到、之前不在场**＝后台出场 → 厚（过去＋正在进行＋好感）。
+     *   ⛔ 不能用 inScene 当薄：那会把「第一次出场」也压成一行。
+     */
+    const thinFront = item.protected === true;
+    if (thinFront) {
+        const lines = ['· ' + c.name];
+        const _affOkFront = /^-?\d+(?:\.\d+)?$/.test(trimText(c.affinity));
+        if (_affOkFront) {
+            lines.push('  好感：' + trimText(c.affinity)
+                + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
+        } else {
+            lines.push('  好感：未接入数据源（不显示数值）');
+        }
+        if (trimText(c.age)) { lines.push('  年龄：' + trimText(c.age)); }
+        if (trimText(c.identity)) { lines.push('  身份：' + trimText(c.identity)); }
+        if (trimText(c.faction)) { lines.push('  所在势力：' + trimText(c.faction)); }
+        if (trimText(c.timePlace)) { lines.push('  时间·地点：' + trimText(c.timePlace)); }
+        /* ⛔ 前台不端「正在经历」——[579]：正在进行时不召回 */
+        const hidFront = new Set(Array.isArray(item && item.hiddenFloors) ? item.hiddenFloors : []);
+        const pastFront = (Array.isArray(c.past) ? c.past : []).filter((p) => {
+            if (!p || !trimText(p.text)) { return false; }
+            const from = Number(p.fromFloor);
+            /* 只认隐藏楼；没楼层号／不在隐藏集 ⇒ 不端（[579]） */
+            return Number.isFinite(from) && hidFront.has(from);
+        });
+        if (pastFront.length) {
+            lines.push('  <Historical_Occurrences>');
+            lines.push('  【注意】所有回忆为过去式，请勿将回忆中的任何状态理解为当前状态，仅作剧情参考。');
+            lines.push('  过去经历（隐藏楼·由近到远）：' + pastFront.map((p) => trimText(p.text)).join('；'));
+            lines.push('  </Historical_Occurrences>');
+        }
+        return lines.join('\n') + '\n';
+    }
+
     const lines = ['· ' + c.name];
 
     /*
@@ -362,12 +403,9 @@ function personBlock(item, opts) {
     //    她定的角色字段只有七格（年龄／身份／过去经历／正在经历／所在势力／好感值／时间・地点），
     //    推断不是一格；防"推断被当成已发生"靠的是提示词硬规矩（⛔ 不写下步动作／不写预判），
     //    ⛔ 不是靠"多存一格推断再喂回去"——那反而给了模型一份"可能发生"的素材。
-    // ⭐ 任务（主线／支线）：目标层。后台（不在场）的带全——这是他"活着"的证据；
-    //    现场角色的正文里已经在演，按篇幅少带（只带主线和进行中的子项）。
-    const questLines = questBlock(c, item.inScene);
-    if (questLines.length) {
-        lines.push(...questLines);
-    }
+    /* ★ [579]：下一步行动／长期目标（quests）前台后台都不注入 ✓
+     *   旧：后台厚块用 questBlock 带任务当"还活着的证据" ✗ ⇒ 与她总括冲突 ✗
+     *   日程（约好的事）≠长期目标，照旧可带 ✓ */
     if (c.schedule && c.schedule.length) {
         const todo = c.schedule.filter((s) => !s.done);
         if (todo.length) {
@@ -378,7 +416,9 @@ function personBlock(item, opts) {
      * ⭐ B6（材料 13·兑现率）：**认知账也要端给主模型** ✓
      *   旧：`knows` 只在后台推演的提示词里用 ✗
      *     ⇒ 写正文的模型**完全不知道“谁知道什么”** ✗ ⇒ 会把不该知道的人写成全知 ✗
-     *   现在：随人物块一起端进去 ✓（最多 6 条 ✓，避免把注入撑爆 ✓）
+     *   现在：随后台厚块一起端进去 ✓
+     *   ★ 补单 1：认知账不按条数截（旧 slice(0,6) ✗ ⇒ 第 7 条以后的事主模型当他不知道）；
+     *     总量仍由 injectCharCap 管 ✓。前台薄块在上面已 return，这里不进前台 ✓
      */
     /*
      * ★ 3-1：**知识面随人物块一起端**——不靠“视角纪律”，靠原料：
@@ -403,9 +443,17 @@ function personBlock(item, opts) {
     }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows
-            .map((k) => trimText(k && k.text))
-            .filter(Boolean)
-            .slice(0, 6);
+            .map((k) => {
+                const t = trimText(k && k.text);
+                if (!t) { return ''; }
+                const ch = trimText(k && k.channel);
+                const chTag = ch === 'physical' ? '·亲历'
+                    : ch === 'information' ? '·被告知'
+                    : ch === 'causal' ? '·牵连'
+                    : '';
+                return t + chTag;
+            })
+            .filter(Boolean);
         if (knLines.length) {
             lines.push('  他知道什么：' + knLines.join('；'));
         }
@@ -447,9 +495,47 @@ function eventBlock(ev) {
     if (trimText(ev.tier)) {
         bits.push('火候：' + trimText(ev.tier));
     }
-    /* ★ P1-6：不够公开的事要标出来，⏔ 让世界推演把它当“世界新闻”广播出去 ✓ */
-    const pubTag = (ev && ev.public === false) ? '（未公开：⏔ 别当世界新闻广播）' : '';
-    return '· ' + title + pubTag + (bits.length ? '：' + bits.join(' ｜ ') : '') + '\n';
+    /* ★ [580] B1：来路三型进注入 ✓ */
+    const oriEv = String(trimText(ev.origin) || '').toLowerCase();
+    if (oriEv === 'plot') { bits.push('来路：盘算挂接'); }
+    else if (oriEv === 'ripple') { bits.push('来路：上游波及'); }
+    else if (oriEv === 'state') { bits.push('来路：局势自变'); }
+    /* ★ R32：脉动四格进注入（事实可喂；⛔ 不写“所以接下来会…”） */
+    if (Number.isFinite(Number(ev.pressure)) && ev.pressure !== null && ev.pressure !== '') {
+        bits.push('压力：' + String(Number(ev.pressure)) + '/5');
+    }
+    if (trimText(ev.trend)) {
+        bits.push('趋势：' + trimText(ev.trend));
+    }
+    const vis = String(trimText(ev.visibility) || '').toLowerCase();
+    if (vis === 'public') {
+        bits.push('可见度：公开');
+    } else if (vis === 'trace') {
+        bits.push('可见度：痕迹／风声（不当已证实新闻）');
+    } else if (vis === 'private' || ev.public === false) {
+        bits.push('可见度：私域（别当世界新闻广播）');
+    } else if (trimText(ev.visibility)) {
+        bits.push('可见度：' + trimText(ev.visibility));
+    }
+    if (trimText(ev.evidence)) {
+        bits.push('原文证据：“' + trimText(ev.evidence) + '”');
+    }
+    /* ★ [580] A6：预期／实果／余波（事实可喂；⛔ 不写成预判表演） */
+    if (trimText(ev.expected)) { bits.push('预期：' + trimText(ev.expected)); }
+    if (trimText(ev.result)) { bits.push('实果：' + trimText(ev.result)); }
+    if (trimText(ev.consequence)) { bits.push('余波：' + trimText(ev.consequence)); }
+    /* ★ [579]/[580]：公开／痕迹／私域三态＋书源分显；不够公开的事要标出来，⛔ 让世界推演把它当“世界新闻”广播出去 ✓ */
+    const src = trimText(ev.source);
+    let srcTag = '';
+    if (src === 'book') { srcTag = '（书里写着的）'; }
+    else if (src === 'engine') { srcTag = '（引擎推出的）'; }
+    else if (src === 'manual') { srcTag = '（手改）'; }
+    let pubTag = '';
+    if (vis === 'trace') { pubTag = '（风声：别写成已公开新闻）'; }
+    else if (vis === 'private' || (ev && ev.public === false && vis !== 'public')) {
+        pubTag = '（私域：别当世界新闻广播）';
+    }
+    return '· ' + title + srcTag + pubTag + (bits.length ? '：' + bits.join(' ｜ ') : '') + '\n';
 }
 
 /** 她把"世界状态"和"平行事件"按相关度筛出来 */
@@ -511,10 +597,12 @@ export function assembleInjectText(items, events, headerText, opts) {
     for (const item of Array.isArray(items) ? items : []) {
         if (item && item.character) {
             const c0 = item.character;
-            const onStage = item.inScene === true || item.protected === true;
-            const recent = Number(c0.lastSeenFloor);
-            /* ★ 补单 1-⑥：**后台先保、前台后砍**——在场的人正文里有他，后台的人记忆插件抓不到，只能靠召回 ✓ */
-            const pr = onStage ? 0 : 2;
+            /* ★ [579]：**一直在场**（protected）正文里已有 → 可先砍；
+             *   **刚出场／后台厚块**记忆插件抓不到 → 优先保住 */
+            /* ★ [580] A7：砍序用的「最近在场」优先 presentFloor */
+            let recent = Number(c0.presentFloor);
+            if (!Number.isFinite(recent) || recent < 0) { recent = Number(c0.lastSeenFloor); }
+            const pr = item.protected === true ? 0 : 2;
             entries.push({ item, pr, floor: Number.isFinite(recent) ? recent : -1, text: personBlock(item, { anchorFloor }) });
         }
     }
@@ -524,12 +612,12 @@ export function assembleInjectText(items, events, headerText, opts) {
     const blocks = entries.map((e) => e.text).filter(Boolean);
     const evBlocks = (Array.isArray(events) ? events : []).map(eventBlock).filter(Boolean);
 
-    // ⭐ 没有人物也没有事件 ⇒ 一个字都不注入（免得只灌一段世界钟，白占上下文）
-    if (!blocks.length && !evBlocks.length) {
+    const state = loadState();
+    const windOnly = (Array.isArray(state.world && state.world.winds) ? state.world.winds : []).some((x) => x && trimText(x.topic));
+    // ⭐ 没有人物也没有事件也没有风声账 ⇒ 一个字都不注入（免得只灌一段世界钟，白占上下文）
+    if (!blocks.length && !evBlocks.length && !windOnly) {
         return '';
     }
-
-    const state = loadState();
     const worldLines = [];
     if (trimText(state.world.clock)) {
         worldLines.push('世界钟：' + trimText(state.world.clock));
@@ -550,6 +638,14 @@ export function assembleInjectText(items, events, headerText, opts) {
     }
     if (evBlocks.length) {
         text += '\n【世界上正在发生的事】\n' + evBlocks.join('');
+    }
+    /* ★ [580] C3：账上 winds 单独成段（未证实）；局势／事件里已标 trace 的走上面事件块，⛔ 不在这里再抄一遍 */
+    const windRows = (Array.isArray(state.world.winds) ? state.world.winds : []).filter((x) => x && trimText(x.topic)).slice(0, 6);
+    if (windRows.length) {
+        text += '\n【风声（未证实·别写成已公开新闻）】\n'
+            + windRows.map((x) => '· ' + trimText(x.topic)
+                + (trimText(x.text) && trimText(x.text) !== trimText(x.topic) ? '：' + trimText(x.text) : '')
+                + '\n').join('');
     }
 
     const cap = injectCharCap();
@@ -696,13 +792,16 @@ export function buildRecall(input) {
      * ★ P0-1（修复单 20261019）：**“在场”看的是他最近几楼是不是都在，——不是这一句点没点到名**。
      *   为什么：本轮点名的人里大多数是后台的人**第一次被提到**，
      *   若把“点名”当“在场”，他们就会丢掉“正在经历”——与“后台人出场要带全”恰恰相反。
-     *   取数：`lastSeenFloor`（每轮在场时由 pipeline 写成当前楼）与当前楼相差 ≤ ONSTAGE_RECENT_FLOORS ⇒ 算一直在场。
+     *   取数：★ [580] A7 用 `presentFloor`（正文在场楼），不是 `lastSeenFloor`（后台推演也会写）。
+     *   与当前楼相差 ≤ ONSTAGE_RECENT_FLOORS ⇒ 算一直在场。
      */
     const ONSTAGE_RECENT_FLOORS = 2;
     const nowFloor = chat.length - 1;
     const onStageRecently = (c) => {
         if (!c) { return false; }
-        const seen = Number(c.lastSeenFloor);
+        let seen = Number(c.presentFloor);
+        /* 旧账还没 presentFloor：退回 lastSeenFloor（迁移前行为） */
+        if (!Number.isFinite(seen) || seen < 0) { seen = Number(c.lastSeenFloor); }
         if (!Number.isFinite(seen) || seen < 0) { return false; }
         if (!Number.isFinite(nowFloor) || nowFloor < 0) { return false; }
         return (nowFloor - seen) <= ONSTAGE_RECENT_FLOORS;

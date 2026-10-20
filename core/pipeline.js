@@ -56,11 +56,13 @@ import {
     addKnow,
     restoreSnapshot,
     dropSnapshot,
+    rememberRollCheckpoint,
+    getRollCheckpoint,
     capList,
-    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast } from './state.js';
+    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
-import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock } from './clock.js';
+import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { mentionedCharacters } from './recall.js';
@@ -146,6 +148,19 @@ export function looksLikeFabricatedTrouble(text) {
 export function looksLikePrediction(text) {
     return PREDICT_PAT.test(asText(text));
 }
+/**
+ * ★ [579]：有没有「替我做决定」的写法（正文还在等表态，却写成我已选／已答）。
+ *   ⚠️ 只标不可靠；「待我做决定」本身不算违规。
+ */
+const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替我(?:选|决定)|我选了|我答(?:应|道了)/;
+
+export function looksLikeDecidingForMe(text) {
+    const t = asText(text);
+    if (!t) return false;
+    if (/待我做决定|等她回话|待玩家表态|等你回话|待你决定/.test(t)) return false;
+    return DECIDE_FOR_ME_PAT.test(t);
+}
+
 
 /**
  * 这段"正在经历"能不能在正文里找到依据（现场角色专用）。
@@ -329,8 +344,66 @@ function worldMaterialCap() {
  *   ⇒ 现在：同名／二元组覆盖率≥0.45 认作同一场局势演进 ⇒ 原地更新 ✓；
  *         **`manual`（她手改锁定的）不覆盖** ✓；新的才 push ✓
  */
-function mergeSituations(oldList, freshList) {
+/**
+ * ★ 需求清单 [579]：世界钟几乎没走 ⇒ 局势**不轻易成熟**（压力不能每回合乱跳）。
+ *   「一看时间过去不到几分钟所以这个事件不会轻易成熟」
+ *   · 钟读不出／走了不到 30 分钟 ⇒ 压力只许持平或下降，不许涨
+ *   · 走了不到 3 小时 ⇒ 一次最多 +1
+ *   · 再久才允许模型给的涨幅
+ */
+function dampenSituationPressure(oldP, newP, deltaMin) {
+    if (!Number.isFinite(Number(newP))) {
+        return Number.isFinite(Number(oldP)) ? Number(oldP) : null;
+    }
+    const np = Math.max(0, Math.min(5, Number(newP)));
+    if (!Number.isFinite(Number(oldP))) {
+        return np;
+    }
+    const op = Number(oldP);
+    if (np <= op) {
+        return np;
+    }
+    const d = Number(deltaMin);
+    if (!Number.isFinite(d) || d < 30) {
+        return op;
+    }
+    if (d < 180) {
+        return Math.min(np, op + 1);
+    }
+    return np;
+}
+
+function mergeSituationFields(old, inc, clockDeltaMin) {
+    const nextP = dampenSituationPressure(old && old.pressure, inc && inc.pressure, clockDeltaMin);
+    return Object.assign({}, old, {
+        title: trimText(inc.title) || old.title,
+        sides: trimText(inc.sides) || old.sides,
+        tier: trimText(inc.tier) || old.tier,
+        cause: trimText(inc.cause) || old.cause,
+        effect: trimText(inc.effect) || old.effect,
+        /* ★ [580] A6：预期／实果／余波（空不冲掉旧值） */
+        expected: trimText(inc.expected || inc.expectedResult) || old.expected,
+        result: trimText(inc.result) || old.result,
+        consequence: trimText(inc.consequence) || old.consequence,
+        origin: (() => {
+            const o = String(trimText(inc.origin) || '').toLowerCase();
+            if (o === 'plot' || o === 'ripple' || o === 'state') { return o; }
+            return trimText(old.origin) || '';
+        })(),
+        pressure: nextP,
+        trend: trimText(inc.trend) || old.trend,
+        /* visibility 归一在落 events 时再走 resolveVisibility；这里先留模型／旧值 */
+        visibility: trimText(inc.visibility) || old.visibility,
+        evidence: trimText(inc.evidence) || old.evidence,
+        at: Date.now(),
+        floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : old.floor,
+        source: trimText(inc.source) || old.source,
+    });
+}
+
+function mergeSituations(oldList, freshList, clockDeltaMin) {
     const merged = (Array.isArray(oldList) ? oldList : []).map((s) => Object.assign({}, s));
+    const delta = Number.isFinite(Number(clockDeltaMin)) ? Number(clockDeltaMin) : null;
     for (const inc of Array.isArray(freshList) ? freshList : []) {
         const title = trimText(inc && inc.title);
         if (!title) continue;
@@ -354,13 +427,7 @@ function mergeSituations(oldList, freshList) {
                 text: trimText(merged[idx].title) + '（' + trimText(title) + '）',
             });
         } catch (eCh1) { /* 记不上也不能把世界步搞挂 ✓ */ }
-            merged[idx] = Object.assign({}, merged[idx], {
-                title,
-                sides: trimText(inc.sides) || merged[idx].sides,
-                tier: trimText(inc.tier) || merged[idx].tier,
-                at: Date.now(),
-                floor: inc.floor,
-            });
+            merged[idx] = mergeSituationFields(merged[idx], Object.assign({}, inc, { title }), delta);
         } else {
             /*
              * ⭐⭐ R12（材料 05）：**合不上时先找最像的那条并进去** ✓
@@ -406,14 +473,15 @@ function mergeSituations(oldList, freshList) {
                 }
             }
             if (bestIdx >= 0 && bestScore >= 0.25) {
-                /* 并进去：**标题保留原来那个** ✓（⏔ 让列表越来越长 ✗） */
-                merged[bestIdx] = Object.assign({}, merged[bestIdx], {
-                    sides: trimText(inc.sides) || merged[bestIdx].sides,
-                    tier: trimText(inc.tier) || merged[bestIdx].tier,
-                    at: Date.now(),
-                    floor: inc.floor,
-                });
+                /* 并进去：**标题保留原来那个** ✓（⛔ 让列表越来越长 ✗） */
+                const keepTitle = trimText(merged[bestIdx].title);
+                merged[bestIdx] = mergeSituationFields(
+                    merged[bestIdx],
+                    Object.assign({}, inc, { title: keepTitle }),
+                    delta,
+                );
             } else {
+                /* 新建：首轮压力照收（还没有“上一拍”可比） */
                 merged.push(inc);
                 /* Q1：新增局势也留一条编年 ✓（⏔ ℱ果区空着 ✗） */
                 try {
@@ -488,6 +556,11 @@ export function situationLineForPrompt(s) {
     const bits = [];
     if (trimText(src.sides)) { bits.push('哪几方：' + trimText(src.sides)); }
     if (trimText(src.tier)) { bits.push('火候：' + trimText(src.tier)); }
+    /* ★ [580] B1：来路三型进推演喂料 ✓ */
+    const ori = String(trimText(src.origin) || '').toLowerCase();
+    if (ori === 'plot') { bits.push('来路：盘算挂接'); }
+    else if (ori === 'ripple') { bits.push('来路：上游波及'); }
+    else if (ori === 'state') { bits.push('来路：局势自变'); }
     if (Number.isFinite(Number(src.pressure)) && src.pressure !== null && src.pressure !== '') {
         bits.push('压力：' + String(Number(src.pressure)) + '/5');
     }
@@ -522,9 +595,14 @@ async function stepWorld(material, attempt) {
         .filter((h) => !isLineDone(h.stage))
         .map((h) => {
             const due = isLineDue(h, world.clock);
+            const ao = String(trimText(h.agendaOrigin) || '').toLowerCase();
+            const aoTag = ao === 'event' ? '来源：事件'
+                : ao === 'parent' ? '来源：上级盘算委派'
+                : ao === 'state' ? '来源：处境自生' : '';
             return '· ' + h.name + '【' + h.stage + '】'
                 + (trimText(h.owner) ? '（盘算人：' + trimText(h.owner) + '）' : '')
                 + (trimText(h.goal) ? '（目标：' + trimText(h.goal) + '）' : '')
+                + (aoTag ? '（' + aoTag + (trimText(h.agendaRef) ? '→' + trimText(h.agendaRef) : '') + '）' : '')
                 + '到点条件：' + (h.trigger || '（没写）')
                 + ' ｜ 火候：' + (h.tier || '几天内')
                 + ' ｜ 现状：' + (h.suspect === true
@@ -545,9 +623,20 @@ async function stepWorld(material, attempt) {
      *   只给名字与核心人；⏔ 给它编造势力的机会 ✓
      */
     /* ★ P1-2：小分量势力不进推演名单（⏔ 丢它的账，只是不每轮喂 ✓） */
+    /* ★ [580] C1：喂运势／对玩家态度／范围／支柱（事实可喂，⛔ 表演） */
     const knownFactions = (loadState().world.factions || [])
         .filter((f) => f && trimText(f.name) && factionPassesGate(f))
-        .map((f) => trimText(f.name) + (trimText(f.core_person) ? '（核心人：' + trimText(f.core_person) + '）' : ''))
+        .map((f) => {
+            const bits = [];
+            if (trimText(f.core_person)) { bits.push('核心人：' + trimText(f.core_person)); }
+            if (trimText(f.scale)) { bits.push('规模：' + trimText(f.scale)); }
+            if (trimText(f.status)) { bits.push('运势：' + trimText(f.status)); }
+            if (trimText(f.relation)) { bits.push('对玩家：' + trimText(f.relation)); }
+            if (trimText(f.scope)) { bits.push('范围：' + trimText(f.scope)); }
+            const pillars = Array.isArray(f.powerPillars) ? f.powerPillars.map(trimText).filter(Boolean) : [];
+            if (pillars.length) { bits.push('支柱：' + pillars.join('／')); }
+            return trimText(f.name) + (bits.length ? '（' + bits.join('；') + '）' : '');
+        })
         .filter(Boolean);
 
     const prompt = fillTemplate(effectivePrompt('world'), {
@@ -556,6 +645,10 @@ async function stepWorld(material, attempt) {
             '世界钟：' + (trimText(world.clock) || '未知'),
             world.place ? '地点：' + trimText(world.place) : '',
             world.bigPicture ? '总览：' + trimText(world.bigPicture) : '',
+            /* ★ [580]／观棋 B4：上轮点名名单真喂进提示词（提示词已写「必须解锁」） */
+            (Array.isArray(world.spotlight) && world.spotlight.length
+                ? '【上轮点名·本轮必须有下文】' + world.spotlight.map(trimText).filter(Boolean).join('／')
+                : ''),
             /* P10b (material 07): feed sides + tier too, and tell it to keep unchanged titles. */
             '局势（**没变的就沿用原标题、原样写回去**，⛔ 换句式重写）：'
                 + ((world.situations || []).map((s) => situationLineForPrompt(s))
@@ -565,6 +658,33 @@ async function stepWorld(material, attempt) {
         recent: capWorldMaterial(material.recentText, attempt),   /* ⭐ 拆小：超长只带最近一段 ✓ */
         hidden: hiddenLines,
         factions: knownFactions.join('；') || '（还没登记势力）',
+        /* ★ [580] A3：键值事实给引擎对齐用（短列表；⛔ 不当叙述长文） */
+        worldFacts: ((loadState().world.facts || [])
+            .map((f) => trimText(f && f.subject) + '｜' + trimText(f && f.field) + '＝' + trimText(f && f.value))
+            .filter(Boolean)
+            .slice(0, 24)
+            .join('；')) || '（还没有）',
+        /* ★ [580] C3：风声短列表（未证实；对齐 A1 trace） */
+        worldWinds: (listWindsView(12).map((x) => trimText(x.topic) + (trimText(x.text) && trimText(x.text) !== trimText(x.topic) ? '＝' + trimText(x.text) : '')).filter(Boolean).join('；')) || '（还没有）',
+        /* ★ [580] A4：独立脉动域＋最近巡查（短列表；可巡镜头外） */
+        worldPulse: (() => {
+            const pul = (loadState().world && loadState().world.pulse) || {};
+            const doms = (Array.isArray(pul.domains) ? pul.domains : []).map((d) => {
+                if (!d || !trimText(d.label)) { return ''; }
+                const bits = [trimText(d.label)];
+                if (trimText(d.kind) && trimText(d.kind) !== 'other') { bits.push(trimText(d.kind)); }
+                if (Number.isFinite(Number(d.pressure))) { bits.push('压' + String(d.pressure)); }
+                if (trimText(d.trend)) { bits.push(trimText(d.trend)); }
+                if (trimText(d.visibility)) { bits.push(trimText(d.visibility)); }
+                if (trimText(d.state)) { bits.push(trimText(d.state).slice(0, 40)); }
+                return bits.join('·');
+            }).filter(Boolean).slice(0, 12);
+            const cov = (((pul.coverage || {}).entries) || []).map((e) => trimText(e && e.label)).filter(Boolean).slice(0, 8);
+            const parts = [];
+            parts.push(doms.length ? ('域：' + doms.join('；')) : '域：（还没有）');
+            if (cov.length) { parts.push('最近巡查：' + cov.join('／')); }
+            return parts.join(' ｜ ');
+        })(),
         blastMax: String(clampNumber(settings.blastRadiusMax, 1, 20, 3)),
     });
 
@@ -581,6 +701,32 @@ async function stepWorld(material, attempt) {
         return { ok: false, reason: res.reason };
     }
     const v = res.value || {};
+
+    /*
+     * ★ [580]／观棋 B2：提示词已写「省键＝白跑」，引擎必须**真拒** ✓
+     *   旧：缺 clock／place／bigPicture／situations／hidden 仍照单更新 ✗ ⇒ 世界半截动、额度白烧 ✗
+     *   现在：少一组键 ⇒ ok:false（上层重试）；空串／空数组算齐 ✓，⛔ 整组省掉不算 ✓
+     */
+    {
+        const WORLD_KEYS = ['clock', 'place', 'bigPicture', 'situations', 'hidden'];
+        const missing = WORLD_KEYS.filter((k) => !Object.prototype.hasOwnProperty.call(v, k));
+        const badType = [];
+        if (Object.prototype.hasOwnProperty.call(v, 'situations') && !Array.isArray(v.situations)) {
+            badType.push('situations（必须是数组）');
+        }
+        if (Object.prototype.hasOwnProperty.call(v, 'hidden') && !Array.isArray(v.hidden)) {
+            badType.push('hidden（必须是数组）');
+        }
+        if (missing.length || badType.length) {
+            const bits = [];
+            if (missing.length) { bits.push('少了键：' + missing.join('／')); }
+            if (badType.length) { bits.push('类型不对：' + badType.join('／')); }
+            return {
+                ok: false,
+                reason: '输出不全（' + bits.join('；') + '）——省键＝这轮白跑，世界原地不动',
+            };
+        }
+    }
 
     // 世界钟：只接受"往前走"的钟（模型写倒退就保留旧的并记一条）
     const notes = [];
@@ -601,6 +747,40 @@ async function stepWorld(material, attempt) {
         updateWorld({ bigPicture: trimText(v.bigPicture) }, {});
     }
 
+    /*
+     * ★ [580] C1：势力厚度可选回写。
+     *   五组必须键不动；没带 factions 键＝这轮没改势力，不算省键白跑。
+     *   只更新已在册的名字（⛕ 模型现造新势力）。
+     */
+    if (Array.isArray(v.factions)) {
+        let facN = 0;
+        const knownNames = (loadState().world.factions || [])
+            .map((f) => matchKey(f && f.name)).filter(Boolean);
+        for (const raw of v.factions) {
+            const nm = trimText(raw && (raw.name || raw.title));
+            if (!nm) { continue; }
+            if (!knownNames.includes(matchKey(nm))) {
+                notes.push('势力「' + nm + '」不在册，没新建');
+                continue;
+            }
+            /* ★ [580] B5：势力只写 scale；误来的 power 交给 normalizeFaction 辨是否规模词 */
+            upsertFaction({
+                name: nm,
+                status: trimText(raw && raw.status),
+                relation: trimText(raw && raw.relation),
+                scope: trimText(raw && raw.scope),
+                core_person: trimText(raw && raw.core_person),
+                scale: trimText(raw && raw.scale),
+                power: trimText(raw && raw.power),
+                note: trimText(raw && raw.note),
+                powerPillars: raw && raw.powerPillars,
+                floor: material.floor,
+            });
+            facN += 1;
+        }
+        if (facN) { notes.push('势力厚度更新 ' + String(facN) + ' 条'); }
+    }
+
     // 局势
     const situations = Array.isArray(v.situations) ? v.situations : [];
     if (situations.length) {
@@ -611,6 +791,15 @@ async function stepWorld(material, attempt) {
             /* ⭐ C12（材料 13）：**因果两格要存下来** ✓（旧：没这两格 ⇒ 因果永远空 ✗） */
             cause: trimText(s && (s.cause || s.from || s.起因)),
             effect: trimText(s && (s.effect || s.to || s.走向)),
+            /* ★ [580] A6：后果三格 */
+            expected: trimText(s && (s.expected || s.expectedResult || s.预期)),
+            result: trimText(s && (s.result || s.实际 || s.实果)),
+            consequence: trimText(s && (s.consequence || s.余波 || s.后果)),
+            /* ★ [580] B1：来路三型 */
+            origin: (() => {
+                const o = String(trimText(s && (s.origin || s.originKind)) || '').toLowerCase();
+                return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+            })(),
             /* ★ P1-7：世界脉动四格 ✓ */
             pressure: Number.isFinite(Number(s && s.pressure)) ? Math.max(0, Math.min(5, Number(s.pressure))) : null,
             trend: trimText(s && s.trend),
@@ -622,10 +811,86 @@ async function stepWorld(material, attempt) {
         })).filter((s) => s.title);
         if (fresh.length) {
             /* ⭐谷歌复核（三）：增量归并（⛔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
-            const mergedSits = mergeSituations((loadState().world || {}).situations, fresh);
+            /* ★ [579]：用本步世界钟走了几分钟，压住局势压力乱涨 ✓（world.clock＝步前旧钟） */
+            const clockDeltaMin = clockDistance(trimText(world.clock), trimText(loadState().world.clock));
+            const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin);
             updateWorld({ situations: mergedSits }, {});
             capList((loadState().world || {}).situations, 'capEvents', (s) => s.title, (s) => s.manual);
             saveState();   /* capList 是原地改，这里保险落盘 ✓ */
+        }
+    }
+
+    /* ★ [580] A3：可选 facts 回写（省掉不算白跑；按 key 去重，容量锁在 upsertWorldFact）✓ */
+    if (Array.isArray(v.facts)) {
+        const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
+        for (const raw of v.facts) {
+            if (!raw) continue;
+            try {
+                upsertWorldFact({
+                    subject: trimText(raw.subject) || '世界',
+                    field: trimText(raw.field || raw.key),
+                    value: trimText(raw.value),
+                    source: 'engine',
+                    floor: fl,
+                });
+            } catch (eFact) { /* 一条事实写不进不能弄挂整步 ✓ */ }
+        }
+    }
+
+    /* ★ [580] A4：可选脉动／巡查回写（省掉不算白跑；与局势并行，可记镜头外）✓ */
+    {
+        const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
+        const pulseIn = Array.isArray(v.pulse) ? v.pulse
+            : (v.pulse && typeof v.pulse === 'object' && Array.isArray(v.pulse.domains) ? v.pulse.domains : null);
+        if (Array.isArray(pulseIn)) {
+            for (const raw of pulseIn) {
+                if (!raw) continue;
+                try {
+                    upsertPulseDomain({
+                        label: trimText(raw.label || raw.name || raw.title),
+                        kind: trimText(raw.kind),
+                        scope: trimText(raw.scope),
+                        state: trimText(raw.state || raw.note || raw.text),
+                        pressure: raw.pressure,
+                        trend: trimText(raw.trend),
+                        visibility: trimText(raw.visibility),
+                        evidence: trimText(raw.evidence),
+                        floor: fl,
+                    }, { floor: fl });
+                } catch (ePulse) { /* 一条域写不进不能弄挂整步 ✓ */ }
+            }
+        }
+        const covIn = Array.isArray(v.coverage) ? v.coverage
+            : (v.pulse && typeof v.pulse === 'object' && Array.isArray(v.pulse.coverage) ? v.pulse.coverage : null);
+        if (Array.isArray(covIn)) {
+            for (const raw of covIn) {
+                if (!raw) continue;
+                try {
+                    markPulseCoverage({
+                        label: trimText(raw.label || raw.name),
+                        kind: trimText(raw.kind),
+                        scope: trimText(raw.scope),
+                        floor: fl,
+                    });
+                } catch (eCov) { /* 一条巡查写不进不能弄挂整步 ✓ */ }
+            }
+        }
+    }
+
+    /* ★ [580] C3：可选 winds 回写（省掉不算白跑；＝未证实传闻，对齐 A1 trace）✓ */
+    if (Array.isArray(v.winds)) {
+        const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
+        for (const raw of v.winds) {
+            if (!raw) continue;
+            try {
+                upsertWind({
+                    topic: trimText(raw.topic || raw.title || raw.name),
+                    text: trimText(raw.text || raw.content || raw.note),
+                    kind: trimText(raw.kind || raw.type),
+                    source: 'engine',
+                    floor: fl,
+                }, { floor: fl });
+            } catch (eWind) { /* 一条风声写不进不能弄挂整步 ✓ */ }
         }
     }
 
@@ -662,6 +927,9 @@ async function stepWorld(material, attempt) {
                 trigger: trimText(raw.trigger) || existing.trigger,
                 tier: trimText(raw.tier) || existing.tier,
                 note: noteUp,
+                /* ★ [580] B6 */
+                agendaOrigin: raw.agendaOrigin || (raw.source && raw.source.type) || raw.sourceKind,
+                agendaRef: raw.agendaRef || (raw.source && raw.source.ref) || raw.sourceRef,
                 suspect: !!badUp || existing.suspect === true,
                 suspectWhy: badUp || existing.suspectWhy || '',
             });
@@ -695,6 +963,9 @@ async function stepWorld(material, attempt) {
                 tier: trimText(raw.tier) || '几天内',
                 note: noteNew,
                 kind: trimText(raw.kind),
+                /* ★ [580] B6：新建暗线必带来源三型 */
+                agendaOrigin: raw.agendaOrigin || (raw.source && raw.source.type) || raw.sourceKind,
+                agendaRef: raw.agendaRef || (raw.source && raw.source.ref) || raw.sourceRef,
                 suspect: !!badNew,
                 suspectWhy: badNew,
             });
@@ -741,6 +1012,18 @@ async function stepWorld(material, attempt) {
     if (events.length) {
         setEvents(events);
     }
+
+    /* ★ [580]／观棋 B4：本轮正文点到的角色／势力 → 记下，下轮喂「必须有下文」 */
+    try {
+        const bodySpot = material.recentText || material.rawText || '';
+        const named = whoIsOnStage(bodySpot, loadState().characters || [])
+            .map((c) => trimText(c && c.name)).filter(Boolean);
+        const facHit = (loadState().world.factions || [])
+            .map((f) => trimText(f && f.name))
+            .filter((nm) => nm && bodySpot.indexOf(nm) >= 0);
+        const spot = Array.from(new Set(named.concat(facHit))).slice(0, 12);
+        updateWorld({ spotlight: spot }, {});
+    } catch (eSpot) { /* 点名名单记不上也不能拦世界步 ✓ */ }
 
     const summary = '世界状态已更新：局势 ' + String((worldNow.situations || []).length)
         + ' 条、暗线 ' + String((worldNow.hidden || []).length) + ' 条'
@@ -823,8 +1106,19 @@ function applyCharacter(raw, material, conflicts) {
 
     const onStage = raw.onStage === true;
     const patch = { lastUpdatedAt: Date.now() };
+    /* ★ [580] A7：lastSeen＝引擎碰过；presentFloor＝正文在场才写（⛔ 后台推演楼冒充一直在场） */
     patch.lastSeenFloor = material.floor;
     patch.inScene = onStage;
+    if (onStage && Number.isFinite(Number(material.floor)) && Number(material.floor) >= 0) {
+        patch.presentFloor = Number(material.floor);
+        /* 在场至少相关度 2（模型另给更高数才抬） */
+        const relIn = Number(raw && raw.relevance);
+        const baseRel = Number.isFinite(Number(c.relevance)) ? Number(c.relevance) : 1;
+        patch.relevance = Math.max(2, baseRel, Number.isFinite(relIn) ? Math.round(relIn) : 0);
+        if (patch.relevance > 3) { patch.relevance = 3; }
+    } else if (Number.isFinite(Number(raw && raw.relevance))) {
+        patch.relevance = Math.max(0, Math.min(3, Math.round(Number(raw.relevance))));
+    }
 
     // 按字段粒度判断是否手改过（若直写 c.manual=true 且未经 normalize 初始化 manualFields，则兜底视非空字段为锁定）
     const isFieldLocked = (fieldKey) => {
@@ -904,6 +1198,8 @@ function applyCharacter(raw, material, conflicts) {
         let why = '';
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
+        } else if (looksLikeDecidingForMe(cur)) {
+            why = '替"我"做了决定（[579]：遇问句应写「待我做决定」，⛔ 不许写成我已选／已答）';
         } else if (onStage && material.fellBack !== true && !textAppearsIn(cur, material.recentText || material.rawText)) {
             /*
              * ⭐ 10-16 真语料教训：**清洗失败时⛔ 下“编造”判词**。
@@ -1038,8 +1334,18 @@ function applyCharacter(raw, material, conflicts) {
         ? raw.knows.filter(Boolean).map((k) => ({
             text: trimText(k && k.text),
             source: trimText(k && k.source),
+            /* ★ [580] A2：接触链随行带出（公开时必填／可推） */
+            channel: trimText(k && k.channel),
         })).filter((k) => k.text)
         : [];
+
+    /* ★ [580] A5：模型若冒出 known_* 壳字段 ⇒ 丢弃（只认 knows→addKnow）✓ */
+    if (raw && typeof raw === 'object') {
+        delete raw.knownFactKeys;
+        delete raw.knownEventIds;
+        delete raw.knownClueIds;
+        delete raw.knownFactBeliefs;
+    }
 
     return { name: c.name, isNew, quests, knows };
 }
@@ -1128,7 +1434,23 @@ async function stepCharacters(material, attempt) {
         }
         return true;
     });
+    /* ★ [580]／观棋 B4：上轮点名的人优先进轮转（提示词说了解锁，门控也要放行） */
+    const spotKeys = new Set(
+        (Array.isArray(loadState().world.spotlight) ? loadState().world.spotlight : [])
+            .map((n) => matchKey(n)).filter(Boolean),
+    );
     const rotated = bench.slice().sort((a, b) => {
+        const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;
+        const bSpot = spotKeys.has(matchKey(b.name)) ? 1 : 0;
+        if (aSpot !== bSpot) {
+            return bSpot - aSpot;
+        }
+        /* ★ [580] A7：相关度高的优先进轮转（点名／在场抬过的人别被冷落太久） */
+        const aRel = Number.isFinite(Number(a.relevance)) ? Number(a.relevance) : 1;
+        const bRel = Number.isFinite(Number(b.relevance)) ? Number(b.relevance) : 1;
+        if (aRel !== bRel) {
+            return bRel - aRel;
+        }
         if (settings.protectedBypass && (a.inScene === true) !== (b.inScene === true)) {
             return a.inScene === true ? 1 : -1;
         }
@@ -1147,7 +1469,7 @@ async function stepCharacters(material, attempt) {
     /* P19 (material 07): say the in-scene / off-scene rules once, not once per character. */
     const charsHeader = [
         '【每个角色都适用的两条硬规矩】',
-        '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写。',
+        '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写；正文停在问句／等表态 ⇒ 写「待我做决定」，⛔ 替我选。',
         '· **标了“不在场（暗地）”的**：现状只靠推演写、只写“这一步”（正在进行时／刚做完），⛔ 不写下一步；⛔ 这一段里**不许出现“我”**（“我”的动静影响不到他）。',
     ];
     const playerHintLines = (() => {
@@ -1184,13 +1506,8 @@ async function stepCharacters(material, attempt) {
         if (c.schedule.length) {
             lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }
-        /* 任务与日程是两件事：没有日程的人也得收到任务 ✓ */
-        /* P9 (material 07): feed the existing quests, otherwise the model re-invents a
-         *   slightly different title every round and upsertQuest piles up duplicates. */
-        if (Array.isArray(c.quests) && c.quests.length) {
-            lines.push('  现有任务（同一件就**沿用原标题**、只更新进展，⛔ 换个说法另开一条 ✓）：'
-                + c.quests.map((q) => trimText(q && q.title) + (trimText(q && q.status) ? '（' + trimText(q.status) + '）' : '')).filter(Boolean).join('；'));
-        }
+        /* ★ [579]：长期目标／quests 前台后台都不需要 ⇒ 不再喂「现有任务」给模型 ✓
+         *   （旧账里的 quests 仍可在面板看／手删；⛔ 不进推演提示词、不进注入） */
         /*
          * ⭐ 补③ 第二步：**防全知**——把"他该知道的"真喂进他的推演。
          *   她的原话：「推演该人物时，喂料按这份清单过滤（不在清单里的世界内幕不进他的推演上下文）」。
@@ -1200,6 +1517,7 @@ async function stepCharacters(material, attempt) {
         if (kn.length) {
             lines.push('  他知道的：' + kn.map((k) => trimText(k.text)
                 + '（' + (trimText(k.source) || '公开')
+                + (trimText(k.channel) ? '·' + trimText(k.channel) : '')
                 + (Number(k.floor) >= 0 ? '·' + floorLabel(Number(k.floor)) : '') + '）').join('；'));
             lines.push('  ⛔ **不在上面那份清单里的世界内幕，他没渠道知道⇒不许写进他的推演**。');
         } else {
@@ -1327,6 +1645,7 @@ async function stepCharacters(material, attempt) {
                         if (addKnow(who2.id, {
                             text: trimText(kk && kk.text),
                             source: trimText(kk && kk.source),
+                            channel: trimText(kk && kk.channel),
                             floor: Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1,
                         })) {
                             knowCount += 1;
@@ -1670,6 +1989,32 @@ async function runUpdateInner(opts) {
         return { ok: true, skipped: true, reason: '这一楼的这一版已经算过了（重刷同一版不重复烧额度）' };
     }
 
+    /*
+     * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
+     *   旧：同楼换 swipe 直接在已落账上叠推 ✗（暗线连跳、局势叠层 ✗）
+     *   现：有 rollCheckpoint 且楼号对得上 ⇒ restore 再算；没有 ⇒ **拒绝**（对照 C：redo 无 cp 拒）✓
+     *   同楼同版已在上面 alreadyCommitted 跳过；force 同版也走回档（替换重算，不是叠算）✓
+     */
+    {
+        const lu0 = loadState().lastUpdate || {};
+        const priorOkSameFloor = lu0.status === 'ok' && Number(lu0.floor) === Number(floor);
+        const swipeChanged = String(lu0.commitKey || '') !== commitKey;
+        const needRedoBase = priorOkSameFloor && (o.force === true || swipeChanged);
+        if (needRedoBase) {
+            const cp = getRollCheckpoint(floor);
+            if (cp && cp.data) {
+                restoreSnapshot({ data: cp.data });
+            } else if (swipeChanged) {
+                /* 换版本且无存档点 ⇒ 拒（对照 C：redo 无 cp 拒）；force 同版无 cp 降级续跑（升级旧账）✓ */
+                running = false;
+                return {
+                    ok: false,
+                    reason: '这一楼换了版本，但没有存档点可回滚——拒着重叠推演（请先成功更新过这一楼，或清空后重来）',
+                };
+            }
+        }
+    }
+
     // 留一版快照（撤回用）
     const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
     /*
@@ -1953,6 +2298,10 @@ async function runUpdateInner(opts) {
          */
         floor: failed ? prevLuFloor : (Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1),
     };
+    /* ★ [580] C2：成功落账后记存档点（同楼首次写入；换 swipe 不覆盖基底）✓ */
+    if (!failed && preSnap && preSnap.data) {
+        try { rememberRollCheckpoint(floor, preSnap.data); } catch (eCp) { /* 存档点写失败不挡主流程 ✓ */ }
+    }
     saveState();
     markBookDirty();
 

@@ -6,6 +6,7 @@
  * 条目按内容切开、每条前面带一行"读法说明"，她能在世界书界面搜到。
  *
  * 形态：
+ *   · 万象阁 · 世界状态摘要 —— ★ [580] D2：结构化常驻摘要槽（事实列表；⛔ 经济／民生／心理／下一步）
  *   · 万象阁 · 总览       —— 现在这个世界什么样
  *   · 万象阁 · 世界状态   —— 局势与暗线
  *   · 万象阁 · 人物/<名字> —— 每人一条（七格）
@@ -18,12 +19,14 @@
 import { WORLD_BOOK_NAME, BOOK_ENTRY_PREFIX } from './config.js';
 import {  } from './adapter.js';
 import { probeChannel } from './wb-channel.js';
-import { loadState } from './state.js';
+import { loadState, listWindsView } from './state.js';
 import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
 
 /** 条目名 */
 const ENTRY = {
+    /* ★ [580]／工作流 D2：常驻摘要槽（产品形态；内容结构化） */
+    summary: BOOK_ENTRY_PREFIX + '世界状态摘要',
     overview: BOOK_ENTRY_PREFIX + '总览',
     world: BOOK_ENTRY_PREFIX + '世界状态',
     clock: BOOK_ENTRY_PREFIX + '世界钟',
@@ -128,10 +131,23 @@ async function upsertEntries(api, wanted) {
     for (const item of wanted) {
         const old = byTitle.get(item.title);
         if (old) {
-            if (trimText(old.content) === trimText(item.content)) {
-                continue;   // 内容没变 ⇒ 不白写盘 ✓
+            /* ★ [580] D2：摘要槽要**真常驻启用**——内容没变也要把 disable/constant 纠到启用 ✓ */
+            const needEnable = item.constant === true && (
+                old.constant !== true
+                || old.disable === true
+                || old.enabled === false
+            );
+            if (trimText(old.content) === trimText(item.content) && !needEnable) {
+                continue;   // 内容没变且旗标已对 ⇒ 不白写盘 ✓
             }
-            toUpdate.push({ ...old, content: item.content });
+            const patch = { ...old, content: item.content };
+            if (item.constant === true) {
+                patch.constant = true;
+                patch.selective = false;
+                patch.disable = false;
+                patch.enabled = true;
+            }
+            toUpdate.push(patch);
         } else {
             toCreate.push(item);
         }
@@ -173,11 +189,12 @@ async function upsertEntries(api, wanted) {
                     key: item.title,
                     keysecondary: '',
                     selective: false,
-                    constant: false,
-                    /* ⭐ 修复 11（材料 02）：新增条目默认 disable:true / enabled:false
-                     *   ⇒ **仅作查阅备份** ✓ 防与万象阁自己的拦截器**重复注入** ✗ */
-                    disable: true,
-                    enabled: false,
+                    /* ★ [580] D2：摘要槽 constant=true 且**启用**；其余仍禁用（防与拦截器叠床） */
+                    constant: item.constant === true,
+                    /* ⭐ 修复 11（材料 02）：非摘要条目默认 disable ✓ 仅作查阅备份
+                     *   ★ D2 续：摘要槽改为常驻启用（disable:false／enabled:true）✓ */
+                    disable: item.constant === true ? false : true,
+                    enabled: item.constant === true ? true : false,
                 });
                 written += 1;
             } else {
@@ -238,6 +255,118 @@ function body(lines) {
         .join('\n');
 }
 
+/**
+ * ★ [580]／工作流 D2：**结构化世界状态摘要**（常驻槽正文）。
+ *   取「一条常驻摘要」产品形态；内容＝事实列表，⛔ 不搬叙述长文／经济／民生／心理／下一步。
+ *   ★ 续：本条 **constant＋启用**（ST 世界书常驻）；其余备份条目仍默认禁用，防叠床。
+ */
+export function buildWorldSummarySlot(stateIn) {
+    const state = stateIn && typeof stateIn === 'object' ? stateIn : loadState();
+    const world = state.world || {};
+    const lines = [];
+    lines.push('【读法】万象阁 · 世界状态摘要（结构化常驻槽）');
+    lines.push('· 给她在世界书里一眼看清「现在世界怎样」；事实列表，⛔ 不当经济／民生／心理叙述。');
+    lines.push('· ⛔ 不含经济／物价／民生气候／心理／「即将…」下一步（撞已定规矩）。');
+    lines.push('· 本条常驻启用（constant）：经 ST 世界书通道进请求；其余《万象阁 · …》备份条仍默认禁用。');
+    lines.push('');
+    lines.push('## 宏观格局');
+    lines.push('世界钟：' + (trimText(world.clock) || '未知'));
+    lines.push('地点：' + (trimText(world.place) || '未知'));
+    if (trimText(world.bigPicture)) {
+        lines.push('总览：' + trimText(world.bigPicture));
+    }
+    lines.push('');
+    lines.push('## 势力与战线');
+    const facs = Array.isArray(world.factions) ? world.factions : [];
+    if (!facs.length) {
+        lines.push('（还没有在册势力）');
+    } else {
+        for (const f of facs.slice(0, 20)) {
+            if (!f || !trimText(f.name)) continue;
+            const bits = [trimText(f.name)];
+            if (trimText(f.status)) { bits.push(trimText(f.status)); }
+            if (trimText(f.relation)) { bits.push('对玩家·' + trimText(f.relation)); }
+            if (trimText(f.scope)) { bits.push('范围：' + trimText(f.scope)); }
+            const pillars = Array.isArray(f.powerPillars) ? f.powerPillars.map(trimText).filter(Boolean) : [];
+            if (pillars.length) { bits.push('支柱：' + pillars.join('／')); }
+            lines.push('· ' + bits.join('｜'));
+        }
+    }
+    const sits = Array.isArray(world.situations) ? world.situations : [];
+    if (sits.length) {
+        lines.push('局势：');
+        sits.slice(0, 12).forEach((s, i) => {
+            if (!s || !trimText(s.title)) return;
+            lines.push(String(i + 1) + '. ' + trimText(s.title)
+                + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : '')
+                + (trimText(s.tier) ? ' · ' + trimText(s.tier) : '')
+                + (Number.isFinite(Number(s.pressure)) ? ' · 压' + String(Number(s.pressure)) + '/5' : '')
+                + (trimText(s.visibility) ? ' · ' + trimText(s.visibility) : ''));
+        });
+    } else {
+        lines.push('局势：（还没有）');
+    }
+    lines.push('');
+    lines.push('## 暗线');
+    const hids = Array.isArray(world.hidden) ? world.hidden : [];
+    const openH = hids.filter((h) => h && trimText(h.name)
+        && trimText(h.stage) !== '消散' && trimText(h.stage) !== '完成');
+    if (!openH.length) {
+        lines.push('（没有未完暗线）');
+    } else {
+        for (const h of openH.slice(0, 16)) {
+            lines.push('· ' + trimText(h.name) + '【' + (trimText(h.stage) || '萌芽') + '】'
+                + (trimText(h.owner) ? ' 盘算人：' + trimText(h.owner) : '')
+                + (trimText(h.goal) ? ' 目标：' + trimText(h.goal) : '')
+                + (trimText(h.trigger) ? ' 到点：' + trimText(h.trigger) : ''));
+        }
+    }
+    lines.push('');
+    lines.push('## 脉动域');
+    const domains = (world.pulse && Array.isArray(world.pulse.domains)) ? world.pulse.domains : [];
+    if (!domains.length) {
+        lines.push('（还没有）');
+    } else {
+        for (const d of domains.slice(0, 12)) {
+            if (!d || !trimText(d.label)) continue;
+            lines.push('· ' + trimText(d.label)
+                + (trimText(d.kind) ? '／' + trimText(d.kind) : '')
+                + ' 压' + String(Number.isFinite(Number(d.pressure)) ? Number(d.pressure) : 0)
+                + (trimText(d.state) ? '：' + trimText(d.state) : ''));
+        }
+    }
+    lines.push('');
+    lines.push('## 风声（未证实）');
+    let winds = [];
+    try { winds = listWindsView(16); } catch (eW) { winds = Array.isArray(world.winds) ? world.winds : []; }
+    if (!winds.length) {
+        lines.push('（还没有）');
+    } else {
+        for (const w of winds) {
+            const t = trimText(w && (w.topic || w.title));
+            if (!t) continue;
+            const tx = trimText(w && w.text);
+            lines.push('· ' + t + (tx && tx !== t ? '＝' + tx : ''));
+        }
+    }
+    lines.push('');
+    lines.push('## 键值事实');
+    const facts = Array.isArray(world.facts) ? world.facts : [];
+    if (!facts.length) {
+        lines.push('（还没有）');
+    } else {
+        for (const f of facts.slice(0, 24)) {
+            if (!f || !trimText(f.key)) continue;
+            lines.push('· ' + (trimText(f.subject) || '世界') + '｜' + (trimText(f.field) || '—')
+                + '＝' + (trimText(f.value) || '（空）'));
+        }
+    }
+    lines.push('');
+    lines.push('人物 ' + String((state.characters || []).length) + ' 人 ｜ 编年 '
+        + String((state.chronicle || []).length) + ' 条');
+    return lines.join('\n');
+}
+
 /** 把当前账本整理成条目清单 */
 function buildEntries() {
     const state = loadState();
@@ -245,6 +374,12 @@ function buildEntries() {
     const wanted = [];
 
     const world = state.world || {};
+    /* ★ [580] D2：常驻摘要槽排最前（世界书里一眼能找到） */
+    wanted.push({
+        title: ENTRY.summary,
+        content: buildWorldSummarySlot(state),
+        constant: true,
+    });
     wanted.push({
         title: ENTRY.overview,
         content: body([

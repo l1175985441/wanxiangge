@@ -127,7 +127,7 @@ const CLASSIFY_SYSTEM = [
     '',
     '只回 JSON，⛔ 不要解释、不要 markdown 代码块：',
     '{"characters":[{"name":"","note":"","identity":"","faction":"","aliases":[]}],'
-    + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型）"}],'
+    + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型；⛔ 不是实力）"}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
     + '"places":[{"name":"","note":""}],'
     + '"hidden":[{"name":"","stage":"","trigger":"","tier":"","note":""}]}',
@@ -711,7 +711,8 @@ export function applyKnowledgeFromEntries(entries, roster) {
     for (const c of list) {
         const keys = knowledgeKeysFromEntries(entries, c.name, c.aliases);
         if (keys.length) {
-            updateCharacter(c.id, { knownFactKeys: keys });
+            /* ★ [580] A5：世界书读人＝合法知识面写入口（allowKnownFace）✓ */
+            updateCharacter(c.id, { knownFactKeys: keys }, { allowKnownFace: true, trackManual: false });
             touched += 1;
         }
     }

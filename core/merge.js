@@ -151,6 +151,13 @@ export function mergeCharacters(keepId, fromName) {
     keep.manual = keep.manual === true || from.manual === true;
     keep.isNew = keep.isNew === true && from.isNew === true;
     keep.lastSeenFloor = Math.max(Number(keep.lastSeenFloor) || -1, Number(from.lastSeenFloor) || -1);
+    /* ★ [580] A7：在场楼／相关度取较新／较高 */
+    keep.presentFloor = Math.max(Number(keep.presentFloor) || -1, Number(from.presentFloor) || -1);
+    keep.relevance = Math.max(
+        Number.isFinite(Number(keep.relevance)) ? Number(keep.relevance) : 1,
+        Number.isFinite(Number(from.relevance)) ? Number(from.relevance) : 1,
+    );
+    if (keep.relevance > 3) { keep.relevance = 3; }
     keep.lastUpdatedAt = Math.max(Number(keep.lastUpdatedAt) || 0, Number(from.lastUpdatedAt) || 0);
     /*
      * ⭐ 修复单 #18：**这三样也得并过去**（原来全漏 ⇒ 合并＝丢数据）。

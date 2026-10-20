@@ -106,6 +106,26 @@ export function normalizeCharacter(raw) {
          */
         noBench: c.noBench === true,
         /*
+         * ★ [580]／世界背面 A7：在场判据原料（取字段语义；装配仍用我们的召回分治）。
+         *   · presentFloor＝最后一次**正文在场**的楼（≈ presentInSceneMessageId，我们按楼不按消息号）
+         *   · lastSeenFloor＝引擎最近碰过他的楼（后台推演也会写，⛔ 不能当「一直在场」）
+         *   · relevance＝0–3 相关度（轮转优先；默认 1）
+         *   · noBench＝关后台推演（≈ simulationEnabled=false；存「关」保老账默认开）
+         */
+        presentFloor: (() => {
+            if (Number.isFinite(Number(c.presentFloor))) { return Number(c.presentFloor); }
+            /* 旧账迁移：当时标着在场 ⇒ 用 lastSeenFloor 顶一下；不在场的不抄（防后台推演楼冒充在场） */
+            if (c.inScene === true && Number.isFinite(Number(c.lastSeenFloor))) {
+                return Number(c.lastSeenFloor);
+            }
+            return -1;
+        })(),
+        relevance: (() => {
+            const n = Number(c.relevance);
+            if (!Number.isFinite(n)) { return 1; }
+            return Math.max(0, Math.min(3, Math.round(n)));
+        })(),
+        /*
          * ⭐ 补③ 「认知账」（最小形态）：他**该知道的**清单。
          *   她定的：只收**发生过的、他碰得到的**（他经历的／被告知的／公开渠道的）；
          *   每条＝一句话 ＋ 来源（亲眼／被告知／公开）＋ 来源楼层；**只增不编**；拿不准的不进。
@@ -214,10 +234,18 @@ function emptyState() {
             bigPicture: '',
             situations: [],      // 势力的碰撞：{title, sides, tier, at, floor}
             factions: [],        // 势力：{id, name, core_person, note, at, floor}（独立实体，按名字复用 id ✓）
+            /* ★ [580]／世界背面 A3：键值事实账（给引擎用；⛔ 不当叙述长文注入） */
+            facts: [],           // {key, subject, field, value, source, at, floor}
+            /* ★ [580]／世界背面 A4：独立脉动层（镜头外可巡查；字段可与局势脉动同语义，⛔ 不抄壳） */
+            pulse: { lastSweepAt: 0, domains: [], coverage: { lastSweepAt: 0, entries: [] } },
+            /* ★ [580]／世界记忆引擎 C3：风声＝未证实公开传闻（对齐 A1 trace；⛔ 不另开 worldTrends 叠床） */
+            winds: [],           // {topic, text, kind, source, at, floor}
             hidden: [],          // 暗线：{id, name, stage, kind, trigger, tier, note, log[], manual}
             hiddenTombstones: [],  // ★ P2-6：删掉的暗线留碑「谁、什么时候被删」
             clock: '',           // 世界内时间（只有钟是准的）
             place: '',
+            /* ★ [580]／观棋 B4：上轮正文点到的名／势力 → 本轮必须有下文 */
+            spotlight: [],
             updatedAt: 0,
             manual: false,
         },
@@ -239,6 +267,8 @@ function emptyState() {
         },
         recallRecords: [],       // 每轮召回（卡片＋过程报告）
         snapshots: [],           // 撤回用的快照
+        /* ★ [580]／世界记忆引擎 C2：这一楼推演前的存档点（换 swipe／重算时回这里，⛔ 叠脏账） */
+        rollCheckpoint: null,
         newPeople: [],           // 新认的人（面板上看得见）
         stat: { recalled: 0, injected: 0, empty: 0, updates: 0 },
     };
@@ -253,38 +283,56 @@ function normalizeState(raw) {
     state.chatKey = s.chatKey === undefined || s.chatKey === null ? '' : String(s.chatKey);
     state.characters = Array.isArray(s.characters) ? s.characters.map(normalizeCharacter) : [];
     state.world = Object.assign(base.world, s.world && typeof s.world === 'object' ? s.world : {});
+    /* ★ [580]：点名名单（上轮→本轮解锁） */
+    state.world.spotlight = Array.isArray(state.world.spotlight)
+        ? state.world.spotlight.map(trimText).filter(Boolean).slice(0, 12)
+        : [];
     state.world.situations = (Array.isArray(state.world.situations) ? state.world.situations : []).map(normalizeSituation).filter((s) => s.title);
-    state.world.factions = (Array.isArray(state.world.factions) ? state.world.factions : []).map((f) => ({
-        id: trimText(f && f.id) || makeId('faction'),
-        name: trimText(f && f.name),
-        core_person: trimText(f && f.core_person),
-        scale: trimText(f && f.scale),
-        scale: trimText(f && f.scale),
-        note: trimText(f && f.note),
-        at: Number(f && f.at) || 0,
-        floor: Number.isFinite(Number(f && f.floor)) ? Number(f.floor) : -1,
-    })).filter((f) => f.name);
+    state.world.factions = (Array.isArray(state.world.factions) ? state.world.factions : [])
+        .map(normalizeFaction).filter((f) => f.name);
+    state.world.facts = (Array.isArray(state.world.facts) ? state.world.facts : [])
+        .map(normalizeWorldFact).filter((f) => f && f.key && f.value)
+        .slice(0, WORLD_FACTS_CAP);
+    state.world.pulse = normalizeWorldPulse(state.world.pulse);
+    state.world.winds = (Array.isArray(state.world.winds) ? state.world.winds : [])
+        .map(normalizeWind).filter((x) => x && x.topic)
+        .slice(0, WORLD_WINDS_CAP);
     state.world.hiddenTombstones = (Array.isArray(state.world.hiddenTombstones) ? state.world.hiddenTombstones : []).slice(-50);
-    state.world.hidden = Array.isArray(state.world.hidden) ? state.world.hidden.map((h) => Object.assign({
-        owner: '', goal: '', visibility: '', maxSteps: 0, progress: 0,
-        memory: { promise: '', done: '', blocked: '', rounds: 0 },
-        id: makeId('line'),
-        name: '',
-        stage: '萌芽',
-        kind: 'conflict',
-        trigger: '',
-        tier: '几天内',
-        note: '',
-        log: [],
-        manual: false,
-        updatedAt: 0,
-    }, h || {})) : [];
+    state.world.hidden = Array.isArray(state.world.hidden) ? state.world.hidden.map((h) => {
+        const baseH = Object.assign({
+            owner: '', goal: '', visibility: '', maxSteps: 0, progress: 0,
+            memory: { promise: '', done: '', blocked: '', rounds: 0 },
+            id: makeId('line'),
+            name: '',
+            stage: '萌芽',
+            kind: 'conflict',
+            trigger: '',
+            tier: '几天内',
+            note: '',
+            /* ★ [580] B6：暗线来源三型（event／parent／state） */
+            agendaOrigin: '',
+            agendaRef: '',
+            log: [],
+            manual: false,
+            updatedAt: 0,
+        }, h || {});
+        baseH.agendaOrigin = normalizeAgendaOrigin(h && (h.agendaOrigin || (h.source && h.source.type) || h.sourceKind));
+        baseH.agendaRef = trimText(h && (h.agendaRef || (h.source && h.source.ref) || h.sourceRef));
+        return baseH;
+    }) : [];
     state.lastUpdate = Object.assign(base.lastUpdate, s.lastUpdate && typeof s.lastUpdate === 'object' ? s.lastUpdate : {});
     state.pipeline = Object.assign(base.pipeline, s.pipeline && typeof s.pipeline === 'object' ? s.pipeline : {});
     state.recallRecords = Array.isArray(s.recallRecords) ? s.recallRecords.filter((r) => r && typeof r === 'object') : [];
     state.events = Array.isArray(s.events) ? s.events : [];
     state.chronicle = Array.isArray(s.chronicle) ? s.chronicle.filter((c) => c && typeof c === 'object') : [];
     state.snapshots = Array.isArray(s.snapshots) ? s.snapshots.filter((x) => x && typeof x === 'object') : [];
+    /* ★ [580] C2：楼层存档点（只认带 floor＋data 的） */
+    {
+        const cp = s.rollCheckpoint;
+        state.rollCheckpoint = (cp && typeof cp === 'object' && cp.data && Number.isFinite(Number(cp.floor)))
+            ? { floor: Number(cp.floor), at: Number(cp.at) || 0, data: cp.data }
+            : null;
+    }
     state.newPeople = Array.isArray(s.newPeople) ? s.newPeople.map(trimText).filter(Boolean) : [];
     state.stat = Object.assign(base.stat, s.stat && typeof s.stat === 'object' ? s.stat : {});
     return state;
@@ -601,13 +649,49 @@ export function findCharacterByName(name) {
 
 /** 改一个人物（手改状态格自动记入 manualFields，改哪格护哪格） */
 /**
+ * ★ [580]／世界背面 A2：**知情接触链**
+ *   physical＝亲眼／在场；information＝被告知；causal＝因果牵连（势力／后果波及）
+ *   公开 ≠ 全员知情：source=公开 时必须能落到这三链之一，否则不收 ✓
+ */
+const KNOW_CHANNELS = ['physical', 'information', 'causal'];
+
+export function resolveKnowChannel(source, item, character) {
+    const src = trimText(source);
+    const raw = String(trimText(item && item.channel) || '').toLowerCase();
+    if (KNOW_CHANNELS.includes(raw)) {
+        return raw;
+    }
+    if (/亲眼|在场|亲眼所见|现场/.test(raw)) { return 'physical'; }
+    if (/被告知|听说|传来|口耳|告知/.test(raw)) { return 'information'; }
+    if (/因果|牵连|波及|连带/.test(raw)) { return 'causal'; }
+    if (src === '亲眼') { return 'physical'; }
+    if (src === '被告知') { return 'information'; }
+    if (src === '公开') {
+        if (item && item.manual === true) { return 'information'; }
+        const floor = Number(item && item.floor);
+        /* ★ [580] A7：亲历＝那一楼**正文在场**（presentFloor），不是后台推演碰过的楼 */
+        if (character && Number.isFinite(floor) && floor >= 0
+            && Number(character.presentFloor) === floor) {
+            return 'physical';
+        }
+        const text = trimText(item && item.text);
+        const fac = trimText(character && character.faction);
+        if (fac && text && text.indexOf(fac) >= 0) {
+            return 'causal';
+        }
+        return '';
+    }
+    return '';
+}
+
+/**
  * ⭐ 补③ 认知账：给某人**追一条**"他该知道的"。
  *
  * 她定的规矩：**只增不编**；**拿不准的不进**（延续"不存推断"的定例）。
  *   ⇒ 所以这个函数**只会追加**，⛔ 修改也⛔ 删除已有的；要改走界面上的「删」。
  *   ⇒ 而且要求**必须有来源与来源楼层**（没来源＝拿不准 ⇒ 不收）。
  *
- * @returns {object|null} 收下去的那一条；没收（没文字／没来源）返回 null
+ * @returns {object|null} 收下去的那一条；没收（没文字／没来源／无接触链）返回 null
  */
 export function addKnow(id, item) {
     const text = trimText(item && item.text);
@@ -622,6 +706,11 @@ export function addKnow(id, item) {
     if (!c) {
         return null;
     }
+    /* ★ [580] A2：公开≠全员知情 —— 推不出接触链就不收 ✓ */
+    const channel = resolveKnowChannel(from, item, c);
+    if (!channel) {
+        return null;
+    }
     c.knows = Array.isArray(c.knows) ? c.knows : [];
     // 同一句话不重复收（只增不编 ⛔ 收成一堆重复的）
     if (c.knows.some((k) => trimText(k && k.text) === text)) {
@@ -630,6 +719,7 @@ export function addKnow(id, item) {
     const row = {
         text,
         source: from,
+        channel,
         floor,
         at: now(),
         manual: item && item.manual === true,
@@ -663,6 +753,9 @@ export function removeKnow(id, index) {
  *   ⇒ 她一个字没手改，导入进来的人全被盖上“已手动修改” ✗
  *   ⏔ 用 `patch.manual=false`：那会把她**原有的手改锁一起清掉** ✗
  */
+/** ★ [580]／世界背面 A5：知识面壳字段 —— 模型不准直写，只许世界书／显式放行 */
+const KNOWN_FACE_KEYS = ['knownFactKeys', 'knownEventIds', 'knownClueIds', 'knownFactBeliefs'];
+
 export function updateCharacter(id, patch, opts) {
     const state = loadState();
     const idx = state.characters.findIndex((c) => c.id === id);
@@ -670,7 +763,16 @@ export function updateCharacter(id, patch, opts) {
         return null;
     }
     const prev = state.characters[idx];
-    const merged = Object.assign({}, prev, patch || {});
+    /* ★ [580] A5：⛔ 模型／普通 patch 直写 known_* ✗；世界书读人传 allowKnownFace:true ✓ */
+    const safePatch = Object.assign({}, patch || {});
+    if (!(opts && opts.allowKnownFace === true)) {
+        for (const k of KNOWN_FACE_KEYS) {
+            if (Object.hasOwn(safePatch, k)) {
+                delete safePatch[k];
+            }
+        }
+    }
+    const merged = Object.assign({}, prev, safePatch);
     if (patch && Object.hasOwn(patch, 'aliases')) {
         merged.aliases = toList(patch.aliases);
     }
@@ -1046,11 +1148,414 @@ export function factionPassesGate(f) {
     return factionWeight(f && f.scale) >= FACTION_SCALE_GATE;
 }
 
+/* ★ [580]／世界背面 A3：世界事实容量锁（取 160；⛔ 不搬权威分／冲突 UI） */
+export const WORLD_FACTS_CAP = 160;
+
+export function worldFactKey(subject, field) {
+    const s = matchKey(subject) || '世界';
+    const f = matchKey(field);
+    return f ? (s + '｜' + f) : '';
+}
+
+export function normalizeWorldFact(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const subject = trimText(src.subject) || '世界';
+    const field = trimText(src.field);
+    const value = trimText(src.value);
+    const key = trimText(src.key) || worldFactKey(subject, field);
+    if (!key || !value) {
+        return null;
+    }
+    let source = trimText(src.source) || 'engine';
+    if (!['engine', 'book', 'manual', 'narrative'].includes(source)) {
+        source = 'engine';
+    }
+    return {
+        key,
+        subject,
+        field: field || key,
+        value,
+        source,
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+/**
+ * ★ [580] A3：**按 key 去重的世界事实账**（谁的哪一格＝什么）。
+ *   已有同 key：只在新值非空时覆盖；manual 优先不被 engine 空写冲掉。
+ */
+export function upsertWorldFact(line, opts) {
+    const o = opts || {};
+    const row = normalizeWorldFact(Object.assign({}, line || {}, {
+        source: trimText(line && line.source) || (o.manual === true ? 'manual' : 'engine'),
+    }));
+    if (!row) {
+        return null;
+    }
+    const state = loadState();
+    const box = state.world.facts = Array.isArray(state.world.facts) ? state.world.facts : [];
+    const hit = box.find((f) => f && trimText(f.key) === row.key);
+    if (hit) {
+        if (hit.source === 'manual' && row.source === 'engine' && !o.force) {
+            return hit;
+        }
+        hit.value = row.value;
+        hit.subject = row.subject || hit.subject;
+        hit.field = row.field || hit.field;
+        hit.source = row.source || hit.source;
+        if (Number.isFinite(row.floor) && row.floor >= 0) { hit.floor = row.floor; }
+        hit.at = now();
+        /* 新写的挪到最前（近的优先） */
+        const idx = box.indexOf(hit);
+        if (idx > 0) {
+            box.splice(idx, 1);
+            box.unshift(hit);
+        }
+        if (box.length > WORLD_FACTS_CAP) { box.length = WORLD_FACTS_CAP; }
+        saveState();
+        return hit;
+    }
+    row.at = now();
+    box.unshift(row);
+    if (box.length > WORLD_FACTS_CAP) { box.length = WORLD_FACTS_CAP; }
+    saveState();
+    return row;
+}
+
+/* ★ [580]／世界背面 A4：脉动容量（取数量级；⛔ 不搬巡查 UI／紫主题） */
+export const PULSE_DOMAINS_CAP = 18;
+export const PULSE_COVERAGE_CAP = 48;
+
+const PULSE_TRENDS = new Set(['rising', 'falling', 'steady']);
+
+export function pulseDomainKey(label, kind) {
+    const lb = matchKey(label);
+    if (!lb) { return ''; }
+    const kd = matchKey(kind) || 'other';
+    return kd + ':' + lb;
+}
+
+export function normalizePulseDomain(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const label = trimText(src.label || src.name || src.title);
+    if (!label) { return null; }
+    const kind = trimText(src.kind) || 'other';
+    let trend = String(trimText(src.trend) || 'steady').toLowerCase();
+    if (trend === 'stable' || trend === '持平') { trend = 'steady'; }
+    if (trend === '上升' || trend === '升温') { trend = 'rising'; }
+    if (trend === '下降' || trend === '降温') { trend = 'falling'; }
+    if (!PULSE_TRENDS.has(trend)) { trend = 'steady'; }
+    const pressureRaw = Number(src.pressure);
+    const pressure = Number.isFinite(pressureRaw) ? Math.max(0, Math.min(5, pressureRaw)) : 0;
+    const visibility = resolveVisibility(
+        trimText(src.state) + ' ' + trimText(src.evidence),
+        src.visibility,
+    );
+    return {
+        id: trimText(src.id) || makeId('pulse'),
+        label,
+        kind,
+        scope: trimText(src.scope),
+        state: trimText(src.state || src.note || src.text),
+        pressure,
+        trend,
+        visibility,
+        evidence: trimText(src.evidence),
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+export function normalizePulseCoverageEntry(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const label = trimText(src.label || src.name);
+    if (!label) { return null; }
+    const kind = trimText(src.kind) || 'general';
+    const scope = trimText(src.scope);
+    return {
+        id: trimText(src.id) || ('cov_' + matchKey(kind + ':' + label + ':' + scope)),
+        label,
+        kind,
+        scope,
+        lastCheckedAt: Number(src.lastCheckedAt) || 0,
+        checks: Math.max(0, Number(src.checks) || 0),
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+export function normalizeWorldPulse(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const covSrc = src.coverage && typeof src.coverage === 'object' ? src.coverage : {};
+    const domains = [];
+    const seenDom = new Set();
+    for (const cand of (Array.isArray(src.domains) ? src.domains : [])) {
+        const d = normalizePulseDomain(cand);
+        if (!d) continue;
+        const k = pulseDomainKey(d.label, d.kind);
+        if (!k || seenDom.has(k)) continue;
+        seenDom.add(k);
+        domains.push(d);
+        if (domains.length >= PULSE_DOMAINS_CAP) break;
+    }
+    const entries = [];
+    const seenCov = new Set();
+    for (const cand of (Array.isArray(covSrc.entries) ? covSrc.entries : [])) {
+        const e = normalizePulseCoverageEntry(cand);
+        if (!e) continue;
+        if (seenCov.has(e.id)) continue;
+        seenCov.add(e.id);
+        entries.push(e);
+        if (entries.length >= PULSE_COVERAGE_CAP) break;
+    }
+    entries.sort((a, b) => (Number(b.lastCheckedAt) || 0) - (Number(a.lastCheckedAt) || 0));
+    return {
+        lastSweepAt: Number(src.lastSweepAt) || 0,
+        domains,
+        coverage: {
+            lastSweepAt: Number(covSrc.lastSweepAt) || 0,
+            entries,
+        },
+    };
+}
+
+/**
+ * ★ [580] A4：**独立脉动域**（镜头外也能记压力／趋势／可见度／证据）。
+ *   按 label+kind 去重；同键覆盖非空格。
+ */
+export function upsertPulseDomain(line, opts) {
+    const o = opts || {};
+    const row = normalizePulseDomain(Object.assign({}, line || {}, {
+        floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : (Number.isFinite(Number(o.floor)) ? Number(o.floor) : -1),
+    }));
+    if (!row) { return null; }
+    /* 至少要有一句状态／证据，或明确给了压力（含 0） */
+    const hasPressure = line && line.pressure !== undefined && line.pressure !== null && line.pressure !== '';
+    if (!row.state && !row.evidence && !hasPressure) { return null; }
+    const state = loadState();
+    state.world.pulse = normalizeWorldPulse(state.world.pulse);
+    const box = state.world.pulse.domains;
+    const key = pulseDomainKey(row.label, row.kind);
+    const hit = box.find((d) => d && pulseDomainKey(d.label, d.kind) === key);
+    if (hit) {
+        if (row.state) { hit.state = row.state; }
+        if (row.evidence) { hit.evidence = row.evidence; }
+        if (row.scope) { hit.scope = row.scope; }
+        if (line && line.pressure !== undefined && line.pressure !== null && line.pressure !== '') {
+            hit.pressure = row.pressure;
+        }
+        if (trimText(line && line.trend)) { hit.trend = row.trend; }
+        if (trimText(line && line.visibility)) { hit.visibility = row.visibility; }
+        hit.at = now();
+        if (Number.isFinite(row.floor) && row.floor >= 0) { hit.floor = row.floor; }
+        const idx = box.indexOf(hit);
+        if (idx > 0) {
+            box.splice(idx, 1);
+            box.unshift(hit);
+        }
+    } else {
+        row.at = now();
+        box.unshift(row);
+    }
+    if (box.length > PULSE_DOMAINS_CAP) { box.length = PULSE_DOMAINS_CAP; }
+    state.world.pulse.lastSweepAt = now();
+    /* 写了域 ⇒ 顺手记一笔巡查覆盖（镜头外巡查的痕迹） */
+    try {
+        markPulseCoverage({
+            label: row.label,
+            kind: row.kind,
+            scope: row.scope,
+            floor: row.floor,
+        }, { skipSave: true });
+    } catch (eCov) { /* 覆盖记不上不能挡域写入 ✓ */ }
+    saveState();
+    return hit || row;
+}
+
+/** ★ [580] A4：记下「哪一块范围刚巡查过」 */
+export function markPulseCoverage(line, opts) {
+    const o = opts || {};
+    const row = normalizePulseCoverageEntry(line);
+    if (!row) { return null; }
+    const state = loadState();
+    state.world.pulse = normalizeWorldPulse(state.world.pulse);
+    const box = state.world.pulse.coverage.entries;
+    const hit = box.find((e) => e && e.id === row.id);
+    const ts = now();
+    if (hit) {
+        hit.lastCheckedAt = ts;
+        hit.checks = Math.max(0, Number(hit.checks) || 0) + 1;
+        if (row.scope) { hit.scope = row.scope; }
+        if (Number.isFinite(row.floor) && row.floor >= 0) { hit.floor = row.floor; }
+        const idx = box.indexOf(hit);
+        if (idx > 0) {
+            box.splice(idx, 1);
+            box.unshift(hit);
+        }
+    } else {
+        row.lastCheckedAt = ts;
+        row.checks = 1;
+        box.unshift(row);
+    }
+    if (box.length > PULSE_COVERAGE_CAP) { box.length = PULSE_COVERAGE_CAP; }
+    state.world.pulse.coverage.lastSweepAt = ts;
+    if (o.skipSave !== true) { saveState(); }
+    return hit || row;
+}
+
+/* ★ [580]／世界记忆引擎 C3：风声容量（取「未证实传闻」语义；对齐 A1 trace，⛔ 不搬紫主题／不叠 worldTrends） */
+export const WORLD_WINDS_CAP = 24;
+export const WIND_KINDS = Object.freeze(['rumor', 'report', 'sentiment', 'announcement']);
+
+export function normalizeWind(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const topic = trimText(src.topic || src.title || src.name);
+    const text = trimText(src.text || src.content || src.note || src.rumor);
+    if (!topic && !text) { return null; }
+    let kind = String(trimText(src.kind || src.type) || 'rumor').toLowerCase();
+    if (!WIND_KINDS.includes(kind)) { kind = 'rumor'; }
+    /* 风声层＝未证实传闻：announcement 也只当「有人说有通报」级别，注入侧仍标风声 ⛔ 不当已证实新闻 */
+    return {
+        topic: topic || (text ? text.slice(0, 24) : ''),
+        text: text || topic,
+        kind,
+        source: trimText(src.source) || 'engine',
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+/**
+ * ★ [580] C3：按 topic 去重写入风声账（未证实传闻；⛔ 不当 public 新闻）。
+ */
+export function upsertWind(line, opts) {
+    const o = opts || {};
+    const row = normalizeWind(Object.assign({}, line || {}, {
+        floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor)
+            : (Number.isFinite(Number(o.floor)) ? Number(o.floor) : -1),
+        source: trimText(line && line.source) || (o.manual === true ? 'manual' : 'engine'),
+    }));
+    if (!row || !row.topic) { return null; }
+    const state = loadState();
+    const box = state.world.winds = Array.isArray(state.world.winds) ? state.world.winds : [];
+    const key = matchKey(row.topic);
+    const hit = box.find((w) => w && matchKey(w.topic) === key);
+    if (hit) {
+        if (trimText(row.text)) { hit.text = row.text; }
+        if (trimText(row.kind)) { hit.kind = row.kind; }
+        if (trimText(row.source)) { hit.source = row.source; }
+        if (Number.isFinite(row.floor) && row.floor >= 0) { hit.floor = row.floor; }
+        hit.at = now();
+        const idx = box.indexOf(hit);
+        if (idx > 0) {
+            box.splice(idx, 1);
+            box.unshift(hit);
+        }
+        if (box.length > WORLD_WINDS_CAP) { box.length = WORLD_WINDS_CAP; }
+        saveState();
+        return hit;
+    }
+    row.at = now();
+    box.unshift(row);
+    if (box.length > WORLD_WINDS_CAP) { box.length = WORLD_WINDS_CAP; }
+    saveState();
+    return row;
+}
+
+/**
+ * ★ [580] C3：面板／喂料用风声视图——账上 winds ＋ 局势／事件里 visibility=trace 的派生条。
+ *   按 topic／title 去重，避免与 A1 trace 叠两份同题。
+ */
+export function listWindsView(cap) {
+    const n = Number.isFinite(Number(cap)) ? Math.max(1, Math.min(40, Number(cap))) : 24;
+    const state = loadState();
+    const w = state.world || {};
+    const out = [];
+    const seen = new Set();
+    const push = (topic, text, kind, via) => {
+        const t = trimText(topic);
+        if (!t) return;
+        const k = matchKey(t);
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push({
+            topic: t,
+            text: trimText(text) || t,
+            kind: trimText(kind) || 'rumor',
+            via: trimText(via) || 'wind',
+        });
+    };
+    for (const row of (Array.isArray(w.winds) ? w.winds : [])) {
+        if (!row) continue;
+        push(row.topic, row.text, row.kind, 'wind');
+        if (out.length >= n) return out;
+    }
+    for (const s of (Array.isArray(w.situations) ? w.situations : [])) {
+        if (!s || String(trimText(s.visibility) || '').toLowerCase() !== 'trace') continue;
+        push(s.title, s.evidence || s.effect || s.cause || s.title, 'rumor', 'situation');
+        if (out.length >= n) return out;
+    }
+    for (const e of (Array.isArray(state.events) ? state.events : [])) {
+        if (!e || String(trimText(e.visibility) || '').toLowerCase() !== 'trace') continue;
+        push(e.title, e.text || e.evidence || e.title, 'rumor', 'event');
+        if (out.length >= n) return out;
+    }
+    return out;
+}
+
+/* ★ [580]／世界记忆引擎 C1：势力厚度枚举（取字段语义，⛔ 不搬紫主题 UI） */
+export const FACTION_STATUSES = Object.freeze(['鼎盛', '稳固', '倾轧', '困顿', '衰落', '瓦解']);
+export const FACTION_RELATIONS = Object.freeze(['血盟', '盟友', '友好', '中立', '冷淡', '敌对', '世仇']);
+
+export function normalizeFactionPillars(raw) {
+    const list = Array.isArray(raw) ? raw : (trimText(raw) ? [raw] : []);
+    const out = [];
+    for (const p of list) {
+        const name = typeof p === 'string' ? trimText(p) : trimText(p && p.name);
+        if (!name) continue;
+        out.push(name.length > 4 ? name.slice(0, 4) : name);
+        if (out.length >= 3) break;
+    }
+    return out;
+}
+
+export function normalizeFaction(f) {
+    const src = f && typeof f === 'object' ? f : {};
+    let status = trimText(src.status) || '稳固';
+    if (!FACTION_STATUSES.includes(status)) { status = '稳固'; }
+    let relation = trimText(src.relation) || '中立';
+    if (relation === '紧张') { relation = '冷淡'; }
+    if (!FACTION_RELATIONS.includes(relation)) { relation = '中立'; }
+    /*
+     * ★ [580] B5：势力只认 scale（规模）；⛔ 不存 power／「实力」。
+     *   模型若误把规模写进 power，且长得像规模词 ⇒ 挪进 scale；否则丢掉。
+     */
+    let scale = trimText(src.scale);
+    const mistook = trimText(src.power);
+    if (!scale && mistook && /巨型|庞大|巨大|大型|中型|小型|微型|规模|零散|个体/.test(mistook)) {
+        scale = mistook;
+    }
+    return {
+        id: trimText(src.id) || makeId('faction'),
+        name: trimText(src.name),
+        core_person: trimText(src.core_person),
+        scale,
+        note: trimText(src.note),
+        status,
+        relation,
+        scope: trimText(src.scope),
+        powerPillars: normalizeFactionPillars(src.powerPillars),
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
 /**
  * ★ P1-1（修复单 20261019）：**势力是独立实体**，不是人物上的一个字符串。
  *   为什么：只有一个名字时，“这个势力有哪些人 / 它的核心人是谁 / 它的状态”都无处存，
  *   世界书里读到的势力只能被摊成一条“局势”。现在给它一个实体：
  *   按名字复用已有 id（重复导入不会重号），只填空、不把已有值清掉。
+ * ★ [580] C1：补 status／relation／scope／powerPillars 厚度 ✓
  */
 export function upsertFaction(line) {
     const name = trimText(line && line.name);
@@ -1061,12 +1566,24 @@ export function upsertFaction(line) {
     const box = state.world.factions = Array.isArray(state.world.factions) ? state.world.factions : [];
     const key = matchKey(name);
     const hit = box.find((f) => f && matchKey(f.name) === key);
-    const core = trimText(line && line.core_person);
-    const note = trimText(line && line.note);
+    const patch = normalizeFaction(Object.assign({}, line || {}, { name }));
     if (hit) {
-        hit.core_person = core || hit.core_person;
-        hit.note = note || hit.note;
-        hit.scale = trimText(line && line.scale) || hit.scale;
+        hit.core_person = patch.core_person || hit.core_person;
+        hit.note = patch.note || hit.note;
+        hit.scale = patch.scale || hit.scale;
+        if (trimText(line && line.status) && FACTION_STATUSES.includes(trimText(line.status))) {
+            hit.status = patch.status;
+        } else if (!trimText(hit.status)) { hit.status = '稳固'; }
+        const relIn = trimText(line && line.relation) === '紧张' ? '冷淡' : trimText(line && line.relation);
+        if (relIn && FACTION_RELATIONS.includes(relIn)) {
+            hit.relation = patch.relation;
+        } else if (!trimText(hit.relation)) { hit.relation = '中立'; }
+        if (trimText(line && line.scope)) { hit.scope = patch.scope; }
+        if ((Array.isArray(line && line.powerPillars) && line.powerPillars.length) || trimText(line && line.powerPillars)) {
+            hit.powerPillars = patch.powerPillars;
+        } else if (!Array.isArray(hit.powerPillars)) {
+            hit.powerPillars = [];
+        }
         saveState();
         return hit;
     }
@@ -1075,10 +1592,24 @@ export function upsertFaction(line) {
     if (!id || used.has(id)) {
         do { id = makeId('faction'); } while (used.has(id));
     }
-    const fresh = { id, name, core_person: core, scale: trimText(line && line.scale), note, at: Date.now(), floor: Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1 };
-    box.push(fresh);
+    patch.id = id;
+    patch.at = Date.now();
+    patch.floor = Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1;
+    box.push(patch);
     saveState();
-    return fresh;
+    return patch;
+}
+
+/** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
+export function normalizeAgendaOrigin(raw) {
+    if (raw && typeof raw === 'object') {
+        return normalizeAgendaOrigin(raw.type || raw.kind);
+    }
+    const o = String(trimText(raw) || '').toLowerCase();
+    if (o === 'event' || o === '事件') { return 'event'; }
+    if (o === 'parent' || o === '委派' || o === '上级') { return 'parent'; }
+    if (o === 'state' || o === '处境' || o === '局势') { return 'state'; }
+    return '';
 }
 
 export function upsertHidden(line) {
@@ -1119,6 +1650,9 @@ export function upsertHidden(line) {
             /* ⭐ C12（材料 13）：**因果两格不能在推进时丢掉** ✓ */
             cause: trimText(line.cause) || existing.cause,
             effect: trimText(line.effect) || existing.effect,
+            /* ★ [580] B6：来源三型（给了才改；空不冲掉） */
+            agendaOrigin: normalizeAgendaOrigin(line.agendaOrigin || (line.source && line.source.type) || line.sourceKind) || existing.agendaOrigin || '',
+            agendaRef: trimText(line.agendaRef || (line.source && line.source.ref) || line.sourceRef) || existing.agendaRef || '',
             owner: trimText(line.owner) || existing.owner,
             goal: trimText(line.goal) || existing.goal,
             visibility: trimText(line.visibility) || existing.visibility,
@@ -1158,6 +1692,9 @@ export function upsertHidden(line) {
         owner: trimText(line.owner),
         goal: trimText(line.goal),
         visibility: trimText(line.visibility),
+        /* ★ [580] B6：出生来源三型 */
+        agendaOrigin: normalizeAgendaOrigin(line.agendaOrigin || (line.source && line.source.type) || line.sourceKind),
+        agendaRef: trimText(line.agendaRef || (line.source && line.source.ref) || line.sourceRef),
         maxSteps: Number.isFinite(Number(line.maxSteps)) ? Math.max(0, Number(line.maxSteps)) : 0,
         progress: Number.isFinite(Number(line.progress)) ? Math.max(0, Number(line.progress)) : 0,
         memory: Object.assign({ promise: '', done: '', blocked: '', rounds: 0 }, (line && line.memory) || {}),
@@ -1243,17 +1780,36 @@ export function removeHidden(id) {
  *   世界书里读的？还是她手改的）。指纹不变则同一件事可被认出，重复扩散也能拦。
  */
 /**
- * ★ P1-6（修复单 20261019）：**够不够公开**。
- *   为什么：屋里私聊、两人说的话，不该被当成“世界新闻”广播出去；
- *   反过来，官方通报、报道、警方通告这类才是真正的公开事件。
- *   判法：看文字里有没有“公开传播”的信号词（⏔ 看长度 ✗）。
+ * ★ P1-6 ＋ 需求清单 [579]/[580]：**公开／痕迹／私域三态**（对照世界背面「宁可私域」）。
+ *   · public＝真有社会传播渠道（新闻／通报／官方…）才准当世界新闻广播
+ *   · trace＝有人看见／传闻／风声——外界能察觉，但⛔ 不当已证实新闻
+ *   · private＝默认；卧室／私聊／没证据 ⇒ 宁可私域
+ *   ⚠️ 旧 `isPublicText` 把「传闻」也算公开 ✗ ⇒ 私域事件会被广播成新闻 ✗
  */
-const PUBLIC_SIGNALS = /公告|通报|报道|新闻|媒体|记者|电视台|广播|报纸|官方|政府|警方|宣布|发布会|公开|传闻|头条|通缉|消息称|外界|街边|人们都在议论/;
+const STRONG_PUBLIC_CUE = /公告|通报|报道|新闻|媒体|记者|电视台|广播|报纸|官方|政府|警方|消防|医院|学校|发布会|公开声明|新闻发布|公示|通知|预警|热搜|全城|全网|通缉/;
+const TRACE_CUE = /传闻|风声|小道消息|有人看见|有人发现|路人|邻居|附近的人|外界察觉|可疑迹象|异常迹象|消息称|街边|人们都在议论/;
+const VIS_OK = new Set(['public', 'trace', 'private']);
 
-export function isPublicText(text) {
+/** 归一可见度：模型写的 / 旧布尔 / 正文信号 → public|trace|private */
+export function resolveVisibility(text, visibilityHint) {
+    const hint = String(trimText(visibilityHint) || '').toLowerCase();
+    if (VIS_OK.has(hint)) {
+        return hint;
+    }
+    /* 中文别名 */
+    if (/^(公开|明)$/.test(hint)) { return 'public'; }
+    if (/^(痕迹|半明|风声)$/.test(hint)) { return 'trace'; }
+    if (/^(私|私域|暗)$/.test(hint)) { return 'private'; }
     const s = trimText(text);
-    if (!s) { return false; }
-    return PUBLIC_SIGNALS.test(s);
+    if (!s) { return 'private'; }
+    if (STRONG_PUBLIC_CUE.test(s)) { return 'public'; }
+    if (TRACE_CUE.test(s)) { return 'trace'; }
+    return 'private';   /* 宁可私域 ✓ */
+}
+
+/** 兼容旧调用：只有真正 public 才算「够公开」 */
+export function isPublicText(text, visibilityHint) {
+    return resolveVisibility(text, visibilityHint) === 'public';
 }
 
 /**
@@ -1270,9 +1826,21 @@ export function normalizeSituation(s) {
         tier: trimText(src.tier),
         cause: trimText(src.cause),
         effect: trimText(src.effect),
+        /* ★ [580]／世界背面 A6：预期／实际／余波三格（与 cause／effect 并列，⛔ 不混成一句） */
+        expected: trimText(src.expected || src.expectedResult || src.预期),
+        result: trimText(src.result || src.实际 || src.实果),
+        consequence: trimText(src.consequence || src.余波 || src.后果),
+        /* ★ [580]／观棋 B1：来路三型 plot｜ripple｜state（空＝旧账） */
+        origin: (() => {
+            const o = String(trimText(src.origin || src.originKind) || '').toLowerCase();
+            return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+        })(),
         pressure: Number.isFinite(pNum) ? Math.max(0, Math.min(5, pNum)) : null,
         trend: trimText(src.trend),
-        visibility: trimText(src.visibility),
+        visibility: resolveVisibility(
+            trimText(src.title || src.text) + ' ' + trimText(src.evidence),
+            src.visibility,
+        ),
         evidence: trimText(src.evidence),
         at: Number(src.at) || 0,
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
@@ -1301,16 +1869,34 @@ export function setEvents(events) {
         kind: trimText(e.kind) || 'situation',   // situation｜hidden
         sides: trimText(e.sides),
         tier: trimText(e.tier),
+        origin: (() => {
+            const o = String(trimText(e.origin) || '').toLowerCase();
+            return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+        })(),
         stage: trimText(e.stage),
         at: Number(e.at || now()),
         floor: Number.isFinite(e.floor) ? e.floor : -1,
         /* ★ P1-3：来源类型（situation/hidden/book/manual）＋原文引用＋指纹 ✓ */
         source: trimText(e.source) || '',
-        /* ★ P1-6：够不够公开（不够 ⇒ 不当世界新闻广播 ✓） */
-        public: typeof e.public === 'boolean' ? e.public : isPublicText(trimText(e.title) + ' ' + trimText(e.text)),
+        /* ★ [579]/[580]：可见度三态；只有 public 才准当世界新闻广播 ✓ */
+        ...(() => {
+            const blob = trimText(e.title) + ' ' + trimText(e.text) + ' ' + trimText(e.evidence);
+            const vis = resolveVisibility(blob, e.visibility);
+            return { visibility: vis, public: vis === 'public' };
+        })(),
         closed: e.closed === true,
         quote: trimText(e.quote),
         fingerprint: trimText(e.fingerprint) || fingerprintOf(trimText(e.title) + '|' + trimText(e.text)),
+        /* ★ R32：脉动四格随事件池走，注入侧才能读到 ✓ */
+        pressure: Number.isFinite(Number(e.pressure)) ? Math.max(0, Math.min(5, Number(e.pressure))) : null,
+        trend: trimText(e.trend),
+        evidence: trimText(e.evidence),
+        /* ★ [580] A6：后果三格随事件池走 ✓ */
+        cause: trimText(e.cause),
+        effect: trimText(e.effect),
+        expected: trimText(e.expected || e.expectedResult),
+        result: trimText(e.result),
+        consequence: trimText(e.consequence),
         manual: e.manual === true,
     })).filter((e) => e.title || e.text);
     capList(state.events, 'capEvents', (e) => e.id, (e) => e.manual);
@@ -1331,11 +1917,55 @@ export function syncWorldEvents() {
     const olds = Array.isArray(state.events) ? state.events.slice() : [];
     const have = new Set(olds.map((e) => trimText(e && e.title)).filter(Boolean));
     const add = [];
+    let patched = false;
     for (const s of (Array.isArray(w.situations) ? w.situations : [])) {
         const tt = trimText(s && s.title);
-        if (!tt || have.has(tt)) { continue; }
+        if (!tt) { continue; }
+        /* ★ R32：已在池里的同名局势也要把脉动四格回填进去（旧账只有标题时也能进注入） ✓ */
+        const hit = olds.find((e) => e && trimText(e.title) === tt && (trimText(e.kind) || 'situation') === 'situation');
+        if (hit) {
+            const pNum = Number(s && s.pressure);
+            hit.pressure = Number.isFinite(pNum) ? Math.max(0, Math.min(5, pNum)) : null;
+            hit.trend = trimText(s && s.trend);
+            hit.evidence = trimText(s && s.evidence);
+            if (trimText(s && s.sides)) { hit.sides = trimText(s.sides); }
+            if (trimText(s && s.tier)) { hit.tier = trimText(s.tier); }
+            if (trimText(s && s.origin)) { hit.origin = trimText(s.origin); }
+            /* ★ [580] A6：回填后果三格 ✓ */
+            if (trimText(s && s.cause)) { hit.cause = trimText(s.cause); }
+            if (trimText(s && s.effect)) { hit.effect = trimText(s.effect); }
+            if (trimText(s && s.expected)) { hit.expected = trimText(s.expected); }
+            if (trimText(s && s.result)) { hit.result = trimText(s.result); }
+            if (trimText(s && s.consequence)) { hit.consequence = trimText(s.consequence); }
+            /* ★ [579]/[580]：回填时也按三态重算公开（⛔ 旧布尔卡死） */
+            const blob = tt + ' ' + trimText(hit.text) + ' ' + trimText(s && s.evidence);
+            const vis = resolveVisibility(blob, s && s.visibility);
+            hit.visibility = vis;
+            hit.public = vis === 'public';
+            patched = true;
+            continue;
+        }
+        if (have.has(tt)) { continue; }
         have.add(tt);
-        add.push({ title: tt, text: trimText(s && s.note) || tt, kind: 'situation', source: 'situation', quote: trimText(s && s.note) || tt, sides: trimText(s && s.sides), tier: trimText(s && s.tier) });
+        add.push({
+            title: tt,
+            text: trimText(s && s.note) || tt,
+            kind: 'situation',
+            source: 'situation',
+            quote: trimText(s && (s.evidence || s.note)) || tt,
+            sides: trimText(s && s.sides),
+            tier: trimText(s && s.tier),
+            origin: trimText(s && s.origin),
+            cause: trimText(s && s.cause),
+            effect: trimText(s && s.effect),
+            expected: trimText(s && s.expected),
+            result: trimText(s && s.result),
+            consequence: trimText(s && s.consequence),
+            pressure: Number.isFinite(Number(s && s.pressure)) ? Number(s.pressure) : null,
+            trend: trimText(s && s.trend),
+            visibility: trimText(s && s.visibility),
+            evidence: trimText(s && s.evidence),
+        });
     }
     for (const h of (Array.isArray(w.hidden) ? w.hidden : [])) {
         const tn = trimText(h && h.name);
@@ -1343,7 +1973,7 @@ export function syncWorldEvents() {
         have.add(tn);
         add.push({ title: tn, text: trimText(h && h.note) || tn, kind: 'hidden', source: 'hidden', quote: trimText(h && h.note) || tn, stage: trimText(h && h.stage) });
     }
-    if (add.length) {
+    if (add.length || patched) {
         setEvents(olds.concat(add));
     }
     return state.events;
@@ -1459,6 +2089,9 @@ export async function clearWorldLedger() {
     state.world = Object.assign({}, state.world, {
         bigPicture: '',
         situations: [],
+        facts: [],
+        pulse: { lastSweepAt: 0, domains: [], coverage: { lastSweepAt: 0, entries: [] } },
+        winds: [],
         hidden: [],
         clock: '',
         place: '',
@@ -1479,6 +2112,7 @@ export async function clearWorldLedger() {
     state.failLog = [];
     // ⚠️ 快照也清：留着的话"撤回上一次"能把数据拉回来 ⇒ 她说的是"真的不需要了"
     state.snapshots = [];
+    state.rollCheckpoint = null;
     state.lastUpdate = { at: 0, status: 'idle', note: '', floor: -1 };
     state.pipeline = Object.assign({}, state.pipeline, {
         status: 'idle', step: '', text: '', error: '', tries: 0, cursor: 0, atFloor: -1, cancelRequested: false,
@@ -1838,18 +2472,48 @@ export function restoreSnapshot(snap) {
         return false;
     }
     const state = loadState();
-    state.characters = Array.isArray(snap.data.characters) ? snap.data.characters : state.characters;
-    state.world = snap.data.world || state.world;
-    state.events = Array.isArray(snap.data.events) ? snap.data.events : state.events;
-    if (Array.isArray(snap.data.chronicle)) {
-        state.chronicle = snap.data.chronicle;
+    /* ★ [580] C2：必须深拷贝再装 —— 浅引用会让后续推演把存档点一起改脏 ✗ */
+    const data = deepClone(snap.data);
+    state.characters = Array.isArray(data.characters) ? data.characters : state.characters;
+    state.world = data.world || state.world;
+    state.events = Array.isArray(data.events) ? data.events : state.events;
+    if (Array.isArray(data.chronicle)) {
+        state.chronicle = data.chronicle;
     }
-    if (Array.isArray(snap.data.newPeople)) {
-        state.newPeople = snap.data.newPeople;
+    if (Array.isArray(data.newPeople)) {
+        state.newPeople = data.newPeople;
     }
-    state.stat = snap.data.stat || state.stat;
+    state.stat = data.stat || state.stat;
     saveState();
     return true;
+}
+
+/**
+ * ★ [580]／世界记忆引擎 C2：**记下这一楼推演前的存档点**。
+ *   只在「这一楼第一次成功落账」时写入；同楼换 swipe 重算时**不覆盖**（基底要固定）。
+ */
+export function rememberRollCheckpoint(floor, payload) {
+    const fl = Number(floor);
+    if (!Number.isFinite(fl) || fl < 0 || !payload) {
+        return false;
+    }
+    const state = loadState();
+    if (state.rollCheckpoint && Number(state.rollCheckpoint.floor) === fl && state.rollCheckpoint.data) {
+        return false;
+    }
+    state.rollCheckpoint = { floor: fl, at: now(), data: deepClone(payload) };
+    saveState();
+    return true;
+}
+
+/** 取某一楼的重算存档点（对不上楼号 ⇒ null） */
+export function getRollCheckpoint(floor) {
+    const state = loadState();
+    const cp = state.rollCheckpoint;
+    if (!cp || !cp.data || Number(cp.floor) !== Number(floor)) {
+        return null;
+    }
+    return cp;
 }
 
 /**

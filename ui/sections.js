@@ -21,7 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow, importState, pushPast } from '../core/state.js';
+    addKnow, removeKnow, importState, pushPast, listWindsView } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
 import {
@@ -760,7 +760,7 @@ function secGeneral(host) {
             rollback: '撑回上一次更新之前的样子（撑回前那一版也留着，能再撑回来）。',
             replan: '把当前这一楼重算一遍（比如你改了字、想重算）；⛔ 重新跑整本账。',
             reconcile: '把“账”和“楼”对齐（看看哪几楼还没入账）。⛔ 改内容，只对账。',
-            'publish-book': '把现在的名册／世界状态／编年，**另写一份**到世界书《万象阁 · 世界后台》（⛔ 动你原来的书）。',
+            'publish-book': '把现在的名册／世界状态／编年／**世界状态摘要**，**另写一份**到世界书《万象阁 · 世界后台》（⛔ 动你原来的书；摘要槽常驻启用，其余备份条仍禁用）。',
             backfill: '把之前没算过的楼补算一遍；旁边可以先填“只补最近几楼”（留空＝全部）。跑中可随时取消。',
             'clear-world-open': '清空这个聊天里的世界账（会先问你一次，⛔ 直接清）。',
         };
@@ -942,12 +942,228 @@ function secWorld(host) {
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     box.appendChild(cWorld);
 
+    /* ★ [580] C1：势力厚度在面板上看得见（只读；改走世界步回写，⛕ 卡头再放一颗编辑） */
+    const cFac = card('势力（在册）');
+    const facList = Array.isArray(w.factions) ? w.factions : [];
+    if (!facList.length) {
+        cFac.appendChild(emptyBlock('还没有势力（从世界书读人时会一起落进来）'));
+    } else {
+        const fl = el('div', 'wxg-list');
+        for (const f of facList) {
+            const r = el('div', 'wxg-r');
+            const main = el('div', 'wxg-r-main');
+            const title = el('div', 'wxg-r-title');
+            title.appendChild(el('span', 'wxg-r-who', trimText(f.name) || '（未记名）'));
+            title.appendChild(el('span', 'wxg-badge is-info', trimText(f.status) || '稳固'));
+            title.appendChild(el('span', 'wxg-badge is-soft', trimText(f.relation) || '中立'));
+            main.appendChild(title);
+            const bits = [];
+            if (trimText(f.scale)) { bits.push('规模：' + trimText(f.scale)); }
+            if (trimText(f.core_person)) { bits.push('核心人：' + trimText(f.core_person)); }
+            if (trimText(f.scope)) { bits.push('范围：' + trimText(f.scope)); }
+            const pillars = Array.isArray(f.powerPillars) ? f.powerPillars.map(trimText).filter(Boolean) : [];
+            if (pillars.length) { bits.push('支柱：' + pillars.join('／')); }
+            main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ') || '厚度还没写'));
+            r.appendChild(main);
+            fl.appendChild(r);
+        }
+        cFac.appendChild(fl);
+    }
+    box.appendChild(cFac);
+
+    /* ★ [580] A3：世界事实键值账（只读；给她核对引擎对齐用，⛔ 不当注入叙述） */
+    const cFacts = card('世界事实（键值）');
+    const factList = Array.isArray(w.facts) ? w.facts : [];
+    if (!factList.length) {
+        cFacts.appendChild(emptyBlock('还没有键值事实（世界步带回硬事实变更时会落进来）'));
+    } else {
+        const fl2 = el('div', 'wxg-list');
+        for (const f of factList.slice(0, 40)) {
+            const r = el('div', 'wxg-r');
+            const main = el('div', 'wxg-r-main');
+            const title = el('div', 'wxg-r-title');
+            title.appendChild(el('span', 'wxg-r-who', (trimText(f.subject) || '世界') + '｜' + (trimText(f.field) || '—')));
+            if (trimText(f.source)) {
+                title.appendChild(el('span', 'wxg-badge is-soft', trimText(f.source)));
+            }
+            main.appendChild(title);
+            main.appendChild(el('div', 'wxg-r-sub', trimText(f.value) || '（空）'));
+            r.appendChild(main);
+            fl2.appendChild(r);
+        }
+        cFacts.appendChild(fl2);
+        if (factList.length > 40) {
+            cFacts.appendChild(el('div', 'wxg-note', '共 ' + String(factList.length) + ' 条，面板只列最近 40 条'));
+        }
+    }
+    box.appendChild(cFacts);
+
+    /* ★ [580] A4：独立脉动＋巡查覆盖（只读；与局势并行，可看镜头外） */
+    const cPulse = card('世界脉动（域／巡查）');
+    const pul = (w.pulse && typeof w.pulse === 'object') ? w.pulse : { domains: [], coverage: { entries: [] } };
+    const domList = Array.isArray(pul.domains) ? pul.domains : [];
+    const covList = (pul.coverage && Array.isArray(pul.coverage.entries)) ? pul.coverage.entries : [];
+    if (!domList.length && !covList.length) {
+        cPulse.appendChild(emptyBlock('还没有脉动域（世界步可带回镜头外的压力／巡查）'));
+    } else {
+        if (domList.length) {
+            cPulse.appendChild(el('div', 'wxg-note', '域（' + String(domList.length) + '）'));
+            const dl = el('div', 'wxg-list');
+            for (const d of domList.slice(0, 24)) {
+                const r = el('div', 'wxg-r');
+                const main = el('div', 'wxg-r-main');
+                const title = el('div', 'wxg-r-title');
+                title.appendChild(el('span', 'wxg-r-who', trimText(d.label) || '（未记名）'));
+                if (trimText(d.kind) && trimText(d.kind) !== 'other') {
+                    title.appendChild(el('span', 'wxg-badge is-soft', trimText(d.kind)));
+                }
+                title.appendChild(el('span', 'wxg-badge is-info', '压' + String(Number.isFinite(Number(d.pressure)) ? Number(d.pressure) : 0)));
+                if (trimText(d.trend)) { title.appendChild(el('span', 'wxg-badge is-soft', trimText(d.trend))); }
+                if (trimText(d.visibility)) { title.appendChild(el('span', 'wxg-badge is-off', trimText(d.visibility))); }
+                main.appendChild(title);
+                const bits = [];
+                if (trimText(d.scope)) { bits.push('范围：' + trimText(d.scope)); }
+                if (trimText(d.state)) { bits.push(trimText(d.state)); }
+                if (trimText(d.evidence)) { bits.push('证：' + trimText(d.evidence)); }
+                main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ') || '（尚无正文）'));
+                r.appendChild(main);
+                dl.appendChild(r);
+            }
+            cPulse.appendChild(dl);
+        }
+        if (covList.length) {
+            cPulse.appendChild(el('div', 'wxg-note', '最近巡查（' + String(covList.length) + '）'));
+            const cl = el('div', 'wxg-list');
+            for (const e of covList.slice(0, 16)) {
+                const r = el('div', 'wxg-r');
+                const main = el('div', 'wxg-r-main');
+                const title = el('div', 'wxg-r-title');
+                title.appendChild(el('span', 'wxg-r-who', trimText(e.label) || '（未记名）'));
+                if (trimText(e.kind) && trimText(e.kind) !== 'general') {
+                    title.appendChild(el('span', 'wxg-badge is-soft', trimText(e.kind)));
+                }
+                title.appendChild(el('span', 'wxg-badge is-soft', '×' + String(Math.max(1, Number(e.checks) || 1))));
+                main.appendChild(title);
+                main.appendChild(el('div', 'wxg-r-sub', trimText(e.scope) || '范围未标'));
+                r.appendChild(main);
+                cl.appendChild(r);
+            }
+            cPulse.appendChild(cl);
+        }
+    }
+    box.appendChild(cPulse);
+
+    /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
+    const cWinds = card('风声（未证实）');
+    {
+        const windList = listWindsView(24);
+        if (!windList.length) {
+            cWinds.appendChild(emptyBlock('还没有风声（局势标 trace、或世界步带回 winds 时会落进来）'));
+        } else {
+            const wl = el('div', 'wxg-list');
+            for (const x of windList) {
+                const r = el('div', 'wxg-r');
+                const main = el('div', 'wxg-r-main');
+                const title = el('div', 'wxg-r-title');
+                title.appendChild(el('span', 'wxg-r-who', trimText(x.topic) || '（未记题）'));
+                title.appendChild(el('span', 'wxg-badge is-soft', trimText(x.kind) || 'rumor'));
+                const via = trimText(x.via);
+                if (via === 'situation') { title.appendChild(el('span', 'wxg-badge is-info', '局势·痕迹')); }
+                else if (via === 'event') { title.appendChild(el('span', 'wxg-badge is-info', '事件·痕迹')); }
+                else { title.appendChild(el('span', 'wxg-badge is-off', '风声账')); }
+                main.appendChild(title);
+                main.appendChild(el('div', 'wxg-r-sub', trimText(x.text) || '（空）'));
+                r.appendChild(main);
+                wl.appendChild(r);
+            }
+            cWinds.appendChild(wl);
+            cWinds.appendChild(el('div', 'wxg-note', '未证实传闻；⛔ 别当成已公开新闻。与 visibility=trace 对齐，同题只列一次。'));
+        }
+    }
+    box.appendChild(cWinds);
+
     /*
-     * ⭐ 局势／暗线这两张卡**不套 `lockable`**（照目标包的 ⛔ 规矩：
-     *   「**有悬浮框的旁边不留编辑**」——她 10-15 01:34 划的原则）。
+     * ★ [580]／工作流 D1：**时局简报成套骨架（只取面板分区）** ✓
+     *   驱动力／格局／酝酿 —— 全从已有账派生，⛔ 不新开叙述字段、⛔ 不进注入
+     *   （工作流那套「时代快讯」叙述／下一步／心理／民生 一律不取）
+     */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '② 时局简报（只读派生·不注入）'));
+    const cBrief = card('时局简报');
+    {
+        const sits = Array.isArray(w.situations) ? w.situations : [];
+        const facs = Array.isArray(w.factions) ? w.factions : [];
+        const hids = Array.isArray(w.hidden) ? w.hidden : [];
+        const domains = (w.pulse && Array.isArray(w.pulse.domains)) ? w.pulse.domains : [];
+
+        const driveLines = [];
+        sits.slice()
+            .filter((s) => s && trimText(s.title))
+            .sort((a, b) => (Number(b.pressure) || 0) - (Number(a.pressure) || 0))
+            .slice(0, 4)
+            .forEach((s) => {
+                const p = Number.isFinite(Number(s.pressure)) ? ('压' + String(Number(s.pressure)) + '/5') : '';
+                driveLines.push((p ? p + ' · ' : '') + trimText(s.title)
+                    + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : ''));
+            });
+        domains.slice()
+            .filter((d) => d && trimText(d.label) && Number(d.pressure) >= 2)
+            .slice(0, 3)
+            .forEach((d) => {
+                driveLines.push('域·' + trimText(d.label) + '（压' + String(Number(d.pressure) || 0) + '）'
+                    + (trimText(d.state) ? '：' + trimText(d.state) : ''));
+            });
+
+        const gapLines = facs.filter((f) => f && trimText(f.name)).slice(0, 8).map((f) => {
+            const bits = [trimText(f.name)];
+            if (trimText(f.status)) { bits.push(trimText(f.status)); }
+            if (trimText(f.relation)) { bits.push('对玩家·' + trimText(f.relation)); }
+            if (trimText(f.scale)) { bits.push(trimText(f.scale)); }
+            return bits.join('｜');
+        });
+
+        const brewLines = [];
+        sits.filter((s) => s && trimText(s.title) && (
+            String(trimText(s.trend) || '').toLowerCase() === 'rising'
+            || (trimText(s.expected) && !trimText(s.result))
+        )).slice(0, 4).forEach((s) => {
+            brewLines.push(trimText(s.title)
+                + (trimText(s.expected) ? '（预期：' + trimText(s.expected) + '）' : '')
+                + (trimText(s.consequence) ? '（余波：' + trimText(s.consequence) + '）' : ''));
+        });
+        hids.filter((h) => h && trimText(h.name)
+            && trimText(h.stage) !== '消散' && trimText(h.stage) !== '完成')
+            .slice(0, 4)
+            .forEach((h) => {
+                brewLines.push('暗线·' + trimText(h.name) + '【' + (trimText(h.stage) || '萌芽') + '】'
+                    + (trimText(h.goal) ? '→' + trimText(h.goal) : ''));
+            });
+
+        const putBrief = (label, lines, emptyHint) => {
+            cBrief.appendChild(el('div', 'wxg-note', label));
+            if (!lines.length) {
+                cBrief.appendChild(el('div', 'wxg-empty', emptyHint));
+                return;
+            }
+            const ul = el('div', 'wxg-list');
+            for (const t of lines) {
+                const r = el('div', 'wxg-r');
+                r.appendChild(el('div', 'wxg-r-main', trimText(t)));
+                ul.appendChild(r);
+            }
+            cBrief.appendChild(ul);
+        };
+        putBrief('驱动力（高压局势／脉动域）', driveLines, '还没有可派生的驱动力');
+        putBrief('格局（在册势力运势／态度）', gapLines, '还没有在册势力');
+        putBrief('酝酿中（升温／未结／活跃暗线）', brewLines, '还没有酝酿中的线');
+        cBrief.appendChild(el('div', 'wxg-note', '本卡只给人看；内容来自局势／势力／暗线／脉动账，⛔ 不另写叙述、不进主模型注入。'));
+    }
+    box.appendChild(cBrief);
+
+    /*
+     * ⭐ 局势／暗线这两张卡**不套 `lockable`**（照 `[321]`：「有悬浮框的旁边不需要编辑」）。
      *   `lockable` 会在卡头右上加一颗「编辑」并把卡标成 `is-locked`；
-     *   不套它 ⇒ 无那颗钮、也没有 `is-locked`（**内容照常可见**，⛔ 会被锁死）。
-     *   ⚙️ 编辑将来走**点行弹出的浮层 ⋮**（尚未做）。
+     *   不套它 ⇒ 无那颗钮、也没有 `is-locked`（**内容照常可见**）。
+     *   ⚙️ 编辑走**点行弹出的浮层右上 ⋮**（`open-world-entry`／`we-edit`）✓
      */
     const cSit = card('局势（势力的碰撞）');
     const sit = el('div', 'wxg-list');
@@ -1018,19 +1234,20 @@ function secWorld(host) {
     box.appendChild(cSit);
 
     // 同上：暗线卡也不套 `lockable`（⛔ 卡头留一颗「编辑」）
-    /* ② 人物清单与状态（只给汇总＋入口，⏔ 在这里再列一遍名册） */
-    box.appendChild(el('div', 'wxg-note wxg-sec-head', '② 人物清单与状态'));
+    /* ③ 人物清单与状态（只给汇总＋入口，⏔ 在这里再列一遍名册） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '③ 人物清单与状态'));
     const cPeople = card('人物');
     {
         const rosterAll = getRoster();
-        const onStageN = rosterAll.filter((c) => c && c.lastSeenFloor !== undefined
-            && Number.isFinite(Number(c.lastSeenFloor)) && Number(c.lastSeenFloor) >= 0).length;
-        cPeople.appendChild(el('div', 'wxg-note', '在册 ' + String(rosterAll.length) + ' 人；有过在场记录 ' + String(onStageN) + ' 人。状态与过去经历在名册里逐人看。'));
+        /* ★ [580] A7：在场记录看 presentFloor（正文在场），不是 lastSeenFloor（后台推演也会写） */
+        const onStageN = rosterAll.filter((c) => c
+            && Number.isFinite(Number(c.presentFloor)) && Number(c.presentFloor) >= 0).length;
+        cPeople.appendChild(el('div', 'wxg-note', '在册 ' + String(rosterAll.length) + ' 人；有过正文在场 ' + String(onStageN) + ' 人。状态与过去经历在名册里逐人看。'));
         row(cPeople, button('去人物名册', 'goto-roster'));
     }
     box.appendChild(cPeople);
-    /* ③ 活跃暗线（带未完计数） */
-    box.appendChild(el('div', 'wxg-note wxg-sec-head', '③ 活跃暗线（未完 ' + String(openHiddenCount()) + ' 条）'));
+    /* ④ 活跃暗线（带未完计数） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '④ 活跃暗线（未完 ' + String(openHiddenCount()) + ' 条）'));
     const cHid = card('暗线（自己有时间表，到点才动）');
     const hid = el('div', 'wxg-list');
     if (!w.hidden.length) {
@@ -1068,9 +1285,10 @@ function secWorld(host) {
             main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ')));
             r.appendChild(main);
             const act = el('div', 'wxg-r-act');
-            act.appendChild(select('hid-stage-' + h.id,
-                (h.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
-                h.stage, 'set-hidden-stage', h.id));
+            /*
+             * ★ [321]：有悬浮框的旁边不需要编辑 —— 行上只留「删」（与局势行同）。
+             *   改阶段／因果一律进浮层右上 ⋮（或浮层底阶段下拉）✓
+             */
             act.appendChild(button('删', 'del-hidden', 'wxg-btn-xs', h.id));
             r.appendChild(act);
             hid.appendChild(r);
@@ -1104,8 +1322,8 @@ function secWorld(host) {
     }
     addHidRow.setAttribute('data-no-lock', '1');
     box.appendChild(cHid);
-    /* ④ 记忆状态（只给数字与容量，⏔ 把正文搬进来 ✗） */
-    box.appendChild(el('div', 'wxg-note wxg-sec-head', '④ 记忆状态'));
+    /* ⑤ 记忆状态（只给数字与容量，⏔ 把正文搬进来 ✗） */
+    box.appendChild(el('div', 'wxg-note wxg-sec-head', '⑤ 记忆状态'));
     const cMem = card('记忆');
     {
         const st2 = loadState();
@@ -3680,6 +3898,14 @@ function renderPersonCard() {
     if (one.inScene) {
         badges.appendChild(el('span', 'wxg-badge is-ok', '在场'));
     }
+    /* ★ [580] A7：在场原料一眼可见 */
+    if (Number.isFinite(Number(one.presentFloor)) && Number(one.presentFloor) >= 0) {
+        badges.appendChild(el('span', 'wxg-badge is-soft', '在场楼 #' + String(one.presentFloor)));
+    }
+    {
+        const rel = Number.isFinite(Number(one.relevance)) ? Number(one.relevance) : 1;
+        badges.appendChild(el('span', 'wxg-badge is-soft', '相关度 ' + String(rel) + '/3'));
+    }
     if (one.manual) {
         badges.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
     }
@@ -3810,7 +4036,7 @@ function renderPersonCard() {
                     ep.className = 'wxg-pc-input';
                     ep.id = 'wxg-past-edit-' + String(ridx);
                     ep.value = trimText(p && p.text);
-                    const sbtn = button('存', 'past-save', 'wxg-btn-xs', c.id);
+                    const sbtn = button('保存', 'past-save', 'wxg-btn-xs', c.id);
                     sbtn.setAttribute('data-idx', String(ridx));
                     const dbtn = button('删', 'past-del', 'wxg-btn-xs', c.id);
                     dbtn.setAttribute('data-idx', String(ridx));
@@ -4317,7 +4543,7 @@ function renderWorldEntryCard() {
          *   而「名称／标题」与「走到／哪几方」（现状长句 ✗）塞在半宽列里太挤 ✗
          *   ⇒ 这四个格加 「wxg-pc-full」占满整行 ✓（CSS 里早就有这个类 ✓）
          */
-        if (k === '名称' || k === '标题' || k === '走到' || k === '哪几方') {
+        if (k === '名称' || k === '标题' || k === '走到' || k === '哪几方' || k === '上承' || k === '下沿') {
             box2.className = 'wxg-pc-v wxg-pc-full';
         }
         /*
@@ -4341,6 +4567,10 @@ function renderWorldEntryCard() {
              *   新：火候 ⇒ **TIERS 下拉**（暗线也用，标 `data-hidden` ✓）；阶段（暗线）⇒
              *        按 `item.kind` 给 **STAGES_PROGRESS / STAGES_CONFLICT 下拉** ✓（⛔ 手打错别字破坏 isLineDone 判定 ✗）
              *   ⛔ 不删 stage ✓（只读态下两栏信息区一格都不少 ✓） */
+            /* ★ [318]/[325]：标签→字段显式对照（旧：暗线「名称」会误写成 stage ✗） */
+            const fieldKey = isHidden
+                ? ({ '名称': 'name', '到点': 'trigger', '走到': 'note', '阶段': 'stage', '火候': 'tier', '上承': 'cause', '下沿': 'effect', '线源': 'agendaOrigin', '线源挂接': 'agendaRef' }[k] || '')
+                : ({ '标题': 'title', '哪几方': 'sides', '火候': 'tier', '上承': 'cause', '下沿': 'effect', '来路': 'origin', '预期': 'expected', '实果': 'result', '余波': 'consequence' }[k] || '');
             if (k === '火候') {
                 const sel = select(null, TIERS.map((x) => ({ value: x, label: x })), trimText(v) || TIERS[1], 'set-situation');
                 sel.setAttribute('data-index', String(openWorldEntry.idx));
@@ -4356,6 +4586,17 @@ function renderWorldEntryCard() {
                 sel2.setAttribute('data-hidden', '1');
                 sel2.setAttribute('data-key', 'stage');
                 box2.appendChild(sel2);
+            } else if (k === '来路' && !isHidden) {
+                const originOpts = [
+                    { value: 'plot', label: 'plot·盘算挂接' },
+                    { value: 'ripple', label: 'ripple·上游波及' },
+                    { value: 'state', label: 'state·局势自变' },
+                    { value: '', label: '（未标）' },
+                ];
+                const selO = select(null, originOpts, trimText(v) || '', 'set-situation');
+                selO.setAttribute('data-index', String(openWorldEntry.idx));
+                selO.setAttribute('data-key', 'origin');
+                box2.appendChild(selO);
             } else {
                 const inp = el('input', 'wxg-pc-input');
                 inp.type = 'text';
@@ -4365,9 +4606,7 @@ function renderWorldEntryCard() {
                 if (isHidden) {
                     inp.setAttribute('data-hidden', '1');
                 }
-                inp.setAttribute('data-key', isHidden
-                    ? (k === '到点' ? 'trigger' : (k === '走到' ? 'note' : 'stage'))
-                    : (k === '哪几方' ? 'sides' : (k === '火候' ? 'tier' : (k === '到点' ? 'condition' : (k === '走到' ? 'detail' : 'title')))));
+                inp.setAttribute('data-key', fieldKey || (isHidden ? 'note' : 'title'));
                 box2.appendChild(inp);
             }
         } else {
@@ -4387,6 +4626,18 @@ function renderWorldEntryCard() {
         /* ⭐材料 03：**阶段与火候各归各位** ✓（旧：火候那格里装的是 stage ✗） */
         put('阶段', item.stage, '萌芽');
         put('火候', item.tier, '几天内');
+        /* ★ [580] B6：暗线来源三型 */
+        {
+            const ao = String(trimText(item.agendaOrigin) || '').toLowerCase();
+            const aoLabel = ao === 'event' ? 'event·由事件而生'
+                : ao === 'parent' ? 'parent·上级委派'
+                : ao === 'state' ? 'state·处境自生' : '';
+            put('线源', openWorldEntryEditing ? (trimText(item.agendaOrigin) || '') : aoLabel, '未标');
+            put('线源挂接', item.agendaRef, '无');
+        }
+        /* ★ [318]/[322]：点进去要看得见因果；⋮ 编辑态可改 ✓ */
+        put('上承', item.cause, '未写');
+        put('下沿', item.effect, '未写');
     } else {
         /* ⭐修复 15：编辑态**补上「改局势标题」** ✓ */
         if (openWorldEntryEditing) {
@@ -4394,16 +4645,33 @@ function renderWorldEntryCard() {
         }
         put('哪几方', item.sides, '未写');
         put('火候', item.tier, '几天内');
+        /* ★ [318]/[322]／B1：来路分型＋因果两格 ✓ */
+        {
+            const o = String(trimText(item.origin) || '').toLowerCase();
+            const oLabel = o === 'plot' ? 'plot·盘算挂接'
+                : o === 'ripple' ? 'ripple·上游波及'
+                : o === 'state' ? 'state·局势自变' : '';
+            put('来路', openWorldEntryEditing ? (trimText(item.origin) || '') : oLabel, '未标');
+        }
+        put('上承', item.cause, '未写');
+        put('下沿', item.effect, '未写');
+        /* ★ [580] A6：预期／实果／余波（⋮ 可改） */
+        put('预期', item.expected, '未写');
+        put('实果', item.result, '未写');
+        put('余波', item.consequence, '未写');
     }
     sec1.appendChild(kv);
     pop.appendChild(sec1);
 
-    // ③ 因果区（照世界账摆，⛔ 不另编）
+    // ③ 因果区（照世界账摆，⛔ 不另编；手改走上面「上承／下沿」⋮）
     const sec2 = el('div', 'wxg-pc-sec');
     sec2.appendChild(el('div', 'wxg-pc-sech', '因果（照世界账的记录摆 · 不另编）'));
     const rows = entryCausalRows(title);
     if (!rows.length) {
-        sec2.appendChild(el('div', 'wxg-empty', '世界账里还没记到这一条（更新几轮就有了）'));
+        sec2.appendChild(el('div', 'wxg-empty',
+            openWorldEntryEditing
+                ? '还没记因果 —— 可在上方「上承／下沿」格手填，或等引擎更新'
+                : '世界账里还没记到这一条（点右上 ⋮ 可手填上承／下沿，或等更新几轮）'));
     } else {
         const first = rows[0];
         const rest = rows.slice(1);
