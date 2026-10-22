@@ -742,8 +742,25 @@ export function resolveKnowChannel(source, item, character) {
     if (/亲眼|在场|亲眼所见|现场/.test(raw)) { return 'physical'; }
     if (/被告知|听说|传来|口耳|告知/.test(raw)) { return 'information'; }
     if (/因果|牵连|波及|连带/.test(raw)) { return 'causal'; }
-    if (src === '亲眼') { return 'physical'; }
-    if (src === '被告知') { return 'information'; }
+    /*
+     * ★ 20261022 补 22 单 ⑨ 的另一半：**亲眼要查在场**（原来无条件放行 ✗）。
+     *   · 亲眼：那一楼他必须真的在场（presentFloor === floor），不然降级未证；
+     *   · 被告知：他得**先出场过**（presentFloor <= floor），否则也降级；
+     *   · 两边没有可比的楼号（老账／寄存器里没这格）⇒ 保持原行为，⏔ 凭空改判。
+     */
+    const flNow = Number(item && item.floor);
+    const pfNow = Number(character && character.presentFloor);
+    /* 老账里没这格时，presentFloor 会是 0、lastSeenFloor 是 -1 ⇒ 当“不知道”，⏔ 拿 0 当真在场 ✗ */
+    const canCheck = Number.isFinite(flNow) && flNow >= 0 && Number.isFinite(pfNow) && pfNow >= 0
+        && (pfNow > 0 || Number(character && character.lastSeenFloor) >= 0);
+    if (src === '亲眼') {
+        if (canCheck && pfNow !== flNow) { return ''; }
+        return 'physical';
+    }
+    if (src === '被告知') {
+        if (canCheck && pfNow > flNow) { return ''; }
+        return 'information';
+    }
     if (src === '公开') {
         if (item && item.manual === true) { return 'information'; }
         const floor = Number(item && item.floor);
