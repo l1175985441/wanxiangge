@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.400';
+export const APP_VERSION = '0.3.401';
 
 export const LEDGER_VERSION = 3;
 
@@ -429,7 +429,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
     /* 自定义 API */
     api: {
         mode: 'proxy',      // proxy＝经酒馆服务器转发（云酒馆最稳）；direct＝直连
-        autoRetryMax: 2,        // ⭐ 链路掉线后自己再试几次（她可调 ✓）0＝不自动重试 ✓
+        autoRetryMax: 2,
+        /* ★ 20261023 她拍板：不靠酒馆也能自己调请求的三格 */
+        extraBody: '',
+        excludeBody: 'top_p',
+        extraHeaders: '',        // ⭐ 链路掉线后自己再试几次（她可调 ✓）0＝不自动重试 ✓
         materialCap: 3000,       // ⭐ 每轮最多喂多少字正文（她自己可调：越小越容易穿过慢/爱掉线的站 ✓）
         url: '',
         key: '',

@@ -29,6 +29,20 @@ let loadedWithStore = false;
  */
 let pendingPatch = null;
 
+/**
+ * ★ 20261023：**这一次请求该用哪套 API？**
+ *   有选中书签 ⇒ 书签字段盖过基础配置（⏔ 用基础配置发到别的站）
+ */
+export function resolveApi() {
+    const s = getSettings();
+    const api = (s && s.api) || {};
+    const want = trimText(api.currentProfile);
+    if (!want) { return api; }
+    const list = Array.isArray(api.profiles) ? api.profiles : [];
+    const hit = list.find((x) => (trimText(x && x.nick) || trimText(x && x.name)) === want);
+    return hit ? Object.assign({}, api, hit) : api;
+}
+
 export function getSettings() {
     if (!settings) {
         settings = loadSettings();
@@ -153,6 +167,21 @@ function loadSettings() {
     merged.api.materialCap = clampNumber(merged.api.materialCap, 500, 40000, DEFAULT_SETTINGS.api.materialCap);
     /* ⭐ 链路掉线后自己再试几次（0～5 ✓ 默认 2） */
     merged.api.autoRetryMax = clampNumber(merged.api.autoRetryMax, 0, 5, DEFAULT_SETTINGS.api.autoRetryMax);
+    /*
+     * ★ 20261023（她拍板）：三格“不靠酒馆也能自己调请求”的参数。
+     *   附加主体参数（extraBody）？排除主体参数（excludeBody，默认 top_p）；附加请求头（extraHeaders）。
+     */
+    merged.api.extraBody = trimText(merged.api.extraBody);
+    merged.api.excludeBody = trimText(merged.api.excludeBody) || 'top_p';
+    merged.api.extraHeaders = trimText(merged.api.extraHeaders);
+    /* ★ 同日：direct 下书签选择要真生效 ⇒ 统一解析出“这一次该用哪套” */
+    try {
+        const wantP = trimText(merged.api.currentProfile);
+        const listP = Array.isArray(merged.api.profiles) ? merged.api.profiles : [];
+        const hitP = wantP ? listP.find((x) => (trimText(x.nick) || trimText(x.name)) === wantP) : null;
+        merged.api.__resolved = hitP ? Object.assign({}, merged.api, hitP, { currentProfile: wantP }) : null;
+    } catch (eRP) { merged.api.__resolved = null; }
+
     // ⭐ API 书签：归一成数组（老设置里没有这个键 ⇒ 补空数组）
     merged.api.profiles = Array.isArray(merged.api.profiles)
         ? merged.api.profiles.filter((p) => p && typeof p === 'object' && (trimText(p.nick) || trimText(p.name))).map((p) => ({

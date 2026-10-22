@@ -1923,6 +1923,13 @@ function syncApiFromDom(host) {
     if (matCapVal !== null && trimText(matCapVal) !== '') { cur.materialCap = Number(matCapVal); }
     const retryVal = readVal('wxg-auto-retry-max');
     if (retryVal !== null && trimText(retryVal) !== '') { cur.autoRetryMax = Number(retryVal); }
+    /* ★ 20261023 她拍板的三格：不读的话存不进去 ✗ */
+    const extraBodyVal = readVal('wxg-api-extra-body');
+    if (extraBodyVal !== null) { cur.extraBody = String(extraBodyVal); }
+    const excludeBodyVal = readVal('wxg-api-exclude-body');
+    if (excludeBodyVal !== null) { cur.excludeBody = String(excludeBodyVal); }
+    const extraHeadersVal = readVal('wxg-api-extra-headers');
+    if (extraHeadersVal !== null) { cur.extraHeaders = String(extraHeadersVal); }
 
     for (const m of Object.keys(stagingByMode)) {
         if (stagingByMode[m]) {
@@ -1971,6 +1978,9 @@ const STAGE_MAP = {
     'stage-api-model-cheap': ['api', 'modelCheap', 'value'],
     'stage-api-temp': ['api', 'temperature', 'value'],
     'stage-api-maxtok': ['api', 'maxTokens', 'value'],
+    'stage-api-extra-body': ['api', 'extraBody', 'value'],
+    'stage-api-exclude-body': ['api', 'excludeBody', 'value'],
+    'stage-api-extra-headers': ['api', 'extraHeaders', 'value'],
     'stage-api-material-cap': ['api', 'materialCap', 'value'],
     'stage-auto-retry-max': ['api', 'autoRetryMax', 'value'],
     // 读取控制（四格）
@@ -3186,6 +3196,21 @@ function secApi(host) {
     cProf.appendChild(el('div', 'wxg-note', '书签存的是**整套**：连接方式／地址／密钥／模型／温度／输出上限。'
         + '书签名一样就更新那一条（不会越存越多）；想现在就用它，点上面那颗「切到这套」。'));
     box.appendChild(cProf);
+    /* ★ 20261023 她拍板：附加主体参数／排除主体参数／附加请求头（不靠酒馆也能自己调） */
+    /* ★ 20261023 她拍板：附加主体参数／排除主体参数／附加请求头（不靠酒馆也能自己调） */
+    const cParams = card('请求参数（不靠酒馆也能自己调）');
+    line(cParams, '附加主体参数',
+        textarea('wxg-api-extra-body', stagedValue('api', 'extraBody', s.api.extraBody),
+            '一行一个：key: value（合并进请求体）', 'stage-api-extra-body', 3));
+    line(cParams, '排除主体参数',
+        textInput('wxg-api-exclude-body', stagedValue('api', 'excludeBody', s.api.excludeBody),
+            '一行一个字段名（默认 top_p）', 'stage-api-exclude-body'));
+    line(cParams, '附加请求头',
+        textarea('wxg-api-extra-headers', stagedValue('api', 'extraHeaders', s.api.extraHeaders),
+            '一行一个：Header: Value', 'stage-api-extra-headers', 2));
+    cParams.appendChild(el('div', 'wxg-note',
+        '默认已排除 top_p：有些模型不收它，会被它拖成 400。附加主体参数一行一个 key: value，值会自动认数字／true false／JSON；附加请求头同样一行一个。'));
+    box.appendChild(cParams);
     box.appendChild(saveBar('api'));
     host.appendChild(box);
 }

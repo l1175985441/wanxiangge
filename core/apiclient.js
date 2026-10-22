@@ -12,7 +12,7 @@
  */
 
 import { REQUEST_TIMEOUT_MS } from './config.js';
-import { getSettings } from './settings.js';
+import { getSettings, resolveApi } from './settings.js';
 import { getCtx } from './adapter.js';
 import { trimText, asText } from './utils.js';
 
@@ -278,6 +278,21 @@ function withTimeout(ms) {
 let sessionViaHint = '';
 let viaHintTold = false;
 
+/**
+ * ★ 20261023：附加请求头一行一个 Header: Value。
+ */
+function parseApiHeaders(raw) {
+    const out = {};
+    for (const line of String(raw || '').split(/\r?\n/)) {
+        const s0 = line.trim();
+        if (!s0 || s0.charAt(0) === '#') { continue; }
+        const i0 = s0.indexOf(':');
+        if (i0 <= 0) { continue; }
+        out[s0.slice(0, i0).trim()] = s0.slice(i0 + 1).trim();
+    }
+    return out;
+}
+
 export async function callModel(opts) {
     const o = opts || {};
     const prompt = trimText(o.prompt);
@@ -285,7 +300,7 @@ export async function callModel(opts) {
         return { ok: false, reason: '没给提示词' };
     }
     const settings = getSettings();
-    const api = settings.api || {};
+    const api = resolveApi();   /* ★ 20261023：书签选了就用那套（⏔ 用基础配置） */
     const url = trimText(api.url);
     const key = trimText(api.key);
     const model = trimText(o.cheap ? (api.modelCheap || api.model) : api.model);
@@ -319,6 +334,33 @@ export async function callModel(opts) {
             : (Number.isFinite(Number(api.maxTokens)) ? Number(api.maxTokens) : 1600),
         stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
+    /* ★ 20261023：一行一个 Key:Value / Key="Value；#开头为注释 */
+    const parseLineMap = (raw) => {
+        const out = {};
+        for (const line of String(raw || '').split(/\r?\n/)) {
+            const s0 = line.trim();
+            if (!s0 || s0.charAt(0) === '#') { continue; }
+            const m0 = s0.match(/^([^:=\s]+)\s*[:=]\s*(.+)$/);
+            if (!m0) { continue; }
+            let v = m0[2].trim();
+            if (/^".*"$/.test(v) || /^'.*'$/.test(v)) { v = v.slice(1, -1); }
+            out[m0[1].trim()] = v;
+        }
+        return out;
+    };
+    {
+        const exKeys = String(api.excludeBody || '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+        for (const k of exKeys) { delete body[k]; }
+        const add = parseLineMap(api.extraBody);
+        for (const k of Object.keys(add)) {
+            const v = add[k];
+            let val = v;
+            if (/^-?\d+(\.\d+)?$/.test(v)) { val = Number(v); }
+            else if (v === 'true' || v === 'false') { val = (v === 'true'); }
+            else if (/^[\[{]/.test(v)) { try { val = JSON.parse(v); } catch (eJ) { val = v; } }
+            body[k] = val;
+        }
+    }
     const system = trimText(o.system);
     if (system) {
         body.messages.push({ role: 'system', content: system });
@@ -517,7 +559,7 @@ function retryPause(step) {
 }
 
 export async function fetchModels(opts) {
-    const api = (opts && opts.api) || (getSettings().api || {});
+    const api = (opts && opts.api) || resolveApi();
     const url = trimText(api.url);
     if (!url) {
         return { ok: false, reason: '没填接口地址（先把地址填上才能拉）' };
@@ -530,7 +572,7 @@ export async function fetchModels(opts) {
     try {
         const res = await fetch(ep, {
             method: 'GET',
-            headers: key ? { Authorization: 'Bearer ' + key } : {},
+            headers: Object.assign({}, parseApiHeaders(api.extraHeaders), key ? { Authorization: 'Bearer ' + key } : {}),
         });
         const rawText = await res.text().catch(() => '');
         if (!res.ok) {
