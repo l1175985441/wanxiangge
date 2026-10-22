@@ -667,6 +667,28 @@ export function rollupInstructionFor(c) {
         + '只留会影响未来理解的事，枝节可以主动放下；输出字段 rollup（就这一条）。原句：' + oldest.join('；');
 }
 
+/**
+ * ★ 20261022 ⑫（22 单）：**世界钟要在 stepWorld 之前就更新**。
+ *   原来从正文抽 time: 是**角色步收尾**写的 ⇒ stepWorld 用的是上一轮旧钟（首轮空钟）
+ *   ⇒ `clockDeltaMin` 恒为 0 ⇒ 局势压力永远算不出时间差、暗线到点也推不动。
+ *   这里把它提前跑一次（只读 rawText，⏔ 请模型）。
+ */
+export function prefillClockFromBody(material) {
+    try {
+        const rawNow = String(material && material.rawText ? material.rawText : '');
+        if (!rawNow) { return false; }
+        const mTime = rawNow.match(/(?:time|时间)\s*[:：]\s*([^\n]{3,60})/i);
+        const got = mTime && trimText(mTime[1]);
+        if (!got) { return false; }
+        const oldClock = loadState().world.clock;
+        if (clockWentBackwards(oldClock, got)) { return false; }
+        updateWorld({ clock: got }, {});
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 async function stepWorld(material, attempt) {
     const settings = getSettings();
     const state = loadState();
@@ -2221,7 +2243,11 @@ async function runUpdateInner(opts) {
                 break;
             }
             setPipeline({ tries: attempt });
-            worldRes = await stepWorld(material, attempt);
+            /* ★ ⑫：先把正文里的时间写进世界钟，再让 stepWorld 用它 ✓ */
+        if (attempt === 0) {
+            try { prefillClockFromBody(material); } catch (ePF) { }
+        }
+        worldRes = await stepWorld(material, attempt);
             if (worldRes.ok) {
                 /* ⭐谷歌复核（二）：世界状态成功 ⇒ **立刻落盘** ✓ + 记下 worldAtFloor ✓
                  *   ⇒ 之后角色步挂了，**绝不回滚它** ✓（下次从这批的角色步接着跑 ✓） */
