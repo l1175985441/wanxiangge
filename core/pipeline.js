@@ -569,6 +569,20 @@ function looksLikeDecidingByName(text) {
     return false;
 }
 
+/**
+ * ★ 20261022 ⑧：上一轮被判“不可靠”（似嫌编造／越界）的正在经历，⏔ 当既定事实喂回去。
+ *   做法：不屏蔽（屏蔽会让上下文断），但前面挂一行明确警示 ✓
+ */
+export function currentPromptLine(c) {
+    const cur = trimText(c && c.current);
+    if (!cur) { return ''; }
+    if (c && c.currentSuspect === true) {
+        const why = trimText(c.currentSuspectWhy) || '疑似越界';
+        return '⚠ 上一轮这段被判不可靠（' + why + '），⏔ 当既定事实写：' + cur;
+    }
+    return cur;
+}
+
 function playerNamesForPrompt() {
     try {
         const out = [];
@@ -1561,7 +1575,8 @@ async function stepCharacters(material, attempt) {
             + ' ｜ 时间地点 ' + (trimText(c.timePlace) || '未知'),
         ];
         if (trimText(c.current)) {
-            lines.push('  上一轮"正在经历"：' + trimText(c.current));
+            const curLine = currentPromptLine(c);
+            if (curLine) { lines.push('  上一轮"正在经历"：' + curLine); }
         }
         if (c.past.length) {
             lines.push('  过去经历（由近到远）：' + c.past.map((p) => p.text).join('；'));
