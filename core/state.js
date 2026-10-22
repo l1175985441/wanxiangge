@@ -1838,6 +1838,96 @@ export function openHiddenCount() {
     return list.filter((h) => h && !isLineDone(h.stage)).length;
 }
 
+/**
+ * ★ 20261022 A3（她拍板）：**楼没了，记忆就该没了**——⏔ 标 void 留着（那是污染源）。
+ *   ① 删楼：floor 命中的条目从 knows/past/schedule 里**移除**。
+ *   ② 换版：同一楼上旧 swipe 的条目移除（新版会重新总结）。
+ *   ③ 分支：⏔ 在这里删（能切回来）——只在召回侧按“当前楼集合”过滤。
+ * 返回删了多少条（供回执/日志用）。
+ */
+export function purgeMemoryAtFloor(floor) {
+    const f = Number(floor);
+    if (!Number.isFinite(f) || f < 0) { return 0; }
+    const state = loadState();
+    let gone = 0;
+    for (const c of (Array.isArray(state.characters) ? state.characters : [])) {
+        if (!c) { continue; }
+        const hit = (x) => Number(x && (x.floor !== undefined ? x.floor : x.fromFloor)) === f;
+        if (Array.isArray(c.knows) && c.knows.length) {
+            const before = c.knows.length;
+            c.knows = c.knows.filter((x) => !hit(x));
+            gone += before - c.knows.length;
+        }
+        if (Array.isArray(c.past) && c.past.length) {
+            const before = c.past.length;
+            c.past = c.past.filter((x) => !hit(x));
+            gone += before - c.past.length;
+        }
+        if (Array.isArray(c.schedule) && c.schedule.length) {
+            const before = c.schedule.length;
+            c.schedule = c.schedule.filter((x) => !hit(x));
+            gone += before - c.schedule.length;
+        }
+    }
+    if (gone) { saveStateDebounced(); }
+    return gone;
+}
+
+/** ② 换版：这一楼上 “swipe 不等于当前版” 的条目移除（老账没 swipe 的也当旧版） */
+export function purgeSwipedMemory(floor, keepSwipe) {
+    const f = Number(floor);
+    if (!Number.isFinite(f) || f < 0) { return 0; }
+    const keep = Number(keepSwipe);
+    const state = loadState();
+    let gone = 0;
+    const stale = (x) => {
+        const fx = Number(x && (x.floor !== undefined ? x.floor : x.fromFloor));
+        if (fx !== f) { return false; }
+        const sw = Number(x && x.swipe);
+        if (!Number.isFinite(keep)) { return false; }
+        return !Number.isFinite(sw) || sw !== keep;
+    };
+    for (const c of (Array.isArray(state.characters) ? state.characters : [])) {
+        if (!c) { continue; }
+        for (const key of ['knows', 'past', 'schedule']) {
+            if (Array.isArray(c[key]) && c[key].length) {
+                const before = c[key].length;
+                c[key] = c[key].filter((x) => !stale(x));
+                gone += before - c[key].length;
+            }
+        }
+    }
+    if (gone) { saveStateDebounced(); }
+    return gone;
+}
+
+/** ① 删楼后的孤儿条目：floor 超出当前楼数（被删掉了） ⇒ 真删；分支不在此列 */
+export function purgeOrphanedMemory() {
+    const state = loadState();
+    let len = 0;
+    try {
+        const chat = getChat();
+        len = Array.isArray(chat) ? chat.length : 0;
+    } catch (e) { len = 0; }
+    if (!len) { return 0; }
+    let gone = 0;
+    for (const c of (Array.isArray(state.characters) ? state.characters : [])) {
+        if (!c) { continue; }
+        for (const key of ['knows', 'past', 'schedule']) {
+            if (Array.isArray(c[key]) && c[key].length) {
+                const before = c[key].length;
+                c[key] = c[key].filter((x) => {
+                    const fx = Number(x && (x.floor !== undefined ? x.floor : x.fromFloor));
+                    return !(Number.isFinite(fx) && fx >= 0 && fx >= len);
+                });
+                gone += before - c[key].length;
+            }
+        }
+    }
+    if (gone) { saveStateDebounced(); }
+    return gone;
+}
+
 /** 她自己加暗线 */
 export function addHiddenManually(line) {
     return upsertHidden(Object.assign({}, line, { manual: true }));

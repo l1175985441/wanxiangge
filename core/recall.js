@@ -12,6 +12,7 @@
 import { clampNumber, countChars, matchKey, trimText, uniqueBy, eventTitle } from './utils.js';
 import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
+import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -341,11 +342,20 @@ function personBlock(item, opts) {
      *   · `void === true` 的条目（将来删楼裁决会标它）⇒ ⏔ 不取；
      *   · 来源楼比当前锥点楼还靠后（未来楼）⇒ ⏔ 不取（那事还没发生）。
      */
+    let chatLen = NaN;
+    try { const chAt = getChat(); chatLen = Array.isArray(chAt) ? chAt.length : NaN; } catch (eCL) { chatLen = NaN; }
     const notVoid = (x) => !(x && x.void === true);
     const notFuture = (x) => {
-        if (!Number.isFinite(anchorFloor)) { return true; }
         const f = Number(x && (x.floor !== undefined ? x.floor : x.fromFloor));
-        return !Number.isFinite(f) || f < 0 || f <= anchorFloor;
+        if (!Number.isFinite(f) || f < 0) { return true; }
+        /*
+         * ★ A3-③（她拍板）：**分支里不存在的楼 ⇒ 只是看不见，⏔ 删**（能切回来）。
+         *   所以这里按“当前聊天实际楼数”＋“锥点楼”双上限过滤。
+         */
+        /* 只在“超出当前楼数且也超出锥点楼”时才当分支孤儿；否则交给下面的楼层裁 ✓ */
+        if (Number.isFinite(chatLen) && f >= chatLen && (!Number.isFinite(anchorFloor) || f > anchorFloor)) { return false; }
+        if (!Number.isFinite(anchorFloor)) { return true; }
+        return f <= anchorFloor;
     };
     const fresh = past.filter((p) => p && p.text).filter(notVoid).filter(notFuture);
     /*

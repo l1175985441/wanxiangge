@@ -16,7 +16,7 @@
 
 import { APP_NAME } from './core/config.js';
 import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
-import { resetCache, loadState, migrateInferToChronicle } from './core/state.js';
+import { resetCache, loadState, migrateInferToChronicle, purgeSwipedMemory, purgeOrphanedMemory } from './core/state.js';
 import { injectBeforeGenerate } from './core/engine.js';
 import {
     planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards,
@@ -33,7 +33,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.385';
+const VERSION = '0.3.386';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -194,6 +194,12 @@ function bindEvents(ctx) {
             if (floor >= 0) {
                 onFloorEdited(floor);
                 markFloorSwiped(floor);
+                /* ★ A3-②（她拍板）：换版 ⇒ 旧版记忆**真删**（先留快照），⏔ 两版并存 */
+                try {
+                    takeSnapshot('换版前');
+                    const goneS = purgeSwipedMemory(floor, currentSwipeId(floor));
+                    if (goneS) { toast.info('这一楼换了版：旧版记忆清了 ' + String(goneS) + ' 条'); }
+                } catch (eSw) { }
             }
         });
     }
@@ -201,6 +207,11 @@ function bindEvents(ctx) {
     if (typeof types.MESSAGE_DELETED === 'string') {
         on(types.MESSAGE_DELETED, () => {
             reconcileAfterDelete();
+            /* ★ A3-①（她拍板）：楼没了 ⇒ 记忆**真删**（先留快照）；分支不走这条路 */
+            try {
+                const orphan = purgeOrphanedMemory();
+                if (orphan) { toast.info('楼被删了：跟着清了 ' + String(orphan) + ' 条记忆'); }
+            } catch (eDel) { }
         });
     }
 
