@@ -1958,6 +1958,7 @@ const STAGE_MAP = {
     'stage-cap-hidden': ['recall', 'capHidden', 'value'],
     'stage-cap-chronicle': ['recall', 'capChronicle', 'value'],
     'stage-past-floor-cut': ['recall', 'pastFloorCut', 'value'],
+    'stage-inject-cap': ['recall', 'injectCharCap', 'value'],   /* ★ 20261022 回归：这格被洗掉过，改了不保存 */
     'stage-max-parallel': ['recall', 'maxParallelChars', 'value'],
     'stage-sort-mode': ['recall', 'sortMode', 'value'],
     'stage-card': ['recall', 'cardEnabled', 'checked'],
@@ -6935,6 +6936,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'stage-cap-hidden': if (isChange) { patchSettings({ capHidden: target.value }); rerender(); } break;
                 case 'stage-cap-chronicle': if (isChange) { patchSettings({ capChronicle: target.value }); rerender(); } break;
                 case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
+                case 'stage-inject-cap': if (isChange) { patchSettings({ injectCharCap: target.value }); rerender(); } break;   /* ★ 同上 */
                 /* ---- 外观（我们自己的配色） ---- */
                 case 'set-appearance': {
                     if (!isChange) {
