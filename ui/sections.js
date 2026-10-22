@@ -21,7 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow, importState, pushPast, listWindsView } from '../core/state.js';
+    addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
@@ -3937,8 +3937,17 @@ function renderPersonCard() {
      *   而外面点这些格子的人（用例、以后的代码）拿的是 state 那份 ⇒ 不一致就"找不到输入框"。
      */
     const cid = one.id !== undefined && one.id !== null ? one.id : c.id;
+
     row2('年龄', 'age', '未知', '身份', 'identity', '未知');
     row2('所在势力', 'faction', '暂无', '好感', 'affinity', '未接入');
+    /* ★ B1（六档名册）：档位可看可改，改了记手改锁 ✓ */
+    {
+        kv.appendChild(el('div', 'wxg-pc-k', '档位（六档）'));
+        const roleNow = trimText(one.role);
+        const roleSel = select('wxg-pc-role-' + cid, ROLES.map((r) => ({ value: r, label: r })), roleNow, 'set-role', cid);
+        roleSel.setAttribute('data-id', cid);
+        kv.appendChild(roleSel);
+    }
     /* ★ 她 22:2x 点头加的两格（事实，不是表演层）✓ */
     row2('认知账（他会怎么做）', 'behaviorBounds', '他绝不会做的事', '知识面（他不知道什么）', 'knowledgeBounds', '他不知道的事');
     /*
@@ -5942,6 +5951,17 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'set-world-place': if (isChange) { updateWorld({ place: target.value }, { manual: true }); toast.ok('保存了'); } break;
                 case 'set-world-big': if (isChange) { updateWorld({ bigPicture: target.value }, { manual: true }); toast.ok('保存了'); } break;
+                case 'set-role': {
+                    /* ★ B1：她手改六档 ⇒ 落库 + 记手改锁（autoRoster 不再动它） */
+                    const okRole = setRole(id, String(target.value || ''));
+                    if (okRole) {
+                        toast.ok('档位已改为「' + String(target.value || '') + '」');
+                        rerender();
+                    } else {
+                        toast.warn('这个档位不认识');
+                    }
+                    break;
+                }
                 case 'set-hidden-stage': {
                     if (isChange) {
                         const state = loadState();
