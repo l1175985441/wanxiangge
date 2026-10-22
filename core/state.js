@@ -129,6 +129,13 @@ export function normalizeCharacter(raw) {
             what: trimText(s && s.what),
             due: trimText(s && s.due),
             done: (s && s.done) === true,
+            /* ★ 20261022 ⑩（22 单）：读档时把这三格洗掉了 ⇒ “几天后”永远算不出来、到点也不记得 ✗ */
+            dueReached: (s && s.dueReached) === true,
+            sinceDay: Number.isFinite(Number(s && s.sinceDay)) ? Number(s.sinceDay) : null,
+            sinceMinutes: Number.isFinite(Number(s && s.sinceMinutes)) ? Number(s.sinceMinutes) : null,
+            /* A1：日程也要认得是第几版／哪一楼 */
+            swipe: Number.isFinite(Number(s && s.swipe)) ? Number(s.swipe) : null,
+            floor: Number.isFinite(Number(s && s.floor)) ? Number(s.floor) : -1,
         })).filter((s) => s.what) : [],
         // ⭐ 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
         quests: Array.isArray(c.quests) ? c.quests.filter(Boolean).map((q) => ({
