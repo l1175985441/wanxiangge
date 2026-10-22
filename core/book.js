@@ -94,13 +94,16 @@ async function ensureBook(api) {
 /** 读现在这本世界书里的条目（拿来对照更新） */
 async function readEntries(api) {
     if (!api.entries) {
-        return [];
+        return null;   /* ★ 20261022：没接口≠书里没东西 ⇒ null（调用方必须中止本次写入） */
     }
     try {
         const list = await api.entries(WORLD_BOOK_NAME);
-        return Array.isArray(list) ? list : [];
+        return Array.isArray(list) ? list : null;
     } catch (e) {
-        return [];
+        /* ★ 20261022：读失败就是读失败——⏔ 拿 [] 冒充“书里没有”，
+         *   否则 byTitle 全空 ⇒ 整本书条目被重复新建一遍 ✗ */
+        try { if (typeof console !== 'undefined' && console.warn) { console.warn('[book] 读世界书失败：' + (e && e.message ? e.message : String(e))); } } catch (eW) { }
+        return null;
     }
 }
 
@@ -111,6 +114,10 @@ function entryTitle(entry) {
 /** 把一批"要写成什么样"的条目落盘（有就改、没有就建） */
 async function upsertEntries(api, wanted) {
     const existing = await readEntries(api);
+    if (!existing) {
+        /* ★ 20261022：宁可这次不写，也不要写重复（她看不出来、也不报错） */
+        return { written: 0, problems: ['读不到这本书现有的条目——这次不写（宁可下次再写，也不写重复）'], aborted: true };
+    }
     const byTitle = new Map();
     for (const e of existing) {
         const t = entryTitle(e);
