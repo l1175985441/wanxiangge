@@ -873,7 +873,7 @@ function secGeneral(host) {
         for (const k of Object.keys(prevG)) {
             listG.appendChild(el('div', null, '· ' + k + '：' + String(prevG[k]) + ' 条'));
         }
-        listG.appendChild(el('div', null, '· 世界书《万象阁 · 世界后台》：**不动**（她选的②）'));
+        listG.appendChild(el('div', null, '· 世界书《万象阁 · 世界后台》：**不动**'));
         dangerG.appendChild(listG);
         const typeRowG = el('div', 'wxg-card-actions');
         typeRowG.appendChild(el('span', 'wxg-note', '把下面这四个字打进去才能点：'));
@@ -2562,7 +2562,7 @@ function secRoster(host) {
      */
     const chRep = channelReport();
     const chLine = el('div', 'wxg-store', chRep.text
-        + (chRep.ok ? '' : '　⇒ 装「酒馆助手」扩展就能读；或者直接把书名手填进下面那格也行'));
+        + (chRep.ok ? '' : '　⇒ 不知道书名就下面手填一下（也能读）'));
     chLine.setAttribute('data-tone', chRep.ok ? 'ok' : 'bad');
     box.appendChild(chLine);
 
@@ -5241,9 +5241,10 @@ function drawFailure(host, err) {
         box.setAttribute('data-tone', 'bad');
         box.appendChild(el('b', null, '界面有一段没画出来（原因照抄反馈即可）：'));
         box.appendChild(el('div', 'wxg-fact', String((err && err.message) || err)));
-        if (err && err.stack) {
-            box.appendChild(el('div', 'wxg-fact', String(err.stack).split('\n').slice(0, 4).join(' ← ')));
-        }
+        /* 20261022 ⑤：⏔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
+            /* 20261022 ⑤：⏔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
+            try { console.error('[wxg] 界面段渲染失败', err); } catch (eC) { }
+            box.appendChild(el('div', 'wxg-fact', '这一段没画出来：把这句反馈给我们就行'));
         host.appendChild(box);
     } catch (e) {
         // 连兜底都画不出来就只能认了
