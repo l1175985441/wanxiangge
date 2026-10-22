@@ -281,7 +281,7 @@ let viaHintTold = false;
 /**
  * ★ 20261023：附加请求头一行一个 Header: Value。
  */
-function parseApiHeaders(raw) {
+export function parseApiHeaders(raw) {
     const out = {};
     for (const line of String(raw || '').split(/\r?\n/)) {
         const s0 = line.trim();
@@ -293,6 +293,39 @@ function parseApiHeaders(raw) {
     return out;
 }
 
+
+/**
+ * ★ 20261023：把“附加主体参数 / 排除主体参数”应用到请求体上（抽成可测的纯函数）。
+ *   排除先做（⏔ 让“加”的被“排”的盖掉）。
+ */
+export function applyRequestTweaks(body, api) {
+    const target = (body && typeof body === 'object') ? body : {};
+    const a = api || {};
+
+    const add = (function parseLineMap(raw) {
+        const out = {};
+        for (const line of String(raw || '').split(/\r?\n/)) {
+            const s0 = line.trim();
+            if (!s0 || s0.charAt(0) === '#') { continue; }
+            const m0 = s0.match(/^([^:=\s]+)\s*[:=]\s*(.+)$/);
+            if (!m0) { continue; }
+            let v = m0[2].trim();
+            if (/^".*"$/.test(v) || /^'.*'$/.test(v)) { v = v.slice(1, -1); }
+            out[m0[1].trim()] = v;
+        }
+        return out;
+    })(a.extraBody);
+    for (const k of Object.keys(add)) {
+        const v = add[k];
+        if (/^-?\d+(\.\d+)?$/.test(v)) { target[k] = Number(v); }
+        else if (v === 'true' || v === 'false') { target[k] = (v === 'true'); }
+        else if (/^[\[{]/.test(v)) { try { target[k] = JSON.parse(v); } catch (eJ) { target[k] = v; } }
+        else { target[k] = v; }
+    }
+    const exKeys = String(a.excludeBody || '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+    for (const k of exKeys) { delete target[k]; }
+    return target;
+}
 
 export async function callModel(opts) {
     const o = opts || {};
@@ -370,20 +403,7 @@ export async function callModel(opts) {
         }
         return out;
     };
-    {
-        const exKeys = String(api.excludeBody || '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
-        for (const k of exKeys) { delete body[k]; }
-        const add = parseLineMap(api.extraBody);
-        for (const k of Object.keys(add)) {
-            const v = add[k];
-            let val = v;
-            if (/^-?\d+(\.\d+)?$/.test(v)) { val = Number(v); }
-            else if (v === 'true' || v === 'false') { val = (v === 'true'); }
-            else if (/^[\[{]/.test(v)) { try { val = JSON.parse(v); } catch (eJ) { val = v; } }
-            body[k] = val;
-        }
-    }
-    const system = trimText(o.system);
+    applyRequestTweaks(body, api);    const system = trimText(o.system);
     if (system) {
         body.messages.push({ role: 'system', content: system });
     }
