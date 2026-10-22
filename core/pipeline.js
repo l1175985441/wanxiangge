@@ -59,7 +59,7 @@ import {
     rememberRollCheckpoint,
     getRollCheckpoint,
     capList,
-    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView } from './state.js';
+    beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView, ROLE_WEIGHT } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
@@ -154,9 +154,21 @@ export function looksLikePrediction(text) {
  */
 const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替我(?:选|决定)|我选了|我答(?:应|道了)/;
 
-export function looksLikeDecidingForMe(text) {
+export function looksLikeDecidingForMe(text, opts) {
     const t = asText(text);
     if (!t) return false;
+    /*
+     * ★ 20261022 B3（设计稿·六档名册）：**「路过」与「不用」的卡，模型给它写任何动作/台词都算越界**。
+     *   档位权重 0 ⇒ 不该被描写（他们只在被找时回应，或根本不属于这个故事）。
+     *   ⏔ 影响高档：只有 role 权重 0 才走这条 ✓
+     */
+    const role = trimText(opts && opts.role);
+    if (role) {
+        const w = Number(ROLE_WEIGHT[role]);
+        if (Number.isFinite(w) && w === 0) {
+            return true;
+        }
+    }
     if (/待我做决定|等她回话|待玩家表态|等你回话|待你决定/.test(t)) return false;
     return DECIDE_FOR_ME_PAT.test(t);
 }
@@ -1198,7 +1210,7 @@ function applyCharacter(raw, material, conflicts) {
         let why = '';
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
-        } else if (looksLikeDecidingForMe(cur)) {
+        } else if (looksLikeDecidingForMe(cur, { role: c.role })) {
             why = '替"我"做了决定（[579]：遇问句应写「待我做决定」，⛔ 不许写成我已选／已答）';
         } else if (onStage && material.fellBack !== true && !textAppearsIn(cur, material.recentText || material.rawText)) {
             /*
