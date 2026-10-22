@@ -706,11 +706,9 @@ export function addKnow(id, item) {
     if (!c) {
         return null;
     }
-    /* ★ [580] A2：公开≠全员知情 —— 推不出接触链就不收 ✓ */
-    const channel = resolveKnowChannel(from, item, c);
-    if (!channel) {
-        return null;
-    }
+    /* ★ [580] A2／22 单 ⑨：公开≠全员知情 —— 推不出接触链就**降级成"未证"**，
+     *   ⛔ 不是丢掉（她的原话是「不过就降级成未证」，不是"不收"；她的字不能被静默吃掉） */
+    const channel = resolveKnowChannel(from, item, c) || 'unverified';
     c.knows = Array.isArray(c.knows) ? c.knows : [];
     // 同一句话不重复收（只增不编 ⛔ 收成一堆重复的）
     if (c.knows.some((k) => trimText(k && k.text) === text)) {
@@ -724,6 +722,9 @@ export function addKnow(id, item) {
         at: now(),
         manual: item && item.manual === true,
     };
+    if (channel === 'unverified') {
+        row.why = '没查到接触链（不在场／推不出）—— 先记未证';
+    }
     c.knows.push(row);
     saveState();
     return row;
