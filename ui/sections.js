@@ -2054,7 +2054,7 @@ function stageOne(action, target) {
     if (action === 'stage-api-mode' && trimText(target.value).indexOf('profile:') === 0) {
         const wantNick = trimText(target.value).slice('profile:'.length);
         const curApi = getSettings().api || {};
-        const one = (Array.isArray(curApi.profiles) ? curApi.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
+        const one = (Array.isArray(curApi.profiles) ? curApi.profiles : []).find((x) => (trimText(x && x.nick) || trimText(x && x.name)) === wantNick);
         if (one) {
             const copy = {};
             for (const k of Object.keys(one)) {
@@ -2131,7 +2131,7 @@ function stageOne(action, target) {
         if (pick.indexOf('profile:') === 0) {
             const wantNick = pick.slice('profile:'.length);
             const cur = getSettings().api || {};
-            const one = (Array.isArray(cur.profiles) ? cur.profiles : []).find((x) => trimText(x && x.nick) === wantNick);
+            const one = (Array.isArray(cur.profiles) ? cur.profiles : []).find((x) => (trimText(x && x.nick) || trimText(x && x.name)) === wantNick);
             if (one) {
                 const copy = {};
                 for (const k of Object.keys(one)) {
@@ -3067,7 +3067,7 @@ function secApi(host) {
         if (!want) { return ''; }
         const draftList = Array.isArray(api.profiles) ? api.profiles : [];
         const savedList = Array.isArray(savedPick.profiles) ? savedPick.profiles : [];
-        const hit = draftList.some((x) => trimText(x && x.nick) === want) || savedList.some((x) => trimText(x && x.nick) === want);
+        const hit = draftList.some((x) => (trimText(x && x.nick) || trimText(x && x.name)) === want) || savedList.some((x) => (trimText(x && x.nick) || trimText(x && x.name)) === want);
         return hit ? want : '';
     })();
     const curPick = curNick ? ('profile:' + curNick) : api.mode;

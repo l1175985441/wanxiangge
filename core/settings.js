@@ -155,8 +155,10 @@ function loadSettings() {
     merged.api.autoRetryMax = clampNumber(merged.api.autoRetryMax, 0, 5, DEFAULT_SETTINGS.api.autoRetryMax);
     // ⭐ API 书签：归一成数组（老设置里没有这个键 ⇒ 补空数组）
     merged.api.profiles = Array.isArray(merged.api.profiles)
-        ? merged.api.profiles.filter((p) => p && typeof p === 'object' && trimText(p.nick)).map((p) => ({
-            nick: trimText(p.nick),
+        ? merged.api.profiles.filter((p) => p && typeof p === 'object' && (trimText(p.nick) || trimText(p.name))).map((p) => ({
+            /* ★ 20261023 真机实测：旧书签字段是 name，只认 nick ⇒ 旧书签被过滤掉、currentProfile 对不上 ⇒ 回退第一套且 key 不带。现在两个都认，并保留 name 供匹配 ✓ */
+            nick: trimText(p.nick) || trimText(p.name),
+            name: trimText(p.name),
             mode: p.mode === 'direct' ? 'direct' : 'proxy',
             url: trimText(p.url),
             key: trimText(p.key),
