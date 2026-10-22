@@ -26,7 +26,7 @@ import { worldbookToNative, nativeToWorldbook } from './wb-shape.js';
 
 /** 通道名（给人看的） */
 export const CHANNEL_LABEL = {
-    helper: '酒馆助手（TavernHelper）',
+    helper: '酒馆带的世界书接口',
     legacy: '酒馆自带（loadWorldInfo／saveWorldInfo）',
     modern: '酒馆新版接口（getLorebookEntries）',
     none: '没有可用通道',
@@ -229,7 +229,7 @@ export function probeChannel() {
         channel: 'none',
         label: CHANNEL_LABEL.none,
         caps: {},
-        detail: { 酒馆助手: !!h },
+        detail: { '酒馆接口': !!h },
     };
     return cached;
 }
@@ -420,7 +420,7 @@ export function channelReport() {
         canWrite: !!(caps.write || caps.create),
         missing,
         text: p.channel === 'none'
-            ? ('没找到能读世界书的通道（酒馆助手没装、酒馆版本也不带这组接口）')
+            ? ('没找到能读世界书的通道（酒馆版本不带这组接口）')
             : ('世界书通道：' + p.label + (missing.length ? '（缺：' + missing.join('、') + '）' : '')),
     };
 }
