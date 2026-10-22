@@ -699,8 +699,13 @@ function secGeneral(host) {
      */
     const cOps = card('操作');
     const opsRow = el('div', 'wxg-card-actions');
-    row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('撤回上一次', 'rollback'),
+    /*
+     * ★ 20261023（阿砚 16 号）：这颗就是“从快照恢复”——名字改成人话，动作名不动 ✓
+     *   原名「撤回上一次」她不一定知道它就是回到最近一次留快照时的账。
+     */
+    row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('从快照恢复', 'rollback'),
         button('重算本楼', 'replan'));
+    opsRow.appendChild(el('span', 'wxg-note', '（快照：每次更新、合并、删楼、换版前都会先留一份；这颗回到**最近一次**那份）'));
     /*
      * ⭐ 首夜实测单第 3 条：补推前给**范围**（留空＝全部，向后兼容）。
      *   她原话：「我也不知道他补齐了多少楼？这旁边也没有自己设定的，我可以自己设定要补齐多少楼层。」
