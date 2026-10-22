@@ -713,6 +713,29 @@ const KNOW_CHANNELS = ['physical', 'information', 'causal'];
 export function resolveKnowChannel(source, item, character) {
     const src = trimText(source);
     const raw = String(trimText(item && item.channel) || '').toLowerCase();
+    /*
+     * ★ 20261022 B2（设计稿·六档名册按档收口）：
+     *   档位低于「常联系」（权重 < 3：新面孔／可能登场／路过／不用）⇒ **不许走 亲眼／被告知**，
+     *   只能走「公开」那条链（还要过 presentFloor）——否则一个远在天边的后台角色也能把内幕全收进脑子。
+     *   ⚠️ 她手填的一条（manual）照旧放行：那是她给的，不是模型推的。
+     */
+    const roleNow = trimText(character && character.role) || autoRoleOf(character);
+    const rw = Number(ROLE_WEIGHT[roleNow]);
+    const lowTier = !(Number.isFinite(rw) && rw >= 3);
+    if (lowTier && !(item && item.manual === true)) {
+        const floorL = Number(item && item.floor);
+        const sinceL = character && Number.isFinite(floorL) && floorL >= 0
+            && Number(character.presentFloor) === floorL;
+        if (!sinceL) {
+            const textL = trimText(item && item.text);
+            const facL = trimText(character && character.faction);
+            if (facL && textL && textL.indexOf(facL) >= 0) {
+                return 'causal';
+            }
+            return '';   /* ⇒ addKnow 会把它降级成 unverified（字留着、只标未证） */
+        }
+        return 'physical';
+    }
     if (KNOW_CHANNELS.includes(raw)) {
         return raw;
     }
