@@ -3860,9 +3860,28 @@ let personCardEditing = false;
  */
 let openRecordAt = -1;
 
+/**
+ * ★ 20261022 §五 5（真）：**浮层按 Esc 要能关**。
+ *   只挂一次全局监听（⏔ 每开一次就挂一个）。
+ */
+let personCardEscBound = false;
+function bindPersonCardEsc() {
+    if (personCardEscBound) { return; }
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') { return; }
+    document.addEventListener('keydown', (ev) => {
+        const key = ev && (ev.key || ev.code);
+        if (String(key || '') !== 'Escape') { return; }
+        if (!personCardId) { return; }
+        closePersonCard();
+        if (typeof ev.preventDefault === 'function') { ev.preventDefault(); }
+    }, true);
+    personCardEscBound = true;
+}
+
 export function openPersonCard(id) {
     personCardId = id || null;
     personCardEditing = false;   // 开卡／换人：一律先回到**只读**态
+    bindPersonCardEsc();
     renderPersonCard();
 }
 
