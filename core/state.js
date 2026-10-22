@@ -13,7 +13,7 @@ import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
     ARRIVE_MISS_LIMIT,
 } from './config.js';
-import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete } from './adapter.js';
+import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
 
@@ -693,6 +693,24 @@ export function resolveKnowChannel(source, item, character) {
  *
  * @returns {object|null} 收下去的那一条；没收（没文字／没来源／无接触链）返回 null
  */
+/**
+ * ★ 20261022 A1（设计稿）：**记忆要认得它是第几版**。
+ *   同一楼换了 swipe ⇒ 另一版；旧版的记忆要能认出来、能被撤（A3 落地后）。
+ *   读不到就是 null，⏔ 瞎填 0 ✗。
+ */
+function swipeAt(floor) {
+    const f = Number(floor);
+    if (!Number.isFinite(f) || f < 0) { return null; }
+    try {
+        const chat = getChat();
+        const msg = Array.isArray(chat) ? chat[f] : null;
+        const sw = Number(msg && msg.swipe_id);
+        return Number.isFinite(sw) && sw >= 0 ? sw : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 export function addKnow(id, item) {
     const text = trimText(item && item.text);
     const from = trimText(item && item.source);
@@ -719,6 +737,7 @@ export function addKnow(id, item) {
         source: from,
         channel,
         floor,
+        swipe: swipeAt(floor),
         at: now(),
         manual: item && item.manual === true,
     };
@@ -1033,6 +1052,7 @@ export function pushPast(characterId, text, cap, fromFloor) {
     const existing = c.past.find((p) => p && trimText(p.text) === body);
     const entry = {
         text: body,
+        swipe: swipeAt(Number.isFinite(floor) ? floor : -1),
         tier: (existing && trimText(existing.tier)) || 'L0',   /* ★ 补单 1-⑤：每轮一条→L0 */
         covers: Number(existing && existing.covers) > 0 ? Number(existing.covers) : 1,
         injected: existing ? existing.injected === true : false,

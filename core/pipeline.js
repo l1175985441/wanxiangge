@@ -1281,7 +1281,8 @@ function applyCharacter(raw, material, conflicts) {
                     due: trimText(s && s.due),
                     done: false,
                     dueReached: false,
-                    sinceDay: curDay,
+                    swipe: currentSwipeId(material.floor),   /* ★ A1：日程也要认得是第几版 */
+            sinceDay: curDay,
                     sinceMinutes: curMin,
                 });
             }
