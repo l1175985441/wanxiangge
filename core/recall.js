@@ -336,7 +336,18 @@ function personBlock(item, opts) {
      *     ⇒ 近几楼里已经在上下文里的不端 ✓，真正老的事每轮都能被拿到 ✓
      *   （与材料 11 RD2 里卡片那边的口径一致 ✓）
      */
-    const fresh = past.filter((p) => p && p.text);
+    /*
+     * ★ 20261022 A4（设计稿·B组之前的 A 组）：**召回侧按楼层过滤**
+     *   · `void === true` 的条目（将来删楼裁决会标它）⇒ ⏔ 不取；
+     *   · 来源楼比当前锥点楼还靠后（未来楼）⇒ ⏔ 不取（那事还没发生）。
+     */
+    const notVoid = (x) => !(x && x.void === true);
+    const notFuture = (x) => {
+        if (!Number.isFinite(anchorFloor)) { return true; }
+        const f = Number(x && (x.floor !== undefined ? x.floor : x.fromFloor));
+        return !Number.isFinite(f) || f < 0 || f <= anchorFloor;
+    };
+    const fresh = past.filter((p) => p && p.text).filter(notVoid).filter(notFuture);
     /*
      * ⭐ 楼层裁（她拍的）：来源在最近 N 楼之内的**不端**——主模型上下文里已经有那一楼了，
      *    再端一遍等于白占篇幅、还容易让人觉得"重合"；只端更老的（上下文看不到的）。
@@ -442,7 +453,7 @@ function personBlock(item, opts) {
         lines.push('知识面（他不知道什么）：' + trimText(c.knowledgeBounds) + '（⏔ 他不知道的就别让他知道）');
     }
     if (Array.isArray(c.knows) && c.knows.length) {
-        const knLines = c.knows
+        const knLines = c.knows.filter(notVoid).filter(notFuture)
             .map((k) => {
                 const t = trimText(k && k.text);
                 if (!t) { return ''; }
