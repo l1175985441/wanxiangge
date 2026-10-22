@@ -76,12 +76,48 @@ function cnToNum(text) {
  */
 let clockEpochDay = null;
 
+/*
+ * ★ 20261022 ⑬（22 单）：**基准日要入档**。
+ *   原来它是纯模块变量、首次读到就定死、不进存档 ⇒
+ *   第 3 天刷新变回第 1 天；先开现代档再切 1992 年档 ⇒ 天数算成负数。
+ *   现在：给 state 一对 hook（load/save），由账本持久化 ✓
+ */
+let epochHooks = null;
+
+export function bindClockEpoch(hooks) {
+    epochHooks = hooks || null;
+    try {
+        const v = epochHooks && typeof epochHooks.load === 'function' ? Number(epochHooks.load()) : NaN;
+        if (Number.isFinite(v)) {
+            clockEpochDay = v;
+        }
+    } catch (e) { /* 读不到就沿用内存值 */ }
+}
+
+export function getClockEpochDay() {
+    return Number.isFinite(clockEpochDay) ? clockEpochDay : null;
+}
+
+export function setClockEpochDay(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) {
+        return false;
+    }
+    clockEpochDay = n;
+    try {
+        if (epochHooks && typeof epochHooks.save === 'function') {
+            epochHooks.save(n);
+        }
+    } catch (e) { /* 存不进去也不能影响换算 */ }
+    return true;
+}
+
 function absToRelativeDay(abs) {
     if (!Number.isFinite(abs)) {
         return null;
     }
     if (!Number.isFinite(clockEpochDay)) {
-        clockEpochDay = abs;
+        setClockEpochDay(abs);
     }
     return abs - clockEpochDay + 1;
 }

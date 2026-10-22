@@ -16,6 +16,7 @@
 
 import { APP_NAME } from './core/config.js';
 import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
+import { bindClockEpoch } from './core/clock.js';
 import { resetCache, loadState, migrateInferToChronicle, purgeSwipedMemory, purgeOrphanedMemory } from './core/state.js';
 import { injectBeforeGenerate } from './core/engine.js';
 import {
@@ -33,7 +34,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.394';
+const VERSION = '0.3.395';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -417,6 +418,21 @@ export function onDisable() {
 let booted = false;
 
 function boot() {
+    /*
+     * ★ 20261022 ⑬（state.js 不能直接监听，这里给时钟挂上账本依托）：公历基准日入档。
+     */
+    try {
+        bindClockEpoch({
+            load: () => (loadState().world || {}).clockEpochDay,
+            save: (v) => {
+                const stE = loadState();
+                stE.world = stE.world || {};
+                stE.world.clockEpochDay = Number(v);
+                saveStateDebounced();
+            },
+        });
+    } catch (eEpoch) { /* 绑定失败不影响主流程 */ }
+
     if (booted) {
         return;
     }
