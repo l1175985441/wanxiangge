@@ -3867,3 +3867,18 @@ body.wxg-dragging {
     right: 0;
     left: auto;
 }
+
+/* ★ 20261023（阿砚 15 号）：召回页三项一行。窄屏退回一列。 */
+.wxg-line-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 12px;
+    margin: 6px 0 10px;
+}
+.wxg-line-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wxg-line-k { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wxg-line-v { min-width: 0; }
+.wxg-line-v .wxg-num, .wxg-line-v input, .wxg-line-v select { width: 100%; box-sizing: border-box; }
+@media (max-width: 720px) {
+    .wxg-line-group { grid-template-columns: minmax(0, 1fr); }
+}

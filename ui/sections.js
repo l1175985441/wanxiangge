@@ -2901,15 +2901,36 @@ function secRecall(host) {
     // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
     // ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
     const cPick = card('每一轮怎么挑');
-    line(cPick, '线索回溯',
-        numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns'),
-        el('span', 'wxg-note', '楼'));
-    line(cPick, '人物封顶',
-        numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars'),
-        el('span', 'wxg-note', '个'));
-    line(cPick, '事件封顶',
-        numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events'),
-        el('span', 'wxg-note', '条'));
+    /*
+     * ★ 20261023（阿砚 15 号）：三项一行的**组**。
+     *   在 `line()`（左标签右控件）上面加一层：一个组里放三个小格，窄屏退回一列 ✓
+     */
+    const lineCell = (label, control) => {
+        const cell = el('div', 'wxg-line-cell');
+        cell.appendChild(el('div', 'wxg-line-k', label));
+        const v = el('div', 'wxg-line-v');
+        v.appendChild(control);
+        cell.appendChild(v);
+        return cell;
+    };
+    const lineGroup = (cells) => {
+        const g = el('div', 'wxg-line-group');
+        for (const c2 of cells) {
+            if (c2) { g.appendChild(c2); }
+        }
+        cPick.appendChild(g);
+        return g;
+    };
+    lineGroup([
+        lineCell('线索回溯', numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns')),
+        lineCell('人物封顶', numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars')),
+        lineCell('事件封顶', numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events')),
+    ]);
+    lineGroup([
+        lineCell('世界事件上限', numberInput('wxg-cap-events', s.capEvents, 10, 300, 'stage-cap-events')),
+        lineCell('暗线上限', numberInput('wxg-cap-hidden', s.capHidden, 5, 200, 'stage-cap-hidden')),
+        lineCell('编年上限', numberInput('wxg-cap-chronicle', s.capChronicle, 100, 5000, 'stage-cap-chronicle')),
+    ]);
     /*
      * ⭐ ST1（材料 11·设置层）：**4 个容量锁设置，面板上终于有输入框了** ✓
      *   旧：capPast／capEvents／capHidden／capChronicle 在 DEFAULT_SETTINGS、loadSettings、
@@ -2919,15 +2940,6 @@ function secRecall(host) {
     line(cPick, '过去经历留几条',
         numberInput('wxg-cap-past', s.capPast, 2, 20, 'stage-cap-past'),
         el('span', 'wxg-note', '条（每个角色；超出的旧自然淡出）'));
-    line(cPick, '世界事件上限',
-        numberInput('wxg-cap-events', s.capEvents, 10, 300, 'stage-cap-events'),
-        el('span', 'wxg-note', '条'));
-    line(cPick, '暗线上限',
-        numberInput('wxg-cap-hidden', s.capHidden, 5, 200, 'stage-cap-hidden'),
-        el('span', 'wxg-note', '条'));
-    line(cPick, '编年上限',
-        numberInput('wxg-cap-chronicle', s.capChronicle, 100, 5000, 'stage-cap-chronicle'),
-        el('span', 'wxg-note', '条'));
     line(cPick, '排序', select('wxg-sort-mode', [
         { value: 'related', label: '按相关度（先说到的排前面）' },
         { value: 'name', label: '按名册顺序' },
