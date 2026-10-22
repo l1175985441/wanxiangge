@@ -20,9 +20,63 @@ import { parseClock, isLineDone } from './clock.js';
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */
-const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds'];
+const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds', 'role'];
 
 /** 人物记录的标准结构（缺键补齐，多余的键保留） */
+/**
+ * ★ 20261022 B1（设计稿·六档名册）：**这个人在这局里算哪一档**。
+ *   主要（4）/常联系（3）/新面孔（2）/可能登场（1）/路过（0）/不用（0）
+ *   ⏔ 用模型自己填：这档是给“该不该给他知道”、“叫他出场不出场”用的排序依据。
+ */
+export const ROLES = ['主要', '常联系', '新面孔', '可能登场', '路过', '不用'];
+export const ROLE_WEIGHT = { '主要': 4, '常联系': 3, '新面孔': 2, '可能登场': 1, '路过': 0, '不用': 0 };
+
+/** 按现有标记位算一个人的档（不看她手改过的） */
+export function autoRoleOf(c) {
+    if (!c) { return '可能登场'; }
+    if (c.ignored === true) { return '不用'; }
+    if (c.noBench === true) { return '路过'; }          /* 关了后台推演 ⇒ 只在被找时回应 */
+    if (c.isPlayer === true) { return '主要'; }
+    const pf = Number(c.presentFloor);
+    if (c.isNew === true) { return '新面孔'; }
+    if (Number.isFinite(pf) && pf >= 0) {
+        /* 出场过：记忆越多越像“常联系”（没有计数器 ⇒ 用 past+knows 的长度当活跃度） */
+        const act = (Array.isArray(c.past) ? c.past.length : 0) + (Array.isArray(c.knows) ? c.knows.length : 0);
+        return act >= 6 ? '主要' : '常联系';
+    }
+    return '可能登场';
+}
+
+/** 自动分档：她手改过 role 的一律不动；返回改了几个 */
+export function autoRoster() {
+    const state = loadState();
+    let n = 0;
+    for (const c of (Array.isArray(state.characters) ? state.characters : [])) {
+        if (!c) { continue; }
+        if (Array.isArray(c.manualFields) && c.manualFields.indexOf('role') >= 0) { continue; }
+        const want = autoRoleOf(c);
+        if (c.role !== want) {
+            c.role = want;
+            n += 1;
+        }
+    }
+    if (n) { saveStateDebounced(); }
+    return n;
+}
+
+/** 她手改档：记进手改锁，后面自动分档不再动它 */
+export function setRole(id, role) {
+    const want = trimText(role);
+    if (ROLES.indexOf(want) < 0) { return false; }
+    const state = loadState();
+    const c = state.characters.find((x) => x && x.id === id);
+    if (!c) { return false; }
+    c.role = want;
+    c.manualFields = Array.from(new Set((Array.isArray(c.manualFields) ? c.manualFields : []).concat(['role'])));
+    saveStateDebounced();
+    return true;
+}
+
 export function normalizeCharacter(raw) {
     const c = raw && typeof raw === 'object' ? raw : {};
     const manualFields = Array.isArray(c.manualFields)
@@ -91,6 +145,7 @@ export function normalizeCharacter(raw) {
             manual: (q && q.manual) === true,
         })).filter((q) => q.title) : [],
         inScene: c.inScene === true,
+        role: ROLES.indexOf(trimText(c.role)) >= 0 ? trimText(c.role) : '',   /* ★ B1：六档（空＝还没分，由 autoRoster 算） */
         isPlayer: c.isPlayer === true,
         /*
          * ⭐ 补①「参与后台推演」开关（她 2026-10-15 拍的）：**默认开**。
