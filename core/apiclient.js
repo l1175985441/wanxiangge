@@ -293,6 +293,7 @@ function parseApiHeaders(raw) {
     return out;
 }
 
+
 export async function callModel(opts) {
     const o = opts || {};
     const prompt = trimText(o.prompt);
@@ -326,6 +327,16 @@ export async function callModel(opts) {
         };
     }
 
+    /*
+     * ★ 20261023（阿砚 14 号）：proxy 路要能带三格。
+     *   证据（ST 服务端）：chat-completions.js:2319 mergeObjectWithYaml(custom_include_body)、:2573 excludeKeysByYaml(custom_exclude_body) ✓
+     *   ⚙ 关键：**三格全空就不加键** ⇒ payload 形状不变（不打扰已有形状校验），填了才加 ✓
+     */
+    const pExtraBody = String(api.extraBody || '');
+    const pExtraHeaders = String(api.extraHeaders || '');
+    const pExclude = String(api.excludeBody || '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+    const hasProxyTweaks = !!(pExtraBody || pExtraHeaders || pExclude.length);
+
     const body = {
         model,
         messages: [],
@@ -334,6 +345,17 @@ export async function callModel(opts) {
             : (Number.isFinite(Number(api.maxTokens)) ? Number(api.maxTokens) : 1600),
         stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
+    if (hasProxyTweaks) {
+        /* ★ 只在她填了三格时才加这三个键（⏔ 动 payload 形状） */
+        if (pExtraBody) { body.custom_include_body = pExtraBody; }
+        if (pExclude.length) { body.custom_exclude_body = pExclude.map((k) => '- ' + k).join('\n'); }
+        if (pExtraHeaders) {
+            let hdrMap = {};
+            try { hdrMap = JSON.parse(body.custom_include_headers || '{}') || {}; } catch (eH) { hdrMap = {}; }
+            for (const k2 of Object.keys(parseApiHeaders(pExtraHeaders))) { hdrMap[k2] = parseApiHeaders(pExtraHeaders)[k2]; }
+            body.custom_include_headers = JSON.stringify(hdrMap);
+        }
+    }
     /* ★ 20261023：一行一个 Key:Value / Key="Value；#开头为注释 */
     const parseLineMap = (raw) => {
         const out = {};
