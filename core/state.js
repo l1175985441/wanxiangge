@@ -2644,6 +2644,48 @@ export function takeSnapshot(label) {
     return snap;
 }
 
+/**
+ * ★ 20261023（阿砘 16 号）：**列出快照，她自己挑一份回去**。
+ *   返回最新的在前（便于界面上“最近一次”排第一行）。
+ */
+export function listSnapshots() {
+    const state = loadState();
+    const arr = Array.isArray(state.snapshots) ? state.snapshots : [];
+    return arr.map((s, i) => ({
+        index: i,
+        at: (s && s.at) || '',
+        label: trimText(s && s.label) || '快照',
+        chars: (s && s.data && Array.isArray(s.data.characters)) ? s.data.characters.length : 0,
+        events: (s && s.data && Array.isArray(s.data.events)) ? s.data.events.length : 0,
+    })).reverse();
+}
+
+/**
+ * ★ 恢复到指定快照（下标按 listSnapshots 的原始位置）；
+ *   同样"先留一手"：恢复前把当前账再压一版，回错了能再回来。
+ */
+export function rollbackToSnapshot(index) {
+    const state = loadState();
+    const arr = Array.isArray(state.snapshots) ? state.snapshots : [];
+    const i = Math.round(Number(index));
+    if (!Number.isFinite(i) || i < 0 || i >= arr.length) { return null; }
+    const snap = arr[i];
+    if (!snap || !snap.data) { return null; }
+    const undo = snapshotPayload(state);
+    state.characters = snap.data.characters || [];
+    state.world = snap.data.world || state.world;
+    state.events = snap.data.events || [];
+    state.chronicle = Array.isArray(snap.data.chronicle) ? snap.data.chronicle : state.chronicle;
+    if (Array.isArray(snap.data.newPeople)) { state.newPeople = snap.data.newPeople; }
+    state.stat = snap.data.stat || state.stat;
+    state.snapshots.push({ at: now(), label: '恢复前（可再回去）', data: undo });
+    if (state.snapshots.length > SNAPSHOT_KEEP) {
+        state.snapshots = state.snapshots.slice(-SNAPSHOT_KEEP);
+    }
+    saveState();
+    return { ok: true, label: snap.label };
+}
+
 /** 撤回上一次更新 */
 export function rollbackLast() {
     const state = loadState();

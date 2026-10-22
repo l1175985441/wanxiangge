@@ -21,7 +21,7 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole } from '../core/state.js';
+    addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
@@ -706,6 +706,25 @@ function secGeneral(host) {
     row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('从快照恢复', 'rollback'),
         button('重算本楼', 'replan'));
     opsRow.appendChild(el('span', 'wxg-note', '（快照：每次更新、合并、删楼、换版前都会先留一份；这颗回到**最近一次**那份）'));
+    /*
+     * ★ 20261023（阿砘 16 号）：快照**列表**——她可以挑一份回去，⏔ 只能撤最近一次 ✗
+     */
+    try {
+        const snaps = listSnapshots();
+        if (snaps.length) {
+            const cSnap = card('快照（可回退）');
+            cSnap.appendChild(el('div', 'wxg-note', '每次更新／合并／删楼／换版前都会先留一份。选一份点右边那颗，账就回到那时候。'));
+            for (const sp of snaps.slice(0, 6)) {
+                const r2 = el('div', 'wxg-card-actions');
+                r2.appendChild(el('span', 'wxg-name', sp.label));
+                r2.appendChild(el('span', 'wxg-note', '  ' + String(sp.at || '') + '  · ' + String(sp.chars) + ' 人物 / ' + String(sp.events) + ' 事件'));
+                const b2 = button('恢复这一份', 'rollback-to', 'wxg-btn-sm', String(sp.index));
+                r2.appendChild(b2);
+                cSnap.appendChild(r2);
+            }
+            box.appendChild(cSnap);
+        }
+    } catch (eSnap) { /* 列不出来也不影响主面板 */ }
     /*
      * ⭐ 首夜实测单第 3 条：补推前给**范围**（留空＝全部，向后兼容）。
      *   她原话：「我也不知道他补齐了多少楼？这旁边也没有自己设定的，我可以自己设定要补齐多少楼层。」
@@ -7494,6 +7513,16 @@ export function bindSectionEvents(host, refresh) {
                     toast.warn('已请求取消：跑完当前这一小步就停');
                     rerender();
                     break;
+                case 'rollback-to': {
+                    const okRb = rollbackToSnapshot(Number(id));
+                    if (okRb && okRb.ok) {
+                        toast.info('已恢复到：' + String(okRb.label || '那份快照'));
+                        rerender();
+                    } else {
+                        toast.warn('这份快照恢复不了');
+                    }
+                    break;
+                }
                 case 'rollback': {
                     const snap = rollbackLast();
                     toast.ok(snap ? '已撤回上一次更新（撤回前那一版也留着，能再撤回来）' : '没有可撤回的版本');
