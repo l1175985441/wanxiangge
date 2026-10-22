@@ -1453,6 +1453,15 @@ function secCharacters(host) {
         const chipLine = el('div', 'wxg-cchips');
         if (c.isPlayer) {
             chipLine.appendChild(el('span', 'wxg-badge is-ok', '玩家棋子'));
+            /* ★ B1：六档名册——名册行上就能看出他算哪一档（可改：浮层人物卡里的「档位（六档）」下拉） */
+            {
+                const roleNow = trimText(c.role);
+                if (roleNow) {
+                    const roleTone = (roleNow === '主要' || roleNow === '常联系') ? 'is-ok'
+                        : (roleNow === '路过' || roleNow === '不用') ? 'is-off' : 'is-info';
+                    chipLine.appendChild(el('span', 'wxg-badge ' + roleTone, roleNow));
+                }
+            }
         }
         if (c.inScene) {
             chipLine.appendChild(el('span', 'wxg-badge is-info', '在现场'));
