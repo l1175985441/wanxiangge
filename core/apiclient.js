@@ -370,6 +370,19 @@ export async function callModel(opts) {
                 res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                 if (res && res.ok) { autoVia = 'proxy-auto'; sessionViaHint = 'proxy-auto'; }
             }
+            /*
+             * ★ 20261022 ⑤（22 单）：**直连返回 HTTP 4xx/5xx（不是抛错）也要降级**。
+             *   原来只有 catch 里才走转发 ⇒ callDirect 把 HTTP 错误变成返回值 ⇒ catch 不执行
+             *   ⇒ **永远不降级**，白烧一次。
+             */
+            if (res && res.ok === false && /HTTP\s*[45]\d\d|直连失败/.test(String(res.reason || ''))) {
+                const resVia = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
+                if (resVia && resVia.ok) {
+                    autoVia = 'proxy-auto';
+                    sessionViaHint = 'proxy-auto';
+                    res = resVia;
+                }
+            }
         } else {
             res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
         }
