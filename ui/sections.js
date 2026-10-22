@@ -23,7 +23,7 @@ import {
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
     addKnow, removeKnow, importState, pushPast, listWindsView } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
-import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE } from '../core/utils.js';
+import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
     PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
 } from './theme.js';

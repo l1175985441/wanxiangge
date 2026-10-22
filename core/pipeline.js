@@ -1954,6 +1954,10 @@ export async function runUpdate(opts) {
     try {
         return await runUpdateInner(opts);
     } finally {
+        /* ★ 20261022：中间任何一步抛错也要把灯关掉，
+         *   否则 running 永远为 true ⇒ 之后每次都回“上一轮还在跑” ⇒ 整个会话用不了 */
+        running = false;
+        markLive();
         endSaveBatch();
         unbindChatForRun();   /* R3：收尾解绑 ✓ */
     }
@@ -1986,6 +1990,7 @@ async function runUpdateInner(opts) {
     const commitKey = commitKeyOf(floor, swipeId);
     if (o.force !== true && alreadyCommitted(loadState(), floor, swipeId)) {
         running = false;
+        markLive();   /* ★ 20261022：提前返回也要关灯，否则界面按钮永久禁用 */
         return { ok: true, skipped: true, reason: '这一楼的这一版已经算过了（重刷同一版不重复烧额度）' };
     }
 
@@ -2007,6 +2012,7 @@ async function runUpdateInner(opts) {
             } else if (swipeChanged) {
                 /* 换版本且无存档点 ⇒ 拒（对照 C：redo 无 cp 拒）；force 同版无 cp 降级续跑（升级旧账）✓ */
                 running = false;
+        markLive();   /* ★ 20261022：拒重叠也要关灯（否则按钮永久禁用） */
                 return {
                     ok: false,
                     reason: '这一楼换了版本，但没有存档点可回滚——拒着重叠推演（请先成功更新过这一楼，或清空后重来）',

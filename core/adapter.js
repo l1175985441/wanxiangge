@@ -11,6 +11,7 @@
  */
 
 import { LEDGER_KEY, SETTINGS_KEY } from './config.js';
+import { trimText } from './utils.js';   // ★ 20261022：setLastOwnKey 用它，之前全文没 import ⇒ 每次切聊天 ReferenceError
 
 let ctx = null;
 
