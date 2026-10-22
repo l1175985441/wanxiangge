@@ -170,6 +170,8 @@ export function looksLikeDecidingForMe(text, opts) {
         }
     }
     if (/待我做决定|等她回话|待玩家表态|等你回话|待你决定/.test(t)) return false;
+    /* ★ ⑥：模型用她真名当主语写动作，也当代控拦下 ✓ */
+    if (looksLikeDecidingByName(t)) { return true; }
     return DECIDE_FOR_ME_PAT.test(t);
 }
 
@@ -515,6 +517,57 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
  *   来源：`personaNames()`（酒馆当前人设名 ✓）＋ 名册里**标了玩家棋子**的名字与别名 ✓
  *   去重后拼成一串 ✓；一个都没有 ⇒ 回「玩家」 ✓（⏔ 回空字串 ✗）
  */
+/**
+ * ★ 20261022 ⑥：代控门要认得她的真名与别名（⏔ 只认我咱俣）。
+ */
+function playerNamesArr() {
+    try {
+        const out = [];
+        const seen = new Set();
+        const push = (raw) => {
+            const nm = trimText(raw);
+            const k = matchKey(nm);
+            if (!nm || !k || seen.has(k)) { return; }
+            seen.add(k);
+            out.push(nm);
+        };
+        for (const nm of (personaNames() || [])) { push(nm); }
+        for (const c of (loadState().characters || [])) {
+            if (!c || (c.isPlayer !== true && c.isYou !== true)) { continue; }
+            push(c.name);
+            for (const al of (Array.isArray(c.aliases) ? c.aliases : [])) { push(al); }
+        }
+        return out;
+    } catch (e) {
+        return [];
+    }
+}
+
+/** 她名字后面跟着这些动词 ⇒ 算“替她行动”（只列常见的，⏔ 无限铺） */
+const ME_ACTION_VERBS = ['答应', '答了', '说', '问', '喊', '笑', '点头', '摇头', '转身', '走', '跑', '跨', '坐', '站', '拿', '推', '括', '伸手', '抬起', '决定', '同意', '拒绝', '答应了', '出门', '回屋'];
+
+/** 名字当主语且后面跟动词 ⇒ true（宾语位／所有格不算） */
+function looksLikeDecidingByName(text) {
+    const t = asText(text);
+    if (!t) { return false; }
+    for (const nm of playerNamesArr()) {
+        if (!nm) { continue; }
+        let from = 0;
+        for (;;) {
+            const at = t.indexOf(nm, from);
+            if (at < 0) { break; }
+            from = at + nm.length;
+            const next = t.charAt(at + nm.length);
+            if (next === '的') { continue; }
+            const before = t.slice(Math.max(0, at - 4), at);
+            if (/[对给向跟和与朝冲让被叫看望等问帮替自我到在从往至进出回过]/.test(before)) { continue; }
+            const after = t.slice(at + nm.length, at + nm.length + 6);
+            if (ME_ACTION_VERBS.some((v) => after.indexOf(v) >= 0)) { return true; }
+        }
+    }
+    return false;
+}
+
 function playerNamesForPrompt() {
     try {
         const out = [];
