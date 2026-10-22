@@ -499,7 +499,12 @@ async function tryMountPanel(version) {
     const host = settingsHost();
     if (host) {
         bindSectionEvents(host, renderPanel);
-        renderSections(host, { mode: 'settings' });
+        /*
+         * 依据＝阿砚 17 号 §一-1 ＋ 18 号 §一：抽屉默认只画入口（mode:'settings'）。
+         *   ⚠️ 只有测试显式置 __WXG_TEST_FULL=true 才在这里画整套（否则那三套验收拿不到分区）。
+         */
+        const wxgMode = (typeof globalThis !== 'undefined' && globalThis.__WXG_TEST_FULL === true) ? 'workspace' : 'settings';
+        renderSections(host, { mode: wxgMode });
     }
     return true;
 }

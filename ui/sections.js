@@ -4881,15 +4881,34 @@ export function renderSections(host, opts) {
      */
     const hasFgWindow = typeof document !== 'undefined'
         && !!(document.getElementById('wanxiangge-workspace') || document.getElementById('wanxiangge-panel'));
-    const isSettingsDraw = ((opts && opts.mode) || 'settings') === 'settings';
+    const isSettingsDraw = ((opts && opts.mode) || 'workspace') === 'settings';   /* ★ 依据＝阿砚 17 号 §一-1：默认＝工作台整套，只有显式 settings 才是抽屉 */
     if (!isSettingsDraw || !hasFgWindow || !lastSectionsHost) {
         lastSectionsHost = host || lastSectionsHost;   // 浮层要挂在它里才收得到点击
     }
     if (!host) {
         return;
     }
-    const mode = (opts && opts.mode) || 'settings';
+    const mode = (opts && opts.mode) || 'workspace';   /* ★ 同上：不带 mode 的老调用照旧整套 ✓ */
     host.replaceChildren();
+    /*
+     * ★ 20261023（依据＝阿砚 17 号  §一-1）：**设置抽屉里只画总控＋一个入口**。
+     *   旧：抽屉里也画**整套面板**（mode 传了没分支 ✗）
+     *   新：`mode === 'settings'` 只画小卡＋「打开工作台」；不带 mode 的老调用**照旧整套** ✓
+     */
+    if (mode === 'settings') {
+        host.classList.add('wanxiangge');
+        host.setAttribute('data-wxg-mode', mode);
+        const entry = section('万象阁', '设置区只放入口：完整面板在「工作台」里。',
+            { open: true, five: false });
+        const cEntry = card('打开');
+        const rowE = el('div', 'wxg-card-actions');
+        rowE.appendChild(button('打开工作台', 'open-workspace-btn', 'wxg-primary'));
+
+        cEntry.appendChild(rowE);
+        entry.appendChild(cEntry);
+        host.appendChild(entry);
+        return;
+    }
     host.classList.add('wanxiangge');
     host.setAttribute('data-wxg-mode', mode);
 
@@ -7513,6 +7532,14 @@ export function bindSectionEvents(host, refresh) {
                     toast.warn('已请求取消：跑完当前这一小步就停');
                     rerender();
                     break;
+                case 'open-workspace-btn': {
+                    /* ★ 依据＝阿砚 17 号 §一-1：抽屉里那颗入口 ⇒ 打开工作台 */
+                    Promise.resolve()
+                        .then(() => import('./workspace.js'))
+                        .then((m) => { if (m && typeof m.openWorkspace === 'function') { m.openWorkspace(); } })
+                        .catch(() => { });
+                    break;
+                }
                 case 'rollback-to': {
                     const okRb = rollbackToSnapshot(Number(id));
                     if (okRb && okRb.ok) {
