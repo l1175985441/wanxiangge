@@ -169,10 +169,11 @@ export function looksLikeDecidingForMe(text, opts) {
             return true;
         }
     }
-    if (/待我做决定|等她回话|待玩家表态|等你回话|待你决定/.test(t)) return false;
+    /* ★ 20261022 ⑦：豁免词不能整句短路（否则「我答应了她，等她回话」整句放过）⇒ 先摘掉豁免片段再判 */
+    const STRIPPED = t.replace(/待我做决定|等她回话|待玩家表态|等你回话|待你决定/g, '');
     /* ★ ⑥：模型用她真名当主语写动作，也当代控拦下 ✓ */
     if (looksLikeDecidingByName(t)) { return true; }
-    return DECIDE_FOR_ME_PAT.test(t);
+    return DECIDE_FOR_ME_PAT.test(STRIPPED);
 }
 
 
