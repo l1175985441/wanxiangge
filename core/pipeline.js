@@ -1627,8 +1627,9 @@ async function stepCharacters(material, attempt) {
      *        （命中 **≥ 2 个双字词组** 即视为该角色已知晓相关风声 ✓） */
     const pickedKnows = picked.map((c) => (Array.isArray(c.knows) ? c.knows : []).map((k) => matchKey(k.text)).filter(Boolean)).flat();
     const anyKnows = pickedKnows.length > 0;
-    const knownBySomeone = (title) => {
-        if (!anyKnows) return true;
+    const knownBySomeone = (title, visibility) => {
+        /* ★ 20261022 ⑩：没认知 ≠ 全知（原来直接 return true ⇒ private 局势也全员可见） */
+        if (!anyKnows) return String(visibility || '') !== 'private';
         const tKey = matchKey(title);
         if (!tKey) return false;
         return pickedKnows.some((kt) => {
@@ -1656,7 +1657,7 @@ async function stepCharacters(material, attempt) {
         world: [
             (trimText(loadState().world.bigPicture) && knownBySomeone(trimText(loadState().world.bigPicture)))
                 ? trimText(loadState().world.bigPicture) : '',
-            ((loadState().world.situations || []).map((s) => trimText(s.title)).filter((x) => x && knownBySomeone(x)).join('；') || ''),
+            ((loadState().world.situations || []).filter((s) => s && trimText(s.title) && knownBySomeone(trimText(s.title), trimText(s.visibility))).map((s) => trimText(s.title)).join('；') || ''),
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⛔ 给）',
         recent: material.recentText || '（没有可读的正文）',
         chars: charsHeader.concat(playerHintLines).concat(charLines),
