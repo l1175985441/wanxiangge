@@ -112,7 +112,7 @@ function entryTitle(entry) {
 }
 
 /** 把一批"要写成什么样"的条目落盘（有就改、没有就建） */
-async function upsertEntries(api, wanted) {
+export async function upsertEntries(api, wanted) {   /* ★ 供测试（行为级） */
     const existing = await readEntries(api);
     if (!existing) {
         /* ★ 20261022：宁可这次不写，也不要写重复（她看不出来、也不报错） */
@@ -148,6 +148,8 @@ async function upsertEntries(api, wanted) {
                 continue;   // 内容没变且旗标已对 ⇒ 不白写盘 ✓
             }
             const patch = { ...old, content: item.content };
+                /* ★ 迁移：她盘上已有的字符串 key 条目，下一次写入顺手改成数组（不改就一直报错） */
+                if (typeof patch.key === 'string') { patch.key = toKeyArr(patch.key); }
             if (item.constant === true) {
                 patch.constant = true;
                 patch.selective = false;
@@ -172,7 +174,8 @@ async function upsertEntries(api, wanted) {
                     await api.createEntry(WORLD_BOOK_NAME, {
                         comment: item.comment || item.title || '',
                         content: item.content,
-                        key: item.key || item.comment || item.title || '',
+                        /* ★ 同上：兜底路径也必须是数组 */
+                key: toKeyArr(item.key || item.comment || item.title || ''),
                         keysecondary: '',
                         selective: false,
                         constant: false,
@@ -193,7 +196,7 @@ async function upsertEntries(api, wanted) {
                 await api.createEntry(WORLD_BOOK_NAME, {
                     comment: item.title,
                     content: item.content,
-                    key: item.title,
+                    key: toKeyArr(item.title),   /* ★ ⇒ string[] */
                     keysecondary: '',
                     selective: false,
                     /* ★ [580] D2：摘要槽 constant=true 且**启用**；其余仍禁用（防与拦截器叠床） */
@@ -486,6 +489,18 @@ function buildEntries() {
  * 把手上的账写进世界书。
  * @param {object} opts { force:boolean } —— force=true 时不等节流，立刻写
  */
+/**
+ * ★ 20261023 依据＝阿砚 21 号：世界书条目的 key 必须是 **string[]**。
+ *   写成字符串：ST 自己读得下去，但酒馆助手的清理函数对 e.key 直接 .map() ⇒ 抛错 ⇒ 孤儿条目清不掉。
+ */
+export function toKeyArr(raw) {
+    if (Array.isArray(raw)) {
+        return raw.map((x) => String(x || '').trim()).filter(Boolean);
+    }
+    const k = String(raw || '').trim();
+    return k ? [k] : [];
+}
+
 export async function publishToBook(opts) {
     const api = bookApi();
     const settings = getSettings();
