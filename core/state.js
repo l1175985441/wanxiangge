@@ -17,6 +17,29 @@ import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotL
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
 
+/* ------------------------------ 字段改名迁移表 ------------------------------ */
+/*
+ * 依据＝第 7 问 C5（阿砚 51 号）：字段改名必须有一张表，否则改名即丢老数据。
+ *   现在表里只有一条（占位），以后改名就往这里加一行，⏔ 拆各处写 if。
+ */
+export const FIELD_RENAMES = [
+    /* { from: '旧字段名', to: '新字段名', at: '从哪个版本开始用新名' } */
+];
+
+/** 按表把一个对象里的旧字段名改成新名（新名已有值就不覆盖） */
+export function applyFieldRenames(obj, table) {
+    if (!obj || typeof obj !== 'object') { return obj; }
+    const rows = Array.isArray(table) ? table : FIELD_RENAMES;
+    for (const r of rows) {
+        if (!r || !r.from || !r.to) { continue; }
+        if (!Object.prototype.hasOwnProperty.call(obj, r.from)) { continue; }
+        const hadNew = Object.prototype.hasOwnProperty.call(obj, r.to);
+        if (!hadNew) { obj[r.to] = obj[r.from]; }
+        delete obj[r.from];
+    }
+    return obj;
+}
+
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */

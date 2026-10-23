@@ -7466,7 +7466,9 @@ export function bindSectionEvents(host, refresh) {
                      * 这里只做一件事：切同一个 id 的明细行的 data-hide 与 .wxg-cdetail 的 display。
                      */
                     const rowId = String(id);
-                    const dtr = document.querySelector('tr.wxg-cdetail-row[data-detail-of="' + rowId + '"]');
+                    /* 依据＝阿砚 51 号：⏔ 用 document.querySelector（工作台与浮层同开时会切到另一个面板的行）⇒ 限定在当前 host 作用域 */
+                    const scope = (typeof host !== 'undefined' && host && host.querySelector) ? host : document;
+                    const dtr = scope.querySelector('tr.wxg-cdetail-row[data-detail-of="' + rowId + '"]');
                     if (!dtr) { break; }
                     const hideNow = dtr.getAttribute('data-hide') === '1';
                     dtr.setAttribute('data-hide', hideNow ? '0' : '1');

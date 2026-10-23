@@ -19,7 +19,7 @@
 import { WORLD_BOOK_NAME, BOOK_ENTRY_PREFIX } from './config.js';
 import {  } from './adapter.js';
 import { probeChannel } from './wb-channel.js';
-import { loadState, listWindsView } from './state.js';
+import { loadState, listWindsView, saveState } from './state.js';
 import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
 
@@ -62,6 +62,42 @@ function bookApi() {
         remove: caps.remove || null,
         deleteEntry: caps.remove || null,
     };
+}
+
+
+/**
+ * 一次性迁移（依据＝第 7 问 C4／阿砚 51 号）：把我们自己书里**旧格式条目**归正一次。
+ *   · 只扫 `WORLD_BOOK_NAME` 这一本（⛔ 不碰她和别人的书）
+ *   · 只改 key／keysecondary 写成字符串的条目 ⇒ 数组
+ *   · 跑完在 `state.world.bookMigratedAt` 打标记，避免每次开面板都重跑
+ */
+export async function migrateBookEntriesOnce(api) {
+    try {
+        const st = loadState();
+        st.world = st.world || {};
+        if (st.world.bookMigratedAt) { return { ok: true, skipped: true, fixed: 0 }; }
+        const entries = await readEntries(api);
+        if (!entries) { return { ok: false, reason: '读不到这本书，下次再迁' }; }
+        const fixes = [];
+        for (const e of entries) {
+            if (!e) { continue; }
+            const keyIsStr = typeof e.key === 'string';
+            const secIsBad = typeof e.keysecondary === 'string' || e.keysecondary === undefined;
+            if (!keyIsStr && !secIsBad) { continue; }
+            const patch = Object.assign({}, e);
+            if (keyIsStr) { patch.key = toKeyArr(e.key); }
+            if (secIsBad) { patch.keysecondary = toKeyArr(e.keysecondary); }
+            fixes.push(patch);
+        }
+        if (fixes.length && api && api.setEntries) {
+            await api.setEntries(WORLD_BOOK_NAME, fixes);
+        }
+        st.world.bookMigratedAt = Date.now();
+        saveState();
+        return { ok: true, skipped: false, fixed: fixes.length };
+    } catch (e) {
+        return { ok: false, reason: (e && e.message) ? e.message : String(e) };
+    }
 }
 
 /** 确保"万象阁"那本世界书存在 */
@@ -512,6 +548,8 @@ export async function publishToBook(opts) {
         return { ok: false, reason: '这个酒馆版本没给出世界书接口' };
     }
     const exists = await ensureBook(api);
+    /* 依据＝第 7 问 C4：一次性把旧格式条目归正（只跑一次，有 bookMigratedAt 标记） */
+    try { await migrateBookEntriesOnce(api); } catch (eMig) { }
     if (!exists) {
         return { ok: false, reason: '建不了世界书《' + WORLD_BOOK_NAME + '》（可能没有建书权限）' };
     }
