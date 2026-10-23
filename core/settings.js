@@ -245,7 +245,7 @@ export function patchSettings(patch) {
     const clean = Object.assign({}, patch || {});
     const NUM = {
         recentTurns: [1, 10, DEFAULT_SETTINGS.recentTurns],
-        maxChars: [1, 8, DEFAULT_SETTINGS.maxChars],
+        maxChars: [1, 99, DEFAULT_SETTINGS.maxChars],   /* 依据＝阿砚 24 号：不再封顶 8 */
         maxEvents: [0, 20, DEFAULT_SETTINGS.maxEvents],
         pastFloorCut: [0, 50, DEFAULT_SETTINGS.pastFloorCut],
         updateEvery: [1, 10, DEFAULT_SETTINGS.updateEvery],
@@ -368,17 +368,24 @@ export function fillTemplate(template, values) {
         out = out.split('{{user}}').join('玩家');
     }
     // 没填上的占位换成空，⛔ 不把 {{xx}} 这种黑话喂给模型
-    out = out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, '');
+    /* 依据＝第 7 问 P2：没填上的占位不能静默抹空（她手写错一个名字，那句就无声消失）⇒ 先记下名字告警再抹空 */
+    const leftover = [];
+    out = out.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m0, k0) => { leftover.push(k0); return ''; });
+    if (leftover.length && typeof console !== 'undefined' && console.warn) {
+        console.warn('[prompt] 这些占位符没有对应内容、已被清空：' + Array.from(new Set(leftover)).join('、'));
+    }
     return out;
 }
 
 /** 提示词里用到的占位符清单（面板上给她看） */
 export function promptPlaceholders(kind) {
     if (kind === 'world') {
-        return ['{{world}}', '{{clock}}', '{{recent}}', '{{hidden}}'];
+        /* 依据＝第 7 问 P1：模板里真用到 10 个，面板只列 4 个 ⇒ 补全 */
+        return ['{{world}}', '{{clock}}', '{{recent}}', '{{hidden}}', '{{factions}}',
+            '{{worldFacts}}', '{{worldWinds}}', '{{worldPulse}}', '{{blastMax}}', '{{user}}'];
     }
     if (kind === 'chars') {
-        return ['{{clock}}', '{{world}}', '{{recent}}', '{{chars}}'];
+        return ['{{clock}}', '{{world}}', '{{recent}}', '{{chars}}', '{{user}}'];
     }
     return [];
 }

@@ -43,7 +43,7 @@ export function mergeCharacters(keepId, fromName) {
     keep.aliases = Array.from(aliasSet);
 
     /* ② 数据互补：谁有谁填，⛔ 一个字段都不丢 */
-    const textFields = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'affinitySource'];
+    const textFields = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'affinitySource', 'behaviorBounds', 'knowledgeBounds'];   /* 依据＝第 7 问 D4 */
     for (const f of textFields) {
         const mine = trimText(keep[f]);
         const theirs = trimText(from[f]);
@@ -72,7 +72,8 @@ export function mergeCharacters(keepId, fromName) {
         for (const f of pastUnique.slice(pastCap)) {
             state.chronicle.push({
                 at: f.at || Date.now(),
-                floor: Number.isFinite(Number(f.fromFloor)) ? Number(f.fromFloor) : keep.lastSeenFloor,
+                floor: Number.isFinite(Number(f.floor !== undefined ? f.floor : f.fromFloor))
+                    ? Number(f.floor !== undefined ? f.floor : f.fromFloor) : keep.lastSeenFloor,
                 kind: '过去经历·淡化',
                 who: keep.name,
                 text: trimText(f.text),
@@ -149,7 +150,7 @@ export function mergeCharacters(keepId, fromName) {
     // 其它标记：任何一个为真就为真
     keep.isPlayer = keep.isPlayer === true || from.isPlayer === true;
     keep.manual = keep.manual === true || from.manual === true;
-    keep.isNew = keep.isNew === true && from.isNew === true;
+    keep.isNew = keep.isNew === true || from.isNew === true;   /* 依据＝第 7 问 L1：两条里任一是新的就仍是新的 */
     keep.lastSeenFloor = Math.max(Number(keep.lastSeenFloor) || -1, Number(from.lastSeenFloor) || -1);
     /* ★ [580] A7：在场楼／相关度取较新／较高 */
     keep.presentFloor = Math.max(Number(keep.presentFloor) || -1, Number(from.presentFloor) || -1);
@@ -303,5 +304,6 @@ export function markManual(state, characterId, key, value) {
     }
     c.manualFields = fields;
     c.updatedAt = Date.now();
+    saveState();   /* 依据＝第 7 问 L4：只改内存不落盘 ⇒ 下次读档丢手改 */
     return true;
 }
