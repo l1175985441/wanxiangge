@@ -705,7 +705,7 @@ function secGeneral(host) {
      */
     row(opsRow, button('立刻更新', 'update-now', 'wxg-primary'), button('从快照恢复', 'rollback'),
         button('重算本楼', 'replan'));
-    opsRow.appendChild(el('span', 'wxg-note', '（快照：每次更新、合并、删楼、换版前都会先留一份；这颗回到**最近一次**那份）'));
+    opsRow.appendChild(el('span', 'wxg-note', '（快照：每次更新、合并、删楼、换版前都会先留一份；这颗回到**最近一次**那份 —— 连点两次会又回到刚才那份（它自己也会先留一手））'));
     /*
      * ★ 20261023（阿砘 16 号）：快照**列表**——她可以挑一份回去，⏔ 只能撤最近一次 ✗
      */
@@ -3608,8 +3608,8 @@ function secSteps(host, intoBox) {
     const state = loadState();
     const chron = getChronicle();
     const recs = asArray(state.recallRecords);
-    const lastFloor = (state.lastUpdate && Number.isFinite(Number(state.lastUpdate.floor)))
-        ? Number(state.lastUpdate.floor) : -1;
+    const lastFloor = (state.lastUpdate && Number.isFinite(Number(((Number.isFinite(Number((state.pipeline || {}).atFloor)) && Number((state.pipeline || {}).atFloor) >= 0) ? Number((state.pipeline || {}).atFloor) : state.lastUpdate.floor))))
+        ? Number(((Number.isFinite(Number((state.pipeline || {}).atFloor)) && Number((state.pipeline || {}).atFloor) >= 0) ? Number((state.pipeline || {}).atFloor) : state.lastUpdate.floor)) : -1;
 
     /*
      * ⚠️ 楼层口径**必须跟酒馆一致**（复核方点名）：酒馆消息头上的编号从 0 起，

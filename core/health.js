@@ -85,6 +85,11 @@ function resultText(lastUpdate, pipe) {
  *   ⇒ 先把"不是数"的掐掉，再退回 `sum.lastUpdate.floor`（那份带 atFloor 兜底）。
  */
 function stopFloorText(lastUpdate, sum) {
+    /* 依据＝第 7 问 D1 / 阿砚 49 号：sum 那边已改走 pipeline.atFloor；⏔ 先读原始 lastUpdate.floor（那是已处理水位） */
+    const sumFloor = Number(sum && sum.lastUpdate && sum.lastUpdate.floor);
+    if (Number.isFinite(sumFloor) && sumFloor >= 0) {
+        return '第 ' + String(sumFloor) + ' 楼';
+    }
     const raw = lastUpdate ? lastUpdate.floor : null;
     let n = -1;
     if (raw !== null && raw !== '' && raw !== undefined) {

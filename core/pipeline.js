@@ -795,7 +795,9 @@ async function stepWorld(material, attempt) {
     const res = await callModelJson({
         prompt: tryN > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
         // ⛔ 破限词必须**真的发出去**：留空时要用内置那份（原来只读了原始设置 ⇒ 留空就等于没发）
-        system: effectivePrompt('jailbreak'),
+        /* 依据＝第 7 问 P3（她 [594]「真的得因果关系」）：世界步每个新变化都要说得出「为什么现在发生」 */
+        system: effectivePrompt('jailbreak')
+            + '\n\n⏔ 因果（每条新变化都必须回答）：为什么是**现在**发生？前因／诱因／到点，必须指得出；说不清就保持安静，⏔ 为了有事发生而编一个。',
         maxTokens: retryTokens((settings.api || {}).maxTokens, tryN),
     });
 

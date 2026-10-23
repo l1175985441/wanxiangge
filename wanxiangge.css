@@ -3882,3 +3882,26 @@ body.wxg-dragging {
 @media (max-width: 720px) {
     .wxg-line-group { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ==========================================================================
+   依据＝第 7 问 B1（阿砚 49 号）：断点统一
+   旧：七处 @media 用了 620/700/720/800/900 五个阈值，没有手机档
+   新：三档——≤900（窄窗）／≤720（板子）／≤480（手机）；下面是兜底规则
+   ========================================================================== */
+@media (max-width: 900px) {
+    .wxg-line-group { grid-template-columns: minmax(0, 1fr); }
+    .wxg-pc-kv { grid-template-columns: 62px minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+    .wxg-line-group,
+    .wxg-two,
+    .wxg-ws-main .wxg-two { grid-template-columns: minmax(0, 1fr); }
+    .wxg-pc-kv { grid-template-columns: minmax(0, 1fr); }
+    .wxg-card { max-width: 100%; }
+}
+@media (max-width: 480px) {
+    .wxg-card, .wxg-sec { padding-left: 8px; padding-right: 8px; }
+    .wxg-card-actions { flex-wrap: wrap; gap: 6px; }
+    .wxg-ctable { font-size: 12px; }
+    .wxg-pc { max-width: calc(100vw - 16px); }
+}
