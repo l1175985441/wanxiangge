@@ -150,6 +150,7 @@ export async function upsertEntries(api, wanted) {   /* ★ 供测试（行为�
             const patch = { ...old, content: item.content };
                 /* ★ 迁移：她盘上已有的字符串 key 条目，下一次写入顺手改成数组（不改就一直报错） */
                 if (typeof patch.key === 'string') { patch.key = toKeyArr(patch.key); }
+                if (!Array.isArray(patch.keysecondary)) { patch.keysecondary = toKeyArr(patch.keysecondary); }   /* 字符串／不存在 都归正成数组 */
             if (item.constant === true) {
                 patch.constant = true;
                 patch.selective = false;
@@ -176,7 +177,7 @@ export async function upsertEntries(api, wanted) {   /* ★ 供测试（行为�
                         content: item.content,
                         /* ★ 同上：兜底路径也必须是数组 */
                 key: toKeyArr(item.key || item.comment || item.title || ''),
-                        keysecondary: '',
+                        keysecondary: [],   /* ★ 依据＝阿砚 25 号：ST 原生也是 string[]，写字符串 ⇒ e.keysecondary.map() 抛错 */
                         selective: false,
                         constant: false,
                     });
@@ -197,7 +198,7 @@ export async function upsertEntries(api, wanted) {   /* ★ 供测试（行为�
                     comment: item.title,
                     content: item.content,
                     key: toKeyArr(item.title),   /* ★ ⇒ string[] */
-                    keysecondary: '',
+                    keysecondary: [],   /* ★ 依据＝阿砚 25 号：ST 原生也是 string[]，写字符串 ⇒ e.keysecondary.map() 抛错 */
                     selective: false,
                     /* ★ [580] D2：摘要槽 constant=true 且**启用**；其余仍禁用（防与拦截器叠床） */
                     constant: item.constant === true,
