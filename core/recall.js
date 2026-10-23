@@ -28,7 +28,18 @@ export function injectCharCap() {
 }
 
 /** 一人一块，封顶条数在代码里再夹一次 */
-const HARD_CHAR_LIMIT = 8;
+/*
+ * ★ 20261024 依据＝阿砚 24 号（她的口径：召回条数由用户自己填、⏔ 设上限）：
+ *   原来这里有个硬顶 8 的常量，她填 20、填 50 都被 Math.min 夹回 8 ⇒ **设置项是摆设** ✗
+ *   现在：默认仍是 8，但**不再封顶**；填不合法（0／负数／非数）才回退到 8。代价提示放在面板上，⏔ 在代码里偷偷夹。
+ */
+const DEFAULT_CHAR_LIMIT = 8;
+
+/** 召回人物条数：她填多少就用多少（只防不合法的值） */
+export function charLimitOf(settings) {
+    const raw = Number(settings && settings.maxChars);
+    return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : DEFAULT_CHAR_LIMIT;
+}
 
 /** 聊天里最后一条用户消息所在的楼层号 */
 export function findLastUserFloor(chat) {
@@ -802,7 +813,7 @@ export function buildRecall(input) {
         picked = picked.slice().sort((a, b) => (order.get(a.character.id) || 0) - (order.get(b.character.id) || 0));
     }
 
-    const limit = Math.min(settings.maxChars, HARD_CHAR_LIMIT);
+    const limit = charLimitOf(settings);   /* ★ 依据＝阿砚 24 号：不再封顶 */
     const kept = picked.slice(0, limit);
     if (picked.length > kept.length) {
         notes.push('名册里共说到 ' + String(picked.length) + ' 人，按封顶取了 ' + String(kept.length) + ' 人');

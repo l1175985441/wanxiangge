@@ -2947,7 +2947,7 @@ function secRecall(host) {
     };
     lineGroup([
         lineCell('线索回溯', numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns')),
-        lineCell('人物封顶', numberInput('wxg-max-chars', s.maxChars, 1, 8, 'stage-max-chars')),
+        lineCell('人物封顶（建议 8–20，太大占上下文）', numberInput('wxg-max-chars', s.maxChars, 1, 99, 'stage-max-chars')),
         lineCell('事件封顶', numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events')),
     ]);
     lineGroup([
