@@ -7459,6 +7459,21 @@ export function bindSectionEvents(host, refresh) {
                     toast.info('已改成「停在上一轮」：只算落定的楼，省额度（点段底「保存」生效）');
                     break;
                 }
+                case 'toggle-cdetail': {
+                    /*
+                     * 依据＝阿砚 50 号 J09：主行写了 data-action="toggle-cdetail"，但全文件没有这个 case，
+                     * 也没人读 data-hide ⇒ 点了什么都不发生（那五个可改字段永远看不到）。
+                     * 这里只做一件事：切同一个 id 的明细行的 data-hide 与 .wxg-cdetail 的 display。
+                     */
+                    const rowId = String(id);
+                    const dtr = document.querySelector('tr.wxg-cdetail-row[data-detail-of="' + rowId + '"]');
+                    if (!dtr) { break; }
+                    const hideNow = dtr.getAttribute('data-hide') === '1';
+                    dtr.setAttribute('data-hide', hideNow ? '0' : '1');
+                    const inner = dtr.querySelector('.wxg-cdetail');
+                    if (inner && inner.style) { inner.style.display = hideNow ? '' : 'none'; }
+                    break;
+                }
                 case 'toggle-lock': {
                     // 数据卡的「编辑／收起」：只切「正在编辑」这个状态，⏐ 不动数据
                     const k = trimText(id);
