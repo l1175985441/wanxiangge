@@ -34,8 +34,9 @@ export function markCarried(items, opts) {
                 continue;
             }
             // 被"楼层裁"挡在最近 N 楼内的，本轮并没端出去 ⇒ ⛔ 不标 injected
-            if (cut > 0 && hasAnchor && Number.isFinite(Number(p.fromFloor))) {
-                if ((anchorFloor - Number(p.fromFloor)) < cut) {
+            const pastFloor = Number(p.floor !== undefined ? p.floor : p.fromFloor);
+            if (cut > 0 && hasAnchor && Number.isFinite(pastFloor)) {
+                if ((anchorFloor - pastFloor) < cut) {
                     continue;
                 }
             }
@@ -68,7 +69,7 @@ export function markCarried(items, opts) {
  */
 export function commitLedger(justNow) {
     const state = loadState();
-    const records = state.recallRecords;
+    const records = Array.isArray(state.recallRecords) ? state.recallRecords : [];   /* 依据＝第 7 问 S1 */
     let latest = justNow && typeof justNow === 'object' ? justNow : null;
     if (!latest) {
         // 退路：按"注入时刻"取最新的一条（⛔ 不是按数组顺序）

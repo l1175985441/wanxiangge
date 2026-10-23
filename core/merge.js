@@ -9,7 +9,7 @@
  */
 
 import { loadState, saveState, takeSnapshot, addChronicle, LIMITS, rollbackLast } from './state.js';
-import { trimText, uniqueBy, asText } from './utils.js';
+import { trimText, uniqueBy, asText, matchKey } from './utils.js';
 
 /** 合并两条角色记录：把 fromName 并进 keepId */
 export function mergeCharacters(keepId, fromName) {
@@ -19,8 +19,10 @@ export function mergeCharacters(keepId, fromName) {
         return { ok: false, reason: '找不到要保留的那一条' };
     }
     const target = trimText(fromName);
+    const targetKey = matchKey(target);
     const from = state.characters.find((c) => c.id !== keepId
-        && (c.name === target || (c.aliases || []).includes(target)));
+        && (matchKey(c.name) === targetKey
+            || (c.aliases || []).some((al) => matchKey(al) === targetKey)));   /* 依据＝第 7 问 D6：别名带空格／全半角差异也要能找到 */
     if (!from) {
         return { ok: false, reason: '找不到叫「' + target + '」的另一条记录' };
     }
@@ -280,6 +282,7 @@ export function autoDetectDuplicates() {
           if (related) {
                 group.push(b);
                 used.add(b.id);
+                used.add(a.id);   /* 依据＝第 7 问 L2：不标 a 会让它再单独成组 ⇒ 三方互包含时漏报 */
             }
         }
         if (group.length > 1) {
