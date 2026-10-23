@@ -519,7 +519,7 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
  *   去重后拼成一串 ✓；一个都没有 ⇒ 回「玩家」 ✓（⏔ 回空字串 ✗）
  */
 /**
- * ★ 20261022 ⑥：代控门要认得她的真名与别名（⏔ 只认我咱俣）。
+ * ★ 20261022 ⑥ ＋ 20261023 §①：代控门要认得她的真名与别名（自称字不是全部）。
  */
 function playerNamesArr() {
     try {
@@ -1943,17 +1943,29 @@ export function checkActingAsMe(rows, floor) {
                  *    （真踩过：加完结构判之后 run-tests-p2 的"侧面放过"当场变红）。
                  */
                 const BEFORE = /[对给向跟和与朝冲让被叫看望等问帮替自我到在从往至进出回过由于挨靠临]/;
+                /*
+                 * ★ 20261023 依据＝阿砚 20 号 §①：主语判定**不能只认三个自称字**。
+                 *   旧：字面表只有三个字 ⇒ 模型把主角写成真名时**整条链一次都不进** ✗
+                 *   新：自称字 ＋ 她的真名与别名（personaNames／玩家棋子）一起当候选；长名优先；
+                 *        命中后仍走原来两道豁免（后面跟「的」／前面是介词）✓
+                 */
+                const ME_NAMES = ['我', '咱', '俺'].concat(playerNamesArr()).filter(Boolean)
+                    .sort((a, b) => b.length - a.length);
                 for (let i = 0; i < s.length; i += 1) {
-                    if ('我咱俺'.indexOf(s[i]) < 0) {
+                    const hit = ME_NAMES.find((nm) => s.startsWith(nm, i));
+                    if (!hit) {
                         continue;
                     }
-                    if (s[i + 1] === '的') {
+                    const end = i + hit.length;
+                    if (s[end] === '的') {
+                        i = end - 1;
                         continue;                      // 所有格：侧面豁免
                     }
                     if (BEFORE.test(s.slice(Math.max(0, i - 4), i))) {
-                        continue;                      // 宾语：别人对我…
+                        i = end - 1;
+                        continue;                      // 宾语：别人对我／对她…
                     }
-                    return true;                        // 其余 ⇒ 它当了主语
+                    return true;                       // 其余 ⇒ 它当了主语
                 }
                 return false;
             })();

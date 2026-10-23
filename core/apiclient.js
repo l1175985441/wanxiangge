@@ -484,12 +484,19 @@ export async function callModel(opts) {
             try {
                 if (api.mode === 'direct') {
                     try { res = await callDirect(url, key, modelTry, body, timeout.signal); }
-                    catch (eP1) { res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true); }
+                    catch (eP1) {
+                        /* ★ §④：已经超时／取消就⏔ 再打一次转发（白跑一趟） */
+                        if (isAbortError(eP1)) { throw eP1; }
+                        res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
+                    }
                 } else {
                     res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                 }
                 if (res && res.ok) { autoVia = autoVia || 'prefix-auto'; sessionViaHint = sessionViaHint || 'prefix-auto'; }
-            } catch (eP2) { /* 保持原结果 ✓ */ }
+            } catch (eP2) {
+            /* ★ §④：不能空 catch（异常无声消失就没法查）；保持原结果，但留一行痕迹 */
+            try { console.warn('[api] 重试路径异常（保持原结果）：' + asText(eP2 && eP2.message)); } catch (eW2) { }
+        }
         }
         let loweredTo = 0;
         for (let guard = 0; guard < 3 && res && res.ok === false
@@ -911,7 +918,13 @@ function extractChunkPiece(j) {
  *   2. 按内容自身特征判：含 `data:` 行或 SSE 事件流 ⇒ 逐行解析拼合 delta；否则走整包 JSON.parse（失败再回退逐行扫）；
  *   3. 若上游在 HTTP 200 流内塞了 {"error":...}，直接拎出真实错误原因。
  */
-async function readMaybeStream(res) {
+/** ★ §④：超时／取消的统一判定 */
+function isAbortError(e) {
+    return !!(e && (e.name === 'AbortError' || /abort/i.test(asText(e.message))));
+}
+
+export async function readMaybeStream(res) {
+    let streamInterrupted = '';   /* ★ §②：非空 ⇒ 这段是残的（上层要能看到） */
     let rawText = '';
     // ① 先把字节流稳妥读成文本（支持分块流式消费，且兼容假机 mock）
     if (res && res.body && typeof res.body.getReader === 'function') {
@@ -929,12 +942,20 @@ async function readMaybeStream(res) {
                 }
             }
         } catch (eStream) {
-            /* ⭐修复 10：**超时（AbortError）且一字未收 ⇒ 往上报** ✓
-             *   （旧：一律吞掉 ✗ ⇒ 伪装成“HTTP 200 空包”报上去 ✗） */
-            if (eStream && (eStream.name === 'AbortError' || /abort/i.test(asText(eStream.message))) && !trimText(rawText)) {
+            /*
+             * ★ 20261023 依据＝阿砚 20 号 §②：**收到一半断连不能当“正常完成”**。
+             *   ① 一字未收 ＋ AbortError ⇒ 仍 throw；
+             *   ② 已收到内容 ＋ 异常 ⇒ 不抛，但返回值带 error（上层能显示“这段是残的”）；
+             *   ③ 真的空 ⇒ 保持原来的空包处理。
+             */
+            const aborted = !!(eStream && (eStream.name === 'AbortError' || /abort/i.test(asText(eStream.message))));
+            if (aborted && !trimText(rawText)) {
                 throw eStream;
             }
-
+            if (trimText(rawText)) {
+                streamInterrupted = '流中断（已收 ' + String(rawText.length) + ' 字）';
+                try { console.warn('[api] ' + streamInterrupted + '：' + asText(eStream && eStream.message)); } catch (eW) { }
+            }
         }
     } else if (res && typeof res.text === 'function') {
         rawText = await res.text().catch(() => '');
@@ -951,7 +972,7 @@ async function readMaybeStream(res) {
 
     const trimmed = String(rawText || '').trim();
     if (!trimmed) {
-        return { text: null, finish: '', error: '响应体为空（0 字节）', raw: '' };
+        return { text: null, finish: '', error: streamInterrupted || '响应体为空（0 字节）', raw: '' };
     }
 
     // ② 内容判据：像不像 SSE 流（含 data: 前缀行）？
@@ -1016,7 +1037,7 @@ async function readMaybeStream(res) {
     /* ⭐修复 10：收集“看到过思考块”的标志 ✓ */
     const out = trimText(acc);
     if (out) {
-        return { text: out, finish: fin, error: '', raw: trimmed };
+        return { text: out, finish: fin, error: streamInterrupted || '', raw: trimmed };
     }
     /* ⭐⭐ 修复 10：**“思考把额度吐完了”要报成人话** ✓
      *   旧：只回个 null ✗ ⇒ 她看到“怪东西”根本不知道去哪调 ✗ */
@@ -1035,10 +1056,10 @@ async function readMaybeStream(res) {
     if (looksLikeSse && !validFrames) {
         try {
             const data = JSON.parse(trimmed);
-            return { text: readCompletionText(data), finish: readFinishReason(data), error: '', raw: trimmed };
+            return { text: readCompletionText(data), finish: readFinishReason(data), error: streamInterrupted || '', raw: trimmed };
         } catch (e) { /* 忽略 */ }
     }
-    return { text: null, finish: fin, error: '', raw: trimmed };
+    return { text: null, finish: fin, error: streamInterrupted || '', raw: trimmed };
 }
 
 function readCompletionText(data) {

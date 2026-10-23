@@ -5341,7 +5341,6 @@ function drawFailure(host, err) {
         box.appendChild(el('b', null, '界面有一段没画出来（原因照抄反馈即可）：'));
         box.appendChild(el('div', 'wxg-fact', String((err && err.message) || err)));
         /* 20261022 ⑤：⏔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
-            /* 20261022 ⑤：⏔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
             try { console.error('[wxg] 界面段渲染失败', err); } catch (eC) { }
             box.appendChild(el('div', 'wxg-fact', '这一段没画出来：把这句反馈给我们就行'));
         host.appendChild(box);

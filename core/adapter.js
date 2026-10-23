@@ -153,7 +153,7 @@ export function readLedger() {
     if (direct && typeof direct === 'object' && hasContent(direct)) {
         if (isOwnPastKey(keyOf(direct))) {
             // 同一个聊天：新聊天存档时 file_name 才出现（此前叫 default-chat）⇒ 换个章继续用
-            adoptLedger(key, direct);
+            adoptLedger(key, direct).catch((eA) => { try { console.warn('[adapter] 收养旧账本写入失败：' + String(eA && eA.message)); } catch (eA2) { } });
             if (looksLikeLedger(mirror, key) && richer(direct, mirror) === mirror) {
                 md[LEDGER_KEY] = mirror;
                 return mirror;
@@ -173,7 +173,7 @@ export function readLedger() {
         const knownElsewhere = !!(mirrorBox && typeof mirrorBox === 'object' && oldKey5
             && Object.prototype.hasOwnProperty.call(mirrorBox, oldKey5));
         if (!knownElsewhere && !looksLikeLedger(mirror, key)) {
-            adoptLedger(key, direct);
+            adoptLedger(key, direct).catch((eA) => { try { console.warn('[adapter] 收养旧账本写入失败：' + String(eA && eA.message)); } catch (eA2) { } });
             return direct;
         }
         stashToMirror(null, direct, true);   // 真是别的聊天 ⇒ 按它自己的章收进底稿，别丢
@@ -226,9 +226,14 @@ function cacheChatKey() {
 }
 
 /** 收养一本"自己以前名字"的账：换个章、落个底，继续用 */
-function adoptLedger(key, ledger) {
+/**
+ * ★ 20261023 依据＝阿砚 20 号 §③：**writeLedger 是 async，不 await 就会把写失败变成 unhandled rejection**。
+ *   ⚠️ readLedger() 是同步公开 API（调用点很多），没法在里面 await ⇒ 这里返回 promise，
+ *   调用点用 .catch() 挂上告警（既不丢异常、也不把同步 API 改成异步）。
+ */
+async function adoptLedger(key, ledger) {
     ledger.chatKey = key;
-    writeLedger(ledger);
+    await writeLedger(ledger);
     return ledger;
 }
 
