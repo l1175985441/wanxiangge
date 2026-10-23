@@ -87,7 +87,7 @@ export function toList(v) {
         return v.map(trimText).filter(Boolean);
     }
     return asText(v)
-        .split(/[\n,，、;；/|]+/)
+        .split(/[\n,，、;；|]+/)   /* 依据＝第 7 问 D5：⏔ 按 '/' 拆（「水手月亮/月野兔」会被拆成两条） */
         .map(trimText)
         .filter(Boolean);
 }
@@ -98,7 +98,9 @@ export function clampNumber(v, min, max, fallback) {
     if (!Number.isFinite(n)) {
         return fallback;
     }
-    return Math.min(max, Math.max(min, Math.trunc(n)));
+    const clamped = Math.min(max, Math.max(min, n));
+    /* 依据＝第 7 问 S3：范围是整数才取整（原来一律 trunc ⇒ 谁拿它夹 temperature（0.4）就静默归 0） */
+    return (Number.isInteger(min) && Number.isInteger(max)) ? Math.trunc(clamped) : clamped;
 }
 
 /** 转义 HTML（手工拼字符串时兜底用） */

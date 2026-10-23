@@ -8,7 +8,7 @@
  * 合并前自动留一版快照（能撤回）。
  */
 
-import { loadState, saveState, takeSnapshot, addChronicle, LIMITS, rollbackLast } from './state.js';
+import { loadState, saveState, takeSnapshot, addChronicle, LIMITS, rollbackToSnapshot } from './state.js';
 import { trimText, uniqueBy, asText, matchKey } from './utils.js';
 
 /** 合并两条角色记录：把 fromName 并进 keepId */
@@ -206,17 +206,23 @@ export function mergeCharacters(keepId, fromName) {
 /** 撤销上一次合并（撤回快照即可） */
 export function undoLastMerge() {
     const state = loadState();
-    const snap = state.snapshots[state.snapshots.length - 1];
-    if (!snap || !asText(snap.label).includes('合并前')) {
-        return { ok: false, reason: '最近这一版快照不是合并留下的' };
+    const snaps = Array.isArray(state.snapshots) ? state.snapshots : [];
+    /* 依据＝第 7 问 L3：⏔ 只看最后一版（合并后再更新一次就永远撤不回）⇒ 往回找最近一份「合并前」 */
+    let idx = -1;
+    for (let i = snaps.length - 1; i >= 0; i -= 1) {
+        if (snaps[i] && asText(snaps[i].label).includes('合并前')) { idx = i; break; }
     }
+    if (idx < 0) {
+        return { ok: false, reason: '快照里没有「合并前」那一版（可能已被快照上限挤掉）' };
+    }
+    const snap = snaps[idx];
     /*
      * ⭐ U5（材料 12·未覆盖死角）：**真撤回** ✓
      *   旧：只看一眼快照标签里有没有“合并前”，然后**直接 return { ok: true }** ✗
      *     ⇒ 假装撤回了：界面告诉她成功，数据**一动未动** ✗
      *   现在：真去扛 `rollbackLast()` ✓（它自带“撤之前再压一版”的保险 ✓）
      */
-    const rolled = rollbackLast();
+    const rolled = rollbackToSnapshot(idx);   /* 依据＝第 7 问 L3：回到找到的那份快照，⏔ 只 pop 最后一版 */
     if (!rolled) {
         return { ok: false, reason: '撤回没跑成（快照里没数据）' };
     }

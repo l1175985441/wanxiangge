@@ -57,7 +57,8 @@ export function buildStateSummary(opts) {
                 due += 1;
             }
         } catch (e) {
-            // 单条算不出来不影响整体
+            /* 依据＝第 7 问 S2：不能静默吞（世界钟格式怪时会静默归 0） */
+            try { console.warn('[summary] 暗线到点算不出（跳过这条）：' + String(e && e.message)); } catch (e2) { }
         }
     }
 
@@ -122,13 +123,16 @@ export function buildStateSummary(opts) {
              *   老账里 floor 是空时会虚报"停在 #0"。⇒ 先把"不是数"的掉掉。
              */
             floor: (function () {
+                /* 依据＝第 7 问 D1：lastUpdate.floor 是「已处理到第几楼」的水位（更新触发靠它做差），
+                 * 显示要用 pipeline.atFloor；两者都没才算"未定位" */
+                const a = Number(p.atFloor);
+                if (Number.isFinite(a) && a >= 0) { return a; }
                 const raw = state.lastUpdate ? state.lastUpdate.floor : null;
                 if (raw !== null && raw !== '' && raw !== undefined) {
                     const v = Number(raw);
                     if (Number.isFinite(v) && v >= 0) { return v; }
                 }
-                const a = Number(p.atFloor);
-                return Number.isFinite(a) && a >= 0 ? a : -1;
+                return -1;
             })(),
             at: state.lastUpdate && Number(state.lastUpdate.at) ? Number(state.lastUpdate.at) : 0,
             status: trimText(p.status) || 'idle',
