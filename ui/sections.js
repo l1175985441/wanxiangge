@@ -736,6 +736,16 @@ function secGeneral(host) {
     bfN.setAttribute('title', '例：填 5 ⇒ 只补最近 5 层你的发言；留空 ⇒ 从最早补到现在（老行为）');
     bfRow.appendChild(bfN);
     opsRow.appendChild(bfRow);
+    /*
+     * 依据＝阿砚 53 号 M22：补推的进度/结果以前只在状态页顶栏（pipeline.text），她得翻页才看得见。
+     *   这里把它**贴到操作卡旁**（同一个 opsRow，⛔ 不另起飘窗）；没有进度时这一行不出现。
+     */
+    {
+        const pText2 = trimText(((loadState() || {}).pipeline || {}).text);
+        if (pText2) {
+            opsRow.appendChild(el('span', 'wxg-note', '\u8fdb\u5c55\uff1a' + pText2));
+        }
+    }
     row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
     /*
