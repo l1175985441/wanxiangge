@@ -171,7 +171,7 @@
  */
 
 .wanxiangge {
-    --wxg-gap: 6px;
+    /* 4-g #4：间距令牌只留后面那一块 --s1..--s5（4·8·12·16·24）；--wxg-gap 已退役（当 --s2） */
     --wxg-radius: 6px;
     --wxg-line: var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
     --wxg-fill: rgba(128, 128, 128, 0.12);
@@ -186,7 +186,7 @@
      *     （浅底得深灰、深底得浅灰，自适应）；老浏览器不认 `color-mix` 时
      *     用前一行那个 `#6e747a`（白底上约 4.9:1，达标）。
      */
-    --wxg-dim: rgba(110, 116, 122, 1);
+    /* 4-g：这里原来写了两行 --wxg-dim（后一行生效）⇒ 删掉死的那行 */
     --wxg-dim: color-mix(in srgb, currentColor 74%, transparent);
 }
 
@@ -646,7 +646,8 @@
 
 /* ---- 段＝折叠抽屉 ---- */
 .wanxiangge .wxg-sec {
-    margin-bottom: 6px;
+    /* 4-g #1：原来 margin-bottom 写了两份（6px 在这里、9px 在下面）；保留生效的 9px */
+    margin-bottom: 9px;
     border: 1px solid var(--wxg-line);
     border-radius: var(--wxg-radius);
     overflow: hidden;
@@ -655,7 +656,7 @@
 .wanxiangge .wxg-sec-head {
     padding: 8px 10px;
     background: var(--wxg-fill);
-    gap: var(--wxg-gap);
+    gap: var(--s2);
 }
 
 .wanxiangge .wxg-sec-head:hover {
@@ -693,10 +694,7 @@
     line-height: 1.68;
 }
 
-/* 段与段之间松一点，看着不挤 */
-.wanxiangge .wxg-sec {
-    margin-bottom: 9px;
-}
+/* 段与段之间松一点（已并入上面 .wxg-sec 块，4-g #1） */
 
 /*
  * ⭐ 目标核对 2②：收放由**我们自己**的 `data-wxg-open` 决定。
@@ -787,7 +785,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
     margin: 5px 0;
 }
 
@@ -802,14 +800,14 @@
 .wanxiangge .wxg-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--wxg-gap) 14px;
+    gap: var(--s2) 14px;
 }
 
 .wanxiangge .wxg-field {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
     /* ⚠️ 真机上看出来的：`flex: 1 1 200px` 会让"标签＋输入框"整组撑满一整行，
        标签被挤到上一行、输入框横跨全宽 ⇒ 改成按内容摆（放不下才换行）。 */
     flex: 0 1 auto;
@@ -842,7 +840,7 @@
 .wanxiangge .checkbox_label {
     display: flex;
     align-items: center;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
     margin: 4px 0;
     line-height: 1.5;
 }
@@ -862,7 +860,7 @@
 .wanxiangge .wxg-list {
     display: flex;
     flex-direction: column;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
     margin: 4px 0 8px;
 }
 
@@ -932,7 +930,7 @@
 .wanxiangge .wxg-roster {
     display: flex;
     flex-direction: column;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
 }
 
 .wanxiangge .wxg-char {
@@ -961,7 +959,7 @@
 .wanxiangge .wxg-char-fields {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--wxg-gap) 12px;
+    gap: var(--s2) 12px;
     align-items: center;
 }
 
@@ -990,7 +988,7 @@
 .wanxiangge .wxg-char-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
 }
 
 /* ⚠️ 以前这些小按钮用 `wxg-mini` 当类名 —— 后来 `wxg-mini` 变成了**悬浮球的根节点**
@@ -1122,7 +1120,7 @@
 .wanxiangge .wxg-report-list {
     display: flex;
     flex-direction: column;
-    gap: var(--wxg-gap);
+    gap: var(--s2);
 }
 
 .wanxiangge .wxg-report {
@@ -1204,7 +1202,7 @@
 .wanxiangge .wxg-chron {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--s2);   /* 4-g #4：硬编码 2px 不留（编年行距见渲染层 #4） */
     font-size: 0.9em;
     line-height: 1.55;
 }
@@ -1718,7 +1716,8 @@ body.wxg-dragging {
     --s1: 4px;
     --s2: 8px;
     --s3: 12px;
-    --s4: 18px;
+    --s4: 16px;
+    --s5: 24px;
     /* 字号**三档**（复核方给的规矩） */
     --fs-note: 0.84em;   /* 说明／注释 */
     --fs-body: 0.96em;   /* 正文／控件 */
@@ -1996,8 +1995,10 @@ body.wxg-dragging {
     --ctl-h-sm: 32px;
     --r-ctl: 9px;
     --r-card: 12px;
-    /* 间距再加两档（留白要够） */
-    --s5: 28px;
+    /*
+     * 4-g #4：间距只留一套（--s1..--s6，阶梯 4·8·12·16·24·40）。
+     *   这里原来又定了 --s5:28px ⇒ 同名两个值，此处只补 --s6（页级大留白）。
+     */
     --s6: 40px;
     /* 字号：页级大标题（22px+） / 卡头 / 标签 */
     --fs-h1: 1.52em;
@@ -3856,9 +3857,7 @@ body.wxg-dragging {
 .wxg-line-k { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wxg-line-v { min-width: 0; }
 .wxg-line-v .wxg-num, .wxg-line-v input, .wxg-line-v select { width: 100%; box-sizing: border-box; }
-@media (max-width: 720px) {
-    .wxg-line-group { grid-template-columns: minmax(0, 1fr); }
-}
+/* 4-g：这个单条 @media(720) 被下面同条件的并合块覆盖（同值重复）⇒ 删 */
 
 /* ==========================================================================
    依据＝第 7 问 B1（阿砚 49 号）：断点统一
