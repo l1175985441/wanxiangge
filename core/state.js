@@ -19,7 +19,9 @@ import { parseClock, isLineDone } from './clock.js';
 import { originId, agendaOriginId } from './config.js';
 import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
 import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
-import { applyRetired } from './contract.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { applyRetired } from './contract.js';
+/* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
+import { normalizeFactionPillars, normalizeWind } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1639,23 +1641,6 @@ export function markPulseCoverage(line, opts) {
 export const WORLD_WINDS_CAP = 24;
 export const WIND_KINDS = Object.freeze(['rumor', 'report', 'sentiment', 'announcement']);
 
-export function normalizeWind(raw) {
-    const src = raw && typeof raw === 'object' ? raw : {};
-    const topic = trimText(src.topic || src.title || src.name);
-    const text = trimText(src.text || src.content || src.note || src.rumor);
-    if (!topic && !text) { return null; }
-    let kind = String(trimText(src.kind || src.type) || 'rumor').toLowerCase();
-    if (!WIND_KINDS.includes(kind)) { kind = 'rumor'; }
-    /* 风声层＝未证实传闻：announcement 也只当「有人说有通报」级别，注入侧仍标风声 ⛔ 不当已证实新闻 */
-    return {
-        topic: topic || (text ? text.slice(0, 24) : ''),
-        text: text || topic,
-        kind,
-        source: trimText(src.source) || 'engine',
-        at: Number(src.at) || 0,
-        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
-    };
-}
 
 /**
  * ★ [580] C3：按 topic 去重写入风声账（未证实传闻；⛔ 不当 public 新闻）。
@@ -1739,17 +1724,6 @@ export function listWindsView(cap) {
 export const FACTION_STATUSES = Object.freeze(['鼎盛', '稳固', '倾轧', '困顿', '衰落', '瓦解']);
 export const FACTION_RELATIONS = Object.freeze(['血盟', '盟友', '友好', '中立', '冷淡', '敌对', '世仇']);
 
-export function normalizeFactionPillars(raw) {
-    const list = Array.isArray(raw) ? raw : (trimText(raw) ? [raw] : []);
-    const out = [];
-    for (const p of list) {
-        const name = typeof p === 'string' ? trimText(p) : trimText(p && p.name);
-        if (!name) continue;
-        out.push(name.length > 4 ? name.slice(0, 4) : name);
-        if (out.length >= 3) break;
-    }
-    return out;
-}
 
 export function normalizeFaction(f) {
     const src = f && typeof f === 'object' ? f : {};
@@ -1840,6 +1814,9 @@ export function upsertFaction(line) {
 }
 
 /** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
+/* 1-c #2 前置：这两个已搬到 core/normalize-world.js，这里只 re-export（对外 API 不变） */
+export { normalizeFactionPillars, normalizeWind } from './normalize-world.js';
+
 export function normalizeAgendaOrigin(raw) {
     if (raw && typeof raw === 'object') {
         return normalizeAgendaOrigin(raw.type || raw.kind);
