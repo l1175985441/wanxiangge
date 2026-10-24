@@ -5280,6 +5280,13 @@ export function paintBookPicks(host, ex, no) {
             b.type = 'button';
             b.setAttribute('data-action', 'pick-book');
             b.setAttribute('data-book', n);
+        /*
+         * 依据＝本轮取证（pick 失败点已从“找不到控件”变为“草稿状态”）：
+         *   芯片只带 `data-book`，而全站其他控件都用 `data-id` 做身份；
+         *   按 `data-id` 取芯片的代码（含自测）会落到“第一颗”上 ⇒ 点的不是同一本书。
+         *   这里把同一个名字同时写进 data-id（不改 data-book，⛔ 打破旧选择器）。
+         */
+        b.setAttribute('data-id', n);
         }
         const inEx = exSet.has(n);
         const inNo = noSet.has(n);
