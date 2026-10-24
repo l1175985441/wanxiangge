@@ -16,7 +16,7 @@
 
 .wxg-mes-card > details {
     border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
-    border-radius: 8px;
+    border-radius: var(--wxg-r-sm);
     background: rgba(128, 128, 128, 0.08);
     overflow: hidden;
 }
@@ -139,7 +139,7 @@
 .wxg-badge {
     display: inline-block;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     font-size: 0.85em;
     font-weight: 500;
     line-height: 1.5;
@@ -218,7 +218,7 @@
 .wxg-ws-mark {
     width: 26px;
     height: 26px;
-    border-radius: 7px;
+    border-radius: var(--wxg-r-sm);
     display: grid;
     place-items: center;
     font-weight: 700;
@@ -257,7 +257,7 @@
     font-size: 0.8em;
     padding: 2px 10px;
     border: 1px solid var(--wxg-border, #3a3f46);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
     white-space: nowrap;
 }
@@ -273,7 +273,7 @@
     padding: 2px 9px;
     cursor: pointer;
     border: 1px solid var(--wxg-border, #3a3f46);
-    border-radius: 7px;
+    border-radius: var(--wxg-r-sm);
     background: transparent;
     color: inherit;
 }
@@ -311,7 +311,7 @@
     margin-bottom: 2px;
     cursor: pointer;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--wxg-r-sm);
     background: transparent;
     color: inherit;
     opacity: 0.72;
@@ -429,7 +429,7 @@
     background: var(--wxg-fill, rgba(230, 231, 228, 0.07));
     color: inherit;
     border: 1px solid var(--wxg-border, #3a3f46);
-    border-radius: 7px;
+    border-radius: var(--wxg-r-sm);
 }
 
 .wxg-ws button:hover,
@@ -497,7 +497,7 @@
     min-width: 268px;
     max-width: min(78vw, 400px);
     padding: 9px 11px 10px;
-    border-radius: 10px;
+    border-radius: var(--wxg-r-md);
     border: 1px solid var(--wxg-border, #3a3f46);
     background: var(--wxg-surface, #1d1f23);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
@@ -533,7 +533,7 @@
     padding: 1px 8px;
     cursor: pointer;
     border: 1px solid var(--wxg-border, #3a3f46);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: transparent;
     color: inherit;
     opacity: 0.85;
@@ -622,7 +622,7 @@
     padding: 0 8px;
     border: 0;
     border-bottom: 2px solid transparent;
-    border-radius: 4px 4px 0 0;
+    border-radius: var(--wxg-r-xs) var(--wxg-r-xs) 0 0;
     background: transparent;
     color: inherit;
     opacity: 0.62;
@@ -912,7 +912,7 @@
     display: inline-block;
     padding: 0 6px;
     border: 1px solid var(--wxg-line);
-    border-radius: 10px;
+    border-radius: var(--wxg-r-md);
     font-size: 0.78em;
     line-height: 1.7;
     white-space: nowrap;
@@ -1062,7 +1062,7 @@
     padding: 2px 10px;
     cursor: pointer;
     border: 1px solid var(--wxg-line);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: transparent;
     color: inherit;
     opacity: 0.8;
@@ -1229,7 +1229,7 @@
     min-width: 360px;
     min-height: 260px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(120, 120, 120, 0.6));
-    border-radius: 10px;
+    border-radius: var(--wxg-r-md);
     /*
      * ⚠️ 实图里"糊成一团"的根因：主题色本身是**半透明**的（酒馆的毛玻璃色），
      *    底下聊天文字会透上来 ⇒ 面板里外两层字叠一起，看着脏。
@@ -1280,7 +1280,7 @@
 .wxg-panel-btn {
     cursor: pointer;
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: var(--wxg-r-xs);
     opacity: 0.85;
 }
 
@@ -1659,7 +1659,7 @@ body.wxg-dragging {
     min-height: 0;
     padding: 10px 12px;
     border: 1px dashed var(--wxg-border, rgba(128, 128, 128, 0.35));
-    border-radius: 10px;
+    border-radius: var(--wxg-r-md);
     opacity: 0.7;
     text-align: center;
 }
@@ -2145,7 +2145,7 @@ body.wxg-dragging {
     top: 8px;
     bottom: 8px;
     width: 3px;
-    border-radius: 2px;
+    border-radius: var(--wxg-r-xs);
     background: var(--wxg-accent, var(--wxg-line));
 }
 
@@ -2272,7 +2272,7 @@ body.wxg-dragging {
     width: 38px;
     min-width: 38px;
     height: 22px;
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     border: 1px solid var(--wxg-line);
     background: rgba(128, 128, 128, 0.22);
     position: relative;
@@ -2433,7 +2433,7 @@ body.wxg-dragging {
     height: 20px;
     padding: 0 8px;
     border: 1px solid var(--wxg-line);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: transparent;
     font-size: var(--fs-note);
     font-weight: 600;
@@ -2510,7 +2510,7 @@ body.wxg-dragging {
     height: 28px;
     padding: 0 11px;
     border: 1px solid var(--wxg-line);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: transparent;
     color: var(--wxg-dim);
     font-size: var(--fs-note);
@@ -2718,7 +2718,7 @@ body.wxg-dragging {
     height: 24px;
     padding: 0 9px;
     font-size: 0.82em;
-    border-radius: 6px;
+    border-radius: var(--wxg-r-xs);
     flex: 0 0 auto;
     white-space: nowrap;
 }
@@ -2965,7 +2965,7 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-pbar {
     height: 8px;
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: rgba(128, 128, 128, 0.18);
     overflow: hidden;
     margin-bottom: var(--s2);
@@ -2973,7 +2973,7 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-pbar-fill {
     height: 100%;
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     background: var(--wxg-accent, #5fbf9b);
     transition: width 0.25s ease;
 }
@@ -3165,7 +3165,7 @@ body.wxg-dragging {
     padding: 10px 12px;
     border-left: 3px solid #b4453c;
     background: rgba(180, 69, 60, 0.06);
-    border-radius: 4px;
+    border-radius: var(--wxg-r-xs);
 }
 .wanxiangge .wxg-danger-box .wxg-danger-list {
     margin: 6px 0 8px;
@@ -3214,7 +3214,7 @@ body.wxg-dragging {
     background: var(--wxg-card-bg, #fff);
     color: var(--wxg-text, #1a1d1f);
     border: 1px solid var(--wxg-border, #d5dade);
-    border-radius: 12px;
+    border-radius: var(--wxg-r-md);
     box-shadow: 0 18px 48px rgba(0, 0, 0, .18), 0 2px 8px rgba(0, 0, 0, .08);
     font-size: 13.5px;
 }
@@ -3229,7 +3229,7 @@ body.wxg-dragging {
 .wxg-pc-badges { display: flex; gap: 6px; align-items: center; padding-top: 9px; flex: 0 0 auto; }
 .wxg-pc-kebab, .wxg-pc-x {
     flex: 0 0 auto; background: transparent; border: 1px solid transparent;
-    color: var(--wxg-dim, #6d747a); border-radius: 6px; padding: 2px 8px; font-size: 15px; cursor: pointer;
+    color: var(--wxg-dim, #6d747a); border-radius: var(--wxg-r-xs); padding: 2px 8px; font-size: 15px; cursor: pointer;
 }
 .wxg-pc-kebab:hover, .wxg-pc-x:hover { border-color: var(--wxg-border, #d5dade); color: var(--wxg-text, #1a1d1f); }
 .wxg-pc-sec { padding: 12px 14px 4px; }
@@ -3242,7 +3242,7 @@ body.wxg-dragging {
 .wxg-pc-input {
     width: 100%; padding: 6px 9px; font-size: 13.5px; font-family: inherit;
     color: var(--wxg-text, #1a1d1f); background: var(--wxg-input-bg, #fff);
-    border: 1px solid var(--wxg-border, #d5dade); border-radius: 7px;
+    border: 1px solid var(--wxg-border, #d5dade); border-radius: var(--wxg-r-sm);
 }
 .wxg-pc-input:focus { outline: none; border-color: var(--wxg-accent, #5ecfa4); }
 .wxg-pc-quote { border-left: 3px solid var(--wxg-accent-line, rgba(94,207,164,.55)); padding: 2px 0 2px 10px; }
@@ -3256,7 +3256,7 @@ body.wxg-dragging {
 }
 .wxg-pc-counter { flex: 1; text-align: center; color: var(--wxg-dim, #6d747a); font-size: 12.5px; }
 .wxg-pc-foot .menu_button, .wxg-pc-foot button {
-    padding: 6px 13px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    padding: 6px 13px; border-radius: var(--wxg-r-sm); font-size: 13px; cursor: pointer;
     border: 1px solid var(--wxg-border, #d5dade); background: transparent; color: var(--wxg-text, #1a1d1f);
 }
 .wxg-pc-foot .menu_button:disabled { opacity: .45; cursor: default; }
@@ -3397,7 +3397,7 @@ body.wxg-dragging {
 .wxg-roster-topbar { display: flex; justify-content: flex-end; margin: -4px 0 6px; }
 .wanxiangge .wxg-func-btn {
     background: transparent; border: 1px solid var(--wxg-border, #d5dade);
-    color: var(--wxg-dim, #6d747a); border-radius: 7px; padding: 4px 11px; font-size: 12.5px;
+    color: var(--wxg-dim, #6d747a); border-radius: var(--wxg-r-sm); padding: 4px 11px; font-size: 12.5px;
 }
 .wanxiangge .wxg-func-btn:hover { color: var(--wxg-text, #1a1d1f); }
 /* 分页贴页底：给它一条上分隔线，视觉上"到底了" */
@@ -3451,7 +3451,7 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-searchbox {
     width: 220px; padding: 6px 10px 6px 26px; font-size: 13px; font-family: inherit;
     color: var(--wxg-text, #1a1d1f); background: var(--wxg-input-bg, #fff);
-    border: 1px solid var(--wxg-border, #d5dade); border-radius: 8px;
+    border: 1px solid var(--wxg-border, #d5dade); border-radius: var(--wxg-r-sm);
 }
 .wanxiangge .wxg-searchbox:focus { outline: none; border-color: var(--wxg-accent, #5ecfa4); }
 /* 没有计数的胶囊（创建时间/修改时间/名字）：不留空位 */
@@ -3565,7 +3565,7 @@ body.wxg-dragging {
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     font-size: 12px;
     line-height: 1.6;
     color: var(--wxg-text, inherit);
@@ -3617,7 +3617,7 @@ body.wxg-dragging {
     gap: 2px;
     background: var(--wxg-card-bg, var(--wxg-fill, #ffffff));
     border: 1px solid var(--wxg-border, #d5dade);
-    border-radius: 10px;
+    border-radius: var(--wxg-r-md);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
 .wanxiangge .wxg-funcmenu-item {
@@ -3627,7 +3627,7 @@ body.wxg-dragging {
     background: transparent;
     border: 0;
     padding: 7px 10px;
-    border-radius: 7px;
+    border-radius: var(--wxg-r-sm);
     font-size: 13px;
     line-height: 1.5;
     color: var(--wxg-text, #1a1d1f);
@@ -3648,7 +3648,7 @@ body.wxg-dragging {
     color: var(--wxg-dim, #6d747a);
     background: transparent;
     border: 1px solid var(--wxg-border, #d5dade);
-    border-radius: 7px;
+    border-radius: var(--wxg-r-sm);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -3687,7 +3687,7 @@ body.wxg-dragging {
     color: var(--wxg-text, #1a1d1f);
     background: var(--wxg-soft, rgba(0, 0, 0, 0.04));
     border: 1px solid var(--wxg-border, #d5dade);
-    border-radius: 999px;
+    border-radius: var(--wxg-r-pill);
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
@@ -3705,7 +3705,7 @@ body.wxg-dragging {
     padding: 8px 10px;
     background: var(--wxg-soft, rgba(0, 0, 0, 0.03));
     border: 1px solid var(--wxg-line, #e6e8ea);
-    border-radius: 9px;
+    border-radius: var(--wxg-r-sm);
 }
 .wanxiangge .wxg-pick-filter {
     flex: 1 1 160px;
@@ -3904,4 +3904,240 @@ body.wxg-dragging {
     .wxg-card-actions { flex-wrap: wrap; gap: 6px; }
     .wxg-ctable { font-size: 12px; }
     .wxg-pc { max-width: calc(100vw - 16px); }
+}
+
+:root {
+    /* B-1 圆角五档（依据＝阿砚 B1-5：原来 19 种值、无体系） */
+    --wxg-r-xs: 6px;
+    --wxg-r-sm: 8px;
+    --wxg-r-md: 12px;
+    --wxg-r-lg: 16px;
+    --wxg-r-pill: 999px;
+    /* 旧名全部指向新档（⏔ 再一天一种叫法） */
+    --r: var(--wxg-r-md);
+    --r-ctl: var(--wxg-r-sm);
+    --r-card: var(--wxg-r-lg);
+    --wxg-radius: var(--wxg-r-md);
+}
+
+
+/* ==========================================================================
+   B-1 视觉层（依据＝阿砚 B1-1～B1-4；对标世界背面 105 阴影／20 动画／53 渐变／7 毛玻璃）
+   全部是新增与覆盖，⏔ 改任何逻辑；原来的规则一条没删。
+   ========================================================================== */
+:root {
+    --wxg-blur: 14px;
+    --wxg-glass: rgba(255, 255, 255, .55);
+    --wxg-glass-dark: rgba(20, 22, 30, .55);
+    --wxg-sh-1: 0 1px 2px rgba(0, 0, 0, .06);
+    --wxg-sh-2: 0 2px 6px rgba(0, 0, 0, .08), 0 1px 2px rgba(0, 0, 0, .06);
+    --wxg-sh-3: 0 8px 24px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .08);
+    --wxg-sh-4: 0 16px 48px rgba(0, 0, 0, .18), 0 4px 12px rgba(0, 0, 0, .10);
+    --wxg-grad-head: linear-gradient(135deg, var(--wm-accent, #6aa9ff) 0%, rgba(255, 255, 255, 0) 70%);
+    --wxg-grad-card: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .04));
+    --wxg-grad-pill: linear-gradient(135deg, rgba(106, 169, 255, .22), rgba(106, 169, 255, .06));
+    --wxg-ease: cubic-bezier(.22, .61, .36, 1);
+    --wxg-dur: .18s;
+}
+
+/* B1-1 毛玻璃：卡片、浮层、小框、顶栏、弹窗 */
+.wxg-card, .wxg-pc, .wxg-sec, #wxg-person-card, .wxg-entpick, .wxg-store {
+    -webkit-backdrop-filter: blur(var(--wxg-blur)) saturate(1.35);
+    backdrop-filter: blur(var(--wxg-blur)) saturate(1.35);
+    background-image: var(--wxg-grad-card);
+}
+.wxg-cname-line, .wxg-pc-head, .wxg-card > .wxg-card-head {
+    -webkit-backdrop-filter: blur(calc(var(--wxg-blur) * .7));
+    backdrop-filter: blur(calc(var(--wxg-blur) * .7));
+    background-image: var(--wxg-grad-head);
+}
+
+/* B1-2 渐变：按钮、徽章、活动态胶囊、分页 */
+.wxg-btn, .wxg-btn-sm, .wxg-btn-xs {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .06));
+}
+.wxg-primary {
+    background-image: linear-gradient(135deg, rgba(106, 169, 255, .95), rgba(106, 169, 255, .70));
+}
+.wxg-badge, .wxg-busy-pill, .wxg-pick {
+    background-image: var(--wxg-grad-pill);
+}
+.wxg-pick.is-on {
+    background-image: linear-gradient(135deg, rgba(106, 169, 255, .35), rgba(106, 169, 255, .12));
+}
+
+/* B1-3 动画：卡片入场、浮层弹出、进度脉动 */
+@keyframes wxg-fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes wxg-pop {
+    from { opacity: 0; transform: scale(.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+@keyframes wxg-pulse {
+    0%, 100% { opacity: .55; }
+    50% { opacity: 1; }
+}
+@keyframes wxg-shimmer {
+    from { background-position: -160px 0; }
+    to { background-position: 160px 0; }
+}
+.wxg-card, .wxg-pickwrap { animation: wxg-fade-up .22s var(--wxg-ease) both; }
+#wxg-person-card, .wxg-pc { animation: wxg-pop .16s var(--wxg-ease) both; }
+.wxg-busy-pill { animation: wxg-pulse 1.6s ease-in-out infinite; }
+.wxg-store[data-tone="bad"], .wxg-note[data-tone="bad"] { animation: wxg-fade-up .2s var(--wxg-ease) both; }
+
+/* B1-4 阴影与过渡：分层阴影 + 统一时长/缓动 */
+.wxg-card { box-shadow: var(--wxg-sh-2); }
+.wxg-card:hover { box-shadow: var(--wxg-sh-3); }
+#wxg-person-card, .wxg-pc { box-shadow: var(--wxg-sh-4); }
+.wxg-btn, .wxg-btn-sm, .wxg-btn-xs, .wxg-primary, .wxg-pick {
+    box-shadow: var(--wxg-sh-1);
+    transition: transform var(--wxg-dur) var(--wxg-ease),
+                box-shadow var(--wxg-dur) var(--wxg-ease),
+                background-color var(--wxg-dur) var(--wxg-ease),
+                background-image var(--wxg-dur) var(--wxg-ease),
+                opacity var(--wxg-dur) var(--wxg-ease);
+}
+.wxg-btn:hover, .wxg-btn-sm:hover, .wxg-btn-xs:hover, .wxg-primary:hover { transform: translateY(-1px); box-shadow: var(--wxg-sh-2); }
+.wxg-btn:active, .wxg-primary:active { transform: translateY(0); box-shadow: var(--wxg-sh-1); }
+.wxg-crow { transition: background-color var(--wxg-dur) var(--wxg-ease); }
+.wxg-crow:hover { background-image: var(--wxg-grad-pill); }
+
+/* 深色主题下自动换成深色毛玻璃（B2-6 的先行件，这里先把要素备好） */
+body[data-wxg-theme="dark"] .wxg-card,
+body[data-wxg-theme="dark"] .wxg-pc,
+.dark .wxg-card, .dark .wxg-pc {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .18));
+}
+
+
+/* ---------- B-1 第二遍：把同一套覆盖到剩下的组件（面板／工作台／小框／菜单／表格）---------- */
+.wxg-panel, .wxg-ws, .wxg-mini-panel, .wxg-funcmenu, .wxg-pc-input, .wxg-mes-card, .wxg-receipt, .wxg-notes {
+    -webkit-backdrop-filter: blur(var(--wxg-blur)) saturate(1.3);
+    backdrop-filter: blur(var(--wxg-blur)) saturate(1.3);
+    background-image: var(--wxg-grad-card);
+    box-shadow: var(--wxg-sh-3);
+}
+.wxg-ws-bar, .wxg-panel-bar, .wxg-ws-side, .wxg-mini-head, .wxg-roster-topbar, .wxg-card-foot, .wxg-ws-pagehead {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(0, 0, 0, .04));
+    box-shadow: var(--wxg-sh-1);
+}
+.wxg-ws-side-ico, .wxg-ws-side-item, .wxg-pc-kebab, .wxg-panel-btn, .wxg-mini-btn, .wxg-func-btn, .wxg-ws-chip {
+    transition: transform var(--wxg-dur) var(--wxg-ease),
+                box-shadow var(--wxg-dur) var(--wxg-ease),
+                background-image var(--wxg-dur) var(--wxg-ease),
+                color var(--wxg-dur) var(--wxg-ease);
+}
+.wxg-ws-side-item:hover, .wxg-panel-btn:hover, .wxg-mini-btn:hover, .wxg-func-btn:hover, .wxg-ws-chip:hover {
+    background-image: var(--wxg-grad-pill);
+    box-shadow: var(--wxg-sh-2);
+    transform: translateY(-1px);
+}
+.wxg-ws-side-item.is-on, .wxg-ws-pagehead.is-on {
+    background-image: linear-gradient(135deg, rgba(106, 169, 255, .30), rgba(106, 169, 255, .06));
+    box-shadow: inset 0 0 0 1px rgba(106, 169, 255, .35), var(--wxg-sh-2);
+}
+.wxg-ws-h1, .wxg-panel-title, .wxg-card-title, .wxg-ws-name {
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
+}
+.wxg-ws-h1::after, .wxg-ws-titlebox::after {
+    content: "";
+    display: block;
+    height: 2px;
+    margin-top: 6px;
+    border-radius: var(--wxg-r-pill);
+    background-image: linear-gradient(90deg, var(--wm-accent, #6aa9ff), rgba(106, 169, 255, 0));
+    opacity: .55;
+}
+.wxg-mini-ball {
+    box-shadow: var(--wxg-sh-3);
+    background-image: radial-gradient(circle at 30% 28%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%);
+    transition: transform var(--wxg-dur) var(--wxg-ease), box-shadow var(--wxg-dur) var(--wxg-ease);
+}
+.wxg-mini-ball:hover { transform: translateY(-2px) scale(1.03); box-shadow: var(--wxg-sh-4); }
+.wxg-mini-dot { animation: wxg-pulse 2.4s ease-in-out infinite; }
+.wxg-empty { animation: wxg-fade-up .24s var(--wxg-ease) both; }
+.wxg-card-chevron { transition: transform var(--wxg-dur) var(--wxg-ease); }
+.wxg-card:hover .wxg-card-chevron { transform: rotate(90deg); }
+.wxg-rowitem, .wxg-rowname, .wxg-fact { transition: background-color var(--wxg-dur) var(--wxg-ease); }
+.wxg-rowitem:hover, .wxg-fact:hover { background-image: var(--wxg-grad-pill); }
+.wxg-badge-warn { box-shadow: 0 0 0 1px rgba(240, 160, 60, .35), var(--wxg-sh-1); }
+.wxg-badge.is-ok { box-shadow: 0 0 0 1px rgba(70, 190, 120, .35), var(--wxg-sh-1); }
+.wxg-pc-quote, .wxg-pc-text { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+
+/* ---------- B-1 \u7b2c\u4e09\u904d\uff1a\u8868\u5355/\u8868\u683c/\u63d0\u793a\u6761/\u6eda\u52a8\u6761\uff08\u90fd\u662f\u771f\u7ec4\u4ef6\uff0c\u23d4 \u51d1\u6570\uff09 ---------- */
+.wxg-pc-input input, .wxg-pc-input textarea, .wxg-pc-input select,
+.wxg-line-v input, .wxg-line-v select, .wxg-cedit-item input, .wxg-cedit-item textarea {
+    transition: box-shadow var(--wxg-dur) var(--wxg-ease), border-color var(--wxg-dur) var(--wxg-ease), background-color var(--wxg-dur) var(--wxg-ease);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .06);
+}
+.wxg-pc-input input:focus, .wxg-pc-input textarea:focus, .wxg-pc-input select:focus,
+.wxg-line-v input:focus, .wxg-line-v select:focus {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .06), 0 0 0 2px rgba(106, 169, 255, .35);
+}
+.wxg-ctable thead th, .wxg-ctable thead td {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(0, 0, 0, .05));
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .10);
+}
+.wxg-ctable tbody tr:nth-child(even) {
+    background-image: linear-gradient(180deg, rgba(0, 0, 0, .015), rgba(0, 0, 0, .035));
+}
+.wxg-store, .wxg-note[data-tone="bad"], .wxg-fact-missing {
+    box-shadow: inset 3px 0 0 rgba(240, 160, 60, .55), var(--wxg-sh-1);
+}
+#wxg-toasts .wxg-toast, .wxg-toast {
+    box-shadow: var(--wxg-sh-4);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .10));
+    animation: wxg-fade-up .18s var(--wxg-ease) both;
+}
+.wxg-roster-topbar, .wxg-ws-pagehead { border-bottom: 1px solid rgba(0, 0, 0, .06); }
+.wxg-mini-row:hover, .wxg-mini-v:hover { background-image: var(--wxg-grad-pill); }
+.wxg-ctable, .wxg-ws-body, .wxg-pc-sec { scrollbar-width: thin; }
+.wxg-ctable::-webkit-scrollbar, .wxg-ws-body::-webkit-scrollbar { width: 8px; height: 8px; }
+.wxg-ctable::-webkit-scrollbar-thumb, .wxg-ws-body::-webkit-scrollbar-thumb {
+    border-radius: var(--wxg-r-pill);
+    background-image: linear-gradient(180deg, rgba(0, 0, 0, .22), rgba(0, 0, 0, .12));
+}
+.wxg-pc-grip, .wxg-panel-grip { box-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+.wxg-ws-x, .wxg-pc-nav { box-shadow: var(--wxg-sh-1); transition: box-shadow var(--wxg-dur) var(--wxg-ease), transform var(--wxg-dur) var(--wxg-ease); }
+.wxg-ws-x:hover, .wxg-pc-nav:hover { box-shadow: var(--wxg-sh-2); transform: translateY(-1px); }
+
+/* ---------- B-1 \u515c\u5e95\uff08\u4f9d\u636e\uff1d\u5d4c\u5165\u754c\u9762\u8d28\u91cf\u6807\u51c6\uff1a\u23d4 \u65e0\u9650\u5236\u5806\u6bdb\u73bb\u7483\u3001\u5fc5\u987b\u6709\u56de\u9000\uff09 ---------- */
+/* 1) \u4e0d\u652f\u6301 backdrop-filter \u7684\u73af\u5883\uff08\u8001\u7248\u706b\u72d0/\u90e8\u5206\u5b89\u5353 WebView\uff09\uff1a\u6539\u6210\u4e0d\u900f\u660e\u5e95 + \u5b9e\u9634\u5f71\uff0c\u23d4 \u6a21\u7cca\u6ca1\u4e86\u5c31\u53d8\u900f\u660e\u7247 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .wxg-card, .wxg-pc, .wxg-sec, .wxg-panel, .wxg-ws, .wxg-mini-panel,
+    .wxg-funcmenu, #wxg-person-card, .wxg-receipt, .wxg-toast {
+        background-color: rgba(250, 250, 252, .98);
+        background-image: none;
+    }
+    .dark .wxg-card, .dark .wxg-pc, .dark .wxg-panel, .dark .wxg-ws,
+    body[data-wxg-theme="dark"] .wxg-card, body[data-wxg-theme="dark"] .wxg-panel {
+        background-color: rgba(28, 30, 38, .98);
+    }
+}
+/* 2) \u5979\u5f00\u4e86\u201c\u51cf\u5c11\u52a8\u753b\u201d\uff08\u6655\u52a8\u75c7/\u7701\u7535\uff09\uff1a\u5168\u90e8\u5165\u573a\u4e0e\u8109\u52a8\u505c\u6389\uff0c\u23d4 \u53ea\u5269\u9759\u6001\u6837\u5b50 */
+@media (prefers-reduced-motion: reduce) {
+    .wxg-card, .wxg-pickwrap, #wxg-person-card, .wxg-pc, .wxg-empty,
+    .wxg-toast, .wxg-busy-pill, .wxg-mini-dot, .wxg-store, .wxg-note {
+        animation: none !important;
+    }
+    .wxg-btn, .wxg-btn-sm, .wxg-btn-xs, .wxg-primary, .wxg-pick,
+    .wxg-ws-side-item, .wxg-panel-btn, .wxg-mini-btn, .wxg-func-btn,
+    .wxg-ws-chip, .wxg-mini-ball, .wxg-crow, .wxg-rowitem, .wxg-fact,
+    .wxg-card-chevron, .wxg-ws-x, .wxg-pc-nav {
+        transition: none !important;
+    }
+    .wxg-btn:hover, .wxg-btn-sm:hover, .wxg-btn-xs:hover, .wxg-primary:hover,
+    .wxg-mini-ball:hover, .wxg-ws-x:hover, .wxg-pc-nav:hover { transform: none !important; }
+    .wxg-card:hover .wxg-card-chevron { transform: none !important; }
+}
+/* 3) \u9ad8\u5bf9\u6bd4\u5ea6\u5f3a\u5236\uff1a\u534a\u900f\u660e\u5e95\u4e0b\u6587\u5b57\u5bf9\u6bd4\u5ea6\u4f1a\u6389\uff0c\u8981\u5f3a\u5236\u5b9e\u5e95 */
+@media (forced-colors: active) {
+    .wxg-card, .wxg-pc, .wxg-panel, .wxg-ws, .wxg-mini-panel, .wxg-toast {
+        background-image: none !important;
+        backdrop-filter: none !important;
+        border: 1px solid CanvasText;
+    }
 }
