@@ -13,7 +13,7 @@ import { clampNumber, countChars, matchKey, trimText, uniqueBy, eventTitle } fro
 import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
-import { getSettings, effectivePrompt } from './settings.js';
+import { getSettings, effectivePrompt , effectiveSetting } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
 import { sourceOk, floorText, digestOf } from './provenance.js';   /* 4-b #6：注入指纹要用内容摘要 */
 import { noteText } from './prompt.js';
@@ -44,7 +44,8 @@ const DEFAULT_CHAR_LIMIT = 8;
 
 /** 召回人物条数：她填多少就用多少（只防不合法的值） */
 export function charLimitOf(settings) {
-    const raw = Number(settings && settings.capPeople);   /* 渲染层 #8：人数封顶改名 */
+    /* 1-c #1：人数封顶走三层（聊天级可覆盖全局） */
+    const raw = Number(effectiveSetting('capPeople'));   /* 渲染层 #8：人数封顶改名 */
     return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : DEFAULT_CHAR_LIMIT;
 }
 

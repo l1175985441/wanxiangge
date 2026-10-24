@@ -12,7 +12,8 @@ import {
     DEFAULT_SETTINGS, SETTINGS_KEY, SETTINGS_VERSION, LEGACY_INJECT_HEADERS,
     DEFAULT_PROMPT_WORLD, DEFAULT_PROMPT_CHARS, DEFAULT_JAILBREAK, DEFAULT_INJECT_HEADER,
 } from './config.js';
-import { getExtensionSettings, persistSettings } from './adapter.js';
+import { chatOverrides, resolveOne, resolveAll, sourceLine } from './scope.js';   /* 1-c #1：三层作用域 */
+import { getExtensionSettings, persistSettings, getCtx } from './adapter.js';   /* 1-c #1：读聊天级覆盖要拿上下文 */
 import { clampNumber, toList, trimText, asText } from './utils.js';
 import { setLimits } from './state.js';
 // ⭐ 换皮迁移要用（2026-10-15 全站改白底黑字）：只迁"原封没动过"的旧砚墨
@@ -407,4 +408,36 @@ export function textOrDefault(value, fallback) {
 
 export function listSetting(value) {
     return toList(value);
+}
+
+/*
+ * 1-c #1：三层作用域的**读**端。
+ *   优先级：聊天级快照 > 全局设置 > 内置默认。
+ *   ⛔ 把三层浅拷贝拼成一个巨大对象（那样又会出现“两个真源”）。
+ */
+export function effectiveSetting(key) {
+    try {
+        const merged = getSettings();
+        const defaults = DEFAULT_SETTINGS || {};
+        const r = resolveOne(key, { defaults, global: merged, chat: chatOverrides(getCtx && getCtx()) });
+        return r.value;
+    } catch (e) {
+        return (getSettings() || {})[key];
+    }
+}
+
+/** 整本（只算给定的 keys）：返回值与来源，不动原对象 */
+export function effectiveSettingsOf(keys) {
+    try {
+        const merged = getSettings();
+        return resolveAll(keys, { defaults: DEFAULT_SETTINGS || {}, global: merged, chat: chatOverrides(getCtx && getCtx()) });
+    } catch (e) {
+        return { values: {}, sources: {} };
+    }
+}
+
+/** 一行人话（诊断用） */
+export function settingSourceLine() {
+    const r = effectiveSettingsOf(['capPeople', 'injectCharCap', 'recentTurns']);
+    return sourceLine(r.sources);
 }
