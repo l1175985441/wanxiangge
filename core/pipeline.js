@@ -62,6 +62,7 @@ import {
     beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView, ROLE_WEIGHT } from './state.js';
 import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
+import { claim, release } from './gate.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -2052,6 +2053,15 @@ export function classifyFailure(msg) {
 }
 
 export async function runUpdate(opts) {
+    /*
+     * 依据＝阿砚 A 组 H4：**闸要在第一个 await 之前**就抢。
+     *   旧：抢闸写在 runUpdateInner 里 ⇒ 前面已经 await 了 worldbook 动态 import 与 refreshAffinity ✗
+     *     ⇒ 连点两下时，第二下能从那两个 await 里滑进去，两份一起跑 ✗
+     *   闸不依赖 DOM（按钮灰不灰是另一回事，挡不住键盘/悬浮球/魔法棒各点一次）。
+     */
+    if (!claim('update')) {
+        return { ok: false, reason: '上一轮还在跑（同一份不跑第二遍；要停就点取消）' };
+    }
     /* 依据＝阿砚 A 组 H2：**第一个 await 之前**先抓归属（下面 `await import('./worldbook.js')` 就是一个 await） */
     const runOwner = captureOwner();
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
@@ -2089,14 +2099,13 @@ export async function runUpdate(opts) {
         markLive();
         endSaveBatch();
         unbindChatForRun();   /* R3：收尾解绑 ✓ */
+        release('update');    /* H4：放闸必须在 finally 里（⏔ 中间报错就把闸卡死） */
     }
 }
 
 async function runUpdateInner(opts) {
     const o = opts || {};
-    if (running) {
-        return { ok: false, reason: '上一轮还在跑' };
-    }
+    /* H4：闸已在 runUpdate 入口抢过（这里不再抢、也不再报“还在跑”，⏔ 把自己卡死） */
     const settings = getSettings();
     if (!settings.enabled) {
         return { ok: false, reason: '总开关关着' };
