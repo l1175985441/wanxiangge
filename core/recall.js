@@ -14,6 +14,7 @@ import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
+import { entityKey, noteAmbiguity } from './identity.js';   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -88,8 +89,26 @@ export function buildNameIndex(roster) {
             return;
         }
         const old = index.get(key);
-        if (!old || (exact && !old.exact)) {
-            index.set(key, { character: c, exact });
+        if (!old) {
+            index.set(key, { character: c, exact, ambiguous: false, candidates: [c.id] });
+            return;
+        }
+        /*
+         * 依据＝阿砚第三批 硬-5（实体身份协议）：
+         *   旧：同名第二个角色会**静默覆盖**第一个⇒ 同名两人必然串。
+         *   新：撞名 ⇒ 标 ambiguous 并记候选，解析时一律不认（歧义即未定）。
+         */
+        if (trimText(old.character && old.character.id) !== trimText(c.id)) {
+            old.ambiguous = true;
+            if (!Array.isArray(old.candidates)) { old.candidates = []; }
+            for (const id of [trimText(old.character && old.character.id), trimText(c.id)]) {
+                if (id && !old.candidates.includes(id)) { old.candidates.push(id); }
+            }
+            noteAmbiguity(key, old.candidates);
+            return;
+        }
+        if (exact && !old.exact) {
+            old.exact = true;
         }
     };
     for (const c of Array.isArray(roster) ? roster : []) {
@@ -109,12 +128,12 @@ export function buildNameIndex(roster) {
         if (!c || c.ignored) {
             continue;
         }
-        const full = matchKey(c.name);
+        const full = entityKey(c.name);
         if (full) {
             put(full, c, true);          // 全名：多长都收（含单字）
         }
         for (const alias of Array.isArray(c.aliases) ? c.aliases : []) {
-            const key = matchKey(alias);
+            const key = entityKey(alias);
             if (key.length >= 2) {
                 put(key, c, false);      // 别名：2 字以上才收（防误撞）
             }
@@ -125,7 +144,7 @@ export function buildNameIndex(roster) {
 
 /** 在一段文字里找出提到了哪些人（按出现位置排序） */
 export function findMentions(text, index) {
-    const hay = matchKey(text);
+    const hay = entityKey(text);
     if (!hay) {
         return [];
     }
@@ -133,6 +152,11 @@ export function findMentions(text, index) {
     for (const pair of index.entries()) {
         const key = pair[0];
         const entry = pair[1];
+        if (entry && entry.ambiguous) {
+            /* 歧义即未定：宁可不认，不拿两个里的一个凑数 */
+            noteAmbiguity(key, entry.candidates);
+            continue;
+        }
         const pos = hay.indexOf(key);
         if (pos >= 0) {
             hits.push({ character: entry.character, pos, exact: entry.exact !== false });
@@ -152,7 +176,7 @@ export function findMentions(text, index) {
  *   · 单字全名（如"晓"）照旧算。
  */
 export function mentionedCharacters(text, roster) {
-    const hay = matchKey(text);
+    const hay = entityKey(text);
     if (!hay) {
         return [];
     }
