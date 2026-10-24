@@ -3060,6 +3060,18 @@ function secRecall(host) {
         line(bSize, '一轮最多推演',
             numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
             el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #10（超出建议值给提示，不拦）：
+     *   人物封顶建议 8–20，实际填 50 界面一声不吭；而总控那边同类情况会弹黄条。
+     *   照总控那条写法：把话说清楚＋一颗一键改的按钮，改不改她定（⛔ 偷偷截断）。
+     */
+    if (Number(s.capPeople) > 20) {
+        const tipCap = el('div', 'wxg-note wxg-advice');
+        tipCap.appendChild(el('span', null, '⚠ 人物封顶现在是 ' + String(s.capPeople)
+            + '，超出建议值（8–20）：每轮会多吃上下文，也更容易把不相关的人带进正文。'));
+        tipCap.appendChild(button('改成 12（推荐）', 'use-cap-people-12', 'wxg-btn-xs'));
+        cPick.appendChild(tipCap);
+    }
     box.appendChild(cPick);
 
     // 卡片那两个开关归这儿（它们是"召回之后怎么显示"的事，⛔ 不是总闸）
@@ -7224,6 +7236,13 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 召回 ---- */
                 case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
+                case 'use-cap-people-12': {
+                    /* 渲染层 #10：一键改到建议值（她点了才改） */
+                    patchSettings({ capPeople: 12 });
+                    toast.ok('已把人物封顶改成 12');
+                    rerender();
+                    break;
+                }
                 case 'stage-cap-people': if (isChange) { patchSettings({ capPeople: target.value }); rerender(); } break;
                 case 'stage-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
                 case 'stage-cap-past': if (isChange) { patchSettings({ capPast: target.value }); rerender(); } break;
