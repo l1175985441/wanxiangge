@@ -263,6 +263,8 @@ function buildSidebar() {
         const iconKey = SIDEBAR_ICONS[i] || 'fa-circle';
         ico.className = 'wxg-ws-side-ico fa-solid ' + iconKey;
         ico.setAttribute('aria-hidden', 'true');
+    /* 依据＝阿砚 B2-4：左侧十项全是细线小图标、识别度低 ⇒ 把图标名带到项上，CSS 按名分色、放大、加粗描边 */
+    btn.setAttribute('data-ico', iconKey);
         ico.innerHTML = iconSvg(iconKey);
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';

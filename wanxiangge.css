@@ -4210,3 +4210,44 @@ body[data-wxg-theme="dark"] {
         --wxg-line: rgba(255, 255, 255, .14);
     }
 }
+
+
+/* ==========================================================================
+   B2-4 左侧导航识别度（依据＝阿砚 B2-4「十项全是细线小图标，识别度低」）
+   做法：图标放大到 22px、描边加粗；每项按图标名分一个色（颜色记身份，不只靠形状）；
+        文字始终显示并加粗一档，选中项有实色侧条。
+   ========================================================================== */
+.wxg-ws-side-item { gap: 10px; padding: 7px 10px; border-radius: var(--wxg-r-sm); }
+.wxg-ws-side-ico { width: 22px; height: 22px; flex: 0 0 22px; opacity: .95; }
+.wxg-ws-side-ico svg { width: 22px; height: 22px; stroke-width: 2.2; }
+.wxg-ws-side-txt { font-weight: 600; font-size: 13.5px; letter-spacing: .2px; }
+
+/* 一项一色（按 data-ico）——同色只给同类，别撞 */
+[data-ico="fa-book"] .wxg-ws-side-ico, [data-ico="fa-book"] svg { color: #4f8bff; stroke: #4f8bff; }
+[data-ico="fa-earth-asia"] .wxg-ws-side-ico, [data-ico="fa-earth-asia"] svg { color: #2fb98a; stroke: #2fb98a; }
+[data-ico="fa-user"] .wxg-ws-side-ico, [data-ico="fa-user"] svg { color: #e08a3c; stroke: #e08a3c; }
+[data-ico="fa-scroll"] .wxg-ws-side-ico, [data-ico="fa-scroll"] svg { color: #b07cf0; stroke: #b07cf0; }
+[data-ico="fa-address-book"] .wxg-ws-side-ico, [data-ico="fa-address-book"] svg { color: #3fa9c9; stroke: #3fa9c9; }
+[data-ico="fa-sliders"] .wxg-ws-side-ico, [data-ico="fa-sliders"] svg { color: #8b93a7; stroke: #8b93a7; }
+[data-ico="fa-palette"] .wxg-ws-side-ico, [data-ico="fa-palette"] svg { color: #e0607e; stroke: #e0607e; }
+[data-ico="fa-filter"] .wxg-ws-side-ico, [data-ico="fa-filter"] svg { color: #c9a227; stroke: #c9a227; }
+[data-ico="fa-scissors"] .wxg-ws-side-ico, [data-ico="fa-scissors"] svg { color: #7f8fa6; stroke: #7f8fa6; }
+[data-ico="fa-plug"] .wxg-ws-side-ico, [data-ico="fa-plug"] svg { color: #5fbf7f; stroke: #5fbf7f; }
+[data-ico="fa-pen-nib"] .wxg-ws-side-ico, [data-ico="fa-pen-nib"] svg { color: #9a7bff; stroke: #9a7bff; }
+
+/* 选中：左侧实色条 + 图标底色，一眼知道在哪一段 */
+.wxg-ws-side-item.is-on { position: relative; }
+.wxg-ws-side-item.is-on::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 3px;
+    border-radius: var(--wxg-r-pill);
+    background-image: linear-gradient(180deg, var(--wm-accent, #6aa9ff), rgba(106, 169, 255, .25));
+}
+.wxg-ws-side-item.is-on .wxg-ws-side-ico {
+    background-color: color-mix(in srgb, currentColor 16%, transparent);
+    border-radius: var(--wxg-r-xs);
+}
+/* 分组名要看得出来是分组，⛔ 跟条目一个样 */
+.wxg-ws-side-group-k { font-size: 11px; letter-spacing: 1px; opacity: .65; text-transform: none; }
