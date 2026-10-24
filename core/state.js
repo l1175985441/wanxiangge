@@ -16,7 +16,8 @@ import {
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat, noteSaveSkip } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
-import { originId, agendaOriginId } from './config.js';   /* I4：来路枚举只有一张表 */
+import { originId, agendaOriginId } from './config.js';
+import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -58,6 +59,8 @@ export function validateRenameTable(table) {
     });
     return bad;
 }
+
+function SHAPE_VERSION_NOW() { return Number(LEDGER_VERSION) || 3; }
 
 /* ------------------------------ 人物 ------------------------------ */
 
@@ -126,7 +129,7 @@ export function normalizeCharacter(raw) {
     const manualFields = Array.isArray(c.manualFields)
         ? c.manualFields.map(trimText).filter((k) => STATUS_MANUAL_KEYS.includes(k))
         : (c.manual === true ? STATUS_MANUAL_KEYS.filter((k) => Boolean(trimText(c[k]))) : []);
-    return {
+    return Object.assign({}, c, {
         id: trimText(c.id) || makeId('wxg'),
         name: trimText(c.name),
         aliases: toList(c.aliases),
@@ -264,7 +267,7 @@ export function normalizeCharacter(raw) {
         lastUpdatedAt: Number(c.lastUpdatedAt || 0),
         createdAt: c.createdAt || now(),
         updatedAt: c.updatedAt || now(),
-    };
+    });
 }
 
 /**
@@ -443,6 +446,21 @@ function normalizeState(raw) {
     }
     state.newPeople = Array.isArray(s.newPeople) ? s.newPeople.map(trimText).filter(Boolean) : [];
     state.stat = Object.assign(base.stat, s.stat && typeof s.stat === 'object' ? s.stat : {});
+    /*
+     * 依据＝阿砚第三批 硬-1（路线②：旧形永远合法 ＋ 幂等收口）：
+     *   读进来先收一次形状（只补/归正类型，⛔ 删不认识的字段），并把报告留在账上。
+     *   漂移判定：这轮要补的与上次报告不一样 ⇒ 不算收过（下次再收），并在报告里标出来。
+     */
+    {
+        const prev = (s && s.shapeReport) || null;
+        const beforeVersion = Number(s && s.version);
+        const cl = collapseShape(state);
+        cl.report.drift = shouldRecollapse(prev, cl.report);
+        state.shapeReport = cl.report;
+        if (Number.isFinite(beforeVersion) && beforeVersion > 0 && beforeVersion < SHAPE_VERSION_NOW()) {
+            markMigratedFrom(state, beforeVersion);
+        }
+    }
     return state;
 }
 

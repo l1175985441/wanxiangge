@@ -100,10 +100,16 @@ export function verifyBundle(text, opts) {
     if (asText(box.schema) !== BUNDLE_SCHEMA) {
         return { ok: false, code: 'bad-schema', reason: '这不是万象阁的账本包（schema＝' + asText(box.schema) + '）' };
     }
+    const curVersion = Number(LEDGER_VERSION) || 0;
     const v = Number(box.version);
-    if (!o.skipVersion && Number.isFinite(v) && v > (Number(LEDGER_VERSION) || 0)) {
-        return { ok: false, code: 'bad-version', reason: '这个包是更新版本（v' + String(v) + '）导出的，当前只认到 v' + String(LEDGER_VERSION) };
+    if (!o.skipVersion && Number.isFinite(v) && v > curVersion) {
+        return { ok: false, code: 'bad-version', reason: '这个包是更新版本（v' + String(v) + '）导出的，当前只认到 v' + String(curVersion) };
     }
+    /*
+     * 依据＝阿砚第三批 硬-1（升级闸补一半）：旧版只拒更新的包，老包（v1/v2）硬吃进去、没有升级。
+     *   现在：老包照收，但标出 migratedFrom 与 needsCollapse，由 state 侧收口。
+     */
+    const migratedFrom = (Number.isFinite(v) && v > 0 && v < curVersion) ? v : null;
     const payload = asText(box.payload);
     if (!payload) {
         return { ok: false, code: 'bad-shape', reason: '包里没有账本内容' };
@@ -125,7 +131,7 @@ export function verifyBundle(text, opts) {
     if (chars > BUNDLE_MAX_ITEMS || chron > BUNDLE_MAX_ITEMS) {
         return { ok: false, code: 'bad-shape', reason: '内容条数离谱（人物 ' + String(chars) + ' / 编年 ' + String(chron) + '），不敢导入' };
     }
-    return { ok: true, code: 'ok', ledger, summary: summarize(ledger) };
+    return { ok: true, code: 'ok', ledger, summary: summarize(ledger), migratedFrom, needsCollapse: migratedFrom !== null };
 }
 
 /**
