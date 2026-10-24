@@ -6784,12 +6784,12 @@ export function bindSectionEvents(host, refresh) {
                     if (info) {
                         info.textContent = '读到 ' + String(names.length) + ' 本：点书名选它。';
                     }
-                    // 表头留着，小块交给 paintBookPicks 统一画
-                    for (const child of asArray(wrap.childNodes)) {
-                        if (!String(child.className || '').includes('wxg-pick-head')) {
-                            wrap.removeChild(child);
-                        }
-                    }
+                    /*
+                     * 依据＝本轮挖 pick flake 的证据：
+                     *   这里原来先把**所有㉊片删干净**、再交给 paintBookPicks 重画 ⇒
+                     *   自动列书的定时器正好在这一瞬触发时，她点下去就是“找不到控件”。
+                     *   paintBookPicks 已经按 data-book 自己剔旧补新（原地更新）⇒ 这里不需要先清一遍。
+                     */
                     listBooksCache = names;
                     lastGoodBooks = names.slice();
                     booksCache.set(names);   /* B7：真取到了才算 hit/empty */
