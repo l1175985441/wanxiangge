@@ -72,7 +72,16 @@ export function mountWandEntry() {
         }
     });
 
-    menu.appendChild(item);
+    /*
+     * 依据＝阿砚 B2-5：魔法棒菜单一堆插件里她找不到万象阁。
+     *   旧：appendChild ⇒ 排在所有插件之后（实测第 13 项）✗
+     *   新：**插在最前面**（第一眼就能找到）；容器还空就照旧 append。
+     */
+    if (menu.firstChild) {
+        menu.insertBefore(item, menu.firstChild);
+    } else {
+        menu.appendChild(item);
+    }
     return true;
 }
 
