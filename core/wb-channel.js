@@ -225,13 +225,23 @@ export function probeChannel() {
         return cached;
     }
 
-    cached = {
+    /*
+     * 依据＝本轮取证（pick 偶发红、且一直没有任何警告）：
+     *   这里把“未找到任何通道”的结果**也缓存了**；一旦第一次探测时酒馆接口还没就绪，
+     *   后面再怎么读都是空的 caps ⇒ `listBooks()` 直接返回 []、且**不打一行警告**；
+     *   下游就把它当成“真的一本书都没有”。
+     *   现在：这种“什么也没找到”的结果**不缓存**，下次调用重新探一次。
+     */
+    const noneCaps = {
         channel: 'none',
         label: CHANNEL_LABEL.none,
         caps: {},
         detail: { '酒馆接口': !!h },
     };
-    return cached;
+    if (h) {
+        cached = noneCaps;
+    }
+    return noneCaps;
 }
 
 /* ------------------------------ 旧通道：读-改-写整本 ------------------------------ */
