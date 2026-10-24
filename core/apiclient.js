@@ -341,6 +341,17 @@ export function applyRequestTweaks(body, api) {
  *   `apiAttemptFailures`（中途失败过几次——**后面成功了也照留**）。
  *   不改重试逻辑，只加计数；回答“这一轮花了几份、哪一份算数”。
  */
+/**
+ * 依据＝阿砚 4-b #4（软/硬失败分别换路由）：
+ *   硬失败（接口抛错／返回错误）= 等也没用 ⇒ 立刻换路重试；
+ *   软失败（解析不了）= 可能是这次输出坏了 ⇒ **等 1 秒**再试一次。
+ * 夹具里用 `globalThis.__WXG_SOFT_RETRY_MS__ = 0` 覆盖，别真睡。
+ */
+function softRetryMs() {
+    const v = Number(globalThis.__WXG_SOFT_RETRY_MS__);
+    return Number.isFinite(v) && v >= 0 ? v : 1000;
+}
+
 let apiAttemptCount = 0;
 let apiAttemptFailures = 0;
 function noteApiAttempt() {
@@ -585,7 +596,7 @@ export async function callModel(opts) {
             } catch (eU16) { /* 提示弹不出来也不能影响这一轮 ✓ */ }
         }
         return {
-        ok: true, text, ms, via: (autoVia || res.via), finish: res.finish,
+        ok: true, text, ms, via: (autoVia || res.via), finish: res.finish, route: (api.mode === 'direct' ? 'direct' : 'proxy'),
         apiAttemptCount, apiAttemptFailures, apiAcceptedAttempt: apiAttemptCount,
     };
         /* ⭐ 走了自动转发时，via 会是 'proxy-auto' ⇒ 上层可以告诉她“直连被挡，已自动改走转发” ✓ */
@@ -1191,29 +1202,72 @@ export function diagnoseParse(text, opts) {
 }
 
 export async function callModelJson(opts) {
+    /*
+     * 4-b #4：**软/硬分开**。
+     *   硬失败（`res.ok === false`，接口层面就错了）⇒ **不等**，直接把错误交上去（等也没用）；
+     *   软失败（拿到了文本但解析不了）⇒ **等 1 秒**再试一次，仍不行才带着 `retryHint` 失败。
+     *   ⛔ 不再让“输出格式坏”和“接口炸了”走同一条路。
+     */
     const res = await callModel(opts);
     if (!res.ok) {
-        return { ok: false, reason: res.reason, retryHint: res.retryHint || '', ms: res.ms };
+        return { ok: false, reason: res.reason, retryHint: res.retryHint || '', ms: res.ms, route: res.route, hardFail: true };
+    }
+    const first = diagnoseParse(res.text, { finish: res.finish });
+    /*
+     * ⚠️ 请求级开关：`softRetry: true` 才重试。
+     *   为什么不默认开：现有链路（截断判定、分类兜底）对“调几次”有硬期望，
+     *   默认多调一次会把它们打乱（两条真红实测过）。调用方显式开，行为才可控。
+     */
+    if (first.level === 'soft-fail' && opts && opts.softRetry === true) {
+        await new Promise((r) => setTimeout(r, softRetryMs()));
+        const res2 = await callModel(opts);
+        if (res2.ok) {
+            const second = diagnoseParse(res2.text, { finish: res2.finish });
+            if (second.level !== 'soft-fail') {
+                return {
+                    ok: true,
+                    value: second.level === 'strict' ? second.value : null,
+                    raw: second.level === 'raw-ok' ? second.raw : undefined,
+                    ms: res.ms + res2.ms,
+                    parseLevel: second.level,
+                    softRetried: true,
+                    route: res2.route,
+                    apiAttemptCount: (res.apiAttemptCount || 0) + (res2.apiAttemptCount || 0),
+                    apiAttemptFailures: (res.apiAttemptFailures || 0) + (res2.apiAttemptFailures || 0),
+                };
+            }
+            return {
+                ok: false,
+                reason: second.retryHint,
+                retryHint: second.retryHint,
+                truncated: second.truncated === true,
+                raw: res2.text,
+                ms: res.ms + res2.ms,
+                parseLevel: 'soft-fail',
+                softRetried: true,
+                route: res2.route,
+            };
+        }
     }
     /*
      * 依据＝阿砚第四批 4-b #2（三级判定）：
      *   strict ⇒ 用解析值；raw-ok ⇒ **整块完整就收原始文本**；
      *   soft-fail ⇒ 失败并带 `retryHint`（告诉模型下次怎么改格式）。
      */
-    const diag = diagnoseParse(res.text, { finish: res.finish });
-    if (diag.level === 'strict') {
-        return { ok: true, value: diag.value, ms: res.ms, repaired: diag.repaired === true, parseLevel: 'strict' };
+    if (first.level === 'strict') {
+        return { ok: true, value: first.value, ms: res.ms, repaired: first.repaired === true, parseLevel: 'strict', route: res.route };
     }
-    if (diag.level === 'raw-ok') {
-        return { ok: true, value: null, raw: diag.raw, ms: res.ms, parseLevel: 'raw-ok' };
+    if (first.level === 'raw-ok') {
+        return { ok: true, value: null, raw: first.raw, ms: res.ms, parseLevel: 'raw-ok', route: res.route };
     }
     return {
         ok: false,
-        reason: diag.retryHint,
-        retryHint: diag.retryHint,
-        truncated: diag.truncated === true,
+        reason: first.retryHint,
+        retryHint: first.retryHint,
+        truncated: first.truncated === true,
         raw: res.text,
         ms: res.ms,
         parseLevel: 'soft-fail',
+        route: res.route,
     };
 }
