@@ -21,7 +21,7 @@ import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
 import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
 import { applyRetired } from './contract.js';
 /* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
-import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1607,47 +1607,8 @@ export function listWindsView(cap) {
 }
 
 /* ★ [580]／世界记忆引擎 C1：势力厚度枚举（取字段语义，⛔ 不搬紫主题 UI） */
-export const FACTION_STATUSES = Object.freeze(['鼎盛', '稳固', '倾轧', '困顿', '衰落', '瓦解']);
-export const FACTION_RELATIONS = Object.freeze(['血盟', '盟友', '友好', '中立', '冷淡', '敌对', '世仇']);
 
 
-export function normalizeFaction(f) {
-    const src = f && typeof f === 'object' ? f : {};
-    /*
-     * 依据＝阿砚 3 件任务 · 渲染层 #2（数据层，比显示层更要紧）：
-     *   旧：模型没写状态就被写成“稳固”、没写态度就被写成“中立” ⇒ **账上被永久造了一个假值**，
-     *        她以后看到的“稳固”分不清是真推出来的还是填的。
-     *   现在：没写就留空（不合法的也清成空）；“紧张”⇒“冷淡”是同义归一，保留。
-     *   判据＝观棋「控件找不到就退让，不自己编一个值出来」（param-panel.js:22）
-     */
-    let status = trimText(src.status);
-    if (status && !FACTION_STATUSES.includes(status)) { status = ''; }
-    let relation = trimText(src.relation);
-    if (relation === '紧张') { relation = '冷淡'; }
-    if (relation && !FACTION_RELATIONS.includes(relation)) { relation = ''; }
-    /*
-     * ★ [580] B5：势力只认 scale（规模）；⛔ 不存 power／「实力」。
-     *   模型若误把规模写进 power，且长得像规模词 ⇒ 挪进 scale；否则丢掉。
-     */
-    let scale = trimText(src.scale);
-    const mistook = trimText(src.power);
-    if (!scale && mistook && /巨型|庞大|巨大|大型|中型|小型|微型|规模|零散|个体/.test(mistook)) {
-        scale = mistook;
-    }
-    return {
-        id: trimText(src.id) || makeId('faction'),
-        name: trimText(src.name),
-        core_person: trimText(src.core_person),
-        scale,
-        note: trimText(src.note),
-        status,
-        relation,
-        scope: trimText(src.scope),
-        powerPillars: normalizeFactionPillars(src.powerPillars),
-        at: Number(src.at) || 0,
-        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
-    };
-}
 
 /**
  * ★ P1-1（修复单 20261019）：**势力是独立实体**，不是人物上的一个字符串。
@@ -1701,7 +1662,7 @@ export function upsertFaction(line) {
 
 /** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
 /* 1-c #2 前置：这两个已搬到 core/normalize-world.js，这里只 re-export（对外 API 不变） */
-export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility } from './normalize-world.js';
+export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS } from './normalize-world.js';
 
 export function normalizeAgendaOrigin(raw) {
     if (raw && typeof raw === 'object') {

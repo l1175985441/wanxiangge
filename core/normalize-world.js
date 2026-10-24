@@ -181,3 +181,45 @@ export function resolveVisibility(text, visibilityHint) {
     if (TRACE_CUE.test(s)) { return 'trace'; }
     return 'private';   /* 宁可私域 ✓ */
 }
+
+/* ---- 势力（连同两个枚举一起搬） ---- */
+export const FACTION_STATUSES = Object.freeze(['鼎盛', '稳固', '倾轧', '困顿', '衰落', '瓦解']);
+export const FACTION_RELATIONS = Object.freeze(['血盟', '盟友', '友好', '中立', '冷淡', '敌对', '世仇']);
+
+export function normalizeFaction(f) {
+    const src = f && typeof f === 'object' ? f : {};
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #2（数据层，比显示层更要紧）：
+     *   旧：模型没写状态就被写成“稳固”、没写态度就被写成“中立” ⇒ **账上被永久造了一个假值**，
+     *        她以后看到的“稳固”分不清是真推出来的还是填的。
+     *   现在：没写就留空（不合法的也清成空）；“紧张”⇒“冷淡”是同义归一，保留。
+     *   判据＝观棋「控件找不到就退让，不自己编一个值出来」（param-panel.js:22）
+     */
+    let status = trimText(src.status);
+    if (status && !FACTION_STATUSES.includes(status)) { status = ''; }
+    let relation = trimText(src.relation);
+    if (relation === '紧张') { relation = '冷淡'; }
+    if (relation && !FACTION_RELATIONS.includes(relation)) { relation = ''; }
+    /*
+     * ★ [580] B5：势力只认 scale（规模）；⛔ 不存 power／「实力」。
+     *   模型若误把规模写进 power，且长得像规模词 ⇒ 挪进 scale；否则丢掉。
+     */
+    let scale = trimText(src.scale);
+    const mistook = trimText(src.power);
+    if (!scale && mistook && /巨型|庞大|巨大|大型|中型|小型|微型|规模|零散|个体/.test(mistook)) {
+        scale = mistook;
+    }
+    return {
+        id: trimText(src.id) || makeId('faction'),
+        name: trimText(src.name),
+        core_person: trimText(src.core_person),
+        scale,
+        note: trimText(src.note),
+        status,
+        relation,
+        scope: trimText(src.scope),
+        powerPillars: normalizeFactionPillars(src.powerPillars),
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
