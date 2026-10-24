@@ -12,6 +12,7 @@
  */
 
 import { REQUEST_TIMEOUT_MS } from './config.js';
+import { inspectBody, notePollution, channelPlan } from './channel.js';   /* G3：通道形态隔离 */
 import { getSettings, resolveApi } from './settings.js';
 import { getCtx } from './adapter.js';
 import { trimText, asText } from './utils.js';
@@ -378,6 +379,16 @@ export async function callModel(opts) {
             : (Number.isFinite(Number(api.maxTokens)) ? Number(api.maxTokens) : 1600),
         stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
+    /* G3：拼完就检一遍“有没有不是我们写的键”（被别的插件塞料时能看见，⛔ 永远搜不到） */
+    try {
+        const insp = inspectBody('proxy', body);
+        if (!insp.ok) {
+            notePollution('proxy', insp.extra);
+            const plan = channelPlan('proxy');
+            console.warn('[万象阁] ' + insp.reason + (plan.action === 'advise-switch' ? '｜' + plan.reason : ''));
+        }
+    } catch (eIns) { /* 自检不能拦发请求 */ }
+
     if (hasProxyTweaks) {
         /* ★ 只在她填了三格时才加这三个键（⛔ 动 payload 形状） */
         if (pExtraBody) { body.custom_include_body = pExtraBody; }
