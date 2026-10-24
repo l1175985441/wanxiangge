@@ -212,43 +212,147 @@ export function extractJson(text, opts) {
     }
 }
 
-/** 给截断的 JSON 补收尾（只做最保守的补全） */
-function repairJson(text) {
-    let s = asText(text).trim();
-    // 去掉尾部多余的逗号
-    s = s.replace(/,\s*$/, '');
-    // 数一数没闭合的括号
+/**
+ * 依据＝阿砚第四批 4-b 中间 5 条 · #7（六层容错顺序）：
+ *   原条目抄的是“繁转简 → 去注释 → 标签名粘连 → 属性别名 → 自闭合 → 同名双写”这套**顺序**；
+ *   我们只处理 JSON，所以照它的**精神**给自己的六步定死顺序（⛔ 不许并列乱补）：
+ *     ① 去围栏  ② 去注释  ③ 中文引号归一  ④ 去尾逗号  ⑤ 裸键加引号  ⑥ 补闭合
+ *   顺序为什么重要：先把括号补上、再去注释，会把注释里的括号也算进配平 ⇒ 补错位置。
+ *   `REPAIR_STEPS` 是唯一真源，`repairJson()` 只按它依次跑。
+ */
+export const REPAIR_STEPS = [
+    { id: 'fence', label: '去 ``` 围栏' },
+    { id: 'comments', label: '去 // 与 /* */ 注释（字符串内的不动）' },
+    { id: 'quotes', label: '中文引号 “” ‘’ 归一成 ASCII' },
+    { id: 'trailingComma', label: '去尾逗号' },
+    { id: 'bareKeys', label: '裸键加引号' },
+    { id: 'close', label: '补收尾（引号/括号）' },
+];
+
+/** 只在“字符串外”替换：把 fn 应用到非字符串片段 */
+function mapOutsideStrings(s, fn) {
+    let out = '';
+    let buf = '';
     let inStr = false;
     let esc = false;
-    const stack = [];
     for (let i = 0; i < s.length; i += 1) {
         const ch = s[i];
         if (inStr) {
-            if (esc) {
-                esc = false;
-            } else if (ch === '\\') {
-                esc = true;
-            } else if (ch === '"') {
-                inStr = false;
-            }
+            out += ch;
+            if (esc) { esc = false; } else if (ch === '\\') { esc = true; } else if (ch === '"') { inStr = false; }
             continue;
         }
         if (ch === '"') {
+            out += fn(buf, true);
+            buf = '';
+            out += ch;
             inStr = true;
-        } else if (ch === '{' || ch === '[') {
-            stack.push(ch);
-        } else if (ch === '}' || ch === ']') {
-            stack.pop();
+            continue;
         }
+        buf += ch;
     }
-    if (inStr) {
-        s += '"';
+    out += fn(buf, false);
+    return out;
+}
+
+const REPAIR_IMPL = {
+    fence(s) {
+        return s.replace(/^```[A-Za-z]*\s*/i, '').replace(/\s*```\s*$/i, '');
+    },
+    comments(s) {
+        /* 去注释，但字符串里的 // 不能动 ⇒ 用 mapOutsideStrings 分段处理 */
+        let out = '';
+        let buf = '';
+        let inStr = false;
+        let esc = false;
+        for (let i = 0; i < s.length; i += 1) {
+            const ch = s[i];
+            if (inStr) {
+                out += ch;
+                if (esc) { esc = false; } else if (ch === '\\') { esc = true; } else if (ch === '"') { inStr = false; }
+                continue;
+            }
+            if (ch === '"') {
+                out += buf.replace(/\/\/[\s\S]*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
+                buf = '';
+                out += ch;
+                inStr = true;
+                continue;
+            }
+            buf += ch;
+        }
+        out += buf.replace(/\/\/[\s\S]*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        return out;
+    },
+    quotes(s) {
+        return s.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
+    },
+    trailingComma(s) {
+        return mapOutsideStrings(s, (chunk) => chunk.replace(/,\s*([}\]])/g, '$1'));
+    },
+    bareKeys(s) {
+        return mapOutsideStrings(s, (chunk) => chunk.replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$-]*)(\s*:)/g, '$1"$2"$3'));
+    },
+    close(s) {
+        let out = s.trim();
+        let inStr2 = false;
+        let esc2 = false;
+        const stack = [];
+        for (let i = 0; i < out.length; i += 1) {
+            const ch = out[i];
+            if (inStr2) {
+                if (esc2) { esc2 = false; } else if (ch === '\\') { esc2 = true; } else if (ch === '"') { inStr2 = false; }
+                continue;
+            }
+            if (ch === '"') { inStr2 = true; continue; }
+            if (ch === '{' || ch === '[') { stack.push(ch); continue; }
+            if (ch === '}' || ch === ']') { stack.pop(); }
+        }
+        if (inStr2) { out += '"'; }
+        while (stack.length) {
+            const open = stack.pop();
+            out += open === '{' ? '}' : ']';
+        }
+        return out;
+    },
+};
+
+/**
+ * 按固定顺序修，并把“哪几步真的改了东西”记下来（诊断/自测用）。
+ * @returns {{text:string, applied:string[]}}
+ */
+export function repairJsonDetailed(text) {
+    let s = asText(text).trim();
+    const applied = [];
+    for (const step of REPAIR_STEPS) {
+        const impl = REPAIR_IMPL[step.id];
+        if (!impl) { continue; }
+        const before = s;
+        s = impl(s);
+        if (s !== before) { applied.push(step.id); }
     }
-    while (stack.length) {
-        const open = stack.pop();
-        s += open === '{' ? '}' : ']';
+    return { text: s, applied };
+}
+
+/**
+ * 只跑指定的几步（自测用：用来证明“顺序错了就修不回”）。
+ * @param {string} text
+ * @param {string[]} ids
+ */
+export function repairJsonWith(text, ids) {
+    const want = Array.isArray(ids) ? ids : [];
+    let s = asText(text).trim();
+    for (const step of REPAIR_STEPS) {
+        if (!want.includes(step.id)) { continue; }
+        const impl = REPAIR_IMPL[step.id];
+        if (impl) { s = impl(s); }
     }
     return s;
+}
+
+/** 给截断的 JSON 补收尾（只做最保守的补全；顺序见 REPAIR_STEPS） */
+function repairJson(text) {
+    return repairJsonDetailed(text).text;
 }
 
 /** 组装一次请求的超时控制 */
