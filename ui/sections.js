@@ -3004,46 +3004,62 @@ function secRecall(host) {
         cell.appendChild(v);
         return cell;
     };
-    const lineGroup = (cells) => {
+    const lineGroup = (cells, target) => {
         const g = el('div', 'wxg-line-group');
         for (const c2 of cells) {
             if (c2) { g.appendChild(c2); }
         }
-        cPick.appendChild(g);
+        /* 渲染层 #7：数值行挂到**它自己那一组**（⛔ 全挂到第一组） */
+        (target || bPick).appendChild(g);
         return g;
     };
-    lineGroup([
-        lineCell('线索回溯', numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns')),
-        lineCell('人物封顶（建议 8–20，太大占上下文）', numberInput('wxg-max-chars', s.maxChars, 1, 99, 'stage-max-chars')),
-        lineCell('事件封顶', numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events')),
-    ]);
-    lineGroup([
-        lineCell('世界事件上限', numberInput('wxg-cap-events', s.capEvents, 10, 300, 'stage-cap-events')),
-        lineCell('暗线上限', numberInput('wxg-cap-hidden', s.capHidden, 5, 200, 'stage-cap-hidden')),
-        lineCell('编年上限', numberInput('wxg-cap-chronicle', s.capChronicle, 100, 5000, 'stage-cap-chronicle')),
-    ]);
     /*
-     * ⭐ ST1（材料 11·设置层）：**4 个容量锁设置，面板上终于有输入框了** ✓
-     *   旧：capPast／capEvents／capHidden／capChronicle 在 DEFAULT_SETTINGS、loadSettings、
-     *     patchSettings、applyLimits 里全套齐全 ✓ 但面板上**一个输入框都没画** ✗
-     *     ⇒ 她永远改不了它们 ✗（她原话 [54] 专门要过“保留几条过去经历” ✓）
+     * 依据＝阿砚 3 件任务 · 渲染层 #7（设置按用途分组折叠）：
+     *   召回 11 个控件原来平铺在一张卡里（世界背面有 9 个子组）⇒ 按「挑谁／容量锁／篇幅」分三组，默认收起。
+     *   开合记在 foldOpenState（同一会话内重画不丢；⛔ 跨重启保存——那要另开一次 schema）。
      */
-    line(cPick, '过去经历留几条',
-        numberInput('wxg-cap-past', s.capPast, 2, 20, 'stage-cap-past'),
-        el('span', 'wxg-note', '条（每个角色；超出的旧自然淡出）'));
-    line(cPick, '排序', select('wxg-sort-mode', [
-        { value: 'related', label: '按相关度（先说到的排前面）' },
-        { value: 'name', label: '按名册顺序' },
-    ], s.sortMode, 'stage-sort-mode'));
-    line(cPick, '过去经历只端',
-        numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
-        el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
-    line(cPick, '注入字数上限',
-        numberInput('wxg-inject-cap', s.injectCharCap, 1, 5000, 'stage-inject-cap'),
-        el('span', 'wxg-note', '字符（1–5000，不填默认 1400）'));
-    line(cPick, '一轮最多推演',
-        numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
-        el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
+    const mkFold = (title, open) => {
+        const f = foldable(title, open === true);
+        const b = el('div', 'wxg-sec-body');
+        f.appendChild(b);
+        cPick.appendChild(f);
+        return b;
+    };
+    const bPick = mkFold('挑谁（回溯大小／人物与事件封顶／排序）', false);
+    const bCap = mkFold('容量锁（到顶怎么归并／淡出）', false);
+    const bSize = mkFold('篇幅（注入字数／一轮推演几个）', false);
+        lineGroup([
+            lineCell('线索回溯', numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns')),
+            lineCell('人物封顶（建议 8–20，太大占上下文）', numberInput('wxg-max-chars', s.maxChars, 1, 99, 'stage-max-chars')),
+            lineCell('事件封顶', numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events')),
+        ]);
+        lineGroup([
+            lineCell('世界事件上限', numberInput('wxg-cap-events', s.capEvents, 10, 300, 'stage-cap-events')),
+            lineCell('暗线上限', numberInput('wxg-cap-hidden', s.capHidden, 5, 200, 'stage-cap-hidden')),
+            lineCell('编年上限', numberInput('wxg-cap-chronicle', s.capChronicle, 100, 5000, 'stage-cap-chronicle')),
+        ], bCap);
+        /*
+         * ⭐ ST1（材料 11·设置层）：**4 个容量锁设置，面板上终于有输入框了** ✓
+         *   旧：capPast／capEvents／capHidden／capChronicle 在 DEFAULT_SETTINGS、loadSettings、
+         *     patchSettings、applyLimits 里全套齐全 ✓ 但面板上**一个输入框都没画** ✗
+         *     ⇒ 她永远改不了它们 ✗（她原话 [54] 专门要过“保留几条过去经历” ✓）
+         */
+        line(bCap, '过去经历留几条',
+            numberInput('wxg-cap-past', s.capPast, 2, 20, 'stage-cap-past'),
+            el('span', 'wxg-note', '条（每个角色；超出的旧自然淡出）'));
+        line(bCap, '排序', select('wxg-sort-mode', [
+            { value: 'related', label: '按相关度（先说到的排前面）' },
+            { value: 'name', label: '按名册顺序' },
+        ], s.sortMode, 'stage-sort-mode'));
+        line(bCap, '过去经历只端',
+            numberInput('wxg-past-floor-cut', s.pastFloorCut, 0, 50, 'stage-past-floor-cut'),
+            el('span', 'wxg-note', '楼之外的（最近这么多楼里的，你上下文里已有，不重复端；0＝全端）'));
+        line(bSize, '注入字数上限',
+            numberInput('wxg-inject-cap', s.injectCharCap, 1, 5000, 'stage-inject-cap'),
+            el('span', 'wxg-note', '字符（1–5000，不填默认 1400）'));
+        line(bSize, '一轮最多推演',
+            numberInput('wxg-max-parallel', s.maxParallelChars, 0, 12, 'stage-max-parallel'),
+            el('span', 'wxg-note', '个不在场的角色（省额度：其余下一轮轮转）'));
     box.appendChild(cPick);
 
     // 卡片那两个开关归这儿（它们是"召回之后怎么显示"的事，⛔ 不是总闸）
@@ -3233,29 +3249,44 @@ function secApi(host) {
         ? ('书签「' + curNickForDel + '」那一套')
         : (api.mode === 'direct' ? '直连（浏览器直接请求）' : '经酒馆服务器转发'))
         + '。想换别的就在上面选；想存成一套，先填下面的「书签名」再点「＋」。'));
-    line(cCh, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #7（自定义 API 分组）：
+     *   11 个控件原来平铺在一张卡里 ⇒ 按「连接／生成／测试」分三组，默认收起（连接组常开，因为地址/密钥要看得见）。
+     */
+    const mkApiFold = (title, open) => {
+        const f = foldable(title, open === true);
+        const b = el('div', 'wxg-sec-body');
+        f.appendChild(b);
+        cCh.appendChild(f);
+        return b;
+    };
+    const bConn = mkApiFold('连接（地址／密钥／模型）', false);
+    const bGen = mkApiFold('生成（打杂模型／温度／喂多少字／重试）', false);
+    const bTest = mkApiFold('测一下连接', false);
+
+    line(bConn, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
-    line(cCh, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
+    line(bConn, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
         button(apiKeyShown ? '隐藏' : '显示', 'toggle-api-key', 'wxg-btn-sm'));
-    line(cCh, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
+    line(bConn, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
     /*
      * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
      *   点一下拉回来 ⇒ 列成一排可点的小片 ⇒ 点一个就填进「推演模型」（走同一条草稿，照旧要点段底保存）。
      *   ⚠️ 拉不到就**如实说原因**，**⛔ 影响手输**。
      */
-    line(cCh, '', button('拉取模型列表', 'fetch-models', 'wxg-btn-sm'),
+    line(bConn, '', button('拉取模型列表', 'fetch-models', 'wxg-btn-sm'),
         el('span', 'wxg-note', '（向地址 + /models 要一份清单；拉不到也可以自己填）'));
     const modelBoxEl = el('div', 'wxg-chipwrap', '');
     modelBoxEl.id = 'wxg-api-modellist';
     cCh.appendChild(modelBoxEl);
     /* ⭐ RD1-3：拉过就画回来 ✓（旧：重绘变空盒 ✗） */
     try { paintModelChips(modelBoxEl); } catch (eMP) { /* 同上 ✓ */ }
-    line(cCh, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
+    line(bGen, '打杂模型', textInput('wxg-api-model-cheap', api.modelCheap, '留空＝同上', 'stage-api-model-cheap', 'wxg-short'));
     /* ⭐修复 15（材料 02）：**温度框设 step="0.1"** ✓
      *   （旧：步长默认 1 ✗ ⇒ 她想填 0.6 这种小数很别扭 ✗） */
     const tempInput = numberInput('wxg-api-temp-code', api.temperature, 0, 2, 'stage-api-temp');
     tempInput.step = '0.1';
-    line(cCh, '温度',
+    line(bGen, '温度',
         tempInput,
         el('span', 'wxg-note', '单次最多输出'),
         numberInput('wxg-api-maxtok', api.maxTokens, 200, 65536, 'stage-api-maxtok'));
@@ -3264,8 +3295,8 @@ function secApi(host) {
      *   她那个中转对**长请求**一律掉线（直连 reset、转发 502+ECONNRESET、连流式也照掉 ✗）；
      *   而**只有她知道那站能收多大的请求** ⇒ 把上限交给她，一档一档往下试 ✓
      */
-    line(cCh, '每轮最多喂多少字正文', numberInput('wxg-api-material-cap', Number(api.materialCap) || 6000, 500, 40000, 'stage-api-material-cap'));
-    line(cCh, '链路掉线后自己再试几次',
+    line(bGen, '每轮最多喂多少字正文', numberInput('wxg-api-material-cap', Number(api.materialCap) || 6000, 500, 40000, 'stage-api-material-cap'));
+    line(bGen, '链路掉线后自己再试几次',
         numberInput('wxg-auto-retry-max', Number(api.autoRetryMax) || 2, 0, 5, 'stage-auto-retry-max'));
     cCh.appendChild(el('div', 'wxg-note', '链路掉线（reset／超时／回体空）时，它会自己等一会儿再试：这里填它最多自己试几次（0＝不自动试 ✓；默认 2 ✓）'));
     cCh.appendChild(el('div', 'wxg-note', '这个数**越小越容易穿过慢或爱掉线的站**（每轮只带最近这么多字），但模型看到的上下文也越少。卡住时可以一档一档往下试：6000 → 3000 → 1500 ✓'));
@@ -3281,7 +3312,7 @@ function secApi(host) {
         '已保存的：地址 ' + (trimText(savedApi.url) || '（空）')
         + '｜推演模型 ' + (trimText(savedApi.model) || '（空）')
         + '｜模式 ' + (savedApi.mode === 'direct' ? '直连' : '经酒馆转发')));
-    row(cCh, button('测一下连接', 'test-api', 'wxg-primary'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
+    row(bTest, button('测一下连接', 'test-api', 'wxg-primary'), el('span', 'wxg-note', '（只发一句很短的话，验证地址／密钥／模型对不对）'));
     box.appendChild(cCh);
 
     /* ⭐ 书签（她点名要的："加一个保存 API／另存为，我可以设定好几个 API 转"） */
