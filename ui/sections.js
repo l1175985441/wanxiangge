@@ -25,6 +25,7 @@ import {
     addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
     overlayPending, acceptOverlay, dismissOverlay } from '../core/state.js';
 import { createCache, isBroken } from '../core/cache.js';   /* B7：缓存坏了，⛔ 当成“没有” */
+import { tallyLine } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
@@ -2666,6 +2667,12 @@ function secRoster(host) {
     /* ★ R62：排序交给纯函数（可测），并带正反序 ✓ */
     if (rosterFilter === 'created' || rosterFilter === 'changed' || rosterFilter === 'name') {
         shownRoster = sortRosterList(shownRoster, rosterFilter, rosterSortDir);
+    /*
+     * 依据＝阿砚第三批 C 档 P2 · F3：总数要印出来。
+     *   名册有筛选与搜索；不印总数，她就分不清“筛没了”还是“本来就这么多”。
+     */
+    const tallyRoster = tallyLine('名册', roster.length, shownRoster.length);
+    cList.appendChild(el('div', 'wxg-note', tallyRoster));   /* F3：把“显示 N / 共 M”印出来 */
     }
     const rf = el('div', 'wxg-filters');
     const mkR = (key, label, n) => {
