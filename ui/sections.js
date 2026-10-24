@@ -25,6 +25,7 @@ import {
     addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
     overlayPending, acceptOverlay, dismissOverlay } from '../core/state.js';
 import { createCache, isBroken } from '../core/cache.js';   /* B7：缓存坏了，⛔ 当成“没有” */
+import { listPresets, describePreset, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import { tallyLine } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
@@ -3445,6 +3446,43 @@ function secPrompts(host) {
         el('span', 'wxg-note', '（只清提示词，不动你的开关）'));
     cMore.appendChild(resetRow);
     box.appendChild(cMore);
+    /*
+     * 依据＝阿砚第四批 4-a E3（三家都有的提示词预设库）：
+     *   ① 多套命名（名字＋时间＋字数） ② 内置不可删，只能另存为副本
+     *   ③ 颗粒度可以到**单个块** ④ 导入导出带 kind/version ⑤ 应用时⛔ 重建现场
+     */
+    const cPreset = card('提示词预设（可只存一块）');
+    cPreset.appendChild(el('div', 'wxg-note', '内置那几套不能删（要改就另存为副本）；"应用"只改提示词，不会重算。'));
+    const presets = listPresets(s);
+    const presetOpts = presets.map((pp) => ({ value: pp.id, label: pp.name + '（' + describePreset(pp) + '）' }));
+    if (!presetOpts.length) {
+        presetOpts.push({ value: '', label: '（还没有预设）' });
+    }
+    const presetRow = el('div', 'wxg-card-actions');
+    presetRow.appendChild(select('wxg-preset-sel', presetOpts, presets.length ? presets[0].id : '', 'noop'));
+    presetRow.appendChild(button('应用', 'apply-preset', 'wxg-btn-sm'));
+    presetRow.appendChild(button('删除', 'delete-preset', 'wxg-btn-xs'));
+    cPreset.appendChild(presetRow);
+    const blockRow = el('div', 'wxg-card-actions');
+    blockRow.appendChild(el('span', 'wxg-note', '另存为副本时存哪一块：'));
+    blockRow.appendChild(select('wxg-preset-block', [
+        { value: 'all', label: '整套（四块）' },
+        { value: 'world', label: '只存「世界推演」' },
+        { value: 'chars', label: '只存「角色状态／平行事件」' },
+        { value: 'jailbreak', label: '只存「破限词」' },
+        { value: 'header', label: '只存「开头那句」' },
+    ], 'all', 'noop'));
+    blockRow.appendChild(textInput('wxg-preset-name', '', '新预设的名字', 'noop'));
+    blockRow.appendChild(button('另存为副本', 'save-preset', 'wxg-btn-sm'));
+    cPreset.appendChild(blockRow);
+    const ioRow = el('div', 'wxg-card-actions');
+    ioRow.appendChild(button('导出整包', 'export-presets', 'wxg-btn-xs'));
+    ioRow.appendChild(button('导入整包', 'import-presets', 'wxg-btn-xs'));
+    cPreset.appendChild(ioRow);
+    const ioBox = textarea('wxg-preset-io', '', '导出的 JSON 就在这里（复制走）；导入就把 JSON 粘进来再点导入', 'noop', 4);
+    cPreset.appendChild(ioBox);
+    box.appendChild(cPreset);
+
     box.appendChild(saveBar('prompts'));
     host.appendChild(box);
 }
@@ -7516,6 +7554,95 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 提示词 ---- */
                 case 'set-inject-header': if (isChange) { patchSettings({ injectHeader: target.value }); toast.ok('保存了'); } break;
+                case 'apply-preset': {
+                    /* 4-a E3⑤：应用只改提示词（⛔ 重算） */
+                    const selP = byId(host, 'wxg-preset-sel');
+                    const plan = planApply(getSettings(), selP ? String(selP.value || '') : '');
+                    if (!plan.ok) {
+                        toast.bad('没应用成：' + String(plan.reason || '没选预设'));
+                        break;
+                    }
+                    patchSettings(plan.patch);
+                    toast.ok('已应用：' + plan.preset.name + '（改了 ' + String(plan.applied.length) + ' 块，未重算）');
+                    rerender();
+                    break;
+                }
+                case 'delete-preset': {
+                    const selD = byId(host, 'wxg-preset-sel');
+                    const idD = selD ? String(selD.value || '') : '';
+                    const all = listPresets(getSettings());
+                    const one = all.find((x) => x.id === idD);
+                    if (!one) {
+                        toast.bad('没选到要删的预设');
+                        break;
+                    }
+                    if (one.builtin) {
+                        toast.bad('内置预设不能删——要改就「另存为副本」。');
+                        break;
+                    }
+                    const rest = (Array.isArray(getSettings().promptPresets) ? getSettings().promptPresets : []).filter((x) => String(x.id) !== idD);
+                    patchSettings({ promptPresets: rest });
+                    toast.ok('已删：' + one.name);
+                    rerender();
+                    break;
+                }
+                case 'save-preset': {
+                    const nameInp = byId(host, 'wxg-preset-name');
+                    const blockSel = byId(host, 'wxg-preset-block');
+                    const which = blockSel ? String(blockSel.value || 'all') : 'all';
+                    const blocks = {};
+                    for (const b of [
+                        { kind: 'world', key: 'promptWorld' },
+                        { kind: 'chars', key: 'promptChars' },
+                        { kind: 'jailbreak', key: 'jailbreak' },
+                        { kind: 'header', key: 'injectHeader' },
+                    ]) {
+                        if (which === 'all' || which === b.kind) {
+                            blocks[b.key] = effectivePrompt(b.kind);
+                        }
+                    }
+                    const r = buildPreset(getSettings(), { name: nameInp ? String(nameInp.value || '') : '', blocks });
+                    if (!r.ok) {
+                        toast.bad('没存成：' + String(r.reason || '不合法'));
+                        break;
+                    }
+                    const list = Array.isArray(getSettings().promptPresets) ? getSettings().promptPresets : [];
+                    patchSettings({ promptPresets: list.concat([r.preset]) });
+                    toast.ok('已存为预设：' + r.preset.name);
+                    rerender();
+                    break;
+                }
+                case 'export-presets': {
+                    const io = byId(host, 'wxg-preset-io');
+                    const pack = exportPresets(getSettings());
+                    if (io) {
+                        io.value = JSON.stringify(pack, null, 2);
+                    }
+                    toast.ok('已生成整包（' + String(pack.items.length) + ' 套）；下面那个框里复制就行');
+                    break;
+                }
+                case 'import-presets': {
+                    const io = byId(host, 'wxg-preset-io');
+                    const raw = io ? String(io.value || '') : '';
+                    let pack = null;
+                    try {
+                        pack = JSON.parse(raw);
+                    } catch (eImp) {
+                        toast.bad('导入失败：不是合法 JSON');
+                        break;
+                    }
+                    const cfg = getSettings();
+                    const out = importPresets(cfg, pack);
+                    if (!out.ok) {
+                        toast.bad('整包拒收：' + (out.rejects.slice(0, 2).join('；') || '不知道原因'));
+                        break;
+                    }
+                    patchSettings({ promptPresets: cfg.promptPresets });
+                    toast.ok('已导入 ' + String(out.added.length) + ' 套'
+                        + (out.rejects.length ? '（跳过 ' + String(out.rejects.length) + ' 条）' : ''));
+                    rerender();
+                    break;
+                }
                 case 'set-prompt-world': if (isChange) { patchSettings({ promptWorld: target.value }); toast.ok('保存了'); } break;
                 case 'set-prompt-chars': if (isChange) { patchSettings({ promptChars: target.value }); toast.ok('保存了'); } break;
                 case 'set-jailbreak':
