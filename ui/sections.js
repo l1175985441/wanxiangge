@@ -3087,7 +3087,7 @@ function secExtract(host) {
     autoListTimer = setTimeout(() => {
         autoListTimer = null;
         try {
-            if (!host || host.isConnected === false) { return; }   /* 旧页面已被换掉 ⇒ ⏔ 再去点它 */
+            if (!host || host.isConnected === false) { return; }   /* 旧页面已被换掉 ⇒ ⛔ 再去点它 */
             if (Array.isArray(listBooksCache) && listBooksCache.length) {
                 /* ⭐ RD1-2：缓存里有 ⇒ **直接把芯片画回来** ✓（旧：直接 return ⇒ 重绘后全没 ✗） */
                 try { paintBookPicks(host); } catch (ePB) { /* 画不出来也不能把这一页搞挂 ✓ */ }
