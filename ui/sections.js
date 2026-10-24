@@ -667,6 +667,8 @@ function secGeneral(host) {
     box.appendChild(cRun);
 
     const cUi = card('入口与启动');
+    /* 渲染层 #9：悬浮球的三个开关都在这张卡上；这里取生效值（已存＋还没保存的草稿） */
+    const miniEffEarly = Object.assign({}, s.mini || {});
     cUi.appendChild(checkbox('wxg-panel-open', '打开酒馆时自动弹出工作台／面板', s.showPanelOnStart, 'stage-panel-on-start'));
     /*
      * ⭐「把悬浮小框叫回来」——补一个**早就该有**的开关：
@@ -677,6 +679,15 @@ function secGeneral(host) {
      */
     cUi.appendChild(checkbox('wxg-ball-show', '显示悬浮小框（聊天时常驻，点一下进工作台；手动更新也在它上面）',
         (s.mini && s.mini.show) === true, 'toggle-mini-show'));
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #9（悬浮球三开关收到一处）：
+     *   原来「显示」在这张卡、「悬停展开／钉住」藏在「色板与颜色槽」卡里 —— 同一件事跨两页。
+     *   现在三个都在这里；色板卡那边只留一行指路（⛔ 两边各一份，那正是 4-g 的根病）。
+     */
+    cUi.appendChild(checkbox('wxg-hover-open', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
+        miniEffEarly.hoverOpen === true, 'mini-hover-toggle'));
+    cUi.appendChild(checkbox('wxg-pin-ball', '钉住悬浮球（一挂上就展开）',
+        miniEffEarly.pinned === true, 'mini-pin-toggle'));
     box.appendChild(cUi);
 
     /*
@@ -2949,10 +2960,8 @@ function secAppearance(host) {
      *   现在：先合并出生效值（已存＋草稿），再考量它是不是 `=== true` ✓
      */
     const miniEff = Object.assign({}, getSettings().mini || {}, stagedValue(SECID, 'mini', null) || {});
-    cTheme.appendChild(checkbox('wxg-hover-open', '鼠标移入悬浮球就自动展开（不勾＝扫过不会弹开）',
-        miniEff.hoverOpen === true, 'mini-hover-toggle'));
-    cTheme.appendChild(checkbox('wxg-pin-ball', '钉住悬浮球（一挂上就展开）',
-        miniEff.pinned === true, 'mini-pin-toggle'));
+    /* 渲染层 #9：两个开关已移到「总控 → 入口与启动」，这里只留指路（⛔ 两边各一份） */
+    cTheme.appendChild(el('div', 'wxg-note', '悬浮球的「悬停展开」「钉住」已并到「总控 → 入口与启动」（一个概念只留一个界面）。'));
 
     // 实时预览：四个槽位长什么样，直接给她看
     const pv = el('div', 'wxg-app-preview');
