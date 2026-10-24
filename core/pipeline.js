@@ -2173,6 +2173,17 @@ async function runUpdateInner(opts) {
      *   切聊天后旧轮次的迟到结果即使写错也能被认出来。
      */
     const chatKeyNow = currentChatKey();
+    /*
+     * 依据＝阿砚 1-c #3（游戏时间调度）里最便宜、也最要紧的一条：
+     *   **⛔ 只存 ms**——编码升级后毫秒会与新区错位；要存“当时的游戏时间原文”＋“哪个聊天”。
+     *   这一笔只做**记账**（调度判别联合 TimeSource 尚未做），但把两把锚先立住：
+     *     `lastRunChatKey`＝这一轮算的是哪个聊天；
+     *     `lastRunGameTimeRaw`＝这一轮看到的**世界钟原文**（原样，⛔ 不转 ms）。
+     */
+    let gameTimeRawNow = '';
+    try {
+        gameTimeRawNow = String((loadState().world || {}).clock || '');
+    } catch (eClock) { gameTimeRawNow = ''; }
 
     /*
      * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
@@ -2460,6 +2471,8 @@ async function runUpdateInner(opts) {
         /* 4-b #3：三格记账（中途失败后面成功了也照留） */
         apiAttempts: lastApiAttempts(),
         chatKey: chatKeyNow,
+        lastRunChatKey: chatKeyNow,
+        lastRunGameTimeRaw: gameTimeRawNow,
         lastInject: lastInjectInfo(),
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
