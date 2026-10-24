@@ -18,7 +18,8 @@ import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } fr
 import { parseClock, isLineDone } from './clock.js';
 import { originId, agendaOriginId } from './config.js';
 import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
-import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
+import { applyRetired } from './contract.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -127,6 +128,8 @@ export function normalizeCharacter(raw) {
     const c = raw && typeof raw === 'object' ? raw : {};
     /* 依据＝阿砚 M 表 M17：改名表要真的在“读”的时候生效（上一版只有表和函数、没人调） */
     applyFieldRenames(c);
+    /* C6：读进来就把退休字段拒收（不认识但没退休的仍然保留 —— 硬-1 要求） */
+    applyRetired(c);
     const manualFields = Array.isArray(c.manualFields)
         ? c.manualFields.map(trimText).filter((k) => STATUS_MANUAL_KEYS.includes(k))
         : (c.manual === true ? STATUS_MANUAL_KEYS.filter((k) => Boolean(trimText(c[k]))) : []);
@@ -390,6 +393,8 @@ function normalizeState(raw) {
     const s = raw && typeof raw === 'object' ? raw : {};
     /* M17：账本顶层字段同样先按表改名（表空时它是一个 no-op） */
     applyFieldRenames(s);
+    /* C6：顶层退休字段也拒收 */
+    applyRetired(s);
     const state = Object.assign(base, s);
     state.version = LEDGER_VERSION;
     state.chatKey = s.chatKey === undefined || s.chatKey === null ? '' : String(s.chatKey);
