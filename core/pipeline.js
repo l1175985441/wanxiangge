@@ -71,7 +71,7 @@ import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
-import { mentionedCharacters } from './recall.js';
+import { lastInjectInfo, mentionedCharacters } from './recall.js';
 
 let running = false;
 /*
@@ -2460,6 +2460,7 @@ async function runUpdateInner(opts) {
         /* 4-b #3：三格记账（中途失败后面成功了也照留） */
         apiAttempts: lastApiAttempts(),
         chatKey: chatKeyNow,
+        lastInject: lastInjectInfo(),
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
         text,

@@ -15,8 +15,10 @@ import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
-import { sourceOk, floorText } from './provenance.js';
+import { sourceOk, floorText, digestOf } from './provenance.js';   /* 4-b #6：注入指纹要用内容摘要 */
 import { noteText } from './prompt.js';
+/* 4-b #6：上一次注入的指纹（诊断/自测用，⛔ 影响注入内容） */
+let lastInject = null;
 import { recordInjectOrder } from './order.js';   /* C5：注入块顺序要可核 */   /* 硬-3：注入头记账 */   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
@@ -730,6 +732,24 @@ export function assembleInjectText(items, events, headerText, opts) {
         windRows.length ? 'winds' : '',
     ].filter(Boolean));
 
+    /*
+     * 依据＝阿砚 4-b #6（幂等注入）：我们不改写正文，真正同类风险是**同一楼重跑时注入叠两层**。
+     *   这里把“这一次注入的指纹”记下来（楼层＋字数＋内容摘要），供：
+     *     · 自测断言“同一楼同一材料，两次组装指纹必须相同”（→ 不会越跑越多）；
+     *     · 排查时看“上一次到底喂了什么”。
+     */
+    try {
+        const preDigest = digestOf(header + '\n' + worldLines.join('\u0001') + '\u0001' + blocks.join('\u0001') + '\u0001' + evBlocks.join('\u0001'));
+        lastInject = {
+            at: Date.now(),
+            anchorFloor: anchorFloor,
+            blocks: [header ? 'header' : '', worldLines.length ? 'world' : '', blocks.length ? 'people' : '',
+                evBlocks.length ? 'events' : '', windRows.length ? 'winds' : ''].filter(Boolean),
+            chars: countChars(header) + worldLines.join('').length,
+            digest: preDigest,
+        };
+    } catch (eIdem) { /* 记账失败不能影响注入 */ }
+
     const cap = injectCharCap();
     if (countChars(text) > cap) {
         // 超了就砍尾巴，并如实说明砍了多少条
@@ -959,4 +979,9 @@ export function buildRecall(input) {
 /** 这一轮注入了多少字（给回执用，与送进去的那一串同源） */
 export function injectSize(text) {
     return countChars(trimText(text));
+}
+
+/** 上一次注入的指纹：{ at, anchorFloor, blocks, chars, digest }（没有就 null） */
+export function lastInjectInfo() {
+    return lastInject ? Object.assign({}, lastInject) : null;
 }
