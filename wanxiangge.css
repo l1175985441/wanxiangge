@@ -2575,7 +2575,12 @@ body.wxg-dragging {
     grid-template-columns: 5.6em 1fr auto;
     align-items: baseline;
     gap: 4px var(--s3);
-    padding: 7px 2px;
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #4（编年行距）：
+     *   三家实测行内边距都在 12–17px，我们只有 7px（比行间距还小）⇒ 挤成一团。
+     *   现在：竖 12px、横 8px（横向留 8px 是因为左侧已有网格列间距）。
+     */
+    padding: 12px var(--s2);
     border-bottom: 1px solid rgba(128, 128, 128, 0.14);
 }
 
