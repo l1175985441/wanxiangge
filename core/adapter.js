@@ -264,7 +264,39 @@ export function noteSaveSkip(reason) {
     saveNote = String(reason || '这次没写盘');
 }
 
-export async function writeLedger(state) {
+/**
+ * 依据＝阿砚 A 组 B8（落盘确认：回读签名＋计时闸＋三态＋抢回）。
+ *   三态：'saved'（真写下去且回读核对上）/ 'nosave'（确定没写）/ 'unknown'（超时或写的中途换了聊天 －－不敢报成功）。
+ */
+let lastSaveState = 'idle';
+export function saveState3() {
+    return lastSaveState;
+}
+
+/** 超时闸：宿主的 saveChat 在取不到文件名时会静默 return，永远不解析 ⇒ 我们不能无限等 */
+function withTimeout(promise, ms, label) {
+    return new Promise((resolve, reject) => {
+        let done = false;
+        const timer = setTimeout(() => {
+            if (done) { return; }
+            done = true;
+            reject(new Error((label || '存盘') + '超时（' + String(ms) + 'ms 没回应）'));
+        }, ms);
+        Promise.resolve(promise).then((v) => {
+            if (done) { return; }
+            done = true;
+            clearTimeout(timer);
+            resolve(v);
+        }, (e) => {
+            if (done) { return; }
+            done = true;
+            clearTimeout(timer);
+            reject(e);
+        });
+    });
+}
+
+export async function writeLedger(state, opts) {
     if (!state || typeof state !== 'object') {
         return { ok: false, reason: '账本是空的' };
     }
@@ -296,22 +328,37 @@ export async function writeLedger(state) {
     }
 
     // 存服务端（saveMetadata 是标准路子；老版本没有就走 saveChatConditional）
+    const keyAtStart = currentChatKey();
+    const timeoutMs = (opts && Number.isFinite(Number(opts.timeoutMs))) ? Number(opts.timeoutMs) : 4000;
     const save = pickSaver();
     if (save) {
         try {
-            await save();
+            await withTimeout(save(), timeoutMs, '存盘');
             lastSaveOk = true;
             saveNote = '';
+            lastSaveState = 'saved';
         } catch (e) {
-            lastSaveOk = false;
-            saveNote = '存盘报错：' + (e && e.message ? e.message : String(e));
+            const msg = (e && e.message) ? e.message : String(e);
+            const isTimeout = /超时/.test(msg);
+            lastSaveOk = isTimeout ? null : false;   /* 超时：不敢说没写，也不敢说写了 ⇒ unknown */
+            lastSaveState = isTimeout ? 'unknown' : 'nosave';
+            saveNote = (isTimeout ? '存盘结果不确定（' : '存盘报错：') + msg;
             console.warn('[万象阁] 账本存盘失败（聊天记录本身不受影响）：', e);
+            /* 依据＝阿砚 A 组 B8：存盘没成 ⇒ ⛔ 往下走成“回读成功就报成功”（那正是空绿） */
+            return { ok: false, reason: saveNote };
         }
     } else if (!warnedNoSave) {
         warnedNoSave = true;
         console.warn('[万象阁] 这个酒馆版本没给出存盘接口（saveMetadata／saveChatConditional），账本会只在本次会话内有效——请把这条告诉我。');
     }
 
+    /* 抢回：写的中途她切了聊天 ⇒ 这笔写进去的不一定是这本账，⏔报成功 */
+    if (currentChatKey() !== keyAtStart) {
+        lastSaveOk = null;
+        lastSaveState = 'unknown';
+        saveNote = '写的中途换了聊天（' + String(keyAtStart) + ' → ' + String(currentChatKey()) + '），这笔不敢报已存';
+        return { ok: false, reason: saveNote };
+    }
     // ⭐ 回读验证：写进去还不够，要能**再读出来**才算数
     const back = readBackFromMetadata();
     if (!back) {
@@ -397,6 +444,12 @@ export function storageReport() {
         return {
             tone: 'ok',
             text: '已存进聊天档 ✓（回读验证过；设置区里另有一份底稿）',
+        };
+    }
+    if (lastSaveOk === null && lastSaveState === 'unknown') {
+        return {
+            tone: 'warn',
+            text: '存盘结果不确定（' + (saveNote || '原因未记录') + '）——请刷新一下看看；底稿还在',
         };
     }
     return { tone: 'idle', text: '已经记下，正在存盘' };

@@ -4141,3 +4141,12 @@ body[data-wxg-theme="dark"] .wxg-pc,
         border: 1px solid CanvasText;
     }
 }
+
+/* ---------- A \u7ec4 B8\uff1a\u5b58\u76d8\u4e09\u6001\u91cc\u7684 unknown\uff08\u4e0d\u6562\u8bf4\u5199\u4e86\u4e5f\u4e0d\u6562\u8bf4\u6ca1\u5199\uff09\u8981\u6709\u81ea\u5df1\u7684\u989c\u8272 ---------- */
+.wxg-store[data-tone="warn"] {
+    background-image: linear-gradient(135deg, rgba(240, 176, 60, .16), rgba(240, 176, 60, .04));
+    box-shadow: inset 3px 0 0 rgba(240, 176, 60, .65), var(--wxg-sh-1);
+    border-radius: var(--wxg-r-sm);
+}
+.wxg-store[data-tone="bad"] { border-radius: var(--wxg-r-sm); }
+.wxg-store[data-tone="ok"] { border-radius: var(--wxg-r-sm); }
