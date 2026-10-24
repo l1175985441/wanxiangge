@@ -4306,3 +4306,17 @@ body[data-wxg-theme="dark"] {
 @media (min-width: 1600px) {
     .wxg-ws-side { width: 240px; }
 }
+
+/* ==========================================================================
+   渲染层第 1 条（依据＝阿砚 3 件任务 · 渲染层 #1）：
+   时局简报那种“一行只有一个子元素”的行，原先进了三列网格的第一列（5.6em）⇒ 挤成竖条。
+   单列的给 `is-solo`，模板换成“独占一行”。
+   ========================================================================== */
+.wanxiangge .wxg-r.is-solo {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+.wanxiangge .wxg-r.is-solo .wxg-r-main {
+    min-width: 0;
+    line-height: 1.55;
+}

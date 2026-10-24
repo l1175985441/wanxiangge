@@ -1188,7 +1188,8 @@ function secWorld(host) {
             }
             const ul = el('div', 'wxg-list');
             for (const t of lines) {
-                const r = el('div', 'wxg-r');
+                /* 渲染层第 1 条：单子元素的行不进三列网格（否则挤成竖条） */
+                const r = el('div', 'wxg-r is-solo');
                 r.appendChild(el('div', 'wxg-r-main', trimText(t)));
                 ul.appendChild(r);
             }
