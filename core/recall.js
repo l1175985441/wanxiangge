@@ -14,7 +14,8 @@ import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
-import { entityKey, noteAmbiguity } from './identity.js';   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
+import { entityKey, noteAmbiguity } from './identity.js';
+import { sourceOk } from './provenance.js';   /* 硬-2：源指纹对不上就⏔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -551,6 +552,21 @@ function eventBlock(ev) {
     }
     if (trimText(ev.tier)) {
         bits.push('火候：' + trimText(ev.tier));
+    }
+    /*
+     * 依据＝阿砚第三批 硬-2：带来源的条目，**每次用之前**重算指纹。
+     *   原文被改过／楼被删 ⇒ 这条不再当事实喂给模型（宁可少一条，⏔ 拿旧记忆冒充）。
+     */
+    if (ev && ev.source && ev.source.digest) {
+        const fl = Number(ev.source.floor);
+        let nowText = '';
+        try {
+            const chat = getChat();
+            nowText = (Number.isFinite(fl) && chat && chat[fl]) ? String(chat[fl].mes || '') : '';
+        } catch (eCh) { nowText = ''; }
+        if (!sourceOk(ev.source, nowText)) {
+            return '';
+        }
     }
     /* ★ [580] B1：来路三型进注入 ✓ */
     const oriEv = trimText(ev.origin);

@@ -63,6 +63,7 @@ import {
 import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
+import { stampSource } from './provenance.js';   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -919,7 +920,14 @@ async function stepWorld(material, attempt) {
             /* ★ [579]：用本步世界钟走了几分钟，压住局势压力乱涨 ✓（world.clock＝步前旧钟） */
             const clockDeltaMin = clockDistance(trimText(world.clock), trimText(loadState().world.clock));
             const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin);
-            updateWorld({ situations: mergedSits }, {});
+            /*
+     * 依据＝阿砚第三批 硬-2：局势带上“来自第几楼 ＋ 那楼原文指纹”。
+     *   用之前（recall）会重算指纹：对不上 = stale，⏔ 当事实用。
+     */
+    for (const s of (Array.isArray(mergedSits) ? mergedSits : [])) {
+        stampSource(s, { kind: 'situation', floor: material.floor, text: material.recentText || '', title: (s && s.title) || '' });
+    }
+    updateWorld({ situations: mergedSits }, {});
             capList((loadState().world || {}).situations, 'capEvents', (s) => s.title, (s) => s.manual);
             saveState();   /* capList 是原地改，这里保险落盘 ✓ */
         }
