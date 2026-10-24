@@ -15,7 +15,8 @@
  */
 
 import { APP_NAME, APP_VERSION } from './core/config.js';
-import { compareVersion } from './core/version.js';   /* D5：两个号不一致就当场叫一声 */
+import { compareVersion } from './core/version.js';
+import { SCRIPT_LOG_PREFIX } from './core/brand.js';   /* 1-c #17：日志前缀一处定义 */   /* D5：两个号不一致就当场叫一声 */
 import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
 import { CLAIMS } from './core/claims.js';   /* 硬-4 结构层搎到的孤儿文件：真运行里也要有人用它 */
 import { bindClockEpoch } from './core/clock.js';
@@ -36,7 +37,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.471';
+const VERSION = '0.3.472';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -427,7 +428,7 @@ function boot() {
     try {
         if (typeof VERSION !== 'undefined' && typeof APP_VERSION !== 'undefined'
             && compareVersion(VERSION, APP_VERSION) !== 0) {
-            console.warn('[万象阁] 版本号不一致：index=' + String(VERSION) + ' / config=' + String(APP_VERSION) + '（以 manifest 为准）');
+            console.warn(SCRIPT_LOG_PREFIX + ' 版本号不一致：index=' + String(VERSION) + ' / config=' + String(APP_VERSION) + '（以 manifest 为准）');
         }
     } catch (eVer) { /* 自检不能拦启动 */ }
     /*
