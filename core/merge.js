@@ -203,6 +203,16 @@ export function mergeCharacters(keepId, fromName) {
     return { ok: true, report, keep: keep.name, from: from.name };
 }
 
+
+/**
+ * 依据＝阿砚任务 1-b（M05）：界面要能“失败置灰”，就得能问一句“现在有没有可撤的合并前快照”。
+ *   ⛔ 把判断写在界面里（那就又是一份实现）。
+ */
+export function hasMergeSnapshot() {
+    const snaps = Array.isArray(loadState().snapshots) ? loadState().snapshots : [];
+    return snaps.some((s) => s && asText(s.label).includes('合并前'));
+}
+
 /** 撤销上一次合并（撤回快照即可） */
 export function undoLastMerge() {
     const state = loadState();

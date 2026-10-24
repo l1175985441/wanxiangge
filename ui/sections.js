@@ -45,7 +45,7 @@ import { channelReport } from '../core/wb-channel.js';
 import { clockWentBackwards } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
-import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';
+import { mergeCharacters, autoDetectDuplicates, undoLastMerge, hasMergeSnapshot } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
 // ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
@@ -2615,6 +2615,18 @@ function secRoster(host) {
     row(inTarget, button('查重（找出被拆成两条的）', 'detect-dupes'),
                 /* ⭐修复 15（材料 02）：**一键合并查重出的所有重复组** ✓ */
                 button('一键合并重复组', 'merge-all-dupes'),
+                /*
+                 * 依据＝阿砚任务 1-b（M05）：`undoLastMerge` 写了但**全库 0 个调用点**；
+                 *   选项②——真接上它，且没有「合并前」快照时直接置灰（⛔ 点了才告诉她没得撤）。
+                 */
+                (() => {
+                    const b = button('撤销上次合并', 'undo-last-merge', 'wxg-btn-xs');
+                    if (!hasMergeSnapshot()) {
+                        b.disabled = true;
+                        b.title = '没有「合并前」的快照（已被快照上限挤掉）';
+                    }
+                    return b;
+                })(),
                 button('导出备份（JSON）', 'export-data'),
                 /* ⭐ 材料 06【4】#1：**导入／恢复备份** ✓（她只能导出、不能导回 ✗） */
                 button('导入备份（JSON）', 'import-data'));
@@ -7565,6 +7577,17 @@ export function bindSectionEvents(host, refresh) {
                     patchSettings(plan.patch);
                     toast.ok('已应用：' + plan.preset.name + '（改了 ' + String(plan.applied.length) + ' 块，未重算）');
                     rerender();
+                    break;
+                }
+                case 'undo-last-merge': {
+                    /* 1-b：选项②——真接上（失败就如实告诉她为什么） */
+                    const rU = undoLastMerge();
+                    if (rU.ok) {
+                        toast.ok('已撤回上次合并（回到「' + String(rU.label || '合并前') + '」那一版；撤之前又压了一版，能再撤回来）');
+                        rerender();
+                    } else {
+                        toast.bad('没撤成：' + String(rU.reason || '不知道原因'));
+                    }
                     break;
                 }
                 case 'delete-preset': {
