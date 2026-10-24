@@ -64,7 +64,7 @@ import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
 import { stampSource, floorText } from './provenance.js';
-import { render } from './prompt.js';   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
+import { render, noteText } from './prompt.js';   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -337,6 +337,11 @@ function whoIsOnStage(text, roster) {
     // ⭐ 修复 5：**先剥掉“不在现场”的人** ✓（archived 段落、已离场 ✗）
     return mentionedCharacters(stripOffStageSections(text), roster);
 }
+
+
+/* 世界步的 system 尾巴（硬-3：它也要进同一条记账，⛔ 只记 prompt） */
+const WORLD_SYS_TAIL = '\n\n⛔ 因果（每条新变化都必须回答）：为什么是**现在**发生？前因／诱因／到点，必须指得出；说不清就保持安静，⛔ 为了有事发生而编一个。'
+    + '\n\n⛔ 若上文里出现「摘要／前情提要／剧情梗概」这类段落，一律**当背景参考**，不许把其中的字句当成**本轮正文发生过的事实**；拿不准就只说现在能确认的那部分。';
 
 /* ------------------------------ 世界状态那一步 ------------------------------ */
 
@@ -797,10 +802,11 @@ async function stepWorld(material, attempt) {
     const res = await callModelJson({
         prompt: tryN > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
         // ⛔ 破限词必须**真的发出去**：留空时要用内置那份（原来只读了原始设置 ⇒ 留空就等于没发）
-        /* 依据＝第 7 问 P3（她 [594]「真的得因果关系」）：世界步每个新变化都要说得出「为什么现在发生」 */
-        system: effectivePrompt('jailbreak')
-            + '\n\n⛔ 因果（每条新变化都必须回答）：为什么是**现在**发生？前因／诱因／到点，必须指得出；说不清就保持安静，⛔ 为了有事发生而编一个。'
-            + '\n\n⛔ 若上文里出现「摘要／前情提要／剧情梗概」这类段落，一律**当背景参考**，不许把其中的字句当成**本轮正文发生过的事实**；拿不准就只说现在能确认的那部分。',
+        /*
+         * 依据＝第 7 问 P3（她 [594]「真的得因果关系」）：世界步每个新变化都要说得出「为什么现在发生」。
+         * 硬-3 收尾：破限词与尾巴也进同一条记账（⛔ 只记用户提示词）。
+         */
+        system: noteText('system-world', effectivePrompt('jailbreak') + WORLD_SYS_TAIL),
         maxTokens: retryTokens((settings.api || {}).maxTokens, tryN),
     });
 
@@ -1715,7 +1721,7 @@ async function stepCharacters(material, attempt) {
     const res = await callModelJson({
         prompt: tryN2 > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
         // ⛔ 破限词必须**真的发出去**：留空时用内置那份
-        system: effectivePrompt('jailbreak'),
+        system: noteText('system-chars', effectivePrompt('jailbreak')),   /* 硬-3：破限词也记账 */
         maxTokens: retryTokens((settings.api || {}).maxTokens, tryN2),
     });
     if (!res.ok) {

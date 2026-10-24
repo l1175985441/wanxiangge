@@ -114,7 +114,7 @@ function loadSettings() {
 
     // 数值夹取
     merged.recentTurns = clampNumber(merged.recentTurns, 1, 10, DEFAULT_SETTINGS.recentTurns);
-    merged.maxChars = clampNumber(merged.maxChars, 1, 8, DEFAULT_SETTINGS.maxChars);
+    merged.maxChars = clampNumber(merged.maxChars, 1, 99, DEFAULT_SETTINGS.maxChars);   /* 依据＝阿砚 24 号：读档这把尺也不封顶 8（原来面板能填 99、读档夹回 8） */
     merged.maxEvents = clampNumber(merged.maxEvents, 0, 20, DEFAULT_SETTINGS.maxEvents);
     merged.updateEvery = clampNumber(merged.updateEvery, 1, 10, DEFAULT_SETTINGS.updateEvery);
     merged.maxParallelChars = clampNumber(merged.maxParallelChars, 0, 12, DEFAULT_SETTINGS.maxParallelChars);
