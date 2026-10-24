@@ -4251,3 +4251,29 @@ body[data-wxg-theme="dark"] {
 }
 /* 分组名要看得出来是分组，⛔ 跟条目一个样 */
 .wxg-ws-side-group-k { font-size: 11px; letter-spacing: 1px; opacity: .65; text-transform: none; }
+
+/* ==========================================================================
+   B2-3 顶栏不再挤（依据＝阿砚 B2-3「世界钟·周围·暗线·编年·读取控制·✕ 全一行」）
+   做法：允许换行；小胶囊自己成一组靠右；窄屏时标题与胶囊分两行；✕ 永远贴右不换行。
+   ========================================================================== */
+.wxg-ws-bar { flex-wrap: wrap; row-gap: 6px; column-gap: 10px; }
+.wxg-ws-titlebox { min-width: 0; flex: 1 1 200px; }
+.wxg-ws-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wxg-ws-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wxg-ws-right { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.wxg-ws-quick { flex: 0 0 auto; }
+.wxg-ws-x { flex: 0 0 auto; }
+@media (max-width: 720px) {
+    /* 窄屏：标题一行、胶囊一行（胶囊用横向滚动，⛔ 折成三行把内容顶下去） */
+    .wxg-ws-right {
+        order: 3;
+        width: 100%;
+        margin-left: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 2px;
+    }
+    .wxg-ws-right::-webkit-scrollbar { height: 0; }
+    .wxg-ws-sub { display: none; }
+}
