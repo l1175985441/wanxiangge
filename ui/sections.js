@@ -2260,6 +2260,8 @@ export let pickBook = '';
 export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
 let listBooksCache = [];
+/* 依据＝本轮查“首跑红复跑绿”：自动列书的 setTimeout 每次重画都排一个 ⇒ 旧定时器晚到也去点按钮，把列表反复刷新 */
+let autoListTimer = null;
 
 /* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
 let lastModelList = [];
@@ -3071,15 +3073,28 @@ function secExtract(host) {
      *   现在：渲染完就自己去点一下那颗按钮 ✓（复用现成的 list-books 路，⛔ 重写逻辑 ✗）
      *   ⛔ 只在“还没列过”时发 ✓（避免每次重画都去读一遍世界书 ✗）
      */
-    setTimeout(() => {
+    /*
+     * 依据＝本轮查“首跑红、复跑绿”（run-tests-pick 偎发）：
+     *   旧：每次重画都排一个 setTimeout(0) ✗ ⇒ 重画多次后有多个定时器，
+     *        它们都会去点当前的「list-books」按钮 ⇒ 列表被反复刷新、
+     *        卡片短暂为空 ⇒ 夹具正好在那一瞬查不到控件。
+     *   现在：只保留最新那一个定时器；回调里先看 host 还在不在、按钮还在不在。
+     */
+    if (autoListTimer) {
+        try { clearTimeout(autoListTimer); } catch (eClear) { }
+        autoListTimer = null;
+    }
+    autoListTimer = setTimeout(() => {
+        autoListTimer = null;
         try {
+            if (!host || host.isConnected === false) { return; }   /* 旧页面已被换掉 ⇒ ⏔ 再去点它 */
             if (Array.isArray(listBooksCache) && listBooksCache.length) {
                 /* ⭐ RD1-2：缓存里有 ⇒ **直接把芯片画回来** ✓（旧：直接 return ⇒ 重绘后全没 ✗） */
                 try { paintBookPicks(host); } catch (ePB) { /* 画不出来也不能把这一页搞挂 ✓ */ }
                 return;
             }
             const btn = host.querySelector('[data-action="list-books"]');
-            if (btn && btn.click) {
+            if (btn && btn.click && btn.isConnected !== false) {
                 btn.click();
             }
         } catch (e) { /* 列不出来也不能把这一页搞挂 ✓ */ }
