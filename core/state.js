@@ -21,7 +21,7 @@ import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
 import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
 import { applyRetired } from './contract.js';
 /* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
-import { normalizeFactionPillars, normalizeWind } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1385,35 +1385,7 @@ export function factionPassesGate(f) {
 /* ★ [580]／世界背面 A3：世界事实容量锁（取 160；⛔ 不搬权威分／冲突 UI） */
 export const WORLD_FACTS_CAP = 160;
 
-export function worldFactKey(subject, field) {
-    const s = matchKey(subject) || '世界';
-    const f = matchKey(field);
-    return f ? (s + '｜' + f) : '';
-}
 
-export function normalizeWorldFact(raw) {
-    const src = raw && typeof raw === 'object' ? raw : {};
-    const subject = trimText(src.subject) || '世界';
-    const field = trimText(src.field);
-    const value = trimText(src.value);
-    const key = trimText(src.key) || worldFactKey(subject, field);
-    if (!key || !value) {
-        return null;
-    }
-    let source = trimText(src.source) || 'engine';
-    if (!['engine', 'book', 'manual', 'narrative'].includes(source)) {
-        source = 'engine';
-    }
-    return {
-        key,
-        subject,
-        field: field || key,
-        value,
-        source,
-        at: Number(src.at) || 0,
-        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
-    };
-}
 
 /**
  * ★ [580] A3：**按 key 去重的世界事实账**（谁的哪一格＝什么）。
@@ -1815,7 +1787,7 @@ export function upsertFaction(line) {
 
 /** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
 /* 1-c #2 前置：这两个已搬到 core/normalize-world.js，这里只 re-export（对外 API 不变） */
-export { normalizeFactionPillars, normalizeWind } from './normalize-world.js';
+export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey } from './normalize-world.js';
 
 export function normalizeAgendaOrigin(raw) {
     if (raw && typeof raw === 'object') {

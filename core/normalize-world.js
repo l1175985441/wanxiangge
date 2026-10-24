@@ -40,3 +40,33 @@ export function normalizeWind(raw) {
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
     };
 }
+
+export function worldFactKey(subject, field) {
+    const s = matchKey(subject) || '世界';
+    const f = matchKey(field);
+    return f ? (s + '｜' + f) : '';
+}
+
+export function normalizeWorldFact(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const subject = trimText(src.subject) || '世界';
+    const field = trimText(src.field);
+    const value = trimText(src.value);
+    const key = trimText(src.key) || worldFactKey(subject, field);
+    if (!key || !value) {
+        return null;
+    }
+    let source = trimText(src.source) || 'engine';
+    if (!['engine', 'book', 'manual', 'narrative'].includes(source)) {
+        source = 'engine';
+    }
+    return {
+        key,
+        subject,
+        field: field || key,
+        value,
+        source,
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
