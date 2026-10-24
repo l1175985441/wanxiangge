@@ -163,7 +163,7 @@ export function looksLikeDecidingForMe(text, opts) {
     /*
      * ★ 20261022 B3（设计稿·六档名册）：**「路过」与「不用」的卡，模型给它写任何动作/台词都算越界**。
      *   档位权重 0 ⇒ 不该被描写（他们只在被找时回应，或根本不属于这个故事）。
-     *   ⏔ 影响高档：只有 role 权重 0 才走这条 ✓
+     *   ⛔ 影响高档：只有 role 权重 0 才走这条 ✓
      */
     const role = trimText(opts && opts.role);
     if (role) {
@@ -502,7 +502,7 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
             } else {
                 /* 新建：首轮压力照收（还没有“上一拍”可比） */
                 merged.push(inc);
-                /* Q1：新增局势也留一条编年 ✓（⏔ ℱ果区空着 ✗） */
+                /* Q1：新增局势也留一条编年 ✓（⛔ ℱ果区空着 ✗） */
                 try {
                     addChronicle({
                         floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : -1,
@@ -520,7 +520,7 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
 /**
  * ⭐ 材料 11 · 零（P4 补充）：**把「user 是谁」真的喂进提示词** ✓
  *   来源：`personaNames()`（酒馆当前人设名 ✓）＋ 名册里**标了玩家棋子**的名字与别名 ✓
- *   去重后拼成一串 ✓；一个都没有 ⇒ 回「玩家」 ✓（⏔ 回空字串 ✗）
+ *   去重后拼成一串 ✓；一个都没有 ⇒ 回「玩家」 ✓（⛔ 回空字串 ✗）
  */
 /**
  * ★ 20261022 ⑥ ＋ 20261023 §①：代控门要认得她的真名与别名（自称字不是全部）。
@@ -548,7 +548,7 @@ function playerNamesArr() {
     }
 }
 
-/** 她名字后面跟着这些动词 ⇒ 算“替她行动”（只列常见的，⏔ 无限铺） */
+/** 她名字后面跟着这些动词 ⇒ 算“替她行动”（只列常见的，⛔ 无限铺） */
 const ME_ACTION_VERBS = ['答应', '答了', '说', '问', '喊', '笑', '点头', '摇头', '转身', '走', '跑', '跨', '坐', '站', '拿', '推', '括', '伸手', '抬起', '决定', '同意', '拒绝', '答应了', '出门', '回屋'];
 
 /** 名字当主语且后面跟动词 ⇒ true（宾语位／所有格不算） */
@@ -574,7 +574,7 @@ function looksLikeDecidingByName(text) {
 }
 
 /**
- * ★ 20261022 ⑧：上一轮被判“不可靠”（似嫌编造／越界）的正在经历，⏔ 当既定事实喂回去。
+ * ★ 20261022 ⑧：上一轮被判“不可靠”（似嫌编造／越界）的正在经历，⛔ 当既定事实喂回去。
  *   做法：不屏蔽（屏蔽会让上下文断），但前面挂一行明确警示 ✓
  */
 export function currentPromptLine(c) {
@@ -582,7 +582,7 @@ export function currentPromptLine(c) {
     if (!cur) { return ''; }
     if (c && c.currentSuspect === true) {
         const why = trimText(c.currentSuspectWhy) || '疑似越界';
-        return '⚠ 上一轮这段被判不可靠（' + why + '），⏔ 当既定事实写：' + cur;
+        return '⚠ 上一轮这段被判不可靠（' + why + '），⛔ 当既定事实写：' + cur;
     }
     return cur;
 }
@@ -633,7 +633,7 @@ function capWorldMaterial(txt, attempt) {
 /**
  * ★ R32（第二批 1019）：**世界脉动四格要真的喂给主模型**，不能只存在账里。
  *   pressure（压力 0-5）／trend（趋势）／visibility（可见度）／evidence（**原文引用**，不是评语）。
- *   ⏔ 这里只排事实：不写“所以接下来会…”——那是抢主模型的活 ✓
+ *   ⛔ 这里只排事实：不写“所以接下来会…”——那是抢主模型的活 ✓
  */
 export function situationLineForPrompt(s) {
     const src = s && typeof s === 'object' ? s : {};
@@ -642,7 +642,7 @@ export function situationLineForPrompt(s) {
     if (trimText(src.tier)) { bits.push('火候：' + trimText(src.tier)); }
     /* ★ [580] B1：来路三型进推演喂料 ✓ */
     const ori = String(trimText(src.origin) || '').toLowerCase();
-    /* I4：喂料文案从 ORIGIN_TYPES 派生（⏔ 这里再写一份枚举） */
+    /* I4：喂料文案从 ORIGIN_TYPES 派生（⛔ 这里再写一份枚举） */
     if (originFeed(ori)) { bits.push(originFeed(ori)); }
     if (Number.isFinite(Number(src.pressure)) && src.pressure !== null && src.pressure !== '') {
         bits.push('压力：' + String(Number(src.pressure)) + '/5');
@@ -674,7 +674,7 @@ export function rollupInstructionFor(c) {
  * ★ 20261022 ⑫（22 单）：**世界钟要在 stepWorld 之前就更新**。
  *   原来从正文抽 time: 是**角色步收尾**写的 ⇒ stepWorld 用的是上一轮旧钟（首轮空钟）
  *   ⇒ `clockDeltaMin` 恒为 0 ⇒ 局势压力永远算不出时间差、暗线到点也推不动。
- *   这里把它提前跑一次（只读 rawText，⏔ 请模型）。
+ *   这里把它提前跑一次（只读 rawText，⛔ 请模型）。
  */
 export function prefillClockFromBody(material) {
     try {
@@ -723,9 +723,9 @@ async function stepWorld(material, attempt) {
 
     /*
      * ★ P1-1：**已知势力随世界步一起给模型**（它看不见这张名单，但它要用同一个名字）。
-     *   只给名字与核心人；⏔ 给它编造势力的机会 ✓
+     *   只给名字与核心人；⛔ 给它编造势力的机会 ✓
      */
-    /* ★ P1-2：小分量势力不进推演名单（⏔ 丢它的账，只是不每轮喂 ✓） */
+    /* ★ P1-2：小分量势力不进推演名单（⛔ 丢它的账，只是不每轮喂 ✓） */
     /* ★ [580] C1：喂运势／对玩家态度／范围／支柱（事实可喂，⛔ 表演） */
     const knownFactions = (loadState().world.factions || [])
         .filter((f) => f && trimText(f.name) && factionPassesGate(f))
@@ -922,7 +922,7 @@ async function stepWorld(material, attempt) {
             const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin);
             /*
      * 依据＝阿砚第三批 硬-2：局势带上“来自第几楼 ＋ 那楼原文指纹”。
-     *   用之前（recall）会重算指纹：对不上 = stale，⏔ 当事实用。
+     *   用之前（recall）会重算指纹：对不上 = stale，⛔ 当事实用。
      */
     /*
      * 依据＝阿砚第三批口径修正：指纹取**那一楼的原文**（与 recall 核验端同一取法）。
@@ -2092,20 +2092,20 @@ export async function runUpdate(opts) {
      *     ⇒ 拿已有的十几层聊天记录去点“补推历史”时 ✗
      *     ⇒ 整个推演过程**根本不去读 <meow_FM> 或手机世界书里的好感** ✗
      *     ⇒ 跑完一看，名册里全部人的好感还是空的（“未接入”）✗✗
-     *   现在：每次跑更新（含补推）前先读一次 ✓（读不到就算了 ✓ ⏔ 拦主流程 ✗）
-     *   （用动态 import ✓ ⏔ 在模块顶部引入 worldbook，避开环依赖 ✗）
+     *   现在：每次跑更新（含补推）前先读一次 ✓（读不到就算了 ✓ ⛔ 拦主流程 ✗）
+     *   （用动态 import ✓ ⛔ 在模块顶部引入 worldbook，避开环依赖 ✗）
      */
     try {
         const _wbMod = await import('./worldbook.js');
         if (_wbMod && typeof _wbMod.refreshAffinity === 'function') {
             await _wbMod.refreshAffinity();
         }
-    } catch (eAff) { /* 好感读不到 ⏔ 能拦着不更新 ✓ */ }
+    } catch (eAff) { /* 好感读不到 ⛔ 能拦着不更新 ✓ */ }
     bindChatForRun();   /* R3：记下开跑时的聊天档 ✓ */
     beginSaveBatch();
     try {
         const res = await runUpdateInner(opts);
-        /* H2：await 回来先问“还是不是这本”（⏔ 把旧档结果当成新档的） */
+        /* H2：await 回来先问“还是不是这本”（⛔ 把旧档结果当成新档的） */
         const own = checkOwner(runOwner);
         if (!own.ok) {
             return { ok: false, reason: own.reason };
@@ -2118,13 +2118,13 @@ export async function runUpdate(opts) {
         markLive();
         endSaveBatch();
         unbindChatForRun();   /* R3：收尾解绑 ✓ */
-        release('update');    /* H4：放闸必须在 finally 里（⏔ 中间报错就把闸卡死） */
+        release('update');    /* H4：放闸必须在 finally 里（⛔ 中间报错就把闸卡死） */
     }
 }
 
 async function runUpdateInner(opts) {
     const o = opts || {};
-    /* H4：闸已在 runUpdate 入口抢过（这里不再抢、也不再报“还在跑”，⏔ 把自己卡死） */
+    /* H4：闸已在 runUpdate 入口抢过（这里不再抢、也不再报“还在跑”，⛔ 把自己卡死） */
     const settings = getSettings();
     if (!settings.enabled) {
         return { ok: false, reason: '总开关关着' };
@@ -2227,7 +2227,7 @@ async function runUpdateInner(opts) {
         /* ⭐ S2（材料 05 自查）：**这一回是整批补推吗** ✓
          *   补推时 material.messages 就是**该批全部楼层** ✓
          *   （她一批可能 #0～#5 共 6 层 ✓）
-         *   ⇒ 在场判定必须看**整批**，⏔ 只看最后 2 楼 ✗ */
+         *   ⇒ 在场判定必须看**整批**，⛔ 只看最后 2 楼 ✗ */
         batch: Array.isArray(o.batchFloors) && o.batchFloors.length > 0,
         floor,
         recentText: cleaned.text,
@@ -2749,7 +2749,7 @@ export function runReconcile() {
  *   旧：`cur <= atFloor` 一律拒绝 ✗（注释写着“重 roll 多少次都不重烧” ✓ = 省额度的故意设计 ✓）
  *     ⇒ 但你**真的换了一个回复**时，旧推演结果留在账本里、新回复反而永远不更新 ✗
  *   现在：只在**真的 Swipe 过的那一楼**放行一次 ✓
- *     ⏔ 改“没 Swipe 就不重烧”的原设计 ✗（它照旧生效 ✓）
+ *     ⛔ 改“没 Swipe 就不重烧”的原设计 ✗（它照旧生效 ✓）
  */
 /**
  * ★ P1-5（修复单 20261019）：**重 roll 解耦** —— 每笔提交都记下「哪一楼的第几版」。

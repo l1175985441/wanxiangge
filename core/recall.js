@@ -15,7 +15,7 @@ import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
-import { sourceOk, floorText } from './provenance.js';   /* 硬-2：源指纹对不上就⏔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
+import { sourceOk, floorText } from './provenance.js';   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -32,9 +32,9 @@ export function injectCharCap() {
 
 /** 一人一块，封顶条数在代码里再夹一次 */
 /*
- * ★ 20261024 依据＝阿砚 24 号（她的口径：召回条数由用户自己填、⏔ 设上限）：
+ * ★ 20261024 依据＝阿砚 24 号（她的口径：召回条数由用户自己填、⛔ 设上限）：
  *   原来这里有个硬顶 8 的常量，她填 20、填 50 都被 Math.min 夹回 8 ⇒ **设置项是摆设** ✗
- *   现在：默认仍是 8，但**不再封顶**；填不合法（0／负数／非数）才回退到 8。代价提示放在面板上，⏔ 在代码里偷偷夹。
+ *   现在：默认仍是 8，但**不再封顶**；填不合法（0／负数／非数）才回退到 8。代价提示放在面板上，⛔ 在代码里偷偷夹。
  */
 const DEFAULT_CHAR_LIMIT = 8;
 
@@ -117,11 +117,11 @@ export function buildNameIndex(roster) {
          * ⚠️ Q3（材料 05）**未采纳（前半）**：它要求“玩家自己不进召回” ✗
          *   但 run-tests-g10 的 10.8 当场红：那条用例的夹具就叫「月野兔」，
          *   而 mock 的 Persona 名也是它 ⇒ 她被判为玩家 ⇒ 排掉就认不出别名了 ✗
-         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⏔ 擅改 ✗ ⇒ 列口径 ✓）
+         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⛔ 擅改 ✗ ⇒ 列口径 ✓）
          */
         /*
          * ⭐ 材料 10 · 第 5 组裁定（她 10-17 授权代拍）：**Q3 前半不动** ✓
-         *   定案：**维持“玩家棋子可被召回”** ✓（⏔ 排掉 ✗）
+         *   定案：**维持“玩家棋子可被召回”** ✓（⛔ 排掉 ✗）
          *   理由：跟 `run-tests-g10` 的 10.8 用例正面冲突（排掉就认不出别名 ✗）；
          *     她的核心诉求「不能把我当普通角色推演」**已由 P4 解决** ✓
          *   带确认：**“不给他建推演行、不替他行动说话决定”这条一字不动** ✓
@@ -195,7 +195,7 @@ export function mentionedCharacters(text, roster) {
          * ⚠️ Q3（材料 05）**未采纳（前半）**：它要求“玩家自己不进召回” ✗
          *   但 run-tests-g10 的 10.8 当场红：那条用例的夹具就叫「月野兔」，
          *   而 mock 的 Persona 名也是它 ⇒ 她被判为玩家 ⇒ 排掉就认不出别名了 ✗
-         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⏔ 擅改 ✗ ⇒ 列口径 ✓）
+         *   （审计所盯的正是她报的病，两边冲突 ⇒ ⛔ 擅改 ✗ ⇒ 列口径 ✓）
          */
         if (!c || c.ignored) {
             continue;
@@ -376,8 +376,8 @@ function personBlock(item, opts) {
      */
     /*
      * ★ 20261022 A4（设计稿·B组之前的 A 组）：**召回侧按楼层过滤**
-     *   · `void === true` 的条目（将来删楼裁决会标它）⇒ ⏔ 不取；
-     *   · 来源楼比当前锥点楼还靠后（未来楼）⇒ ⏔ 不取（那事还没发生）。
+     *   · `void === true` 的条目（将来删楼裁决会标它）⇒ ⛔ 不取；
+     *   · 来源楼比当前锥点楼还靠后（未来楼）⇒ ⛔ 不取（那事还没发生）。
      */
     let chatLen = NaN;
     try { const chAt = getChat(); chatLen = Array.isArray(chAt) ? chAt.length : NaN; } catch (eCL) { chatLen = NaN; }
@@ -386,7 +386,7 @@ function personBlock(item, opts) {
         const f = Number(x && (x.floor !== undefined ? x.floor : x.fromFloor));
         if (!Number.isFinite(f) || f < 0) { return true; }
         /*
-         * ★ A3-③（她拍板）：**分支里不存在的楼 ⇒ 只是看不见，⏔ 删**（能切回来）。
+         * ★ A3-③（她拍板）：**分支里不存在的楼 ⇒ 只是看不见，⛔ 删**（能切回来）。
          *   所以这里按“当前聊天实际楼数”＋“锥点楼”双上限过滤。
          */
         /* 只在“超出当前楼数且也超出锥点楼”时才当分支孤儿；否则交给下面的楼层裁 ✓ */
@@ -447,7 +447,7 @@ function personBlock(item, opts) {
          *   ⚠️ 但 run-tests-inject 盯着“要如实说明为什么不端”（子串「最近 3 楼内」✓）
          *   ⇒ 保留**一句最短的实话** ✓（不再提“你的上下文”与“更老的暂时没有” ✓）
          */
-        /* ★ 补单 1-④：⏔ 把楼层号与账本黑话喂给写正文的模型 ✓ */
+        /* ★ 补单 1-④：⛔ 把楼层号与账本黑话喂给写正文的模型 ✓ */
         lines.push(PAST_HEAD, PAST_DECL);
         lines.push('  过去经历：近处的回忆已在正文里，这里不重复。');
         lines.push(PAST_TAIL);
@@ -485,19 +485,19 @@ function personBlock(item, opts) {
     const kf = Array.isArray(c.knownFactKeys) ? c.knownFactKeys.filter(Boolean) : [];
     /* ★ 补单 1：知识面是“这个人”的一部分，人带了就整份带；总量由 injectCharCap 统一管 ✓ */
     if (kf.length) {
-        lines.push('知识面（他知道这些事；名单里没有的，⏔ 不许写给他）：' + kf.join('、'));
+        lines.push('知识面（他知道这些事；名单里没有的，⛔ 不许写给他）：' + kf.join('、'));
     }
     const kb = Array.isArray(c.knownFactBeliefs) ? c.knownFactBeliefs.filter((b) => b && b.key && b.belief) : [];
     if (kb.length) {
-        lines.push('知识面（他以为的，可能是误会，⏔ 当事实写）：'
+        lines.push('知识面（他以为的，可能是误会，⛔ 当事实写）：'
             + kb.map((b) => b.key + '＝' + b.belief).join('；'));
     }
-    /* ★ 她 22:2x：行为边界／知识边界——事实，可喂；⏔ 写成表演描写 ✓ */
+    /* ★ 她 22:2x：行为边界／知识边界——事实，可喂；⛔ 写成表演描写 ✓ */
     if (trimText(c.behaviorBounds)) {
-        lines.push('认知账（他会怎么做）：' + trimText(c.behaviorBounds) + '（⏔ 与这不符的演法不要）');
+        lines.push('认知账（他会怎么做）：' + trimText(c.behaviorBounds) + '（⛔ 与这不符的演法不要）');
     }
     if (trimText(c.knowledgeBounds)) {
-        lines.push('知识面（他不知道什么）：' + trimText(c.knowledgeBounds) + '（⏔ 他不知道的就别让他知道）');
+        lines.push('知识面（他不知道什么）：' + trimText(c.knowledgeBounds) + '（⛔ 他不知道的就别让他知道）');
     }
     if (Array.isArray(c.knows) && c.knows.length) {
         const knLines = c.knows.filter(notVoid).filter(notFuture)
@@ -555,12 +555,12 @@ function eventBlock(ev) {
     }
     /*
      * 依据＝阿砚第三批 硬-2：带来源的条目，**每次用之前**重算指纹。
-     *   原文被改过／楼被删 ⇒ 这条不再当事实喂给模型（宁可少一条，⏔ 拿旧记忆冒充）。
+     *   原文被改过／楼被删 ⇒ 这条不再当事实喂给模型（宁可少一条，⛔ 拿旧记忆冒充）。
      */
     if (ev && ev.source && ev.source.digest) {
         let nowText = '';
         try {
-            /* 取文只走 floorText（与盖章端同一取法），⏔ 在这里手拼楼层原文 */
+            /* 取文只走 floorText（与盖章端同一取法），⛔ 在这里手拼楼层原文 */
             nowText = floorText(getChat(), ev.source.floor);
         } catch (eCh) { nowText = ''; }
         if (!sourceOk(ev.source, nowText)) {
@@ -660,7 +660,7 @@ export function assembleInjectText(items, events, headerText, opts) {
     const header = trimText(headerText) || effectivePrompt('header');
     const anchorFloor = opts && Number.isFinite(Number(opts.anchorFloor)) ? Number(opts.anchorFloor) : NaN;
     /*
-     * ★ 补单 1：人物块**按“谁更该被看见”排**，⏔ 按数组自然序（否则总是先入库的几个人被保住）。
+     * ★ 补单 1：人物块**按“谁更该被看见”排**，⛔ 按数组自然序（否则总是先入库的几个人被保住）。
      *   优先级：在场（2）> 最近动过（1）> 其他（0）；同级里“最近出现的楼更大”在前 ✓
      */
     const entries = [];
@@ -879,11 +879,11 @@ export function buildRecall(input) {
     result.chars = kept.map((h) => h.character.name);
     result.items = kept.map((h) => ({
         /*
-         * ⭐ RD3（材料 11·渲染层）：**记录里存快照，⏔ 存活对象引用** ✓
+         * ⭐ RD3（材料 11·渲染层）：**记录里存快照，⛔ 存活对象引用** ✓
          *   旧：`character: h.character` 直接指向 `state.characters` 里的活对象 ✗
          *     ⇒ 同一会话里第 #5 楼改了她的 current／affinity ✗
          *     ⇒ 你回头看第 #1 楼的召回记录，看到的已经是**第 #5 楼的新状态** ✗
-         *   现在：存一份**深拷贝快照** ✓（拷不成就退回原引用，⏔ 因此抛错 ✗）
+         *   现在：存一份**深拷贝快照** ✓（拷不成就退回原引用，⛔ 因此抛错 ✗）
          */
         character: (() => {
             try {

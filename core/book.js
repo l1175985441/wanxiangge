@@ -137,7 +137,7 @@ async function readEntries(api) {
         const list = await api.entries(WORLD_BOOK_NAME);
         return Array.isArray(list) ? list : null;
     } catch (e) {
-        /* ★ 20261022：读失败就是读失败——⏔ 拿 [] 冒充“书里没有”，
+        /* ★ 20261022：读失败就是读失败——⛔ 拿 [] 冒充“书里没有”，
          *   否则 byTitle 全空 ⇒ 整本书条目被重复新建一遍 ✗ */
         try { if (typeof console !== 'undefined' && console.warn) { console.warn('[book] 读世界书失败：' + (e && e.message ? e.message : String(e))); } } catch (eW) { }
         return null;

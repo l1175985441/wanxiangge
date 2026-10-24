@@ -161,7 +161,7 @@ export function readLedger() {
             return direct;
         }
         /*
-         * ⭐ 新增件 5③（材料 13）：**分支／导入档要认领，⏔ 置空毁账** ✓
+         * ⭐ 新增件 5③（材料 13）：**分支／导入档要认领，⛔ 置空毁账** ✓
          *   旧：只有“同一个聊天改名”才认领 ✗
          *     ⇒ 酒馆建分支（Branch）或导入聊天文件时，带过来的旧章账被当成“别的聊天” ✗
          *     ⇒ 收进底稿、本档置空 ⇒ **新分支从空账开始** ✗
@@ -263,7 +263,7 @@ function syncKey(ledger, key) {
  *      而且**写完必须回读**：回读不到就如实报错，⛔ 不许报喜不报忧。
  */
 /**
- * 依据＝阿砚 A 组 B6（写盘两段式）：⏔ 再“边算边写”。
+ * 依据＝阿砚 A 组 B6（写盘两段式）：⛔ 再“边算边写”。
  *   第一段：把要写的这一份**算好、验过**（能序列化、能读回、没超过上限）；
  *   第二段：只有第一段过了才**覆盖**盘上那份。
  *   不合格就原封不动 + 如实记下原因（界面会读 storageReport 报红）。
@@ -361,7 +361,7 @@ export async function writeLedger(state, opts) {
         console.warn('[万象阁] 这个酒馆版本没给出存盘接口（saveMetadata／saveChatConditional），账本会只在本次会话内有效——请把这条告诉我。');
     }
 
-    /* 抢回：写的中途她切了聊天 ⇒ 这笔写进去的不一定是这本账，⏔报成功 */
+    /* 抢回：写的中途她切了聊天 ⇒ 这笔写进去的不一定是这本账，⛔报成功 */
     if (currentChatKey() !== keyAtStart) {
         lastSaveOk = null;
         lastSaveState = 'unknown';
@@ -749,7 +749,7 @@ export function clearMirror(key, state) {
  *   定案：这 8 档全量镜像**保持现状** ✓
  *   理由：它是**多档切换的兜底**（换聊天档时账不丢 ✓）；
  *     R2 的最大头已由前半削掉（召回记录不再存整楼正文 ✓）✓
- *   ⇒ ⏔ 再动、⏔ 留成“待定” ✗
+ *   ⇒ ⛔ 再动、⛔ 留成“待定” ✗
  */
 function flushMirror() {
     const store = getExtensionSettings();

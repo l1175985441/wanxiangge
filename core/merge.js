@@ -207,7 +207,7 @@ export function mergeCharacters(keepId, fromName) {
 export function undoLastMerge() {
     const state = loadState();
     const snaps = Array.isArray(state.snapshots) ? state.snapshots : [];
-    /* 依据＝第 7 问 L3：⏔ 只看最后一版（合并后再更新一次就永远撤不回）⇒ 往回找最近一份「合并前」 */
+    /* 依据＝第 7 问 L3：⛔ 只看最后一版（合并后再更新一次就永远撤不回）⇒ 往回找最近一份「合并前」 */
     let idx = -1;
     for (let i = snaps.length - 1; i >= 0; i -= 1) {
         if (snaps[i] && asText(snaps[i].label).includes('合并前')) { idx = i; break; }
@@ -222,7 +222,7 @@ export function undoLastMerge() {
      *     ⇒ 假装撤回了：界面告诉她成功，数据**一动未动** ✗
      *   现在：真去扛 `rollbackLast()` ✓（它自带“撤之前再压一版”的保险 ✓）
      */
-    const rolled = rollbackToSnapshot(idx);   /* 依据＝第 7 问 L3：回到找到的那份快照，⏔ 只 pop 最后一版 */
+    const rolled = rollbackToSnapshot(idx);   /* 依据＝第 7 问 L3：回到找到的那份快照，⛔ 只 pop 最后一版 */
     if (!rolled) {
         return { ok: false, reason: '撤回没跑成（快照里没数据）' };
     }

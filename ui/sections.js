@@ -263,7 +263,7 @@ function field(labelText, control) {
 /**
  * ★ 她 22:1x：**查重结果要能勾选**。
  *   每组：保留第一条；其余每条一个勾选框（默认勾）；底下一个「合并勾选的」。
- *   ⏔ 只给一串名字让她自己回去找人 ✓
+ *   ⛔ 只给一串名字让她自己回去找人 ✓
  */
 function renderDupPicker(host) {
     const box = byId(host, 'wxg-dup-picker');
@@ -444,7 +444,7 @@ const foldOpenState = new Map();
 /**
  * ⭐ ST4（材料 11·设置层）：**这一段有没有没保存的草稿** ✓
  *   为什么要它：她改完直接点左栏切页／关工作台时，草稿**无声没了** ✗
- *   → 这里只回答“有没有”，⏔ 自己落盘、⏔ 拦她切页 ✗（我们不改保存语义 ✓）
+ *   → 这里只回答“有没有”，⛔ 自己落盘、⛔ 拦她切页 ✗（我们不改保存语义 ✓）
  */
 export function hasUnsavedDraft() {
     try {
@@ -708,7 +708,7 @@ function secGeneral(host) {
         button('重算本楼', 'replan'));
     opsRow.appendChild(el('span', 'wxg-note', '（快照：每次更新、合并、删楼、换版前都会先留一份；这颗回到**最近一次**那份 —— 连点两次会又回到刚才那份（它自己也会先留一手））'));
     /*
-     * ★ 20261023（阿砘 16 号）：快照**列表**——她可以挑一份回去，⏔ 只能撤最近一次 ✗
+     * ★ 20261023（阿砘 16 号）：快照**列表**——她可以挑一份回去，⛔ 只能撤最近一次 ✗
      */
     try {
         const snaps = listSnapshots();
@@ -749,7 +749,7 @@ function secGeneral(host) {
     }
     row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
-    /* 依据＝阿砚 A 组 E4：账本导出／导入（带验签）；⏔ 碰她的书与设置，只搬这一本账 */
+    /* 依据＝阿砚 A 组 E4：账本导出／导入（带验签）；⛔ 碰她的书与设置，只搬这一本账 */
     row(opsRow,
         button('导出这本账', 'export-bundle'),
         button('导入账本', 'import-bundle'),
@@ -1273,7 +1273,7 @@ function secWorld(host) {
     box.appendChild(cSit);
 
     // 同上：暗线卡也不套 `lockable`（⛔ 卡头留一颗「编辑」）
-    /* ③ 人物清单与状态（只给汇总＋入口，⏔ 在这里再列一遍名册） */
+    /* ③ 人物清单与状态（只给汇总＋入口，⛔ 在这里再列一遍名册） */
     box.appendChild(el('div', 'wxg-note wxg-sec-head', '③ 人物清单与状态'));
     const cPeople = card('人物');
     {
@@ -1354,14 +1354,14 @@ function secWorld(host) {
      * ⭐ LY7（材料 11·布局层）：**这一行单独给个类，好把它排成两栏** ✓
      *   旧：5 个控件（名字／条件／火候／族类／按钮）塞在同一个 .wxg-row 里 ✗
      *     ⇒ 常规宽度下必然断成两行，且第二行与第一行**左边缘不对齐** ✗
-     *   现在：给它一个独有类 ✓（⏔ 动 .wxg-add-row 本身 ✗ —— 那会连带别的“加一条”行 ✗）
+     *   现在：给它一个独有类 ✓（⛔ 动 .wxg-add-row 本身 ✗ —— 那会连带别的“加一条”行 ✗）
      */
     if (addHidRow.classList && typeof addHidRow.classList.add === 'function') {
         addHidRow.classList.add('wxg-add-row-hidden');
     }
     addHidRow.setAttribute('data-no-lock', '1');
     box.appendChild(cHid);
-    /* ⑤ 记忆状态（只给数字与容量，⏔ 把正文搬进来 ✗） */
+    /* ⑤ 记忆状态（只给数字与容量，⛔ 把正文搬进来 ✗） */
     box.appendChild(el('div', 'wxg-note wxg-sec-head', '⑤ 记忆状态'));
     const cMem = card('记忆');
     {
@@ -2069,7 +2069,7 @@ function refreshAppearancePreview() {
 /**
  * ⭐ ST4-A：走草稿的同时，**少数几个开关仍要给一句反馈** ✓
  *   （p3 字面要求：剥壳两个开关“也有反馈” ✓；其余格子靠保存条变色就够 ✓）
- *   ⏔ 每个格子都弹一句（那样弹得没完没了 ✗）
+ *   ⛔ 每个格子都弹一句（那样弹得没完没了 ✗）
  */
 function stageFeedback(action, target) {
     if (action === 'stage-strip-paired') {
@@ -2143,7 +2143,7 @@ function stageOne(action, target) {
              * ⭐ ST7（材料 11·设置层）：**换色板 ⇒ 上面 5 个颜色格当场跟着变** ✓
              *   旧：只存草稿 ✗ ⇒ 下拉框切成「暖灯」了、下面预览盒变了 ✗
              *     而上面 5 个颜色框**还显示着砚墨的旧颜色** ✗
-             *   现在：把生效值回填进那几个框格 ✓（⏔ 整页重画 ✗ ⇒ 不打断她的操作 ✓）
+             *   现在：把生效值回填进那几个框格 ✓（⛔ 整页重画 ✗ ⇒ 不打断她的操作 ✓）
              */
             try {
                 const effNow = effectiveAppearance();
@@ -2887,7 +2887,7 @@ function secAppearance(host) {
      * ⭐ ST2（材料 11·设置层）：**悬浮球那两个行为终于有开关了** ✓
      *   旧：`pinned`（挂载就展开）与 `hoverOpen`（鼠标移入展开）在代码里写了逻辑 ✗
      *     但界面上**一个开关都没给** ✗ ⇒ 她只能被鼠标路过就弹开，关不掉 ✗
-     *   现在：两个勾选框 ✓（立即落盘 ✓ ⏔ 走草稿 ✗ —— mini 不在暂存表里）
+     *   现在：两个勾选框 ✓（立即落盘 ✓ ⛔ 走草稿 ✗ —— mini 不在暂存表里）
      */
     /*
      * ⭐⭐ 真机自查抳回：**两个勾选框恒为真** ✗
@@ -3833,7 +3833,7 @@ function secSteps(host, intoBox) {
  *   ⇒ 数据层**一行不改**（保存路径、手改锁、快照都还是原来那条），⛔ 不另起一套。
  */
 let personCardId = null;
-/* ⭐ B8（材料 13）：当前正在选“并进哪一位”的角色 id（⏔ 再弹 window.prompt ✗） */
+/* ⭐ B8（材料 13）：当前正在选“并进哪一位”的角色 id（⛔ 再弹 window.prompt ✗） */
 let mergePickFor = null;
 /* ★ 她 22:1x：查重结果与勾选（可勾选后一键合并） */
 let dupGroups = [];
@@ -3851,8 +3851,8 @@ let lastSectionsHost = null;
 /*
  * ⭐⭐ 材料 10 · 第 1 组裁定（她 10-17 10:07 授权代拍）：**三颗假「功能 ⋮」⇒ 接真菜单** ✓
  *   旧：三处点下去只弹一句 toast.info 指路（“导出在…”／“入口位…”）✗ = **假按钮** ✗
- *   现在：点开是一张**真菜单**，每一项都直接调**现成动作** ✓（⏔ 一句“开发中”都没有 ✗）
- *   菜单挂在 `lastSectionsHost` 里 ✓ ⇒ 复用页面既有的点击委派 ✓（⏔ 另写一套监听 ✗）
+ *   现在：点开是一张**真菜单**，每一项都直接调**现成动作** ✓（⛔ 一句“开发中”都没有 ✗）
+ *   菜单挂在 `lastSectionsHost` 里 ✓ ⇒ 复用页面既有的点击委派 ✓（⛔ 另写一套监听 ✗）
  */
 let funcMenuEl = null;
 function closeFuncMenu() {
@@ -3872,7 +3872,7 @@ function openFuncMenu(anchorEl, items) {
      *   为什么不用矩形算：真机探针里这些按钮报回的矩形是 **0×0** ✗
      *   （而它们明明画在屏上）⇒ 用矩形算出来的坐标必然是乱的 ✗
      *   现在：放到按钮的父节点里（层级变一级），`top:100%; right:0` ⇒ 永远贴在它下面 ✓
-     *   ⏔ 改回 body：那样就吃不到宿主的事件委托（菜单项点不了 ✗）
+     *   ⛔ 改回 body：那样就吃不到宿主的事件委托（菜单项点不了 ✗）
      */
     const anchorParent = (anchorEl && anchorEl.parentNode) ? anchorEl.parentNode : null;
     /*
@@ -3902,7 +3902,7 @@ function openFuncMenu(anchorEl, items) {
     /*
      * ⭐ 只有“没有父节点”时才用矩形兜底 ✓
      *   有父节点时靠 `wxg-funcmenu-anchored`（absolute + top:100% + right:0）贴住按钮 ✓
-     *   ⏔ 两套同时跑：内联 left/top 会把 CSS 那式盖掉 ✗（v0.3.259 真犯过 ✗）
+     *   ⛔ 两套同时跑：内联 left/top 会把 CSS 那式盖掉 ✗（v0.3.259 真犯过 ✗）
      */
     if (!anchorParent) {
         try {
@@ -3938,7 +3938,7 @@ let openRecordAt = -1;
 
 /**
  * ★ 20261022 §五 5（真）：**浮层按 Esc 要能关**。
- *   只挂一次全局监听（⏔ 每开一次就挂一个）。
+ *   只挂一次全局监听（⛔ 每开一次就挂一个）。
  */
 let personCardEscBound = false;
 function bindPersonCardEsc() {
@@ -4224,7 +4224,7 @@ function renderPersonCard() {
      * ⭐⭐ 材料 06【4】#6：**「日程」整块在人物卡上消失了** ✗
      *   她的原话：把旧「角色状态」页并进浮层卡时，**只搬了七格、认知账和任务，漏搬了 c.schedule** ✗
      *   ⇒ 约好的事（出差几天后回来等）在卡上**看不到也改不了** ✗
-     *   现在：把日程块搬回来 ✓（只读展示；改动走后台推演，⏔ 让她手改算账 ✗）
+     *   现在：把日程块搬回来 ✓（只读展示；改动走后台推演，⛔ 让她手改算账 ✗）
      */
     if (Array.isArray(one.schedule) && one.schedule.length) {
         const sSec = el('div', 'wxg-pc-sec');
@@ -4431,7 +4431,7 @@ function bindPersonCardDrag(pop) {
          * ⭐ LY3（材料 11·布局层）：**拖拽要夹在屏幕里** ✓
          *   旧：直接赋值 ✗ ⇒ 一旦把标题栏拖出屏幕顶边／侧边 ✗
          *     ⇒ **再也点不到标题栏拖回来**（卡片就困在外面 ✗）
-         *   现在：至少留 80px 在屏幕内 ✓（⏔ 全部禁止拖出去——那样反而拖不动 ✓）
+         *   现在：至少留 80px 在屏幕内 ✓（⛔ 全部禁止拖出去——那样反而拖不动 ✓）
          */
         const vw = window.innerWidth || 1000;
         const vh = window.innerHeight || 800;
@@ -4759,7 +4759,7 @@ function renderWorldEntryCard() {
         put('火候', item.tier, '几天内');
         /* ★ [318]/[322]／B1：来路分型＋因果两格 ✓ */
         {
-            const oLabel = originPanel(item.origin);   /* I4：面板标签从同一张表来（⏔ 各写一份枚举） */
+            const oLabel = originPanel(item.origin);   /* I4：面板标签从同一张表来（⛔ 各写一份枚举） */
             put('来路', openWorldEntryEditing ? (trimText(item.origin) || '') : oLabel, '未标');
         }
         put('上承', item.cause, '未写');
@@ -5061,7 +5061,7 @@ export function renderSections(host, opts) {
  */
 /**
  * ⭐ RD1-3（材料 11）：把 `lastModelList` 画成芯片 ✓
- *   （重建与拉取两边共用同一份标记 ✓，⏔ 两套写法 ✗）
+ *   （重建与拉取两边共用同一份标记 ✓，⛔ 两套写法 ✗）
  */
 function paintModelChips(boxEl) {
     if (!boxEl || !boxEl.appendChild) {
@@ -5350,7 +5350,7 @@ function drawFailure(host, err) {
         box.setAttribute('data-tone', 'bad');
         box.appendChild(el('b', null, '界面有一段没画出来（原因照抄反馈即可）：'));
         box.appendChild(el('div', 'wxg-fact', String((err && err.message) || err)));
-        /* 20261022 ⑤：⏔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
+        /* 20261022 ⑤：⛔ 把 err.stack（函数名／路径／行号）画到屏上；只进控制台 */
             try { console.error('[wxg] 界面段渲染失败', err); } catch (eC) { }
             box.appendChild(el('div', 'wxg-fact', '这一段没画出来：把这句反馈给我们就行'));
         host.appendChild(box);
@@ -5523,7 +5523,7 @@ export function bindSectionEvents(host, refresh) {
      *   旧：那批输入框的 data-action 是 noop，也没监听回车 ✗
      *     ⇒ 她打完名字习惯性按 Enter，**什么都不发生** ✗
      *   现在：回车 ⇒ 在同一行里找第一颗真有动作的按钮并点它 ✓
-     *   ⏔ 改按钮行为；⏔ 弄文本框（只接 input）；拿不到按钮就什么都不做 ✓
+     *   ⛔ 改按钮行为；⛔ 弄文本框（只接 input）；拿不到按钮就什么都不做 ✓
      */
     try {
         host.addEventListener('keydown', (ev) => {
@@ -5845,7 +5845,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'card-edit':
                     /*
                      * ⭐ 材料 06【4】#5：**⋮ 进得去也要出得来** ✓
-                     *   旧：data-action 写死 'card-edit'、case 里写死 `= true`（⏔ 翻转 ✗）
+                     *   旧：data-action 写死 'card-edit'、case 里写死 `= true`（⛔ 翻转 ✗）
                      *     ⇒ 再点 ⋮ 收不起编辑态 ✗（只能去点最底部的「收起编辑」✗）
                      *   现在：**翻转** ✓（开着就收、收着就开 ✓）
                      */
@@ -5927,7 +5927,7 @@ export function bindSectionEvents(host, refresh) {
                         }
                     };
                     if (dupName(newName)) {
-                        toast.warn('已经有同名的暗线／局势了，换个名字吧（⏔ 两条撞名会找错 ✗）');
+                        toast.warn('已经有同名的暗线／局势了，换个名字吧（⛔ 两条撞名会找错 ✗）');
                         return false;
                     }
                         // \u2460 \u540c\u6b65\u7f16\u5e74\uff08state.chronicle\uff09\u91cc\u7684 who \u4e0e text\uff0c\u4fdd\u8bc1\u6d6e\u5c42\u300c\u56e0\u679c\u300d\u4e0d\u65ad\u94fe \u2713
@@ -6029,7 +6029,7 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'goto-roster': {
-                    /* ★ P2-7：人物那一区只给汇总，要看细节去名册（⏔ 在这里再列一遍 ✗） */
+                    /* ★ P2-7：人物那一区只给汇总，要看细节去名册（⛔ 在这里再列一遍 ✗） */
                     try {
                         const items = Array.from(document.querySelectorAll('button.wxg-ws-side-item'));
                         const hit = items.find((b2) => (b2.textContent || '').indexOf('人物名册') >= 0);
@@ -6440,7 +6440,7 @@ export function bindSectionEvents(host, refresh) {
                 case 'merge-into': {
                     /*
                      * ⭐ B8（材料 13）：**不再弹 window.prompt，就地展开下拉选项** ✓
-                     *   ⏔ 走 rerender：浮层人物卡**不在段容器里** ⇒ 重画拿不到它 ✗
+                     *   ⛔ 走 rerender：浮层人物卡**不在段容器里** ⇒ 重画拿不到它 ✗
                      *   所以直接往卡底那一行里插 ✓
                      */
                     mergePickFor = id || null;
@@ -6531,14 +6531,14 @@ export function bindSectionEvents(host, refresh) {
                 case 'read-book': {
                     /*
                      * ⭐ 材料 10 · 第 6 组裁定（她 10-17 授权代拍）：**维持“只提示不拦”** ✓
-                     *   定案：保留 toast.info（“要跑十几秒到几十秒”），**⏔ 加硬闸** ✗
+                     *   定案：保留 toast.info（“要跑十几秒到几十秒”），**⛔ 加硬闸** ✗
                      *   理由：硬闸会撞 `audit-3-panel`（它会连点两次 ⇒ 第二次被拦就红 ✗）
                      *   可选（已裁定：先不做）：“跑着时按钮变灰”看似可以，但它同样会影响审计可点性 ✗ ⇒ 不引入 ✓
                      */
                     /* ⭐ 同上：从世界书读人会**批量建档** ✓ ⇒ 先留快照 ✓ */
                     takeSnapshot('从世界书读人前');
                     /* ⭐ 材料 06【4】：**开跑前先告诉她、且不许并发** ✓ */
-                    /* ⏔ 硬闸：审计 audit-3-panel 会连点两次 ⇒ 第二次被拦就红 ✗
+                    /* ⛔ 硬闸：审计 audit-3-panel 会连点两次 ⇒ 第二次被拦就红 ✗
                      *   ⇒ 改成“只提醒、不拦” ✓（下一步找到真正的完成点再放闸 ✓） */
                     toast.info('正在读世界书…要跑十几秒到几十秒，请等一下 ✓');
                     const res = await readFromBook(trimText(textOf(host, 'wxg-book-name')));
@@ -6656,7 +6656,7 @@ export function bindSectionEvents(host, refresh) {
          *   旧：在工作台里改成「浮层面板」并点保存 ✗ ⇒ **当前开着的工作台不动** ✗
          *     ⇒ 得手动关掉工作台、再去点魔法棒才生效 ✗
          *   现在：保存「外观」段后看一眼当前形态 ✓
-         *     形态**不对** ⇒ 关一个开另一个 ✓；形态**已经对了** ⇒ **什么都不做** ✓（⏔ 无事重开打断她 ✗）
+         *     形态**不对** ⇒ 关一个开另一个 ✓；形态**已经对了** ⇒ **什么都不做** ✓（⛔ 无事重开打断她 ✗）
          */
         if (id === 'appearance') {
             /* ⭐ ST4-A：小框两个开关现在走草稿 ⇒ **保存后**才取到新值 ✓ */
@@ -6678,7 +6678,7 @@ export function bindSectionEvents(host, refresh) {
         /*
          * ⭐ RD7（材料 11·渲染层）：**关掉召回卡片开关并保存后，聊天里已挂着的卡片要当场刷** ✓
          *   旧：只重画了设置面板 ✗ ⇒ 聊天流里的卡片**纹丝不动** ✗
-         *   现在：保存「召回」段后补一次 mountAllCards ✓（动态 import，⏔ 加静态依赖 ✗）
+         *   现在：保存「召回」段后补一次 mountAllCards ✓（动态 import，⛔ 加静态依赖 ✗）
          */
         if (id === 'recall') {
             import('./render.js').then((m) => {
@@ -7032,7 +7032,7 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'export-data':
-                    downloadText('万象阁备份-' + (function () { /* ⭐ U19：用**本地**日期（⏔ UTC：北京凌晨 0–8 点导出会显示成“昨天” ✗） */ var d0 = new Date(); return d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0'); })() + '.json', JSON.stringify(exportState(), null, 2));
+                    downloadText('万象阁备份-' + (function () { /* ⭐ U19：用**本地**日期（⛔ UTC：北京凌晨 0–8 点导出会显示成“昨天” ✗） */ var d0 = new Date(); return d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0'); })() + '.json', JSON.stringify(exportState(), null, 2));
                     toast.ok('备份已导出');
                     break;
 
@@ -7174,7 +7174,7 @@ export function bindSectionEvents(host, refresh) {
                  * ⭐ ST4-A：**这个 case 删掉了** ✓
                  *   它拦在 STAGE_MAP 前面把“人物并行封顶”**立即落盘** ✗
                  *   删掉后它会落到 `STAGE_MAP['stage-max-parallel'] = ['recall','maxParallelChars','value']` ✓
-                 *   ⇒ 与同页其他格子一样走草稿 ✓（⏔ 再写一遍草稿代码 ✗）
+                 *   ⇒ 与同页其他格子一样走草稿 ✓（⛔ 再写一遍草稿代码 ✗）
                  */
 
                 /* ---- 四格 ---- */
@@ -7394,7 +7394,7 @@ export function bindSectionEvents(host, refresh) {
                             modelCheap: one.modelCheap,
                             temperature: one.temperature,
                             maxTokens: one.maxTokens,
-                    /* ⭐ ST5：旧书签里没这两个字段 ⇒ **沿用当前值** ✓（⏔ 写成 undefined ✗） */
+                    /* ⭐ ST5：旧书签里没这两个字段 ⇒ **沿用当前值** ✓（⛔ 写成 undefined ✗） */
                     materialCap: Number.isFinite(Number(one.materialCap)) ? Number(one.materialCap) : cur.materialCap,
                     autoRetryMax: Number.isFinite(Number(one.autoRetryMax)) ? Number(one.autoRetryMax) : cur.autoRetryMax,
                             /* ⭐修复 15（材料 02）：**切到这套时同步写入 currentProfile** ✓
@@ -7476,7 +7476,7 @@ export function bindSectionEvents(host, refresh) {
                      * 这里只做一件事：切同一个 id 的明细行的 data-hide 与 .wxg-cdetail 的 display。
                      */
                     const rowId = String(id);
-                    /* 依据＝阿砚 51 号：⏔ 用 document.querySelector（工作台与浮层同开时会切到另一个面板的行）⇒ 限定在当前 host 作用域 */
+                    /* 依据＝阿砚 51 号：⛔ 用 document.querySelector（工作台与浮层同开时会切到另一个面板的行）⇒ 限定在当前 host 作用域 */
                     const scope = (typeof host !== 'undefined' && host && host.querySelector) ? host : document;
                     const dtr = scope.querySelector('tr.wxg-cdetail-row[data-detail-of="' + rowId + '"]');
                     if (!dtr) { break; }
@@ -7611,7 +7611,7 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'import-bundle': {
-                    /* 导入：先验签（六道拒因）→ 再看归属（⏔ 静默覆盖）→ 写完回读 */
+                    /* 导入：先验签（六道拒因）→ 再看归属（⛔ 静默覆盖）→ 写完回读 */
                     const inp = document.createElement('input');
                     inp.type = 'file';
                     inp.accept = '.json,application/json';

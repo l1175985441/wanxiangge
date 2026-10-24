@@ -104,7 +104,7 @@ export function openPanel() {
      *     ⇒ 切到「浮层面板」时：名册 4 列表格/状态页双栏/搜索框右对齐/五页标题居中 ✗
      *     **全部坍塌** ✗
      *   现在：给它补上 `wxg-ws-main`（布局子类 ✓）与 `wanxiangge`（视觉作用域 ✓）
-     *   ⏔ 补 `wxg-ws`：那个类是 `position:fixed; inset:0` 的**整窗**，借过来会把面板撞碎 ✗
+     *   ⛔ 补 `wxg-ws`：那个类是 `position:fixed; inset:0` 的**整窗**，借过来会把面板撞碎 ✗
      */
     sectionsHost.className = 'wxg-panel-body wxg-ws-main wanxiangge';
     root.appendChild(sectionsHost);

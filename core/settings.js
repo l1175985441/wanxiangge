@@ -31,7 +31,7 @@ let pendingPatch = null;
 
 /**
  * ★ 20261023：**这一次请求该用哪套 API？**
- *   有选中书签 ⇒ 书签字段盖过基础配置（⏔ 用基础配置发到别的站）
+ *   有选中书签 ⇒ 书签字段盖过基础配置（⛔ 用基础配置发到别的站）
  */
 export function resolveApi() {
     const s = getSettings();

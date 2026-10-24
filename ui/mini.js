@@ -125,7 +125,7 @@ export function mountMini() {
      *   旧：`hoverOpen !== false` ✗ 而默认设置里**根本没有 hoverOpen**（undefined ✗）
      *     ⇒ `undefined !== false` 成立 ⇒ **在聊天界面不小心扫过就啪一下弹开** ✗✗
      *   现在：改成**需要她显式开启**（`=== true` ✓）⇒ 默认不会被扫开 ✓
-     *   ⏔ 动“展开后不自动收回”：那是下面注释里写明的**故意设计** ✓ ⇒ 照旧保留 ✓
+     *   ⛔ 动“展开后不自动收回”：那是下面注释里写明的**故意设计** ✓ ⇒ 照旧保留 ✓
      */
     wrapEl.addEventListener('mouseenter', () => {
         if ((getSettings().mini || {}).hoverOpen === true && !isExpanded()) {
@@ -299,7 +299,7 @@ function elBtn(text, action, title) {
 
 /* ⭐ 材料 06【4】（悬浮球）：**拖完松手那一下不能当点击** ✓
  *   （原来 mouseup 后紧跟的 click 会误视一次展开／收起 ✗）
- *   ⚠️ 这个标志必须在**模块级**（⏔ 在 makeDraggable 里声明——两个函数看不到彼此 ✗） */
+ *   ⚠️ 这个标志必须在**模块级**（⛔ 在 makeDraggable 里声明——两个函数看不到彼此 ✗） */
 let miniJustDragged = false;
 
 function onMiniClick(e) {
@@ -453,7 +453,7 @@ function onMiniClick(e) {
      *   旧：只有 `update` 那条路刷了 ✗
      *     ⇒ 她点「撤回上一次／对账／重算本楼」后 ✗
      *     ⇒ **工作台还是旧的**（得手动再开一次才看得到变化 ✗）
-     *   现在：这些动作跑完也刷一次 ✓（⏔ 去动展开／收起／隐藏 ✗）
+     *   现在：这些动作跑完也刷一次 ✓（⛔ 去动展开／收起／隐藏 ✗）
      */
     if (action && action !== 'toggle' && action !== 'collapse' && action !== 'hide') {
         refreshMini();

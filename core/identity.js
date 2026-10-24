@@ -20,7 +20,7 @@ import { trimText, makeId } from './utils.js';
 /* 歧义留痕（诊断/自测用；⛔ 静默吞） */
 const ambiguityLog = [];
 
-/** 名字归一（硬-5：NFKC ⇒ 去空白 ⇒ 小写）——⏔ 拿 matchKey 代替：它不做 NFKC，全角ＡＢＣ 跟 abc 认不成一个 */
+/** 名字归一（硬-5：NFKC ⇒ 去空白 ⇒ 小写）——⛔ 拿 matchKey 代替：它不做 NFKC，全角ＡＢＣ 跟 abc 认不成一个 */
 export function entityKey(name) {
     return String(name == null ? '' : name)
         .normalize('NFKC')

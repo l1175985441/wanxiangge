@@ -115,7 +115,7 @@ export function commitLedger(justNow) {
         markCarried(latest.items, { anchorFloor: latest.floor, injectedText: latest.injectedText });
     }
     saveState();
-    /* ⭐ 新增件 5②：**一轮记账落完就把合并的那次落盘冲出去** ✓（⏔ 等定时器 ✗） */
+    /* ⭐ 新增件 5②：**一轮记账落完就把合并的那次落盘冲出去** ✓（⛔ 等定时器 ✗） */
     try { flushState(); } catch (eFlush) { }
 
 }
@@ -135,7 +135,7 @@ export function ledgerText() {
             ? '失败'
             : (lu.status === 'pending' ? '已算好，等正文生成时送进去' : '未注入'));
     let line = when + ' · ' + status + (lu.note ? ' · ' + lu.note : '');
-    /* 依据＝阿砚 A 组 B6/B8：没真写进盘就⏔报“成功”（她刷新才发现没了） */
+    /* 依据＝阿砚 A 组 B6/B8：没真写进盘就⛔报“成功”（她刷新才发现没了） */
     try {
         const sr = storageReport();
         if (sr && sr.tone === 'bad') {
@@ -150,7 +150,7 @@ export function ledgerText() {
      *   旧：只看 `pipe.status === 'running'` ✗ 而它是**持久化写进存档**的 ✗
      *     ⇒ 推演中途刷新网页／升级插件 ⇒ **状态页顶栏永远显示“正在更新…”** ✗✗
      *   现在：加上**内存标记**判断 ✓（与 health.js、体检页同一套判法 ✓）
-     *     ⏔ 真在跑才说“正在更新” ✗；没跑 ⇒ 不挂这句 ✓
+     *     ⛔ 真在跑才说“正在更新” ✗；没跑 ⇒ 不挂这句 ✓
      */
     const _liveRun = (typeof window !== 'undefined') && window.__wxgLiveRun;
     if (pipe.status === 'running' && _liveRun) {

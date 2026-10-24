@@ -320,7 +320,7 @@ export function applyPeopleExtras(people) {
                 patch.identity = pp.identityHint;
             }
             if (Object.keys(patch).length) {
-                /* ⭐ U1：这是**引擎自己填**，⏔ 记成她的手改 ✓ */
+                /* ⭐ U1：这是**引擎自己填**，⛔ 记成她的手改 ✓ */
                 updateCharacter(c.id, patch, { trackManual: false });
                 touched += 1;
             }
@@ -328,7 +328,7 @@ export function applyPeopleExtras(people) {
              * ⭐ B7（材料 13）：**同批里已经建出的形态卡要并回真身** ✓
              *   旧：提示词说“别拆成两个人”，但**老账里已经存在的独立形态卡就永远留着** ✗
              *   现在：这些别名里若有一个**正好等于名册里另一个人的名字** ⇒ 并回真身 ✓
-             *   （只认名字完全相等，⏔ 模糊匹配 ✗ —— 她吃过“母女被当同一人”的亏 ✗）
+             *   （只认名字完全相等，⛔ 模糊匹配 ✗ —— 她吃过“母女被当同一人”的亏 ✗）
              */
             try {
                 for (const a7 of (pp.aliases || [])) {
@@ -454,7 +454,7 @@ export function applyWiki(wiki) {
     }
     // ② 势力 ＋ 局势 → 世界状态（都记成"局势"，势力名当作一方）
     const merged = [];
-    /* ★ P1-1：势力进独立实体（带 id），⏔ 再摊成一条“局势”冒充它 ✓ */
+    /* ★ P1-1：势力进独立实体（带 id），⛔ 再摊成一条“局势”冒充它 ✓ */
     for (const f of facs) {
         try { upsertFaction({ name: f.name, note: f.note, scale: f.scale }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
@@ -753,7 +753,7 @@ export async function importBookWiki(bookName, opts) {
         return { ok: false, reason: cls.reason, read: read.entries.length };
     }
     const applied = applyWiki(cls.wiki);
-    /* ★ 补单 1-③：知识面从这本书读（挂在他名下的条目），⏔ 每轮现抽 ✓ */
+    /* ★ 补单 1-③：知识面从这本书读（挂在他名下的条目），⛔ 每轮现抽 ✓ */
     try { applyKnowledgeFromEntries(read.entries); } catch (eKnow) { }
     /*
      * ⭐ 她 [18]：**模型线也得落别名／身份**。

@@ -35,7 +35,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.440';
+const VERSION = '0.3.441';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -134,7 +134,7 @@ function bindEvents(ctx) {
          *   旧：只有 MESSAGE_RECEIVED 才跑 ✗，且首轮（floor < 2）传 -1 ⇒ **啥也不算** ✗
          *     ⇒ 她要等“下一楼／第 4 楼”才第一次进账 ✗
          *   现在：**她一按发送**，就把「刚结束的那一轮」（上一个 AI 楼 ＝ 本楼 - 1）当场算掉 ✓
-         *   ⏔ 只改触发时机：同一楼不重烧（`shouldUpdateNow`）／Swipe 才重跑／频率门槛 全部照旧 ✓
+         *   ⛔ 只改触发时机：同一楼不重烧（`shouldUpdateNow`）／Swipe 才重跑／频率门槛 全部照旧 ✓
          *   ⚠️ 只在 `every >= 2`（默认，留一层缓冲）时补这一枪：
          *      `every <= 1` 本来就是“生成完当场算新楼”，再补会**一轮跑两次** ✗（额度）
          */
@@ -187,8 +187,8 @@ function bindEvents(ctx) {
     // 楼层被删：账跟着对账
     /*
      * ⭐ 材料 06【5】链路断路 3：**她点“换一个回复”（Swipe）** ✓
-     *   一边跟“改楼”一样回滚废稿的推演 ✓（⏔ 假状态留在账本里 ✗）
-     *   一边给这一楼**开一次重跑许可** ✓（⏔ 新回复永远不更新 ✗）
+     *   一边跟“改楼”一样回滚废稿的推演 ✓（⛔ 假状态留在账本里 ✗）
+     *   一边给这一楼**开一次重跑许可** ✓（⛔ 新回复永远不更新 ✗）
      */
     if (typeof types.MESSAGE_SWIPED === 'string') {
         on(types.MESSAGE_SWIPED, (index) => {
@@ -196,7 +196,7 @@ function bindEvents(ctx) {
             if (floor >= 0) {
                 onFloorEdited(floor);
                 markFloorSwiped(floor);
-                /* ★ A3-②（她拍板）：换版 ⇒ 旧版记忆**真删**（先留快照），⏔ 两版并存 */
+                /* ★ A3-②（她拍板）：换版 ⇒ 旧版记忆**真删**（先留快照），⛔ 两版并存 */
                 try {
                     takeSnapshot('换版前');
                     const goneS = purgeSwipedMemory(floor, currentSwipeId(floor));
@@ -313,7 +313,7 @@ function startEntryTimer() {
  *   旧：只拆监听与定时器 ✗ ⇒ 她在扩展管理里取消勾选之后，
  *     **悬浮球还挂在右下角、点开还能用** ✗（插件明明已经停了 ✗）
  *   现在：小球／工作台／面板都关掉、魔法棒入口摘掉、楼层卡片也收起来 ✓
- *   ⏔ 动数据：账本照旧留在聊天档与世界书里 ✓
+ *   ⛔ 动数据：账本照旧留在聊天档与世界书里 ✓
  */
 function teardownUi() {
     try { closeMini(); } catch (eMini) { /* 摘不掉也不能拦着停用 ✓ */ }
@@ -327,7 +327,7 @@ function teardownUi() {
                 el.remove();
             }
         });
-        /* 楼层召回卡片：只删**带 wxg- 类名的 details**（⏔ 碰酒馆自己的 ✗） */
+        /* 楼层召回卡片：只删**带 wxg- 类名的 details**（⛔ 碰酒馆自己的 ✗） */
         Array.from(document.querySelectorAll('details')).forEach((d) => {
             if (/\bwxg-/.test(String(d.className || ''))) {
                 d.remove();
@@ -421,7 +421,7 @@ let booted = false;
 function boot() {
     /*
      * 依据＝阿砚第三批 硬-4（结构层）：`core/claims.js` 原来只有自测引用（孤儿文件）；
-     *   真运行里也用一次：启动时验“承诺表”形状，写歪了在控制台叫一声（⏔ 静默）。
+     *   真运行里也用一次：启动时验“承诺表”形状，写歪了在控制台叫一声（⛔ 静默）。
      */
     try {
         const badClaims = CLAIMS.filter((c) => !c || !c.promise || !Array.isArray(c.needs) || !c.needs.length);
@@ -599,7 +599,7 @@ function startOnce(why) {
      *   旧：`resetChannelCache()` 导出了、注释也写了“酒馆助手可能是后加载的” ✗
      *     但**全库 0 调用** ✗ ⇒ 启动那一瞬没摸到 TavernHelper，
      *     结果就锁死在 legacy／none 直到刷新整个网页 ✗
-     *   现在：APP_READY（就绪）时清一次 ✓（之后回到正常缓存 ✓，⏔ 每轮都清 ✗）
+     *   现在：APP_READY（就绪）时清一次 ✓（之后回到正常缓存 ✓，⛔ 每轮都清 ✗）
      */
     source.on(types.APP_READY, () => {
         try { resetChannelCache(); } catch (eU3) { /* 清不掉也不能拦着启动 ✓ */ }

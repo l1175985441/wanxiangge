@@ -87,7 +87,7 @@ export function toList(v) {
         return v.map(trimText).filter(Boolean);
     }
     return asText(v)
-        .split(/[\n,，、;；|]+/)   /* 依据＝第 7 问 D5：⏔ 按 '/' 拆（「水手月亮/月野兔」会被拆成两条） */
+        .split(/[\n,，、;；|]+/)   /* 依据＝第 7 问 D5：⛔ 按 '/' 拆（「水手月亮/月野兔」会被拆成两条） */
         .map(trimText)
         .filter(Boolean);
 }

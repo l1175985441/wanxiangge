@@ -21,7 +21,7 @@ import { originId, agendaOriginId } from './config.js';   /* I4：来路枚举�
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
  * 依据＝第 7 问 C5（阿砚 51 号）：字段改名必须有一张表，否则改名即丢老数据。
- *   现在表里只有一条（占位），以后改名就往这里加一行，⏔ 拆各处写 if。
+ *   现在表里只有一条（占位），以后改名就往这里加一行，⛔ 拆各处写 if。
  */
 export const FIELD_RENAMES = [
     /* { from: '旧字段名', to: '新字段名', at: '从哪个版本开始用新名' } */
@@ -68,7 +68,7 @@ const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace
 /**
  * ★ 20261022 B1（设计稿·六档名册）：**这个人在这局里算哪一档**。
  *   主要（4）/常联系（3）/新面孔（2）/可能登场（1）/路过（0）/不用（0）
- *   ⏔ 用模型自己填：这档是给“该不该给他知道”、“叫他出场不出场”用的排序依据。
+ *   ⛔ 用模型自己填：这档是给“该不该给他知道”、“叫他出场不出场”用的排序依据。
  */
 export const ROLES = ['主要', '常联系', '新面孔', '可能登场', '路过', '不用'];
 export const ROLE_WEIGHT = { '主要': 4, '常联系': 3, '新面孔': 2, '可能登场': 1, '路过': 0, '不用': 0 };
@@ -520,7 +520,7 @@ export function saveState() {
     if (!chatBoundOk()) {
         /* 依据＝阿砚 A 组 B6：拒写不能静默——界面会一直显示“正在存盘”（空绿），必须说出“这次没写” */
         try { noteSaveSkip('还没绑定到这个聊天（新聊天还没存盘）——这次没写'); } catch (eSkip) { }
-        return;   /* R3：换档了 ⇒ 拒写 ✓（⏔ 把旧档的结果写进新档 ✗） */
+        return;   /* R3：换档了 ⇒ 拒写 ✓（⛔ 把旧档的结果写进新档 ✗） */
     }
     const state = loadState();
     state.version = LEDGER_VERSION;
@@ -530,7 +530,7 @@ export function saveState() {
      *     而“过去经历淡出”、“局势／暗线超限归并”、“角色合并留痕”这几处
      *     全部**直接 `state.chronicle.push(...)`** ✗ ⇒ 编年可以无限膨胀 ✗
      *   现在：在**写盘这一处**做一次容量收口 ✓（一处管住全部写入路径 ✓）
-     *   ⏔ 物理删除 ✗（与 addChronicle 同一套语义：到上限就 slice 并在最老的那条上留痕 ✓）
+     *   ⛔ 物理删除 ✗（与 addChronicle 同一套语义：到上限就 slice 并在最老的那条上留痕 ✓）
      */
     try {
         const chronCap = Number(LIMITS.capChronicle || CHRONICLE_LIMIT);
@@ -552,8 +552,8 @@ export function saveState() {
 /* ⭐ 新增件 5②（材料 13）：**合并落盘** ✓
  *   病根：单轮更新会调八十多次 `saveState()`，每次都把整本账深拷贝一遍 ✗
  *   现在：紧循环里用 `saveStateDebounced()`（同一轮内合并成一次 ✓），
- *     每轮结束时用 `flushState()` 强制冲出去 ✓（⏔ 留在定时器里 ✗）
- *   ⏔ 改 `saveState` 本身：其余调用点仍然立即落盘 ✓
+ *     每轮结束时用 `flushState()` 强制冲出去 ✓（⛔ 留在定时器里 ✗）
+ *   ⛔ 改 `saveState` 本身：其余调用点仍然立即落盘 ✓
  */
 let saveDirty5 = false;
 let saveTimer5 = null;
@@ -676,7 +676,7 @@ export function isPlayerCharacter(c) {
  */
 /**
  * ★ R62（第二批 1019）：**名册排序（创建时间／修改时间／名字，可正反序）**。
- *   抽成纯函数的原因：排序是“一件事”，要能被测；⏔ 埋在界面里拼。
+ *   抽成纯函数的原因：排序是“一件事”，要能被测；⛔ 埋在界面里拼。
  *   dir：'desc'（默认，最近/最新在前）／'asc'。名字按中文排序，不受时间影响。
  */
 export function sortRosterList(list, key, dir) {
@@ -801,11 +801,11 @@ export function resolveKnowChannel(source, item, character) {
      * ★ 20261022 补 22 单 ⑨ 的另一半：**亲眼要查在场**（原来无条件放行 ✗）。
      *   · 亲眼：那一楼他必须真的在场（presentFloor === floor），不然降级未证；
      *   · 被告知：他得**先出场过**（presentFloor <= floor），否则也降级；
-     *   · 两边没有可比的楼号（老账／寄存器里没这格）⇒ 保持原行为，⏔ 凭空改判。
+     *   · 两边没有可比的楼号（老账／寄存器里没这格）⇒ 保持原行为，⛔ 凭空改判。
      */
     const flNow = Number(item && item.floor);
     const pfNow = Number(character && character.presentFloor);
-    /* 老账里没这格时，presentFloor 会是 0、lastSeenFloor 是 -1 ⇒ 当“不知道”，⏔ 拿 0 当真在场 ✗ */
+    /* 老账里没这格时，presentFloor 会是 0、lastSeenFloor 是 -1 ⇒ 当“不知道”，⛔ 拿 0 当真在场 ✗ */
     const canCheck = Number.isFinite(flNow) && flNow >= 0 && Number.isFinite(pfNow) && pfNow >= 0
         && (pfNow > 0 || Number(character && character.lastSeenFloor) >= 0);
     if (src === '亲眼') {
@@ -846,7 +846,7 @@ export function resolveKnowChannel(source, item, character) {
 /**
  * ★ 20261022 A1（设计稿）：**记忆要认得它是第几版**。
  *   同一楼换了 swipe ⇒ 另一版；旧版的记忆要能认出来、能被撤（A3 落地后）。
- *   读不到就是 null，⏔ 瞎填 0 ✗。
+ *   读不到就是 null，⛔ 瞎填 0 ✗。
  */
 function swipeAt(floor) {
     const f = Number(floor);
@@ -917,11 +917,11 @@ export function removeKnow(id, index) {
 }
 
 /**
- * ⭐ U1（材料 12·未覆盖死角）：**加一个“只写值、⏔ 记手改”的选项** ✓
+ * ⭐ U1（材料 12·未覆盖死角）：**加一个“只写值、⛔ 记手改”的选项** ✓
  *   为什么需要它：`book-wiki` 的“从世界书读人”是**引擎自己填**，
  *   而这个函数原来只要 patch 里有非空状态格就记 `manualFields` ✗
  *   ⇒ 她一个字没手改，导入进来的人全被盖上“已手动修改” ✗
- *   ⏔ 用 `patch.manual=false`：那会把她**原有的手改锁一起清掉** ✗
+ *   ⛔ 用 `patch.manual=false`：那会把她**原有的手改锁一起清掉** ✗
  */
 /** ★ [580]／世界背面 A5：知识面壳字段 —— 模型不准直写，只许世界书／显式放行 */
 const KNOWN_FACE_KEYS = ['knownFactKeys', 'knownEventIds', 'knownClueIds', 'knownFactBeliefs'];
@@ -1243,7 +1243,7 @@ export function updateWorld(patch, options) {
     const w = state.world;
     const opts = options || {};
     /*
-     * ⭐⭐ 材料 06【5】链路断路 4（收口）：**模型写的 ⏔ 盖掉她手改过的格** ✓
+     * ⭐⭐ 材料 06【5】链路断路 4（收口）：**模型写的 ⛔ 盖掉她手改过的格** ✓
      *   她手改时传 `manual: true` ✓ ⇒ 照旧能写 ✓（包括改回去 ✓）
      *   模型（stepWorld）不传 ✗ ⇒ 她手改过的那几格**不被覆盖** ✓（其余格照常更新 ✓）
      */
@@ -1776,7 +1776,7 @@ export function normalizeAgendaOrigin(raw) {
     if (raw && typeof raw === 'object') {
         return normalizeAgendaOrigin(raw.type || raw.kind);
     }
-    /* I4：三型枚举只有一张表（config.AGENDA_ORIGINS），这里⏔ 再写一份 */
+    /* I4：三型枚举只有一张表（config.AGENDA_ORIGINS），这里⛔ 再写一份 */
     return agendaOriginId(raw);
 }
 
@@ -1794,10 +1794,10 @@ export function upsertHidden(line) {
 
     const existing = state.world.hidden.find((h) => h.name === name);
     if (existing) {
-    /* ⭐ 材料 06【5】链路断路 4：**她手改过的暗线，模型⏔ 能冲掉** ✓
+    /* ⭐ 材料 06【5】链路断路 4：**她手改过的暗线，模型⛔ 能冲掉** ✓
      *   （旧：状态/火候照单全收 ✗ ⇒ 刚手改完、下一轮后台一跑就被冲掉 ✗）
      *   现在：只跳过**她手改的那几格**（当前实现：整条跳过模型推进 ✓）
-     *   ⏔ 跳过统计：`sinceDay`等起算点照旧维护 ✓ */
+     *   ⛔ 跳过统计：`sinceDay`等起算点照旧维护 ✓ */
     if (existing && existing.manual === true) {
         return existing;
     }
@@ -1891,10 +1891,10 @@ export function openHiddenCount() {
 }
 
 /**
- * ★ 20261022 A3（她拍板）：**楼没了，记忆就该没了**——⏔ 标 void 留着（那是污染源）。
+ * ★ 20261022 A3（她拍板）：**楼没了，记忆就该没了**——⛔ 标 void 留着（那是污染源）。
  *   ① 删楼：floor 命中的条目从 knows/past/schedule 里**移除**。
  *   ② 换版：同一楼上旧 swipe 的条目移除（新版会重新总结）。
- *   ③ 分支：⏔ 在这里删（能切回来）——只在召回侧按“当前楼集合”过滤。
+ *   ③ 分支：⛔ 在这里删（能切回来）——只在召回侧按“当前楼集合”过滤。
  * 返回删了多少条（供回执/日志用）。
  */
 export function purgeMemoryAtFloor(floor) {
@@ -2167,7 +2167,7 @@ export function setEvents(events) {
  *   旧：面板上手改局势／暗线只写进 world，**从不重算 events** ✗
  *     ⇒ 改完发消息仍然 0 召回 ✗
  *   现在：把 world 里的局势／暗线按标题去重**补进** events ✓
- *   ⏔ 删除现有 events（只补不删 ✓ ⇒ 不会把 stepWorld 正常维护的那些弄丢 ✓）
+ *   ⛔ 删除现有 events（只补不删 ✓ ⇒ 不会把 stepWorld 正常维护的那些弄丢 ✓）
  */
 export function syncWorldEvents() {
     const state = loadState();
@@ -2897,7 +2897,7 @@ export function setLimits(limits) {
  * ⭐ 材料 06【4】#1：**把导出的备份导回来** ✓
  *   （她只能导出、不能导回 ✗ —— 27 个文件里一个导入函数都没有 ✗）
  *   行为：拿导入的对象过一遍 normalizeState ✓ ⇒ **整本换掉当前聊天档的账** ✓
- *   ⏔ 自己留快照：由调用方（UI）先 takeSnapshot ✓（她点了确认才到这里 ✓）
+ *   ⛔ 自己留快照：由调用方（UI）先 takeSnapshot ✓（她点了确认才到这里 ✓）
  * @returns {{ok: boolean, reason?: string, counts?: object}}
  */
 export function importState(raw) {

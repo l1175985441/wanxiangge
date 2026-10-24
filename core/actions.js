@@ -134,7 +134,7 @@ export function planRecall(options) {
          *   定案：`items`（完整角色对象）**保持现状** ✓
          *   理由：`items` 会被 `ledger.js` 深读（削了会连带出事 ✗）；
          *     R2 的**最大头已由前半削掉**（召回记录不再存整楼正文 ✓），
-         *     现无证据表明它是当下体积／卡顿的主因 ✓ ⇒ ⏔ 再动 ✗
+         *     现无证据表明它是当下体积／卡顿的主因 ✓ ⇒ ⛔ 再动 ✗
          */
         items: recall.items,
             events: recall.events,
@@ -235,7 +235,7 @@ export function onFloorEdited(floor) {
          *   旧：只把那一楼的召回记录摘掉，**从不重算** ✗
          *     ⇒ 那一楼从此再也没有召回卡片 ✗
          *   现在：摘掉之后再跑一次 planRecall ✓（把这一楼重新算好、卡片重新挂上 ✓）
-         *   ⏔ 动其他楼层：planRecall 只围绕这一楼算 ✓
+         *   ⛔ 动其他楼层：planRecall 只围绕这一楼算 ✓
          */
         try {
             planRecall({ floor });

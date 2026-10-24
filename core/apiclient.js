@@ -274,7 +274,7 @@ function withTimeout(ms) {
  *   timeoutMs 覆盖默认超时
  * @returns {Promise<{ok:boolean, text?:string, reason?:string, ms?:number}>}
  */
-/* ⭐ U16：本会话内“已知能走通”的路径提示（⏔ 落设置 ✗） */
+/* ⭐ U16：本会话内“已知能走通”的路径提示（⛔ 落设置 ✗） */
 let sessionViaHint = '';
 let viaHintTold = false;
 
@@ -296,7 +296,7 @@ export function parseApiHeaders(raw) {
 
 /**
  * ★ 20261023：把“附加主体参数 / 排除主体参数”应用到请求体上（抽成可测的纯函数）。
- *   排除先做（⏔ 让“加”的被“排”的盖掉）。
+ *   排除先做（⛔ 让“加”的被“排”的盖掉）。
  */
 export function applyRequestTweaks(body, api) {
     const target = (body && typeof body === 'object') ? body : {};
@@ -334,7 +334,7 @@ export async function callModel(opts) {
         return { ok: false, reason: '没给提示词' };
     }
     const settings = getSettings();
-    const api = resolveApi();   /* ★ 20261023：书签选了就用那套（⏔ 用基础配置） */
+    const api = resolveApi();   /* ★ 20261023：书签选了就用那套（⛔ 用基础配置） */
     const url = trimText(api.url);
     const key = trimText(api.key);
     const model = trimText(o.cheap ? (api.modelCheap || api.model) : api.model);
@@ -379,7 +379,7 @@ export async function callModel(opts) {
         stream: true,   /* ⭐ 流式（阿砚：长请求被掉是因为“长时间零输出” ✗ ⇒ 改成一直滚 ✓） */
     };
     if (hasProxyTweaks) {
-        /* ★ 只在她填了三格时才加这三个键（⏔ 动 payload 形状） */
+        /* ★ 只在她填了三格时才加这三个键（⛔ 动 payload 形状） */
         if (pExtraBody) { body.custom_include_body = pExtraBody; }
         if (pExclude.length) { body.custom_exclude_body = pExclude.map((k) => '- ' + k).join('\n'); }
         if (pExtraHeaders) {
@@ -419,7 +419,7 @@ export async function callModel(opts) {
      *     但只把它藏在返回值的 `via` 里，上层没人读 ✗
      *     ⇒ 提点不告诉她、下一轮又从直连开始 ⇒ **每轮都先白撞一次墙** ✗
      *   现在：记进会话内的 `sessionViaHint` ✓，并弹**一次**提示 ✓
-     *   （⏔ 改她的设置：只在本会话内生效，刷新页面就重置 ✓）
+     *   （⛔ 改她的设置：只在本会话内生效，刷新页面就重置 ✓）
      */
     /*
      * ⭐⭐ 真机对照实验得到的通关组合：**假流式-**前缀的模型名 ＋ **走流式** ✓
@@ -438,9 +438,9 @@ export async function callModel(opts) {
          *   ⇒ 现在：**直连抛了就自动改走转发再试一次** ✓（⛔ 让她手动切 ✗），并记下 via='proxy-auto' ✓
          */
         let res = null;
-        /* ⭐ U16：上次已知直连会被挡 ⇒ **这次直接走转发**（⏔ 再白撞一次 ✗） */
+        /* ⭐ U16：上次已知直连会被挡 ⇒ **这次直接走转发**（⛔ 再白撞一次 ✗） */
         const preferProxy = (api.mode === 'direct' && sessionViaHint === 'proxy-auto');
-        /* ⭐ U16：已知要加前缀 ⇒ 一开始就带上（⏔ 先撞一次再重试 ✗） */
+        /* ⭐ U16：已知要加前缀 ⇒ 一开始就带上（⛔ 先撞一次再重试 ✗） */
         if (sessionViaHint === 'prefix-auto' && !/^假流式-/.test(modelTry)) {
             modelTry = '假流式-' + modelTry;
         }
@@ -485,7 +485,7 @@ export async function callModel(opts) {
                 if (api.mode === 'direct') {
                     try { res = await callDirect(url, key, modelTry, body, timeout.signal); }
                     catch (eP1) {
-                        /* ★ §④：已经超时／取消就⏔ 再打一次转发（白跑一趟） */
+                        /* ★ §④：已经超时／取消就⛔ 再打一次转发（白跑一趟） */
                         if (isAbortError(eP1)) { throw eP1; }
                         res = await callViaServer(url, key, modelTry, body, timeout.signal, o.cheap === true);
                     }

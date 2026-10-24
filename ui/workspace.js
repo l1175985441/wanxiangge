@@ -104,7 +104,7 @@ export function openWorkspace() {
      * ⭐ 材料 10 · 第 2 组裁定（她 10-17 授权代拍）：**「读取控制」要有一个顶层快捷入口** ✓
      *   旧：只在左栏「调设置 → 读取控制（四格）」里 ✗ ⇒ 藏得深（她与谷歌审都点过“找不到” ✗）
      *   现在：页头右上**常驻一颗「读取控制」** ✓（在哪一页都看得见 ✓），点它直达那一页 ✓
-     *   ⏔ 写死页码：按左栏条目名**现找** ✓（顺序变了也不会点错页 ✓）
+     *   ⛔ 写死页码：按左栏条目名**现找** ✓（顺序变了也不会点错页 ✓）
      */
     const quickRead = document.createElement('button');
     quickRead.className = 'wxg-ws-quick';
@@ -424,7 +424,7 @@ function onWorkspaceClick(e) {
         node = node.parentNode;
     }
     if (go !== null) {
-        /* ⭐ ST4：切页前提一句 “有没存的改动” ✓（⏔ 拦她切页，不改保存语义 ✗） */
+        /* ⭐ ST4：切页前提一句 “有没存的改动” ✓（⛔ 拦她切页，不改保存语义 ✗） */
         try {
             if (hasUnsavedDraft()) {
                 toast.info('这一段还有没保存的改动（点段底「保存」才生效）');
@@ -434,7 +434,7 @@ function onWorkspaceClick(e) {
         return;
     }
     if (action === 'goto-readctl') {
-        /* 按左栏条目名现找那一页 ✓（⏔ 写死页码 ✗） */
+        /* 按左栏条目名现找那一页 ✓（⛔ 写死页码 ✗） */
         const items = asArray(sideEl ? sideEl.querySelectorAll('.wxg-ws-side-item') : []);
         const hit = items.findIndex((b) => String(b && b.textContent || '').indexOf('读取控制') >= 0);
         if (hit >= 0) {
@@ -452,10 +452,10 @@ function onKeydown(e) {
         return;
     }
     /*
-     * ⭐ 材料 06【6】①：**Esc 要吞掉，⏔ 把酒馆自己的弹窗一并关掉** ✓
+     * ⭐ 材料 06【6】①：**Esc 要吞掉，⛔ 把酒馆自己的弹窗一并关掉** ✓
      *   （她同时开着其他插件；原来没调 stopPropagation ✗
      *    ⇒ 她想关的是万象阁子浮层，结果酒馆自己的抽屉／弹窗也跟着关了 ✗）
-     *   ⏔ preventDefault：酒馆自己也要用 Esc ✓ ⇒ 只止传播、⏔ 拦默认行为 ✗
+     *   ⛔ preventDefault：酒馆自己也要用 Esc ✓ ⇒ 只止传播、⛔ 拦默认行为 ✗
      */
     if (typeof e.stopPropagation === 'function') {
         e.stopPropagation();
