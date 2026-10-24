@@ -328,6 +328,26 @@ export function applyRequestTweaks(body, api) {
     return target;
 }
 
+/*
+ * 依据＝阿砚第四批 4-b #3（记账三格）：
+ *   `apiAttemptCount`（这一轮发了几次请求）、`apiAcceptedAttempt`（哪一份算数）、
+ *   `apiAttemptFailures`（中途失败过几次——**后面成功了也照留**）。
+ *   不改重试逻辑，只加计数；回答“这一轮花了几份、哪一份算数”。
+ */
+let apiAttemptCount = 0;
+let apiAttemptFailures = 0;
+function noteApiAttempt() {
+    apiAttemptCount += 1;
+    return apiAttemptCount;
+}
+export function lastApiAttempts() {
+    return { count: apiAttemptCount, failures: apiAttemptFailures, accepted: apiAttemptCount > 0 ? apiAttemptCount : 0 };
+}
+export function resetApiAttempts() {
+    apiAttemptCount = 0;
+    apiAttemptFailures = 0;
+}
+
 export async function callModel(opts) {
     const o = opts || {};
     const prompt = trimText(o.prompt);
@@ -543,7 +563,7 @@ export async function callModel(opts) {
         }
         const text = trimText(res.text);
         if (!text) {
-            return { ok: false, reason: '模型回了空内容（可以试试调大输出上限或换模型）', ms };
+            return { ok: false, reason: '模型回了空内容（可以试试调大输出上限或换模型）', ms, apiAttemptCount, apiAttemptFailures };
         }
         /* ⭐ U16：自动切换成功 ⇒ **告诉她一次**（同一会话只叫一次 ✓） */
         if (autoVia && !viaHintTold) {
@@ -557,7 +577,10 @@ export async function callModel(opts) {
                 }).catch(() => {});
             } catch (eU16) { /* 提示弹不出来也不能影响这一轮 ✓ */ }
         }
-        return { ok: true, text, ms, via: (autoVia || res.via), finish: res.finish };
+        return {
+        ok: true, text, ms, via: (autoVia || res.via), finish: res.finish,
+        apiAttemptCount, apiAttemptFailures, apiAcceptedAttempt: apiAttemptCount,
+    };
         /* ⭐ 走了自动转发时，via 会是 'proxy-auto' ⇒ 上层可以告诉她“直连被挡，已自动改走转发” ✓ */
     } catch (e) {
         const ms = Date.now() - started;
@@ -699,6 +722,7 @@ export function tavernApiPath() {
 
 /** ① 经酒馆服务器转发 */
 async function callViaServer(url, key, model, body, signal, cheap) {
+    noteApiAttempt();
     const ctx = getCtx();
     const headers = { 'Content-Type': 'application/json' };
     try {
@@ -791,6 +815,7 @@ async function callViaServer(url, key, model, body, signal, cheap) {
 
 /** ② 浏览器直连 */
 async function callDirect(url, key, model, body, signal) {
+    noteApiAttempt();
     const base = url.replace(/\/+$/, '');
     const baseNorm = withVersionIfBareRoot(base);
     const endpoint = /\/chat\/completions$/.test(baseNorm) ? baseNorm : baseNorm + '/chat/completions';
@@ -1107,15 +1132,75 @@ function readCompletionText(data) {
  * 调模型并要 JSON（失败会把原因说清楚，⛔ 不静默）
  * @returns {Promise<{ok:boolean, value?:object, reason?:string, ms?:number, repaired?:boolean}>}
  */
+
+/**
+ * 依据＝阿砚第四批 4-b #2（结构化输出三级判定）：
+ *   ① 严格解析成功 ⇒ strict
+ *   ② 严格解析失败，但**整块完整**（括号配平且没被截断）⇒ raw-ok（收原始文本）
+ *   ③ 否则 ⇒ soft-fail，带一句 `retryHint`（告诉模型下次该怎么改格式）
+ * ⛔ 把 soft-fail 当硬错：带 retryHint 的失败，上游可以据此决定重试而⛔ 是直接判“格式坏”。
+ */
+export function diagnoseParse(text, opts) {
+    const raw = asText(text);
+    const parsed = extractJson(raw, opts);
+    if (parsed.ok) {
+        return { level: 'strict', retryHint: '', value: parsed.value, repaired: parsed.repaired === true };
+    }
+    const fin = String((opts && opts.finish) || '').toLowerCase();
+    const truncated = parsed.truncated === true || /length|max_tokens|max_output_tokens/.test(fin);
+    const body = raw.trim();
+    const balanced = (() => {
+        let curly = 0;
+        let square = 0;
+        let inStr = false;
+        let esc = false;
+        for (const ch of body) {
+            if (inStr) {
+                if (esc) { esc = false; } else if (ch === '\\') { esc = true; } else if (ch === '"') { inStr = false; }
+                continue;
+            }
+            if (ch === '"') { inStr = true; continue; }
+            if (ch === '{') { curly += 1; }
+            if (ch === '}') { curly -= 1; }
+            if (ch === '[') { square += 1; }
+            if (ch === ']') { square -= 1; }
+        }
+        return curly === 0 && square === 0 && (curly + square) === 0;
+    })();
+    const looksWhole = body.length > 0 && !truncated && balanced && /[}\]]\s*$/.test(body);
+    if (looksWhole) {
+        return { level: 'raw-ok', retryHint: '', value: null, repaired: false, raw: body };
+    }
+    const retryHint = truncated
+        ? '输出被截断：下次只给 JSON 本体、不要开场白；字段能短就短'
+        : '输出不是完整 JSON：下次只输出一个从 { 开头、到 } 结尾的 JSON，⛔ 混说明文字、⛔ 截断';
+    return { level: 'soft-fail', retryHint, value: null, repaired: false, truncated, raw: body };
+}
+
 export async function callModelJson(opts) {
     const res = await callModel(opts);
     if (!res.ok) {
-        return { ok: false, reason: res.reason, ms: res.ms };
+        return { ok: false, reason: res.reason, retryHint: res.retryHint || '', ms: res.ms };
     }
-    const parsed = extractJson(res.text, { finish: res.finish });
-    if (!parsed.ok) {
-        // ⭐ 补④：把"截断"这个身份一路带上去（上游要据此报"截断"、⛔ 当普通格式错）。
-        return { ok: false, reason: parsed.reason, truncated: parsed.truncated === true, raw: res.text, ms: res.ms };
+    /*
+     * 依据＝阿砚第四批 4-b #2（三级判定）：
+     *   strict ⇒ 用解析值；raw-ok ⇒ **整块完整就收原始文本**；
+     *   soft-fail ⇒ 失败并带 `retryHint`（告诉模型下次怎么改格式）。
+     */
+    const diag = diagnoseParse(res.text, { finish: res.finish });
+    if (diag.level === 'strict') {
+        return { ok: true, value: diag.value, ms: res.ms, repaired: diag.repaired === true, parseLevel: 'strict' };
     }
-    return { ok: true, value: parsed.value, ms: res.ms, repaired: parsed.repaired === true };
+    if (diag.level === 'raw-ok') {
+        return { ok: true, value: null, raw: diag.raw, ms: res.ms, parseLevel: 'raw-ok' };
+    }
+    return {
+        ok: false,
+        reason: diag.retryHint,
+        retryHint: diag.retryHint,
+        truncated: diag.truncated === true,
+        raw: res.text,
+        ms: res.ms,
+        parseLevel: 'soft-fail',
+    };
 }

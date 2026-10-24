@@ -60,7 +60,7 @@ import {
     getRollCheckpoint,
     capList,
     beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView, ROLE_WEIGHT } from './state.js';
-import { callModelJson } from './apiclient.js';
+import { callModelJson, lastApiAttempts, resetApiAttempts } from './apiclient.js';   /* 4-b #3：记账三格 */
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
 import { stampSource, floorText } from './provenance.js';
@@ -2164,6 +2164,8 @@ async function runUpdateInner(opts) {
         return { ok: true, skipped: true, reason: '这一楼的这一版已经算过了（重刷同一版不重复烧额度）' };
     }
 
+    resetApiAttempts();   /* 4-b #3：这一轮从零开始数（花了几份） */
+
     /*
      * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
      *   旧：同楼换 swipe 直接在已落账上叠推 ✗（暗线连跳、局势叠层 ✗）
@@ -2447,6 +2449,8 @@ async function runUpdateInner(opts) {
     setPipeline({
         status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
         step: '完成',
+        /* 4-b #3：三格记账（中途失败后面成功了也照留） */
+        apiAttempts: lastApiAttempts(),
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
         text,
