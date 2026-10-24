@@ -48,6 +48,7 @@ function retryTokens(base, attempt) {
 }
 import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { getSettings, effectivePrompt } from './settings.js';
+import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
 import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
@@ -1274,10 +1275,10 @@ function applyCharacter(raw, material, conflicts) {
      *         （空白格也被塞满 “未知” ⇒ 体检误判“身份非空” ✗ 名册显示不出 — ✗）
      *   现在：占位词一律**当作没说** ⇒ skip ✓（⛔ 拿它覆盖已有的好数据 ✗）
      *   ⛔ 只列明确的占位词：**不收“无”“没有”**（它们可能是有意义的值 ✓） */
-    const UNKNOWNISH = /^(未知|不详|不明|未接入|暂无|不清楚|待定|未设定|无记录|n\/a|-|—|？|\?)$/i;
+    /* 1-c #7：占位词判断已搬到 core/rules.js（isUnknownish），这里不再留第二份 */
     for (const f of textFields) {
         const incoming = trimText(raw && raw[f]);
-        if (!incoming || UNKNOWNISH.test(incoming)) {
+        if (!incoming || isBlankOrUnknownish(incoming)) {
             continue;
         }
         const old = trimText(c[f]);
