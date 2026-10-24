@@ -47,7 +47,7 @@ function retryTokens(base, attempt) {
     return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
 import { getChat, personaNames } from './adapter.js';
-import { getSettings, effectivePrompt, fillTemplate } from './settings.js';
+import { getSettings, effectivePrompt } from './settings.js';
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
 import {
     loadState, saveState, takeSnapshot, addChronicle, pushPast, pushStep, upsertHidden, setEvents,
@@ -63,7 +63,8 @@ import {
 import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
-import { stampSource, floorText } from './provenance.js';   /* 硬-2：每条派生数据带上“从哪来” */
+import { stampSource, floorText } from './provenance.js';
+import { render } from './prompt.js';   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -742,7 +743,7 @@ async function stepWorld(material, attempt) {
         })
         .filter(Boolean);
 
-    const prompt = fillTemplate(effectivePrompt('world'), {
+    const prompt = render('world', effectivePrompt('world'), {   /* 硬-3：唯一组装入口 */
         user: playerNamesForPrompt(),
         world: [
             '世界钟：' + (trimText(world.clock) || '未知'),
@@ -1690,7 +1691,7 @@ async function stepCharacters(material, attempt) {
             return false;
         });
     };
-    const prompt = fillTemplate(effectivePrompt('chars'), {
+    const prompt = render('chars', effectivePrompt('chars'), {   /* 硬-3：唯一组装入口 */
         user: playerNamesForPrompt(),
         clock: trimText(loadState().world.clock) || '未知',
         /*

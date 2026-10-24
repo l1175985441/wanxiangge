@@ -15,7 +15,8 @@ import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
-import { sourceOk, floorText } from './provenance.js';   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
+import { sourceOk, floorText } from './provenance.js';
+import { noteText } from './prompt.js';   /* 硬-3：注入头记账 */   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -657,7 +658,8 @@ function pickEvents(leadText, ctxText, events, cap) {
  * @param {object} [opts] { anchorFloor } —— 本回合锚点楼（"楼层裁"用；不传就不裁）
  */
 export function assembleInjectText(items, events, headerText, opts) {
-    const header = trimText(headerText) || effectivePrompt('header');
+    /* 依据＝阿砚第三批 硬-3：注入头不是模板拼出来的，但也走同一条记账（⛔ 另起一条不可查的路） */
+    const header = noteText('inject-header', trimText(headerText) || effectivePrompt('header'), { via: headerText ? 'setting' : 'default' });
     const anchorFloor = opts && Number.isFinite(Number(opts.anchorFloor)) ? Number(opts.anchorFloor) : NaN;
     /*
      * ★ 补单 1：人物块**按“谁更该被看见”排**，⛔ 按数组自然序（否则总是先入库的几个人被保住）。
