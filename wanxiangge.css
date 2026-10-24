@@ -4277,3 +4277,32 @@ body[data-wxg-theme="dark"] {
     .wxg-ws-right::-webkit-scrollbar { height: 0; }
     .wxg-ws-sub { display: none; }
 }
+
+/* ==========================================================================
+   B2-2 右侧不再空着（依据＝阿砚 B2-2「右侧约 60% 空着，主区只用左边一条」）
+   做法：宽屏时主区把卡片排成自适应多列（≥1180px 两列、≥1600px 三列），
+        ⛔ 不是把所有东西拉宽（长文一行扫太久会累）——所以每列给最小 420px，超宽也不摊太开。
+   ========================================================================== */
+@media (min-width: 1180px) {
+    .wxg-ws-main .wxg-sec-body {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+    /* 卡片在主区里不再各自卡死宽度（原来像被一条竖线截断） */
+    .wxg-ws-main .wxg-sec-body > .wxg-card,
+    .wxg-ws-main .wxg-card { max-width: none; }
+    /* 表格类（名册）仍要能吃满整行：让它跨所有列 */
+    .wxg-ws-main .wxg-sec-body > .wxg-card:has(table) { grid-column: 1 / -1; }
+    /* 提示行/空态也别拆成两列 */
+    .wxg-ws-main .wxg-sec-body > .wxg-note,
+    .wxg-ws-main .wxg-sec-body > .wxg-empty { grid-column: 1 / -1; }
+}
+@media (min-width: 1600px) {
+    .wxg-ws-main .wxg-sec-body { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
+}
+/* 左栏在超宽屏略放宽一点，别让"过程报告 · 每轮到底注入了什么"再折成三行 */
+@media (min-width: 1600px) {
+    .wxg-ws-side { width: 240px; }
+}
