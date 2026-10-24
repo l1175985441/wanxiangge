@@ -969,6 +969,23 @@ function secWorld(host) {
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     box.appendChild(cWorld);
 
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #6（四张空卡合并成一行）：
+     *   势力／世界事实／脉动／风声 四张卡都是“引擎还没推出来”，各占一个卡位＋虚线大框；
+     *   四个空框堆起来就是一屏“没东西”。全空时只留**一行**，有数据才展开。
+     */
+    const wFactions0 = Array.isArray(w.factions) ? w.factions : [];
+    const wFacts0 = Array.isArray(w.facts) ? w.facts : [];
+    const wPulse0 = (w.pulse && typeof w.pulse === 'object') ? w.pulse : {};
+    const wPulseDom0 = Array.isArray(wPulse0.domains) ? wPulse0.domains : [];
+    const wPulseCov0 = (wPulse0.coverage && Array.isArray(wPulse0.coverage.entries)) ? wPulse0.coverage.entries : [];
+    const wWinds0 = Array.isArray(w.winds) ? w.winds.filter((x) => x && (trimText(x.topic) || trimText(x.text))) : [];
+    const worldCardsEmpty = !wFactions0.length && !wFacts0.length
+        && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
+    if (worldCardsEmpty) {
+        box.appendChild(emptyBlock('世界事实／脉动／风声 —— 还没有内容（引擎推出来才会展开）'));
+    }
+
     /* ★ [580] C1：势力厚度在面板上看得见（只读；改走世界步回写，⛕ 卡头再放一颗编辑） */
     const cFac = card('势力（在册）');
     const facList = Array.isArray(w.factions) ? w.factions : [];
@@ -1001,7 +1018,7 @@ function secWorld(host) {
         }
         cFac.appendChild(fl);
     }
-    box.appendChild(cFac);
+    if (!worldCardsEmpty) { box.appendChild(cFac); }
 
     /* ★ [580] A3：世界事实键值账（只读；给她核对引擎对齐用，⛔ 不当注入叙述） */
     const cFacts = card('世界事实（键值）');
@@ -1028,7 +1045,7 @@ function secWorld(host) {
             cFacts.appendChild(el('div', 'wxg-note', '共 ' + String(factList.length) + ' 条，面板只列最近 40 条'));
         }
     }
-    box.appendChild(cFacts);
+    if (!worldCardsEmpty) { box.appendChild(cFacts); }
 
     /* ★ [580] A4：独立脉动＋巡查覆盖（只读；与局势并行，可看镜头外） */
     const cPulse = card('世界脉动（域／巡查）');
@@ -1083,7 +1100,7 @@ function secWorld(host) {
             cPulse.appendChild(cl);
         }
     }
-    box.appendChild(cPulse);
+    if (!worldCardsEmpty) { box.appendChild(cPulse); }
 
     /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
     const cWinds = card('风声（未证实）');
@@ -1111,7 +1128,7 @@ function secWorld(host) {
             cWinds.appendChild(el('div', 'wxg-note', '未证实传闻；⛔ 别当成已公开新闻。与 visibility=trace 对齐，同题只列一次。'));
         }
     }
-    box.appendChild(cWinds);
+    if (!worldCardsEmpty) { box.appendChild(cWinds); }
 
     /*
      * ★ [580]／工作流 D1：**时局简报成套骨架（只取面板分区）** ✓
