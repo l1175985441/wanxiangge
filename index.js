@@ -16,6 +16,7 @@
 
 import { APP_NAME } from './core/config.js';
 import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
+import { CLAIMS } from './core/claims.js';   /* 硬-4 结构层搎到的孤儿文件：真运行里也要有人用它 */
 import { bindClockEpoch } from './core/clock.js';
 import { resetCache, loadState, migrateInferToChronicle, purgeSwipedMemory, purgeOrphanedMemory } from './core/state.js';
 import { injectBeforeGenerate } from './core/engine.js';
@@ -34,7 +35,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.436';
+const VERSION = '0.3.437';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -418,6 +419,17 @@ export function onDisable() {
 let booted = false;
 
 function boot() {
+    /*
+     * 依据＝阿砚第三批 硬-4（结构层）：`core/claims.js` 原来只有自测引用（孤儿文件）；
+     *   真运行里也用一次：启动时验“承诺表”形状，写歪了在控制台叫一声（⏔ 静默）。
+     */
+    try {
+        const badClaims = CLAIMS.filter((c) => !c || !c.promise || !Array.isArray(c.needs) || !c.needs.length);
+        if (badClaims.length) {
+            console.warn('[万象阁] 承诺表有 ' + String(badClaims.length) + ' 条写歪了（core/claims.js）：'
+                + badClaims.map((c) => (c && c.id) || '?').join('、'));
+        }
+    } catch (eClaims) { /* 自检不能拦启动 */ }
     /*
      * ★ 20261022 ⑬（state.js 不能直接监听，这里给时钟挂上账本依托）：公历基准日入档。
      */
