@@ -584,6 +584,17 @@ export function saveState() {
             }
         }
     } catch (eChron) { /* 截不动也不能拦着存盘 ✓ */ }
+    /*
+     * 依据＝阿砚 1-c #2（两端 parse 收口）：**写盘前也过一遍形状**。
+     *   同样是**就地补缺**（⛔ 重建）：只补缺字段、只换类型不对的那一格。
+     *   放在这里（写盘之前、批处理判断之前）⇒ 无论哪条路径落盘，写出去的形状都合法。
+     */
+    try {
+        const repW = parseLedgerInPlace(state);
+        if (repW.repaired.length || repW.issues.length) {
+            lastSchemaReport = { at: Date.now(), renamed: [], repaired: repW.repaired, issues: repW.issues, where: 'save' };
+        }
+    } catch (eShapeW) { /* 补缺不能拦着存盘 */ }
     if (saveBatchDepth > 0) {
         saveBatchDirty = true;   /* ⭐ R1：批内只记账 ✓（⛔ 深拷贝、⛔ 发请求 ✗） */
         return;
