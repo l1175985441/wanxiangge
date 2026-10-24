@@ -41,6 +41,24 @@ export function applyFieldRenames(obj, table) {
     return obj;
 }
 
+
+/**
+ * 依据＝阿砚 M 表 M17：改名表自己也要能被验。
+ *   返回不合法的行下标（0 = 没问题）。
+ */
+export function validateRenameTable(table) {
+    const rows = Array.isArray(table) ? table : FIELD_RENAMES;
+    const bad = [];
+    rows.forEach((r, i) => {
+        const ok = r && typeof r === 'object'
+            && typeof r.from === 'string' && r.from.trim()
+            && typeof r.to === 'string' && r.to.trim()
+            && r.from !== r.to;
+        if (!ok) { bad.push(i); }
+    });
+    return bad;
+}
+
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */
@@ -103,6 +121,8 @@ export function setRole(id, role) {
 
 export function normalizeCharacter(raw) {
     const c = raw && typeof raw === 'object' ? raw : {};
+    /* 依据＝阿砚 M 表 M17：改名表要真的在“读”的时候生效（上一版只有表和函数、没人调） */
+    applyFieldRenames(c);
     const manualFields = Array.isArray(c.manualFields)
         ? c.manualFields.map(trimText).filter((k) => STATUS_MANUAL_KEYS.includes(k))
         : (c.manual === true ? STATUS_MANUAL_KEYS.filter((k) => Boolean(trimText(c[k]))) : []);
@@ -364,6 +384,8 @@ function emptyState() {
 function normalizeState(raw) {
     const base = emptyState();
     const s = raw && typeof raw === 'object' ? raw : {};
+    /* M17：账本顶层字段同样先按表改名（表空时它是一个 no-op） */
+    applyFieldRenames(s);
     const state = Object.assign(base, s);
     state.version = LEDGER_VERSION;
     state.chatKey = s.chatKey === undefined || s.chatKey === null ? '' : String(s.chatKey);
