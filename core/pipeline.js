@@ -64,7 +64,8 @@ import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
 import { stampSource, floorText } from './provenance.js';
-import { render, noteText } from './prompt.js';   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
+import { render, noteText } from './prompt.js';
+import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下“本来会改成什么” */   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -1280,6 +1281,11 @@ function applyCharacter(raw, material, conflicts) {
         }
         const old = trimText(c[f]);
         if (old && isFieldLocked(f) && old !== incoming) {
+            /*
+             * 依据＝阿砚第三批 硬-6：锁住的格不让改，但要把“本来会改成什么”记下来，
+             *   她能看一眼再决定（⛔ 只在 conflicts 里丢一句话、看不到具体值）。
+             */
+            notePending(c, f, incoming, { floor: material.floor, why: '模型推演', from: 'chars-step' });
             conflicts.push(c.name + ' 的「' + f + '」她手改过，保留她的版本（模型想改成：' + incoming.slice(0, 40) + '）');
             continue;
         }

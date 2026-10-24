@@ -17,7 +17,8 @@ import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotL
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
 import { originId, agendaOriginId } from './config.js';
-import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
+import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1001,6 +1002,43 @@ export function updateCharacter(id, patch, opts) {
     /* ⭐ 新增件 5②：高频写入走合并落盘 ✓ */
     saveStateDebounced();
     return state.characters[idx];
+}
+
+
+/**
+ * 依据＝阿砚第三批 硬-6：覆盖层对外三个动作。
+ *   `overlayPending(id)`、`acceptOverlay(id, field)`、`dismissOverlay(id, field)`。
+ */
+export function overlayPending(id) {
+    const c = loadState().characters.find((x) => x.id === id);
+    return c ? pendingOf(c) : [];
+}
+
+export function overlayTier(id, field) {
+    const c = loadState().characters.find((x) => x.id === id);
+    return c ? tierOf(c, field) : 'engine';
+}
+
+export function canLockField(field) {
+    return canLock(field);
+}
+
+export function acceptOverlay(id, field) {
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === id);
+    if (!c) { return { ok: false, reason: '没有这个人' }; }
+    const r = acceptPending(c, field);
+    if (r.ok) { saveState(); }
+    return r;
+}
+
+export function dismissOverlay(id, field) {
+    const state = loadState();
+    const c = state.characters.find((x) => x.id === id);
+    if (!c) { return { ok: false, reason: '没有这个人' }; }
+    const r = dropPending(c, field);
+    if (r) { saveState(); }
+    return { ok: r };
 }
 
 export function removeCharacter(id) {

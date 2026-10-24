@@ -22,7 +22,8 @@ import {
     removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
-    addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot } from '../core/state.js';
+    addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
+    overlayPending, acceptOverlay, dismissOverlay } from '../core/state.js';
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
@@ -1600,6 +1601,26 @@ function secCharacters(host) {
         //    会并排飘在右边，`grid-column: 1/-1` 根本不生效（真机截图里看出来的）
         editGrid.appendChild(curWrap);
         detail.appendChild(editBox);
+        /*
+         * 依据＝阿砚第三批 硬-6：锁住的格不让改，但要**就地看见“本来会改成什么”**，
+         *   ⛔ 只在 console/一句 conflicts 里丢掉。看完她可以选“用它的”（采用）或“不用”（丢掉这条待定），锁不解除。
+         */
+        {
+            const pend = overlayPending(c.id);
+            if (pend.length) {
+                const ob = el('div', 'wxg-field');
+                ob.appendChild(el('label', null, '引擎想改但被你锁着的格（它没动）'));
+                for (const pd of pend.slice(0, 4)) {
+                    const r = el('div', 'wxg-card-actions');
+                    const where = (Number(pd.floor) >= 0) ? '（第 ' + String(pd.floor) + ' 楼）' : '';
+                    r.appendChild(el('span', 'wxg-note', String(pd.field) + ' → ' + String(pd.wouldBe).slice(0, 60) + where));
+                    r.appendChild(button('用它的', 'accept-overlay', 'wxg-btn-sm', String(c.id) + '|' + String(pd.field)));
+                    r.appendChild(button('不用', 'dismiss-overlay', 'wxg-btn-xs', String(c.id) + '|' + String(pd.field)));
+                    ob.appendChild(r);
+                }
+                detail.appendChild(ob);
+            }
+        }
 
         if (c.currentSuspect) {
             const warn = el('div', 'wxg-store', '⚠ 这条「正在经历」引擎判定**不可靠**：'
@@ -7639,6 +7660,29 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     };
                     inp.click();
+                    break;
+                }
+                case 'accept-overlay': {
+                    /* 硬-6：采用引擎那一版（锁不解除） */
+                    const partsA = String(id).split('|');
+                    const rA = acceptOverlay(partsA[0], partsA[1]);
+                    if (rA.ok) {
+                        toast.ok('已采用：' + String(rA.field) + ' → ' + String(rA.value).slice(0, 40));
+                        rerender();
+                    } else {
+                        toast.bad('没采用成：' + String(rA.reason || '没有这条待定'));
+                    }
+                    break;
+                }
+                case 'dismiss-overlay': {
+                    const partsD = String(id).split('|');
+                    const rD = dismissOverlay(partsD[0], partsD[1]);
+                    if (rD.ok) {
+                        toast.info('已丢掉这条待定（锁照旧）');
+                        rerender();
+                    } else {
+                        toast.bad('丢不掉：可能已经不在了');
+                    }
                     break;
                 }
                 case 'publish-book': {
