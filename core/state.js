@@ -1753,11 +1753,18 @@ export function normalizeFactionPillars(raw) {
 
 export function normalizeFaction(f) {
     const src = f && typeof f === 'object' ? f : {};
-    let status = trimText(src.status) || '稳固';
-    if (!FACTION_STATUSES.includes(status)) { status = '稳固'; }
-    let relation = trimText(src.relation) || '中立';
+    /*
+     * 依据＝阿砚 3 件任务 · 渲染层 #2（数据层，比显示层更要紧）：
+     *   旧：模型没写状态就被写成“稳固”、没写态度就被写成“中立” ⇒ **账上被永久造了一个假值**，
+     *        她以后看到的“稳固”分不清是真推出来的还是填的。
+     *   现在：没写就留空（不合法的也清成空）；“紧张”⇒“冷淡”是同义归一，保留。
+     *   判据＝观棋「控件找不到就退让，不自己编一个值出来」（param-panel.js:22）
+     */
+    let status = trimText(src.status);
+    if (status && !FACTION_STATUSES.includes(status)) { status = ''; }
+    let relation = trimText(src.relation);
     if (relation === '紧张') { relation = '冷淡'; }
-    if (!FACTION_RELATIONS.includes(relation)) { relation = '中立'; }
+    if (relation && !FACTION_RELATIONS.includes(relation)) { relation = ''; }
     /*
      * ★ [580] B5：势力只认 scale（规模）；⛔ 不存 power／「实力」。
      *   模型若误把规模写进 power，且长得像规模词 ⇒ 挪进 scale；否则丢掉。

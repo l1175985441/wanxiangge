@@ -997,8 +997,13 @@ function secWorld(host) {
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
             title.appendChild(el('span', 'wxg-r-who', trimText(f.name) || '（未记名）'));
-            title.appendChild(el('span', 'wxg-badge is-info', trimText(f.status) || '稳固'));
-            title.appendChild(el('span', 'wxg-badge is-soft', trimText(f.relation) || '中立'));
+            /* 依据＝渲染层 #2（显示层）：没写就**不印这个胶囊**，⛔ 拿“稳固”“中立”凑 */
+            if (trimText(f.status)) {
+                title.appendChild(el('span', 'wxg-badge is-info', trimText(f.status)));
+            }
+            if (trimText(f.relation)) {
+                title.appendChild(el('span', 'wxg-badge is-soft', trimText(f.relation)));
+            }
             main.appendChild(title);
             const bits = [];
             if (trimText(f.scale)) { bits.push('规模：' + trimText(f.scale)); }
