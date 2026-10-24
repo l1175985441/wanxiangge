@@ -14,7 +14,8 @@
  *   · 单次模型请求 ≤ 2 分钟是硬约束（在 core/apiclient.js 里控超时）。
  */
 
-import { APP_NAME } from './core/config.js';
+import { APP_NAME, APP_VERSION } from './core/config.js';
+import { compareVersion } from './core/version.js';   /* D5：两个号不一致就当场叫一声 */
 import { setContext, getCtx, setLastOwnKey, currentChatKey } from './core/adapter.js';
 import { CLAIMS } from './core/claims.js';   /* 硬-4 结构层搎到的孤儿文件：真运行里也要有人用它 */
 import { bindClockEpoch } from './core/clock.js';
@@ -35,7 +36,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.447';
+const VERSION = '0.3.448';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -419,6 +420,16 @@ export function onDisable() {
 let booted = false;
 
 function boot() {
+    /*
+     * 依据＝阿砚第三批 C 档 P1 · D5：两个号（index.js VERSION 与 config.APP_VERSION）必须一致，
+     *   不一致她看到的就是假版本（排查会被带偏）。
+     */
+    try {
+        if (typeof VERSION !== 'undefined' && typeof APP_VERSION !== 'undefined'
+            && compareVersion(VERSION, APP_VERSION) !== 0) {
+            console.warn('[万象阁] 版本号不一致：index=' + String(VERSION) + ' / config=' + String(APP_VERSION) + '（以 manifest 为准）');
+        }
+    } catch (eVer) { /* 自检不能拦启动 */ }
     /*
      * 依据＝阿砚第三批 硬-4（结构层）：`core/claims.js` 原来只有自测引用（孤儿文件）；
      *   真运行里也用一次：启动时验“承诺表”形状，写歪了在控制台叫一声（⛔ 静默）。
