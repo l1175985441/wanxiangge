@@ -13,7 +13,7 @@ import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
     ARRIVE_MISS_LIMIT,
 } from './config.js';
-import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat } from './adapter.js';
+import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat, noteSaveSkip } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
 
@@ -495,6 +495,8 @@ export function chatBoundOk() {
 
 export function saveState() {
     if (!chatBoundOk()) {
+        /* 依据＝阿砚 A 组 B6：拒写不能静默——界面会一直显示“正在存盘”（空绿），必须说出“这次没写” */
+        try { noteSaveSkip('还没绑定到这个聊天（新聊天还没存盘）——这次没写'); } catch (eSkip) { }
         return;   /* R3：换档了 ⇒ 拒写 ✓（⏔ 把旧档的结果写进新档 ✗） */
     }
     const state = loadState();

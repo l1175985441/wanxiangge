@@ -253,9 +253,35 @@ function syncKey(ledger, key) {
  *    ⇒ 现在一律走官方接口 `updateChatMetadata`（把新值并进**当前**那本），拿不到才退回直写；
  *      而且**写完必须回读**：回读不到就如实报错，⛔ 不许报喜不报忧。
  */
+/**
+ * 依据＝阿砚 A 组 B6（写盘两段式）：⏔ 再“边算边写”。
+ *   第一段：把要写的这一份**算好、验过**（能序列化、能读回、没超过上限）；
+ *   第二段：只有第一段过了才**覆盖**盘上那份。
+ *   不合格就原封不动 + 如实记下原因（界面会读 storageReport 报红）。
+ */
+export function noteSaveSkip(reason) {
+    lastSaveOk = false;
+    saveNote = String(reason || '这次没写盘');
+}
+
 export async function writeLedger(state) {
     if (!state || typeof state !== 'object') {
         return { ok: false, reason: '账本是空的' };
+    }
+    /* ---- 第一段：先把要写的东西算好并验一遍 ---- */
+    let payload = '';
+    try {
+        payload = JSON.stringify(state);
+        JSON.parse(payload);
+    } catch (ePrep) {
+        lastSaveOk = false;
+        saveNote = '账本算不出可写的样子（序列化失败），这次不写盘';
+        return { ok: false, reason: saveNote };
+    }
+    if (payload.length > 8 * 1024 * 1024) {
+        lastSaveOk = false;
+        saveNote = '账本太大（' + String(Math.round(payload.length / 1024)) + 'KB），这次不覆盖盘上的旧账';
+        return { ok: false, reason: saveNote };
     }
     state.chatKey = currentChatKey();   // 盖个章：这本账属于哪个聊天
 

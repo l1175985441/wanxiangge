@@ -6,7 +6,7 @@
  * 这里负责：把结果组织成人话（回执、上次更新那一行）。
  */
 
-import { formatStamp, formatClock, now } from './adapter.js';
+import { formatStamp, formatClock, now, storageReport } from './adapter.js';
 import { loadState, saveState, flushState } from './state.js';
 import { getSettings } from './settings.js';
 import { trimText, countChars, floorLabel } from './utils.js';
@@ -135,6 +135,13 @@ export function ledgerText() {
             ? '失败'
             : (lu.status === 'pending' ? '已算好，等正文生成时送进去' : '未注入'));
     let line = when + ' · ' + status + (lu.note ? ' · ' + lu.note : '');
+    /* 依据＝阿砚 A 组 B6/B8：没真写进盘就⏔报“成功”（她刷新才发现没了） */
+    try {
+        const sr = storageReport();
+        if (sr && sr.tone === 'bad') {
+            line += ' ｜ ⚠ 账还没落到盘上：' + String(sr.text);
+        }
+    } catch (eSR) { }
     if (pipe.status === 'failed' && pipe.error) {
         line += ' ｜ 更新那一步失败：' + pipe.error + '（重试有上限；点「立刻更新」可再来一次）';
     }
