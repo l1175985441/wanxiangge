@@ -8,7 +8,7 @@
  * 卡片一律用 DOM 接口拼（textContent 赋值），她填的人名原样显示、⛔ 不当代码执行。
  */
 
-import { APP_NAME, CARD_ATTR, CARD_CLASS, ROOT_ID, PANEL_ID } from '../core/config.js';
+import { APP_NAME, CARD_ATTR, CARD_CLASS, ROOT_ID, PANEL_ID, WORKSPACE_ID, MINI_ID } from '../core/config.js';   /* 1-c #10：软卸载要认得宿主容器 */
 import { getChat, getCtx } from '../core/adapter.js';
 import { getSettings } from '../core/settings.js';
 import { loadState, saveState, getRecallRecord } from '../core/state.js';
@@ -513,4 +513,22 @@ async function tryMountPanel(version) {
 export function isPanelElementOpen() {
     const el2 = document.getElementById(PANEL_ID);
     return !!(el2 && el2.isConnected);
+}
+
+/**
+ * 依据＝阿砚 1-c #10（软卸载）：已挂过的卡片不重建，只刷新。
+ *   返回 true 表示“有现成 DOM、可以走软路”；false 表示还没挂过（调用方该硬挂一次）。
+ */
+export function refreshMountedCards() {
+    try {
+        const panel = document.getElementById(PANEL_ID);
+        const ws = document.getElementById(WORKSPACE_ID);
+        const mini = document.getElementById(MINI_ID);
+        const any = [panel, ws, mini].some((el) => el && el.parentNode);
+        if (!any) { return false; }
+        try { renderPanel(); } catch (ePanel) { /* 刷新不了也不能把切聊天搞挂 */ }
+        return true;
+    } catch (e) {
+        return false;
+    }
 }

@@ -26,7 +26,7 @@ import {
     planRecall, afterMessageReceived, onChatSwitched, reconcileAfterDelete, onFloorEdited, restoreCards,
     setViewRefresher,
 } from './core/actions.js';
-import { mountPanel, renderPanel, mountAllCards } from './ui/render.js';
+import { mountPanel, renderPanel, mountAllCards, refreshMountedCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen, refreshPanel } from './ui/shell.js';
 import { openWorkspace, isWorkspaceOpen, refreshWorkspace, closeWorkspace } from './ui/workspace.js';
 import { mountMini, refreshMini, closeMini } from './ui/mini.js';
@@ -37,7 +37,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.494';
+const VERSION = '0.3.495';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -167,8 +167,21 @@ function bindEvents(ctx) {
 
     // 某条消息画到界面上：补挂卡片（刷新后消息是分几拍渲染的）
     on(types.USER_MESSAGE_RENDERED, () => {
-        mountAllCards(2, 900);
-        renderPanel();
+        /*
+         * 依据＝阿砚 1-c #10（软卸载）：切聊天时**保留已挂的宿主 DOM**，只重绑/刷新；
+         *   旧：每次都 mountAllCards 重建 ⇒ 屏一下。
+         */
+        try {
+            if (typeof refreshMountedCards === 'function' && refreshMountedCards() === true) {
+                renderPanel();
+            } else {
+                mountAllCards(2, 900);
+                renderPanel();
+            }
+        } catch (eSoft) {
+            mountAllCards(2, 900);
+            renderPanel();
+        }
         refreshMini();
         if (isPanelOpen()) {
             import('./ui/shell.js').then((m) => m.refreshPanel()).catch(() => {});
