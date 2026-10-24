@@ -101,14 +101,23 @@ export function commitLedger(justNow) {
         who.push('事 ' + String(latest.events.length) + ' 条');
     }
 
+    /*
+     * 依据＝阿砚任务 1-a（M06 真漏）：
+     *   旧：`floor: prevFloor` ⇒ `lastUpdate.floor` 记的是**上一楼**，与 `note` 里写的本轮楼号打架；
+     *        而进度/悬浮球/体检都读它 ⇒ 显示“停在上一楼”。
+     *   现在：`floor` 写**本轮实际楼层**；上一楼另存 `fromFloor`（做增量依据用）。
+     *   ⚠️ 更新触发看的是 `pipeline.atFloor`（`shouldUpdateNow`），不是这个字段 ⇒ 改它不会影响“该不该跑”。
+     */
     const prevFloor = Number.isFinite(Number((state.lastUpdate || {}).floor)) ? Number(state.lastUpdate.floor) : -1;
+    const nowFloor = Number.isFinite(Number(latest.floor)) && Number(latest.floor) >= 0 ? Number(latest.floor) : prevFloor;
     state.lastUpdate = {
         at: latest.at || now(),
         status: latest.injectStatus === 'ok'
             ? 'ok'
             : (latest.injectStatus === 'empty' ? 'idle' : (latest.injectStatus === 'error' ? 'failed' : 'pending')),
         note: floorLabel(latest.floor) + '：' + statusText + (who.length ? '（' + who.join('；') + '）' : ''),
-        floor: prevFloor,
+        floor: nowFloor,
+        fromFloor: prevFloor,
     };
 
     if (latest.injectStatus === 'ok') {

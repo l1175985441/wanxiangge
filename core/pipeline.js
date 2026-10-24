@@ -2172,7 +2172,15 @@ async function runUpdateInner(opts) {
      */
     {
         const lu0 = loadState().lastUpdate || {};
-        const priorOkSameFloor = lu0.status === 'ok' && Number(lu0.floor) === Number(floor);
+        /*
+         * 依据＝阿砚任务 1-a 的连体修正：
+         *   `lastUpdate.floor` 现在写的是**本轮楼**（为了显示对），
+         *   但“这一楼是不是已经算过”要看**增量水位** `pipeline.atFloor`（与 shouldUpdateNow 同一个水位）；
+         *   否则一轮刚落账就会被当成“同楼重算但没存档点” ⇒ 直接拒跑（实测：整条链路不发请求）。
+         */
+        const anchorFloor0 = Number((loadState().pipeline || {}).atFloor);
+        const priorOkSameFloor = lu0.status === 'ok'
+            && Number.isFinite(anchorFloor0) && anchorFloor0 >= 0 && anchorFloor0 === Number(floor);
         const swipeChanged = String(lu0.commitKey || '') !== commitKey;
         const needRedoBase = priorOkSameFloor && (o.force === true || swipeChanged);
         if (needRedoBase) {
