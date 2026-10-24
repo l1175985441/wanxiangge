@@ -99,8 +99,15 @@ export function clampNumber(v, min, max, fallback) {
         return fallback;
     }
     const clamped = Math.min(max, Math.max(min, n));
-    /* 依据＝第 7 问 S3：范围是整数才取整（原来一律 trunc ⇒ 谁拿它夹 temperature（0.4）就静默归 0） */
-    return (Number.isInteger(min) && Number.isInteger(max)) ? Math.trunc(clamped) : clamped;
+    /*
+     * 依据＝阿砚 M 表 M14（半修补全）：
+     *   上一版只做到“范围是整数才 trunc”，但**小数落在整数范围里还是被截**（temperature 0.4 ⇒ 0）。
+     *   现在：只对“**人手填的字符串**”取整（表单给的是 "20.7" ⇒ 20）；
+     *           程序传进来的数字原样保留（0.4 就是 0.4）。
+     */
+    const intRange = Number.isInteger(min) && Number.isInteger(max);
+    const fromForm = typeof v === 'string';
+    return (intRange && fromForm) ? Math.trunc(clamped) : clamped;
 }
 
 /** 转义 HTML（手工拼字符串时兜底用） */
