@@ -179,6 +179,13 @@ export function stripNamedBlocks(text, names) {
 }
 
 /** 只取名单里的标签块内容（留空＝读整条） */
+/*
+ * 依据＝阿砚 4-b #8（后视停止集）在我们这里的结论：**不成立**，但该把保证写死。
+ *   原条目说的是“用固定顺序的正则切正文块，模型一改顺序就漏”；而我们：
+ *     · 两步推演要的是 **JSON**（`callModelJson`）⇒ 键序天然无关；
+ *     · 唯一“按标签切正文”的就是这个函数，它用的是**配对开闭标签** ⇒ 不依赖顺序。
+ *   已用 `_/u81ea测/run-tests-orderstop.mjs` 钉住四条（正序与倒序一致／中间夹别的不串味／未闭合退回原文／同一标签两次都抽到）。
+ */
 export function pickNamedBlocks(text, names) {
     const list = toList(names);
     if (!list.length) {
