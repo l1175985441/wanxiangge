@@ -19,6 +19,7 @@ import { originId } from './config.js';
 import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
 import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
 import { applyRetired } from './contract.js';
+import { parseLedgerInPlace, applyRenamesInPlace, schemaLine } from './schema.js';   /* 1-c #2：就地补缺，⛔ 重建 */
 /* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
 import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS, normalizeAgendaOrigin } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
@@ -472,6 +473,8 @@ function normalizeState(raw) {
 }
 
 let cache = null;
+/* 1-c #2：上一次读档在形状上修了什么（诊断用；⛔ 影响业务） */
+let lastSchemaReport = null;
 let cacheKey = null;
 
 /** 取当前聊天的账本（换聊天自动换一份） */
@@ -482,6 +485,20 @@ export function loadState() {
     }
     const raw = readLedger();
     cache = normalizeState(raw);
+    /*
+     * 1-c #2：**就地**补缺（⛔ 浅拷贝重建）。
+     *   上一轮把 parse 放在 normalizeState 之前、且返回副本 ⇒ 把她的真账抹成空账（实测 4 条真红，已回退）。
+     *   现在：normalizeState 之后、写盘之前，在**同一个活对象**上补；只记不报警（空账不刷屏）。
+     */
+    try {
+        const rep = parseLedgerInPlace(cache);
+        const renamed = applyRenamesInPlace(cache, FIELD_RENAMES);
+        if (renamed.length || rep.repaired.length || rep.issues.length) {
+            lastSchemaReport = { at: Date.now(), renamed, repaired: rep.repaired, issues: rep.issues };
+        }
+    } catch (eShape) {
+        lastSchemaReport = { at: Date.now(), renamed: [], repaired: [], issues: ['补缺本身抛错：' + String(eShape && eShape.message)] };
+    }
     cacheKey = key;
     writeLedger(cache);
     return cache;
@@ -2841,3 +2858,12 @@ export function textSize(text) {
 
 /** 账本里最多留多少轮召回记录（面板／自测看得到） */
 export const recallLogLimit = RECALL_LOG_LIMIT;
+
+/** 上一次读档在形状上修了什么（没有就 null） */
+export function lastSchemaInfo() {
+    return lastSchemaReport ? Object.assign({}, lastSchemaReport) : null;
+}
+/** 一行人话（体检/诊断用） */
+export function schemaSummary() {
+    return schemaLine(lastSchemaReport || { repaired: [], issues: [] });
+}
