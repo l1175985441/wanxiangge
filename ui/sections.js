@@ -2263,6 +2263,7 @@ export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
 const booksCache = createCache('worldbooks');   /* B7：带状态的缓存（hit/miss/empty/broken） */
 let listBooksCache = [];   /* 兼容：老代码读它；新代码读 booksCache */
+let lastGoodBooks = [];   /* 上一次真读到的书单（读不到时用它先顶着，⛔ 把列表清空） */
 /* 依据＝本轮查“首跑红复跑绿”：自动列书的 setTimeout 每次重画都排一个 ⇒ 旧定时器晚到也去点按钮，把列表反复刷新 */
 let autoListTimer = null;
 
@@ -5135,12 +5136,10 @@ const lastPaintSig = new WeakMap();   /* host ⇒ 上次画的签名（同签名
 
 export function paintBookPicks(host, ex, no) {
     /*
-     * 依据＝本轮查“run-tests-pick 首跑红”的两个真根因：
-     *   ① 自动列书的定时器会调 `paintBookPicks(host)`（不传 ex/no），而这里原来拿 `ex || []`
-     *      当“什么都没选” ⇒ 把**还没保存的点选**洗掉 ⇒ 连点两下时第二下算在“一个都没选”上。
-     *      现在：没传就从草稿（stagedValue）取，与 list-books 同口径。
-     *   ② 每次画都把芯片节点删掉重建 ⇒ 第二下可能点在被换掉的节点上（事件不冒泡到 host）⇒ 点了没反应。
-     *      现在：**先算签名、先判重**，签名没变就直接返回（节点一动不动）。
+     * 依据＝阿砚任务 3-d（连跑不稳要盯住）＋本轮实测 5/20 仍红：
+     *   此前是“删掉全部芯片 → 重新建” ⇒ 重画窗口里她点下去会点在**已经被换掉的节点**上（事件不冒泡）⇒ 点了没反应。
+     *   现在改成**原地更新**：按 data-book 找到已有按钮，改 class／文字／title；多的删、缺的补。
+     *   ⇒ 重画期间按钮节点始终存在，点击不会丢。
      */
     if (ex === undefined || no === undefined) {
         const exDraft = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
@@ -5152,37 +5151,44 @@ export function paintBookPicks(host, ex, no) {
     if (!wrap) {
         return;
     }
-    const sig = (Array.isArray(listBooksCache) ? listBooksCache.map((x) => asText(x)).join('\u0001') : '')
-        + '|' + (ex || []).map((x) => asText(x)).join('\u0001')
-        + '|' + (no || []).map((x) => asText(x)).join('\u0001');
-    /*
-     * 依据＝这一次真相：判重必须**连 DOM 一起看** ——
-     *   别处（重画/清空）把㉊片拿掉了但签名没变时，早退会让㉊片**永远回不来**（真机上就是“点一下名字就没了”）。
-     *   现在：签名相同 **且** 当前㉊片数量对得上 才跳过。
-     */
-    const chipCount = wrap.querySelectorAll ? wrap.querySelectorAll('[data-action="pick-book"]').length : -1;
-    if (lastPaintSig.get(host) === sig && chipCount === (Array.isArray(listBooksCache) ? listBooksCache.length : 0)) {
-        return;
-    }
-    lastPaintSig.set(host, sig);
-    for (const child of asArray(wrap.childNodes)) {
-        if (!String(child.className || '').includes('wxg-pick-head')) {
+    const exSet = new Set((ex || []).map((x) => asText(x)));
+    const noSet = new Set((no || []).map((x) => asText(x)));
+    const want = (Array.isArray(listBooksCache) ? listBooksCache : []).map((x) => asText(x));
+    const wantSet = new Set(want);
+
+    /* 先删掉不该在的（只在书单真的变少时才动，避免无谓重建） */
+    for (const child of asArray(wrap.querySelectorAll ? wrap.querySelectorAll('[data-action="pick-book"]') : [])) {
+        const book = String(child.getAttribute && child.getAttribute('data-book') || '');
+        if (!wantSet.has(book)) {
             wrap.removeChild(child);
         }
     }
-    for (const n of listBooksCache) {
-        const k = asText(n);
-        const inEx = (ex || []).some((x) => asText(x) === k);
-        const inNo = (no || []).some((x) => asText(x) === k);
-        const b = document.createElement('button');
-        b.type = 'button';
+    /* 再原地更新/补齐（顺序按 want，把节点挪到正确位置） */
+    let anchor = wrap.querySelector ? wrap.querySelector('.wxg-pick-head') : null;
+    for (const n of want) {
+        let b = wrap.querySelector ? wrap.querySelector('[data-action="pick-book"][data-book="' + n.replace(/"/g, '\\"') + '"]') : null;
+        if (!b) {
+            b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('data-action', 'pick-book');
+            b.setAttribute('data-book', n);
+        }
+        const inEx = exSet.has(n);
+        const inNo = noSet.has(n);
         b.className = 'wxg-pick' + (inEx ? ' is-on' : '') + (inNo ? ' is-off' : '');
         b.textContent = n + (inEx ? '（提取）' : (inNo ? '（排除）' : ''));
         b.title = inEx ? '在「提取」名单里（还没保存；再点＝改排除）'
             : (inNo ? '在「排除」名单里（还没保存；再点＝拿掉）' : '点一下＝要读它');
-        b.setAttribute('data-action', 'pick-book');
-        b.setAttribute('data-book', n);
-        wrap.appendChild(b);
+        /* 位置对齐：如果它不在 anchor 后面，就挪过去 */
+        if (anchor) {
+            if (anchor.nextSibling !== b) {
+                wrap.insertBefore(b, anchor.nextSibling);
+            }
+            anchor = b;
+        } else {
+            if (b.parentNode !== wrap) { wrap.appendChild(b); }
+            anchor = b;
+        }
     }
 }
 
@@ -6652,6 +6658,15 @@ export function bindSectionEvents(host, refresh) {
                          *   这里已经走到“接口没报错、但返回空”，我们无法区分，所以标 broken（不是 empty）。
                          */
                         booksCache.markBroken('没读到世界书列表（可能没开接口）');
+                        if (lastGoodBooks.length) {
+                            /* 依据＝本轮查失败时的真因：旧代码在这里把列表清空 ⇒ 重画后㉊片全没。现在先用上次的书单。 */
+                            listBooksCache = lastGoodBooks.slice();
+                            try { paintBookPicks(host); } catch (eKeep) { }
+                            if (info) {
+                                info.textContent = '**读不到新的**世界书列表，先用上次读到的 ' + String(lastGoodBooks.length) + ' 本（⛔ 当成“一本都没有”）。';
+                            }
+                            break;
+                        }
                         listBooksCache = [];
                         if (info) {
                             info.textContent = '**读不到**世界书列表（不是“一本都没有”；有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
@@ -6668,6 +6683,7 @@ export function bindSectionEvents(host, refresh) {
                         }
                     }
                     listBooksCache = names;
+                    lastGoodBooks = names.slice();
                     booksCache.set(names);   /* B7：真取到了才算 hit/empty */
                     // ⚠️ 从"草稿优先、否则已存"里取（⛔ 重画时别把还没保存的点选冲掉）
                     paintBookPicks(host,
