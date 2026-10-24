@@ -1823,6 +1823,20 @@ const WXG_DBG = (typeof process !== 'undefined' && process && process.env && pro
     || (typeof globalThis !== 'undefined' && globalThis.__WXG_DEBUG__ === true);
 
 let stagingMode = 'settings';
+/*
+ * 依据＝阿砚 3-d: 偶发红取证（[pick]/[commit] 日志）：点击链本身对，红在“保存没写进去”。
+ *   根因假设：`stage()` 用的池由当次事件的 host 决定，而 `commitSection()` 用的是**保存那一刻**的全局
+ *   `stagingMode` —— 两处若落在不同池，保存就“读到空 box、写完什么也没有”，而且行为随重画时机漂移。
+ *   ⇒ 记下“这一段草稿是在哪个池里建的”，保存与读值都认这个记录（⛔ 再各自读全局）。
+ */
+const stageModeOf = new Map();   // secId -> 建草稿时用的池
+
+/** 这一段该用哪个池：有记录就按记录，没有才退回当前全局 */
+function modeForSection(secId) {
+    const m = stageModeOf.get(secId);
+    return m || stagingMode;
+}
+
 
 function stagingOf(mode) {
     const m = asText(mode) || 'settings';
@@ -1837,17 +1851,18 @@ function stage(secId, key, value) {
     const store = stagingOf(stagingMode);
     const box = store[secId] || (store[secId] = {});
     box[key] = value;
+    stageModeOf.set(secId, stagingMode);
 }
 
 /** 这一段草稿里有几处改动 */
 function stagedCount(secId) {
-    const box = stagingOf(stagingMode)[secId];
+    const box = stagingOf(modeForSection(secId))[secId];
     return box ? Object.keys(box).length : 0;
 }
 
 /** 这一段某个键的"当前显示值"（草稿优先，其次已存） */
 function stagedValue(secId, key, fallback) {
-    const box = stagingOf(stagingMode)[secId];
+    const box = stagingOf(modeForSection(secId))[secId];
     return box && Object.prototype.hasOwnProperty.call(box, key) ? box[key] : fallback;
 }
 
@@ -1872,7 +1887,7 @@ function saveBar(secId, label) {
 
 /** 把这一段的草稿落进设置 */
 function commitSection(secId) {
-    const box = stagingOf(stagingMode)[secId];
+    const box = stagingOf(modeForSection(secId))[secId];
     if (WXG_DBG) {
         try {
             console.info('[wanxiangge][commit] sec=' + String(secId) + ' mode=' + String(stagingMode)
@@ -1950,7 +1965,7 @@ function commitSection(secId) {
     // ⚠️ 顺序：**先把草稿摘掉，再落盘**。
     //    patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
     //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
-    delete stagingOf(stagingMode)[secId];
+    delete stagingOf(modeForSection(secId))[secId];
     patchSettings(patch);
     /*
      * ⭐ 复审追加 3②：**外观段存完立刻刷小框**。
