@@ -5124,11 +5124,40 @@ function paintModelChips(boxEl) {
     boxEl.appendChild(rowEl);
 }
 
+const lastPaintSig = new WeakMap();   /* host ⇒ 上次画的签名（同签名就不重建） */
+
 export function paintBookPicks(host, ex, no) {
+    /*
+     * 依据＝本轮查“run-tests-pick 首跑红”的两个真根因：
+     *   ① 自动列书的定时器会调 `paintBookPicks(host)`（不传 ex/no），而这里原来拿 `ex || []`
+     *      当“什么都没选” ⇒ 把**还没保存的点选**洗掉 ⇒ 连点两下时第二下算在“一个都没选”上。
+     *      现在：没传就从草稿（stagedValue）取，与 list-books 同口径。
+     *   ② 每次画都把芯片节点删掉重建 ⇒ 第二下可能点在被换掉的节点上（事件不冒泡到 host）⇒ 点了没反应。
+     *      现在：**先算签名、先判重**，签名没变就直接返回（节点一动不动）。
+     */
+    if (ex === undefined || no === undefined) {
+        const exDraft = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
+        const noDraft = toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks));
+        if (ex === undefined) { ex = exDraft; }
+        if (no === undefined) { no = noDraft; }
+    }
     const wrap = host && host.querySelector ? host.querySelector('#wxg-bookpick') : null;
     if (!wrap) {
         return;
     }
+    const sig = (Array.isArray(listBooksCache) ? listBooksCache.map((x) => asText(x)).join('\u0001') : '')
+        + '|' + (ex || []).map((x) => asText(x)).join('\u0001')
+        + '|' + (no || []).map((x) => asText(x)).join('\u0001');
+    /*
+     * 依据＝这一次真相：判重必须**连 DOM 一起看** ——
+     *   别处（重画/清空）把㉊片拿掉了但签名没变时，早退会让㉊片**永远回不来**（真机上就是“点一下名字就没了”）。
+     *   现在：签名相同 **且** 当前㉊片数量对得上 才跳过。
+     */
+    const chipCount = wrap.querySelectorAll ? wrap.querySelectorAll('[data-action="pick-book"]').length : -1;
+    if (lastPaintSig.get(host) === sig && chipCount === (Array.isArray(listBooksCache) ? listBooksCache.length : 0)) {
+        return;
+    }
+    lastPaintSig.set(host, sig);
     for (const child of asArray(wrap.childNodes)) {
         if (!String(child.className || '').includes('wxg-pick-head')) {
             wrap.removeChild(child);
