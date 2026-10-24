@@ -94,3 +94,18 @@ export function stampSource(item, p) {
     item.source = makeSource(p);
     return item;
 }
+
+/**
+ * 依据＝阿砚第三批（硬-2 口径修正）：**一个概念只允许一种取文本的方式**。
+ *   “来源”的语义＝来自第几楼 ⇒ 指纹就该是**那一楼的原文**（含状态栏/变量块，没过清洗）。
+ *   cleanMessages 只给喂模型用，⏔ 参与指纹。
+ *   盖章端与核验端都必须走这一个函数。
+ */
+export function floorText(chat, floor) {
+    const fl = Number(floor);
+    if (!Number.isFinite(fl) || fl < 0) { return ''; }
+    const list = chat;
+    const node = list && list[fl];
+    if (!node) { return ''; }
+    return String(node.mes == null ? '' : node.mes);
+}

@@ -15,7 +15,7 @@ import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
-import { sourceOk } from './provenance.js';   /* 硬-2：源指纹对不上就⏔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
+import { sourceOk, floorText } from './provenance.js';   /* 硬-2：源指纹对不上就⏔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -558,11 +558,10 @@ function eventBlock(ev) {
      *   原文被改过／楼被删 ⇒ 这条不再当事实喂给模型（宁可少一条，⏔ 拿旧记忆冒充）。
      */
     if (ev && ev.source && ev.source.digest) {
-        const fl = Number(ev.source.floor);
         let nowText = '';
         try {
-            const chat = getChat();
-            nowText = (Number.isFinite(fl) && chat && chat[fl]) ? String(chat[fl].mes || '') : '';
+            /* 取文只走 floorText（与盖章端同一取法），⏔ 在这里手拼楼层原文 */
+            nowText = floorText(getChat(), ev.source.floor);
         } catch (eCh) { nowText = ''; }
         if (!sourceOk(ev.source, nowText)) {
             return '';

@@ -63,7 +63,7 @@ import {
 import { callModelJson } from './apiclient.js';
 import { captureOwner, checkOwner } from './owner.js';
 import { claim, release } from './gate.js';
-import { stampSource } from './provenance.js';   /* 硬-2：每条派生数据带上“从哪来” */
+import { stampSource, floorText } from './provenance.js';   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -924,8 +924,21 @@ async function stepWorld(material, attempt) {
      * 依据＝阿砚第三批 硬-2：局势带上“来自第几楼 ＋ 那楼原文指纹”。
      *   用之前（recall）会重算指纹：对不上 = stale，⏔ 当事实用。
      */
-    for (const s of (Array.isArray(mergedSits) ? mergedSits : [])) {
-        stampSource(s, { kind: 'situation', floor: material.floor, text: material.recentText || '', title: (s && s.title) || '' });
+    /*
+     * 依据＝阿砚第三批口径修正：指纹取**那一楼的原文**（与 recall 核验端同一取法）。
+     *   旧：拿 material.recentText（cleanMessages 清洗后的多楼拼接）⇒ 两端算的不是同一段文字
+     *       ⇒ 所有带来源的局势全部判过期、全部不进注入（把“不许当事实”做成了“所有记忆都不当事实”）。
+     */
+    {
+        const chatNow = getChat();
+        for (const s of (Array.isArray(mergedSits) ? mergedSits : [])) {
+            stampSource(s, {
+                kind: 'situation',
+                floor: material.floor,
+                text: floorText(chatNow, material.floor),
+                title: (s && s.title) || '',
+            });
+        }
     }
     updateWorld({ situations: mergedSits }, {});
             capList((loadState().world || {}).situations, 'capEvents', (s) => s.title, (s) => s.manual);
