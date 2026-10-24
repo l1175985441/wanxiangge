@@ -577,7 +577,7 @@
     margin-bottom: 4px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 720px) {
     .wxg-ws-side {
         width: 132px;
         font-size: 0.92em;
@@ -1312,7 +1312,7 @@ body.wxg-dragging {
 }
 
 /* 手机上：面板默认铺满，别缩成一小块 */
-@media (max-width: 800px) {
+@media (max-width: 900px) {
     .wxg-panel {
         left: 2vw !important;
         top: 6vh !important;
@@ -1478,7 +1478,7 @@ body.wxg-dragging {
 }
 
 /* 窄栏：表格铺不开 ⇒ 一行退回一张卡（标头藏起来，字段各自带标签） */
-@media (max-width: 620px) {
+@media (max-width: 720px) {
     .wanxiangge .wxg-ctable,
     .wanxiangge .wxg-ctable thead,
     .wanxiangge .wxg-ctable tbody,
@@ -3756,7 +3756,7 @@ body.wxg-dragging {
  *   ⇒ 正文区被挤成窄缝，.wxg-ptab td 硬写 padding 9px 30px、.wxg-pc-kv 硬写 4 列 ✗
  *   现在：携手机尺寸收紧左栏、减内边距、表格允许横向滚（⏔ 硬挤 ✗）
  */
-@media (max-width: 700px) {
+@media (max-width: 720px) {
     /* ⭐ 真机纠正：侧栏是 `.wxg-ws-main` 的**兄弟**，不在 `.wanxiangge` 里 ✗
      *   ⇒ 写成 `.wxg-ws .wxg-ws-side` 才命中 ✓（真机量到旧选择器下左栏仍 132px ✗） */
     .wxg-ws .wxg-ws-side,
@@ -4150,3 +4150,63 @@ body[data-wxg-theme="dark"] .wxg-pc,
 }
 .wxg-store[data-tone="bad"] { border-radius: var(--wxg-r-sm); }
 .wxg-store[data-tone="ok"] { border-radius: var(--wxg-r-sm); }
+
+/* ==========================================================================
+   B2-6 深色主题（依据＝阿砚 B2-6「整片纯白底 vs 酒馆深色主题 ⇒ 像另一个软件」）
+   做法：界面只用三个语义色（底/字/线），深浅两套值；酒馆加 .dark 或她自己选深色时自动换。
+   ⛔ 不写死白底：底一律走 --wxg-surface。
+   ========================================================================== */
+:root {
+    --wxg-surface: rgba(255, 255, 255, .72);
+    --wxg-surface-2: rgba(246, 247, 250, .86);
+    --wxg-ink: #22242a;
+    --wxg-ink-dim: #6a6e78;
+    --wxg-line: rgba(0, 0, 0, .10);
+}
+
+/* 深色：酒馆的 body.dark，或她一进设置就认的 data 属性，或系统偏好 */
+body.dark,
+html[data-wxg-theme="dark"],
+body[data-wxg-theme="dark"] {
+    --wxg-surface: rgba(26, 28, 35, .72);
+    --wxg-surface-2: rgba(32, 35, 43, .90);
+    --wxg-ink: #e9ecf2;
+    --wxg-ink-dim: #a3a9b6;
+    --wxg-line: rgba(255, 255, 255, .14);
+}
+
+/* 底：所有容器都吃到语义色（原来各自的写死底被这里覆盖） */
+.wxg-card, .wxg-ws, .wxg-panel, .wxg-mini-panel, .wxg-pc, .wxg-sec,
+.wxg-funcmenu, .wxg-receipt, .wxg-notes, .wxg-empty, .wxg-toast {
+    background-color: var(--wxg-surface);
+    color: var(--wxg-ink);
+}
+.wxg-card-head, .wxg-panel-bar, .wxg-ws-bar, .wxg-mini-head, .wxg-roster-topbar,
+.wxg-ws-side, .wxg-card-foot, .wxg-ws-pagehead, .wxg-pc-head {
+    background-color: var(--wxg-surface-2);
+    color: var(--wxg-ink);
+}
+/* 字：正文与说明分两级，深色下不再"灰到看不见" */
+.wxg-card-title, .wxg-panel-title, .wxg-ws-h1, .wxg-ws-name, .wxg-pc-name,
+.wxg-name, .wxg-rowname, .wxg-pc-v, .wxg-line-v { color: var(--wxg-ink); }
+.wxg-note, .wxg-card-count, .wxg-pc-k, .wxg-line-k, .wxg-mini-k, .wxg-ws-sub, .wxg-ws-h1sub { color: var(--wxg-ink-dim); }
+/* 线：表格与卡片描边走语义色 */
+.wxg-ctable th, .wxg-ctable td, .wxg-pc-sec, .wxg-card-body, .wxg-pc-kv { border-color: var(--wxg-line); }
+.wxg-ctable thead th, .wxg-ctable thead td { background-image: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .10)); }
+/* 输入框：深色下不能还是白底黑字 */
+.wxg-pc-input input, .wxg-pc-input textarea, .wxg-pc-input select,
+.wxg-line-v input, .wxg-line-v select, .wxg-cedit-item input, .wxg-cedit-item textarea {
+    background-color: color-mix(in srgb, var(--wxg-surface) 88%, var(--wxg-ink) 12%);
+    color: var(--wxg-ink);
+    border-color: var(--wxg-line);
+}
+/* 系统跟随（她没手动选、酒馆也没加 .dark 时的兜底） */
+@media (prefers-color-scheme: dark) {
+    html:not([data-wxg-theme="light"]) :root {
+        --wxg-surface: rgba(26, 28, 35, .76);
+        --wxg-surface-2: rgba(32, 35, 43, .92);
+        --wxg-ink: #e9ecf2;
+        --wxg-ink-dim: #a3a9b6;
+        --wxg-line: rgba(255, 255, 255, .14);
+    }
+}
