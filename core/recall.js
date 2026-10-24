@@ -16,7 +16,8 @@ import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道�
 import { getSettings, effectivePrompt } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
 import { sourceOk, floorText } from './provenance.js';
-import { noteText } from './prompt.js';   /* 硬-3：注入头记账 */   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
+import { noteText } from './prompt.js';
+import { recordInjectOrder } from './order.js';   /* C5：注入块顺序要可核 */   /* 硬-3：注入头记账 */   /* 硬-2：源指纹对不上就⛔当事实 */   /* 硬-5：名字→实体只有一处解析，歧义即未定 */
 import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
@@ -719,6 +720,15 @@ export function assembleInjectText(items, events, headerText, opts) {
                 + (trimText(x.text) && trimText(x.text) !== trimText(x.topic) ? '：' + trimText(x.text) : '')
                 + '\n').join('');
     }
+
+    /* C5：把“实际发出的块顺序”记下来并当场核表（⛔ 只靠人记住谁在前） */
+    recordInjectOrder([
+        'header',
+        worldLines.length ? 'world' : '',
+        blocks.length ? 'people' : '',
+        evBlocks.length ? 'events' : '',
+        windRows.length ? 'winds' : '',
+    ].filter(Boolean));
 
     const cap = injectCharCap();
     if (countChars(text) > cap) {
