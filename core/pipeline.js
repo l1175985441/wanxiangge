@@ -46,7 +46,7 @@ function retryTokens(base, attempt) {
     /* ⭐ 重试时**只增不减** ✓（旧：底下限 200 ⇒ 会把用户额度倒扣砍半 ✗） */
     return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
-import { getChat, personaNames } from './adapter.js';
+import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { getSettings, effectivePrompt } from './settings.js';
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
 import {
@@ -2166,6 +2166,12 @@ async function runUpdateInner(opts) {
     }
 
     resetApiAttempts();   /* 4-b #3：这一轮从零开始数（花了几份） */
+    /*
+     * 依据＝阿砚 1-c #9（记录要带 chatKey，订阅方据它丢弃过期事件）：
+     *   我们不自建 emit（全库 0 处），但每一轮的记账里必须能看出“这是哪个聊天”——
+     *   切聊天后旧轮次的迟到结果即使写错也能被认出来。
+     */
+    const chatKeyNow = currentChatKey();
 
     /*
      * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
@@ -2452,6 +2458,7 @@ async function runUpdateInner(opts) {
         step: '完成',
         /* 4-b #3：三格记账（中途失败后面成功了也照留） */
         apiAttempts: lastApiAttempts(),
+        chatKey: chatKeyNow,
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
         text,
