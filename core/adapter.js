@@ -231,6 +231,15 @@ function cacheChatKey() {
  *   ⚠️ readLedger() 是同步公开 API（调用点很多），没法在里面 await ⇒ 这里返回 promise，
  *   调用点用 .catch() 挂上告警（既不丢异常、也不把同步 API 改成异步）。
  */
+/** 依据＝阿砚 A 组 E4：导入一本账 = 先存再收养（对外开放这一步） */
+export async function adoptLedgerForImport(key, ledger) {
+    const v = await writeLedger(ledger);
+    if (!v || v.ok !== true) { return { ok: false, reason: (v && v.reason) || '写不进去' }; }
+    const got = readLedger();
+    if (!got) { return { ok: false, reason: '写完读不回来' }; }
+    return { ok: true };
+}
+
 async function adoptLedger(key, ledger) {
     ledger.chatKey = key;
     await writeLedger(ledger);

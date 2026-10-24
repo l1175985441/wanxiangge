@@ -9,7 +9,8 @@
 import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
-import { storageReport, formatStamp, getChat } from '../core/adapter.js';
+import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
+import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
 // ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。
 //    ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
@@ -748,6 +749,11 @@ function secGeneral(host) {
     }
     row(opsRow, button('对账（账与楼对齐）', 'reconcile'), button('写入世界书', 'publish-book'),
         button('补推历史', 'backfill'));
+    /* 依据＝阿砚 A 组 E4：账本导出／导入（带验签）；⏔ 碰她的书与设置，只搬这一本账 */
+    row(opsRow,
+        button('导出这本账', 'export-bundle'),
+        button('导入账本', 'import-bundle'),
+        el('span', 'wxg-note', '（包里自带摘要；被改过一个字就会拒收）'));
     /*
      * ⭐ 首夜实测单第 2 条（她原话：「我们取消的按钮都没有见到……想按个取消也没有见到」）：
      *   `cancel-update` 的 handler 一直**在**（本文件 ~L5278），但**按钮从来没被创建过**（孤儿）——
@@ -7590,6 +7596,55 @@ export function bindSectionEvents(host, refresh) {
                     const res = runReconcile();
                     toast.ok('对账完成：清了 ' + String(res.removed) + ' 条对不上的账' + (res.note ? '（' + res.note + '）' : ''));
                     rerender();
+                    break;
+                }
+                case 'export-bundle': {
+                    /* 导出：自带摘要与验签（依据＝阿砚 A 组 E4） */
+                    const rB = buildBundle(loadState());
+                    if (!rB.ok) { toast.bad(rB.reason); break; }
+                    try {
+                        const blob = new Blob([rB.text], { type: 'application/json' });
+                        const aEl = document.createElement('a');
+                        aEl.href = URL.createObjectURL(blob);
+                        aEl.download = '万象阁-账本-' + String(rB.digest || '') + '.json';
+                        document.body.appendChild(aEl);
+                        aEl.click();
+                        setTimeout(() => { try { URL.revokeObjectURL(aEl.href); aEl.remove(); } catch (eR) { } }, 0);
+                        toast.ok('导出好了：' + String(rB.summary.chars) + ' 人物／' + String(rB.summary.chronicle) + ' 编年（包里带摘要）');
+                    } catch (eExp) {
+                        toast.bad('导出失败：' + (eExp && eExp.message ? eExp.message : String(eExp)));
+                    }
+                    break;
+                }
+                case 'import-bundle': {
+                    /* 导入：先验签（六道拒因）→ 再看归属（⏔ 静默覆盖）→ 写完回读 */
+                    const inp = document.createElement('input');
+                    inp.type = 'file';
+                    inp.accept = '.json,application/json';
+                    inp.onchange = async () => {
+                        const f = inp.files && inp.files[0];
+                        if (!f) { return; }
+                        let text = '';
+                        try {
+                            text = await f.text();
+                        } catch (eRead) {
+                            toast.bad('读不了这个文件');
+                            return;
+                        }
+                        const v = verifyBundle(text);
+                        if (!v.ok) { toast.bad('这份文件不能导入：' + v.reason); return; }
+                        const gate = importGate(v.ledger, currentChatKey(), loadState());
+                        if (!gate.ok) { toast.bad(gate.reason); return; }
+                        if (gate.warn) {
+                            const yes = (typeof window !== 'undefined' && window.confirm) ? window.confirm(gate.warn + '\n\n确定导入？') : false;
+                            if (!yes) { return; }
+                        }
+                        const wB = await adoptLedgerForImport(currentChatKey(), v.ledger);
+                        if (!wB.ok) { toast.bad('导入没写进去：' + wB.reason); return; }
+                        toast.ok('导入完成：' + String(v.summary.chars) + ' 人物／' + String(v.summary.chronicle) + ' 编年');
+                        rerender();
+                    };
+                    inp.click();
                     break;
                 }
                 case 'publish-book': {
