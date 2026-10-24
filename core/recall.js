@@ -14,6 +14,7 @@ import { isHiddenMessage } from './extract.js';
 import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt } from './settings.js';
+import { originFeed } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /** 注入总量封顶（硬上限，防越跑越灌） */
 /**
@@ -528,10 +529,8 @@ function eventBlock(ev) {
         bits.push('火候：' + trimText(ev.tier));
     }
     /* ★ [580] B1：来路三型进注入 ✓ */
-    const oriEv = String(trimText(ev.origin) || '').toLowerCase();
-    if (oriEv === 'plot') { bits.push('来路：盘算挂接'); }
-    else if (oriEv === 'ripple') { bits.push('来路：上游波及'); }
-    else if (oriEv === 'state') { bits.push('来路：局势自变'); }
+    const oriEv = trimText(ev.origin);
+    if (originFeed(oriEv)) { bits.push(originFeed(oriEv)); }   /* I4：与 pipeline 同一张表 */
     /* ★ R32：脉动四格进注入（事实可喂；⛔ 不写“所以接下来会…”） */
     if (Number.isFinite(Number(ev.pressure)) && ev.pressure !== null && ev.pressure !== '') {
         bits.push('压力：' + String(Number(ev.pressure)) + '/5');

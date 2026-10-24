@@ -13,7 +13,7 @@
  *   · 补推历史分批、可取消、⛔ 不卡界面；隐藏楼层照读。
  */
 
-import { CALLS_PER_TURN, RETRY_LIMIT } from './config.js';
+import { CALLS_PER_TURN, RETRY_LIMIT, originId, originFeed, agendaOriginFeed } from './config.js';
 
 /*
  * ⭐ 补④：输出被截断之后的重试策略。
@@ -404,7 +404,8 @@ function mergeSituationFields(old, inc, clockDeltaMin) {
         consequence: trimText(inc.consequence) || old.consequence,
         origin: (() => {
             const o = String(trimText(inc.origin) || '').toLowerCase();
-            if (o === 'plot' || o === 'ripple' || o === 'state') { return o; }
+            const okOrigin = originId(o);
+    if (okOrigin) { return okOrigin; }
             return trimText(old.origin) || '';
         })(),
         pressure: nextP,
@@ -640,9 +641,8 @@ export function situationLineForPrompt(s) {
     if (trimText(src.tier)) { bits.push('火候：' + trimText(src.tier)); }
     /* ★ [580] B1：来路三型进推演喂料 ✓ */
     const ori = String(trimText(src.origin) || '').toLowerCase();
-    if (ori === 'plot') { bits.push('来路：盘算挂接'); }
-    else if (ori === 'ripple') { bits.push('来路：上游波及'); }
-    else if (ori === 'state') { bits.push('来路：局势自变'); }
+    /* I4：喂料文案从 ORIGIN_TYPES 派生（⏔ 这里再写一份枚举） */
+    if (originFeed(ori)) { bits.push(originFeed(ori)); }
     if (Number.isFinite(Number(src.pressure)) && src.pressure !== null && src.pressure !== '') {
         bits.push('压力：' + String(Number(src.pressure)) + '/5');
     }
@@ -699,10 +699,8 @@ async function stepWorld(material, attempt) {
         .filter((h) => !isLineDone(h.stage))
         .map((h) => {
             const due = isLineDue(h, world.clock);
-            const ao = String(trimText(h.agendaOrigin) || '').toLowerCase();
-            const aoTag = ao === 'event' ? '来源：事件'
-                : ao === 'parent' ? '来源：上级盘算委派'
-                : ao === 'state' ? '来源：处境自生' : '';
+            const ao = trimText(h.agendaOrigin);
+            const aoTag = agendaOriginFeed(ao);   /* I4：暗线来源也只有一张表 */
             return '· ' + h.name + '【' + h.stage + '】'
                 + (trimText(h.owner) ? '（盘算人：' + trimText(h.owner) + '）' : '')
                 + (trimText(h.goal) ? '（目标：' + trimText(h.goal) + '）' : '')
@@ -905,7 +903,7 @@ async function stepWorld(material, attempt) {
             /* ★ [580] B1：来路三型 */
             origin: (() => {
                 const o = String(trimText(s && (s.origin || s.originKind)) || '').toLowerCase();
-                return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+                return originId(o);
             })(),
             /* ★ P1-7：世界脉动四格 ✓ */
             pressure: Number.isFinite(Number(s && s.pressure)) ? Math.max(0, Math.min(5, Number(s.pressure))) : null,

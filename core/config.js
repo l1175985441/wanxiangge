@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.427';
+export const APP_VERSION = '0.3.428';
 
 export const LEDGER_VERSION = 3;
 
@@ -489,3 +489,109 @@ export const DEFAULT_SETTINGS = Object.freeze({
 export const LEGACY_INJECT_HEADERS = Object.freeze([
     '【万象阁·本轮召回】以下状态为既定事实，写作时据此保持一致，不要复述本段。',
 ]);
+
+/* ==========================================================================
+   依据＝阿砚 A 组 I4：**契约 enum 与判据表结构绑定**
+   病：origin 这个枚举在 pipeline（三处）、recall（一处）、state（归一化）各写一份 ⇒ 一处改了另一处漏。
+   现在：只有这一张表；标签、喂料文案、合法性全从它派生。加新来路 = 加一行，别处不动。
+   ========================================================================== */
+export const ORIGIN_TYPES = [
+    { id: 'plot', label: '盘算挂接', panel: 'plot·盘算挂接', feed: '来路：盘算挂接' },
+    { id: 'ripple', label: '上游波及', panel: 'ripple·上游波及', feed: '来路：上游波及' },
+    { id: 'state', label: '局势自变', panel: 'state·局势自变', feed: '来路：局势自变' },
+];
+
+/** 合法的来路 id（⏔ 在各处再写一遍 plot/ripple/state） */
+export function originIds() {
+    return ORIGIN_TYPES.map((x) => x.id);
+}
+
+/** 任意输入 ⇒ 合法 id（认不出就返 ''） */
+export function originId(value) {
+    const v = String(value == null ? '' : value).trim().toLowerCase();
+    for (const x of ORIGIN_TYPES) {
+        if (x.id === v) { return x.id; }
+    }
+    return '';
+}
+
+/** id ⇒ 她看得懂的标签 */
+export function originLabel(value) {
+    const id = originId(value);
+    for (const x of ORIGIN_TYPES) {
+        if (x.id === id) { return x.label; }
+    }
+    return '';
+}
+
+/** id ⇒ 喂给模型的一行（⏔ 在 prompt 里重写一份） */
+export function originFeed(value) {
+    const id = originId(value);
+    for (const x of ORIGIN_TYPES) {
+        if (x.id === id) { return x.feed; }
+    }
+    return '';
+}
+
+/* 依据＝阿砚 A 组 I4：暗线出生来源三型（event｜parent｜state）同样只该有一张表。
+   这张表同时带：她看得懂的标签、判据里认的别名、喂给模型/面板的一行。 */
+export const AGENDA_ORIGINS = [
+    { id: 'event', label: '由事件而生', aliases: ['事件'], panel: 'event·由事件而生', feed: '来源：事件' },
+    { id: 'parent', label: '上级委派', aliases: ['委派', '上级'], panel: 'parent·上级委派', feed: '来源：上级盘算委派' },
+    { id: 'state', label: '处境自生', aliases: ['处境', '局势'], panel: 'state·处境自生', feed: '来源：处境自生' },
+];
+
+/** 暗线出生来源：任意输入 ⇒ id（认不出就返 ''） */
+export function agendaOriginId(value) {
+    const v = String(value == null ? '' : value).trim().toLowerCase();
+    if (!v) { return ''; }
+    for (const x of AGENDA_ORIGINS) {
+        if (x.id === v) { return x.id; }
+        if ((x.aliases || []).some((a) => String(a).toLowerCase() === v)) { return x.id; }
+    }
+    return '';
+}
+
+function agendaRow(value) {
+    const id = agendaOriginId(value);
+    for (const x of AGENDA_ORIGINS) {
+        if (x.id === id) { return x; }
+    }
+    return null;
+}
+
+/** 暗线来源 ⇒ 面板标签 */
+export function agendaOriginPanel(value) {
+    const r = agendaRow(value);
+    return r ? r.panel : '';
+}
+
+/** 暗线来源 ⇒ 喂给模型的一行 */
+export function agendaOriginFeed(value) {
+    const r = agendaRow(value);
+    return r ? r.feed : '';
+}
+
+/** 来路 ⇒ 面板标签（与喂料版本分开：面板要带 id，她才知道是哪一型） */
+export function originPanel(value) {
+    const id = originId(value);
+    for (const x of ORIGIN_TYPES) {
+        if (x.id === id) { return x.panel || x.label; }
+    }
+    return '';
+}
+
+/* 依据＝阿砚 A 组 I4：痕迹来源三型（situation｜event｜风声）也只该有一张表。 */
+export const VIA_TYPES = [
+    { id: 'situation', label: '局势·痕迹' },
+    { id: 'event', label: '事件·痕迹' },
+];
+
+/** 痕迹来源 ⇒ 面板标签（认不出就给“风声账”） */
+export function viaLabel(value) {
+    const v = String(value == null ? '' : value).trim().toLowerCase();
+    for (const x of VIA_TYPES) {
+        if (x.id === v) { return x.label; }
+    }
+    return '风声账';
+}

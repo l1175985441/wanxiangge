@@ -16,6 +16,7 @@ import {
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat, noteSaveSkip } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
+import { originId, agendaOriginId } from './config.js';   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1753,11 +1754,8 @@ export function normalizeAgendaOrigin(raw) {
     if (raw && typeof raw === 'object') {
         return normalizeAgendaOrigin(raw.type || raw.kind);
     }
-    const o = String(trimText(raw) || '').toLowerCase();
-    if (o === 'event' || o === '事件') { return 'event'; }
-    if (o === 'parent' || o === '委派' || o === '上级') { return 'parent'; }
-    if (o === 'state' || o === '处境' || o === '局势') { return 'state'; }
-    return '';
+    /* I4：三型枚举只有一张表（config.AGENDA_ORIGINS），这里⏔ 再写一份 */
+    return agendaOriginId(raw);
 }
 
 export function upsertHidden(line) {
@@ -2071,7 +2069,7 @@ export function normalizeSituation(s) {
         /* ★ [580]／观棋 B1：来路三型 plot｜ripple｜state（空＝旧账） */
         origin: (() => {
             const o = String(trimText(src.origin || src.originKind) || '').toLowerCase();
-            return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+            return originId(o);
         })(),
         pressure: Number.isFinite(pNum) ? Math.max(0, Math.min(5, pNum)) : null,
         trend: trimText(src.trend),
@@ -2109,7 +2107,7 @@ export function setEvents(events) {
         tier: trimText(e.tier),
         origin: (() => {
             const o = String(trimText(e.origin) || '').toLowerCase();
-            return (o === 'plot' || o === 'ripple' || o === 'state') ? o : '';
+            return originId(o);
         })(),
         stage: trimText(e.stage),
         at: Number(e.at || now()),

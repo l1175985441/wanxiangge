@@ -32,7 +32,7 @@ import { questStats } from '../core/summary.js';
 // ⭐ 补⑤ 体检报告（自检）
 import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
-import { APP_VERSION } from '../core/config.js';
+import { APP_VERSION, originPanel, agendaOriginPanel, viaLabel } from '../core/config.js';   /* I4 */
 import { replanCurrentFloor } from '../core/actions.js';
 import { listWorldbookNames, getEntries, excludeTextFor } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
@@ -1108,9 +1108,8 @@ function secWorld(host) {
                 title.appendChild(el('span', 'wxg-r-who', trimText(x.topic) || '（未记题）'));
                 title.appendChild(el('span', 'wxg-badge is-soft', trimText(x.kind) || 'rumor'));
                 const via = trimText(x.via);
-                if (via === 'situation') { title.appendChild(el('span', 'wxg-badge is-info', '局势·痕迹')); }
-                else if (via === 'event') { title.appendChild(el('span', 'wxg-badge is-info', '事件·痕迹')); }
-                else { title.appendChild(el('span', 'wxg-badge is-off', '风声账')); }
+                const viaLab = viaLabel(trimText(x.via));   /* I4：痕迹来源同一张表 */
+                title.appendChild(el('span', viaLab === '风声账' ? 'wxg-badge is-off' : 'wxg-badge is-info', viaLab));
                 main.appendChild(title);
                 main.appendChild(el('div', 'wxg-r-sub', trimText(x.text) || '（空）'));
                 r.appendChild(main);
@@ -4744,9 +4743,7 @@ function renderWorldEntryCard() {
         /* ★ [580] B6：暗线来源三型 */
         {
             const ao = String(trimText(item.agendaOrigin) || '').toLowerCase();
-            const aoLabel = ao === 'event' ? 'event·由事件而生'
-                : ao === 'parent' ? 'parent·上级委派'
-                : ao === 'state' ? 'state·处境自生' : '';
+            const aoLabel = agendaOriginPanel(ao);   /* I4：标签从同一张表来 */
             put('线源', openWorldEntryEditing ? (trimText(item.agendaOrigin) || '') : aoLabel, '未标');
             put('线源挂接', item.agendaRef, '无');
         }
@@ -4762,10 +4759,7 @@ function renderWorldEntryCard() {
         put('火候', item.tier, '几天内');
         /* ★ [318]/[322]／B1：来路分型＋因果两格 ✓ */
         {
-            const o = String(trimText(item.origin) || '').toLowerCase();
-            const oLabel = o === 'plot' ? 'plot·盘算挂接'
-                : o === 'ripple' ? 'ripple·上游波及'
-                : o === 'state' ? 'state·局势自变' : '';
+            const oLabel = originPanel(item.origin);   /* I4：面板标签从同一张表来（⏔ 各写一份枚举） */
             put('来路', openWorldEntryEditing ? (trimText(item.origin) || '') : oLabel, '未标');
         }
         put('上承', item.cause, '未写');
