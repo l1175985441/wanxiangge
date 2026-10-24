@@ -9,7 +9,7 @@
  *   等这一笔绿了再搬。
  */
 
-import { trimText } from './utils.js';
+import { trimText, matchKey, makeId } from './utils.js';
 
 export function normalizeFactionPillars(raw) {
     const list = Array.isArray(raw) ? raw : (trimText(raw) ? [raw] : []);
@@ -69,4 +69,115 @@ export function normalizeWorldFact(raw) {
         at: Number(src.at) || 0,
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
     };
+}
+
+/* ---- 脉动与可见度（连同它们用到的三个常量一起搬，避免跨文件引用） ---- */
+const STRONG_PUBLIC_CUE = /公告|通报|报道|新闻|媒体|记者|电视台|广播|报纸|官方|政府|警方|消防|医院|学校|发布会|公开声明|新闻发布|公示|通知|预警|热搜|全城|全网|通缉/;
+const TRACE_CUE = /传闻|风声|小道消息|有人看见|有人发现|路人|邻居|附近的人|外界察觉|可疑迹象|异常迹象|消息称|街边|人们都在议论/;
+const VIS_OK = new Set(['public', 'trace', 'private']);
+
+export function normalizePulseDomain(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const label = trimText(src.label || src.name || src.title);
+    if (!label) { return null; }
+    const kind = trimText(src.kind) || 'other';
+    let trend = String(trimText(src.trend) || 'steady').toLowerCase();
+    if (trend === 'stable' || trend === '持平') { trend = 'steady'; }
+    if (trend === '上升' || trend === '升温') { trend = 'rising'; }
+    if (trend === '下降' || trend === '降温') { trend = 'falling'; }
+    if (!PULSE_TRENDS.has(trend)) { trend = 'steady'; }
+    const pressureRaw = Number(src.pressure);
+    const pressure = Number.isFinite(pressureRaw) ? Math.max(0, Math.min(5, pressureRaw)) : 0;
+    const visibility = resolveVisibility(
+        trimText(src.state) + ' ' + trimText(src.evidence),
+        src.visibility,
+    );
+    return {
+        id: trimText(src.id) || makeId('pulse'),
+        label,
+        kind,
+        scope: trimText(src.scope),
+        state: trimText(src.state || src.note || src.text),
+        pressure,
+        trend,
+        visibility,
+        evidence: trimText(src.evidence),
+        at: Number(src.at) || 0,
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+export function normalizePulseCoverageEntry(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const label = trimText(src.label || src.name);
+    if (!label) { return null; }
+    const kind = trimText(src.kind) || 'general';
+    const scope = trimText(src.scope);
+    return {
+        id: trimText(src.id) || ('cov_' + matchKey(kind + ':' + label + ':' + scope)),
+        label,
+        kind,
+        scope,
+        lastCheckedAt: Number(src.lastCheckedAt) || 0,
+        checks: Math.max(0, Number(src.checks) || 0),
+        floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
+    };
+}
+
+export function normalizeWorldPulse(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const covSrc = src.coverage && typeof src.coverage === 'object' ? src.coverage : {};
+    const domains = [];
+    const seenDom = new Set();
+    for (const cand of (Array.isArray(src.domains) ? src.domains : [])) {
+        const d = normalizePulseDomain(cand);
+        if (!d) continue;
+        const k = pulseDomainKey(d.label, d.kind);
+        if (!k || seenDom.has(k)) continue;
+        seenDom.add(k);
+        domains.push(d);
+        if (domains.length >= PULSE_DOMAINS_CAP) break;
+    }
+    const entries = [];
+    const seenCov = new Set();
+    for (const cand of (Array.isArray(covSrc.entries) ? covSrc.entries : [])) {
+        const e = normalizePulseCoverageEntry(cand);
+        if (!e) continue;
+        if (seenCov.has(e.id)) continue;
+        seenCov.add(e.id);
+        entries.push(e);
+        if (entries.length >= PULSE_COVERAGE_CAP) break;
+    }
+    entries.sort((a, b) => (Number(b.lastCheckedAt) || 0) - (Number(a.lastCheckedAt) || 0));
+    return {
+        lastSweepAt: Number(src.lastSweepAt) || 0,
+        domains,
+        coverage: {
+            lastSweepAt: Number(covSrc.lastSweepAt) || 0,
+            entries,
+        },
+    };
+}
+
+export function pulseDomainKey(label, kind) {
+    const lb = matchKey(label);
+    if (!lb) { return ''; }
+    const kd = matchKey(kind) || 'other';
+    return kd + ':' + lb;
+}
+
+export function resolveVisibility(text, visibilityHint) {
+    const hint = String(trimText(visibilityHint) || '').toLowerCase();
+    if (VIS_OK.has(hint)) {
+        return hint;
+    }
+    /* 中文别名 */
+    if (/^(公开|明)$/.test(hint)) { return 'public'; }
+    if (/^(痕迹|半明|风声)$/.test(hint)) { return 'trace'; }
+    if (/^(私|私域|暗)$/.test(hint)) { return 'private'; }
+    const s = trimText(text);
+    if (!s) { return 'private'; }
+    if (STRONG_PUBLIC_CUE.test(s)) { return 'public'; }
+    if (TRACE_CUE.test(s)) { return 'trace'; }
+    return 'private';   /* 宁可私域 ✓ */
 }
