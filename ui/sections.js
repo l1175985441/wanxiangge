@@ -24,6 +24,7 @@ import {
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
     addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
     overlayPending, acceptOverlay, dismissOverlay } from '../core/state.js';
+import { createCache, isBroken } from '../core/cache.js';   /* B7：缓存坏了，⛔ 当成“没有” */
 import { receiptText, ledgerText } from '../core/ledger.js';
 import { toList, trimText, asText, asArray, countChars, floorLabel, FLOOR_NOTE, matchKey } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import {
@@ -2259,7 +2260,8 @@ function refreshSaveBar(host, secId) {
 export let pickBook = '';
 export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
-let listBooksCache = [];
+const booksCache = createCache('worldbooks');   /* B7：带状态的缓存（hit/miss/empty/broken） */
+let listBooksCache = [];   /* 兼容：老代码读它；新代码读 booksCache */
 /* 依据＝本轮查“首跑红复跑绿”：自动列书的 setTimeout 每次重画都排一个 ⇒ 旧定时器晚到也去点按钮，把列表反复刷新 */
 let autoListTimer = null;
 
@@ -3088,6 +3090,8 @@ function secExtract(host) {
         autoListTimer = null;
         try {
             if (!host || host.isConnected === false) { return; }   /* 旧页面已被换掉 ⇒ ⛔ 再去点它 */
+            const snap = booksCache.get();
+            if (isBroken(snap)) { return; }   /* B7：读不到就不要反复去叫（⛔ 死循环） */
             if (Array.isArray(listBooksCache) && listBooksCache.length) {
                 /* ⭐ RD1-2：缓存里有 ⇒ **直接把芯片画回来** ✓（旧：直接 return ⇒ 重绘后全没 ✗） */
                 try { paintBookPicks(host); } catch (ePB) { /* 画不出来也不能把这一页搞挂 ✓ */ }
@@ -6607,8 +6611,14 @@ export function bindSectionEvents(host, refresh) {
                         break;
                     }
                     if (!names.length) {
+                        /*
+                         * B7：“读不到”与“确实 0 本”是两回事。
+                         *   这里已经走到“接口没报错、但返回空”，我们无法区分，所以标 broken（不是 empty）。
+                         */
+                        booksCache.markBroken('没读到世界书列表（可能没开接口）');
+                        listBooksCache = [];
                         if (info) {
-                            info.textContent = '没读到世界书列表（有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
+                            info.textContent = '**读不到**世界书列表（不是“一本都没有”；有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
                         }
                         break;
                     }
@@ -6622,6 +6632,7 @@ export function bindSectionEvents(host, refresh) {
                         }
                     }
                     listBooksCache = names;
+                    booksCache.set(names);   /* B7：真取到了才算 hit/empty */
                     // ⚠️ 从"草稿优先、否则已存"里取（⛔ 重画时别把还没保存的点选冲掉）
                     paintBookPicks(host,
                         toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks)),
