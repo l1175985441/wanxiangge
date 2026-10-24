@@ -61,6 +61,7 @@ import {
     capList,
     beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView, ROLE_WEIGHT } from './state.js';
 import { callModelJson } from './apiclient.js';
+import { captureOwner, checkOwner } from './owner.js';
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
@@ -2051,6 +2052,8 @@ export function classifyFailure(msg) {
 }
 
 export async function runUpdate(opts) {
+    /* 依据＝阿砚 A 组 H2：**第一个 await 之前**先抓归属（下面 `await import('./worldbook.js')` 就是一个 await） */
+    const runOwner = captureOwner();
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
      *   批内只记账 ⇒ 批收尾写一次 ✓（⛔ 改变批外行为 ✗）
      *   try/finally 保证：即使中间抛错，批也一定收尾、该落的盘照落 ✓ */
@@ -2072,7 +2075,13 @@ export async function runUpdate(opts) {
     bindChatForRun();   /* R3：记下开跑时的聊天档 ✓ */
     beginSaveBatch();
     try {
-        return await runUpdateInner(opts);
+        const res = await runUpdateInner(opts);
+        /* H2：await 回来先问“还是不是这本”（⏔ 把旧档结果当成新档的） */
+        const own = checkOwner(runOwner);
+        if (!own.ok) {
+            return { ok: false, reason: own.reason };
+        }
+        return res;
     } finally {
         /* ★ 20261022：中间任何一步抛错也要把灯关掉，
          *   否则 running 永远为 true ⇒ 之后每次都回“上一轮还在跑” ⇒ 整个会话用不了 */

@@ -20,6 +20,7 @@ import { WORLD_BOOK_NAME, BOOK_ENTRY_PREFIX } from './config.js';
 import {  } from './adapter.js';
 import { probeChannel } from './wb-channel.js';
 import { loadState, listWindsView, saveState } from './state.js';
+import { captureOwner, checkOwner } from './owner.js';
 import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
 
@@ -539,6 +540,8 @@ export function toKeyArr(raw) {
 }
 
 export async function publishToBook(opts) {
+    /* 依据＝阿砚 A 组 H2：写书前抓归属（下面 ensureBook / migrate 都是 await） */
+    const bookOwner = captureOwner();
     const api = bookApi();
     const settings = getSettings();
     if (!settings.enabled) {
@@ -548,8 +551,13 @@ export async function publishToBook(opts) {
         return { ok: false, reason: '这个酒馆版本没给出世界书接口' };
     }
     const exists = await ensureBook(api);
+    /* H2：每个 await 后面先问“还是不是这本” */
+    const ownA = checkOwner(bookOwner);
+    if (!ownA.ok) { return { ok: false, reason: ownA.reason }; }
     /* 依据＝第 7 问 C4：一次性把旧格式条目归正（只跑一次，有 bookMigratedAt 标记） */
     try { await migrateBookEntriesOnce(api); } catch (eMig) { }
+    const ownB = checkOwner(bookOwner);
+    if (!ownB.ok) { return { ok: false, reason: ownB.reason }; }
     if (!exists) {
         return { ok: false, reason: '建不了世界书《' + WORLD_BOOK_NAME + '》（可能没有建书权限）' };
     }
