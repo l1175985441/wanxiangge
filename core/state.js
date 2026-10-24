@@ -11,17 +11,16 @@
 
 import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
-    ARRIVE_MISS_LIMIT,
-} from './config.js';
+    ARRIVE_MISS_LIMIT } from './config.js';
 import { readLedger, writeLedger, currentChatKey, setLiveLedgerGetter, snapshotLiveLedger, dropMirrorFor, deepClone, now, personaNames, clearMirror, syncMirrorAfterDelete, getChat, noteSaveSkip } from './adapter.js';
 import { makeId, toList, trimText, asText, countChars, matchKey, eventTitle } from './utils.js';
 import { parseClock, isLineDone } from './clock.js';
-import { originId, agendaOriginId } from './config.js';
+import { originId } from './config.js';
 import { collapseShape, shouldRecollapse, markMigratedFrom } from './shape.js';
 import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overlay.js';
 import { applyRetired } from './contract.js';
 /* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
-import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS, normalizeAgendaOrigin } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1662,15 +1661,8 @@ export function upsertFaction(line) {
 
 /** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
 /* 1-c #2 前置：这两个已搬到 core/normalize-world.js，这里只 re-export（对外 API 不变） */
-export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS } from './normalize-world.js';
+export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS, normalizeAgendaOrigin } from './normalize-world.js';
 
-export function normalizeAgendaOrigin(raw) {
-    if (raw && typeof raw === 'object') {
-        return normalizeAgendaOrigin(raw.type || raw.kind);
-    }
-    /* I4：三型枚举只有一张表（config.AGENDA_ORIGINS），这里⛔ 再写一份 */
-    return agendaOriginId(raw);
-}
 
 export function upsertHidden(line) {
     const state = loadState();

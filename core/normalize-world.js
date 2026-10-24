@@ -10,6 +10,7 @@
  */
 
 import { trimText, matchKey, makeId } from './utils.js';
+import { agendaOriginId } from './config.js';   /* 1-c #2 前置：这个助手在 config */
 
 export function normalizeFactionPillars(raw) {
     const list = Array.isArray(raw) ? raw : (trimText(raw) ? [raw] : []);
@@ -222,4 +223,13 @@ export function normalizeFaction(f) {
         at: Number(src.at) || 0,
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
     };
+}
+
+/* ---- 暗线来源（依赖 config 里的 agendaOriginId） ---- */
+export function normalizeAgendaOrigin(raw) {
+    if (raw && typeof raw === 'object') {
+        return normalizeAgendaOrigin(raw.type || raw.kind);
+    }
+    /* I4：三型枚举只有一张表（config.AGENDA_ORIGINS），这里⛔ 再写一份 */
+    return agendaOriginId(raw);
 }
