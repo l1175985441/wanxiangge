@@ -1815,6 +1815,13 @@ function secCharacters(host) {
 const stagingByMode = {};
 
 /** 当前正在画／正在处理的是哪一个宿主（⛔ 只用来分草稿，不参与别的判断） */
+/**
+ * 依据＝阿砚 3-d：偶发红要能在一次失败里拿到时序。默认静默；
+ * 显式开关（WXG_DEBUG=1 或 globalThis.__WXG_DEBUG__）才打日志。
+ */
+const WXG_DBG = (typeof process !== 'undefined' && process && process.env && process.env.WXG_DEBUG === '1')
+    || (typeof globalThis !== 'undefined' && globalThis.__WXG_DEBUG__ === true);
+
 let stagingMode = 'settings';
 
 function stagingOf(mode) {
@@ -1866,6 +1873,13 @@ function saveBar(secId, label) {
 /** 把这一段的草稿落进设置 */
 function commitSection(secId) {
     const box = stagingOf(stagingMode)[secId];
+    if (WXG_DBG) {
+        try {
+            console.info('[wanxiangge][commit] sec=' + String(secId) + ' mode=' + String(stagingMode)
+                + ' keys=' + JSON.stringify(box ? Object.keys(box) : [])
+                + ' vals=' + JSON.stringify(box ? Object.keys(box).reduce((o, k) => { o[k] = String(box[k] == null ? '' : box[k]).slice(0, 30); return o; }, {}) : {}));
+        } catch (eDbg2) { /* 日志不影响保存 */ }
+    }
     if (!box || !Object.keys(box).length) {
         return 0;
     }
@@ -6814,6 +6828,11 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'pick-book': {
+                    /*
+                     * 依据＝阿砚 3-d：偶发红要能在**一次失败**里拿到时序，⛔ 靠跑几十次碰运气。
+                     *   默认静默；只有显式开关（环境变量 WXG_DEBUG=1 或 globalThis.__WXG_DEBUG__）才打一行。
+                     */
+
                     const name = trimText(target.getAttribute('data-book'));
                     if (!name) {
                         break;
@@ -6837,6 +6856,15 @@ export function bindSectionEvents(host, refresh) {
                     }
                     stage('extract', 'extractBooks', ex.join('、'));
                     stage('extract', 'excludeBooks', no.join('、'));
+                    if (WXG_DBG) {
+                        try {
+                            console.info('[wanxiangge][pick] 点中=' + name
+                                + ' ｜ ex=' + String(ex.length) + ' no=' + String(no.length)
+                                + ' ｜ 草稿模式=' + String(stagingMode)
+                                + ' ｜ 已存 ex=' + String(getSettings().extractBooks || '').slice(0, 40)
+                                + ' ｜ 已存 no=' + String(getSettings().excludeBooks || '').slice(0, 40));
+                        } catch (eDbg) { /* 日志打不出来也不能影响点击 */ }
+                    }
                     paintBookPicks(host, ex, no);
                     refreshSaveBar(host, 'extract');
                     break;
