@@ -254,13 +254,20 @@ function repairJson(text) {
 /** 组装一次请求的超时控制 */
 function withTimeout(ms) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    let fired = false;
     const timer = setTimeout(() => {
+        fired = true;
         if (controller) {
             controller.abort();
         }
     }, ms);
     return {
         signal: controller ? controller.signal : undefined,
+        /**
+         * 依据＝阿砚 4-b #5（超时≠取消）：超时是我们自己的定时器打断的；
+         * 取消是她按了停止。两者都表现为 AbortError，但**不能报同一句话**。
+         */
+        timedOut: () => fired,
         done: () => clearTimeout(timer),
     };
 }
@@ -585,11 +592,17 @@ export async function callModel(opts) {
     } catch (e) {
         const ms = Date.now() - started;
         const aborted = e && (e.name === 'AbortError' || /abort/i.test(asText(e && e.message)));
-        return {
-            ok: false,
-            reason: aborted ? ('超过 ' + String(Math.round(timeoutMs / 1000)) + ' 秒没回（这一站的限时）') : ('请求出错：' + (e && e.message ? e.message : String(e))),
-            ms,
-        };
+        const byTimeout = timeout.timedOut();
+        /*
+         * 依据＝阿砚 4-b #5：**超时≠取消**。
+         *   旧：只要 AbortError 就报“超过 N 秒没回” ⇒ 她自己按停止时，界面在骗她。
+         *   现在：三种分开报，并带 kind（上游据此决定要不要提示她）。
+         */
+        const kind = byTimeout ? 'timeout' : (aborted ? 'cancelled' : 'error');
+        const reason = byTimeout
+            ? ('超过 ' + String(Math.round(timeoutMs / 1000)) + ' 秒没回（这一站的限时）')
+            : (aborted ? '你取消了这一轮（不是超时）' : ('请求出错：' + asText(e && e.message)));
+        return { ok: false, kind, reason, ms };
     } finally {
         timeout.done();
     }
