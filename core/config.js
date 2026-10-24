@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.467';
+export const APP_VERSION = '0.3.468';
 
 export const LEDGER_VERSION = 3;
 
@@ -369,7 +369,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
     /* 召回 */
     recentTurns: 3,         // 线索回溯几楼
-    maxChars: 8,            // 召回人物条数封顶
+    /* 依据＝渲染层 #8：这个数数的是**人数**（召回人物条数封顶），不是字符数 ⇒ 改名 capPeople；
+       真字数那个是 injectCharCap。旧键 maxChars 读档时自动搬家（见 settings.js）。 */
+    capPeople: 8,
     maxEvents: 6,           // 召回世界事件条数封顶
     strictMention: false,   // 只召回本轮发言被点名的人
     sortMode: 'related',    // related＝按相关度重排；name＝按名册顺序

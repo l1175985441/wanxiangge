@@ -256,8 +256,9 @@ function setPipeline(patch) {
  *   病灶：补推原来**逐楼调一整轮 runUpdate** ✗ ⇒ 60 楼＝60 次完整更新 ✗（抽风站必断 ✗）
  *   现在：按字数装桶（默认 ≤3000 字）、满 6 楼就封包 ✓；单楼本身超长 ⇒ **该楼独占一批** ✓
  */
-function buildScanBatches(floors, maxChars) {
-    const cap = clampNumber(maxChars, 500, 20000, 3000);
+function buildScanBatches(floors, charBudget) {
+    /* 渲染层 #8：这个参数数的是**字符数**（与 capPeople 同名两义时就是这里出错），改名 charBudget */
+    const cap = clampNumber(charBudget, 500, 20000, 3000);
     const list = (Array.isArray(floors) ? floors : [])
         .map((x) => Number(x))
         .filter((x) => Number.isFinite(x) && x >= 0);

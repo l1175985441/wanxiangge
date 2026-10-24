@@ -2027,7 +2027,7 @@ const STAGE_MAP = {
     'stage-layout-mode': ['appearance', 'layoutMode', 'value'],
     // 召回
     'stage-recent-turns': ['recall', 'recentTurns', 'value'],
-    'stage-max-chars': ['recall', 'maxChars', 'value'],
+    'stage-cap-people': ['recall', 'capPeople', 'value'],
     'stage-max-events': ['recall', 'maxEvents', 'value'],
     'stage-cap-past': ['recall', 'capPast', 'value'],
     'stage-cap-events': ['recall', 'capEvents', 'value'],
@@ -3030,7 +3030,7 @@ function secRecall(host) {
     const bSize = mkFold('篇幅（注入字数／一轮推演几个）', false);
         lineGroup([
             lineCell('线索回溯', numberInput('wxg-recent-turns', s.recentTurns, 1, 10, 'stage-recent-turns')),
-            lineCell('人物封顶（建议 8–20，太大占上下文）', numberInput('wxg-max-chars', s.maxChars, 1, 99, 'stage-max-chars')),
+            lineCell('人物封顶（建议 8–20，太大占上下文）', numberInput('wxg-cap-people', s.capPeople, 1, 99, 'stage-cap-people')),
             lineCell('事件封顶', numberInput('wxg-max-events', s.maxEvents, 0, 20, 'stage-max-events')),
         ]);
         lineGroup([
@@ -7224,7 +7224,7 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 召回 ---- */
                 case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
-                case 'stage-max-chars': if (isChange) { patchSettings({ maxChars: target.value }); rerender(); } break;
+                case 'stage-cap-people': if (isChange) { patchSettings({ capPeople: target.value }); rerender(); } break;
                 case 'stage-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
                 case 'stage-cap-past': if (isChange) { patchSettings({ capPast: target.value }); rerender(); } break;
                 case 'stage-cap-events': if (isChange) { patchSettings({ capEvents: target.value }); rerender(); } break;

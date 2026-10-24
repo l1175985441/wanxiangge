@@ -42,7 +42,7 @@ const DEFAULT_CHAR_LIMIT = 8;
 
 /** 召回人物条数：她填多少就用多少（只防不合法的值） */
 export function charLimitOf(settings) {
-    const raw = Number(settings && settings.maxChars);
+    const raw = Number(settings && settings.capPeople);   /* 渲染层 #8：人数封顶改名 */
     return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : DEFAULT_CHAR_LIMIT;
 }
 

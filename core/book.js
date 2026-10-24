@@ -514,7 +514,7 @@ function buildEntries() {
     wanted.push({
         title: ENTRY.settings,
         content: body([
-            '召回：回溯 ' + String(settings.recentTurns) + ' 楼 ｜ 人物封顶 ' + String(settings.maxChars) + ' ｜ 事件封顶 ' + String(settings.maxEvents),
+            '召回：回溯 ' + String(settings.recentTurns) + ' 楼 ｜ 人物封顶 ' + String(settings.capPeople) + ' ｜ 事件封顶 ' + String(settings.maxEvents),
             '更新：每 ' + String(settings.updateEvery) + ' 回合 ｜ 现场保护' + (settings.protectedBypass ? '开' : '关'),
             '这条只是说明；换设置请到面板里改。',
         ]),

@@ -114,7 +114,17 @@ function loadSettings() {
 
     // 数值夹取
     merged.recentTurns = clampNumber(merged.recentTurns, 1, 10, DEFAULT_SETTINGS.recentTurns);
-    merged.maxChars = clampNumber(merged.maxChars, 1, 99, DEFAULT_SETTINGS.maxChars);   /* 依据＝阿砚 24 号：读档这把尺也不封顶 8（原来面板能填 99、读档夹回 8） */
+    /*
+     * 依据＝渲染层 #8（maxChars 两义）：旧键 `maxChars` 数的是**人数** ⇒ 正式名 `capPeople`。
+     *   读档时搬家（⛔ 只改名不认旧账）：她存过的 50 不能因为改名变回 8。
+     */
+    if (Object.prototype.hasOwnProperty.call(merged, 'maxChars') && !Object.prototype.hasOwnProperty.call(merged, 'capPeople')) {
+        merged.capPeople = merged.maxChars;
+    }
+    if (Object.prototype.hasOwnProperty.call(merged, 'maxChars')) {
+        delete merged.maxChars;
+    }
+    merged.capPeople = clampNumber(merged.capPeople, 1, 99, DEFAULT_SETTINGS.capPeople);   /* 依据＝阿砚 24 号：读档这把尺也不封顶 8（原来面板能填 99、读档夹回 8） */
     merged.maxEvents = clampNumber(merged.maxEvents, 0, 20, DEFAULT_SETTINGS.maxEvents);
     merged.updateEvery = clampNumber(merged.updateEvery, 1, 10, DEFAULT_SETTINGS.updateEvery);
     merged.maxParallelChars = clampNumber(merged.maxParallelChars, 0, 12, DEFAULT_SETTINGS.maxParallelChars);
@@ -245,7 +255,7 @@ export function patchSettings(patch) {
     const clean = Object.assign({}, patch || {});
     const NUM = {
         recentTurns: [1, 10, DEFAULT_SETTINGS.recentTurns],
-        maxChars: [1, 99, DEFAULT_SETTINGS.maxChars],   /* 依据＝阿砚 24 号：不再封顶 8 */
+        capPeople: [1, 99, DEFAULT_SETTINGS.capPeople],   /* 依据＝阿砚 24 号：不再封顶 8 */
         maxEvents: [0, 20, DEFAULT_SETTINGS.maxEvents],
         pastFloorCut: [0, 50, DEFAULT_SETTINGS.pastFloorCut],
         updateEvery: [1, 10, DEFAULT_SETTINGS.updateEvery],
