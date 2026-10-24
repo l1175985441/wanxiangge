@@ -19,7 +19,7 @@ import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     findCharacter,
     applyRosterPreset, describeRoster, describeWorld, recentRecallRecords, getChronicle,
-    removeHidden, addHiddenManually, rollbackLast, snapshotCount, exportState, updateWorld,
+    removeHidden, addHiddenManually, rollbackLast, exportState, updateWorld,
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
     addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
@@ -549,16 +549,10 @@ function secStatus(host, intoSelf) {
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
     const ledgerLine = el('div', 'wxg-ledger', '上次更新：' + ledgerText());
-    const world = describeWorld();
-    // ⭐ 目标核对 4：这一行是**数据标签**（世界钟／局势／暗线／编年／可撤回），⛔ 说明小字
-    //   ⇒ 单独给一个类，强调里把它**升到接近正文**（见 css 的 .wxg-wsum）。
-    const worldNote = el('div', 'wxg-note wxg-wsum',
-        '世界钟：' + world.clock
-        + (world.place ? ' · ' + world.place : '')
-        + ' ｜ 局势 ' + String(world.situations)
-        + ' ｜ 暗线 ' + String(world.hidden) + '（在走 ' + String(world.advancing) + '）'
-        + ' ｜ 编年 ' + String(world.chronological)
-        + ' ｜ 可撤回 ' + String(snapshotCount()) + ' 版');
+        /*
+         * 依据＝阿砚 3 件任务 · 渲染层 #3：这行“世界四值”已并进**顶栏第五格**（不再单占一张卡）。
+         *   去向：ui/workspace.js 的 renderChips → ['可撤回', ...]（同一份数据，⛔ 再渲染一遍）。
+         */
     /*
      * ⚠️ 这段原来是「现在怎么样」卡里那组操作钮（`cAct`）——**已经没人挂它了**
      *   （操作改挂总控页操作卡 ＋ 悬浮球）⇒ 留着就是**死代码**（每次重画白拼一遍）。删掉。
@@ -598,18 +592,7 @@ function secStatus(host, intoSelf) {
         colProg.appendChild(line);
         colProg.appendChild(ledgerLine);
     }
-    two.appendChild(colProg);
-    /*
-     * ⭐ 修复单 #31(a)：右框补**对称的标题结构**。
-     *   原来它只是 `wxg-plain` 里孤零零一行小灰字，而左框是**一张带标题的卡** ⇒
-     *   上排两框看着不像一对（真机截图 01-状态 可证：右上只有两条小灰字、没卡片标题）。
-     *   ⇒ 用跟左框**同一个** `.wxg-card`＋`.wxg-card-h` 结构（⛔ 自己发明新样式）。
-     *   ⚠️ 标题用她熟的叫法「世界四值」（跟页内其他地方一致）。
-     */
-    const cWorld = card('世界四值');
-    cWorld.appendChild(worldNote);
-    two.appendChild(cWorld);
-    box.appendChild(two);
+        box.appendChild(colProg);
 
     const p = loadState().pipeline || {};
     /*
