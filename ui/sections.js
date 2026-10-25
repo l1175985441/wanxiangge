@@ -111,9 +111,15 @@ function el(tag, cls, text) {
     return node;
 }
 
-/** 列表内空态块：带单色线条空盒 SVG 图标与一句话说明 */
-function emptyBlock(text) {
+/**
+ * 列表内空态块：带单色线条空盒 SVG 图标与一句话说明。
+ *   依据＝阿砚第三批 质感 A8（空态不给话术）：第二个参数是「**为什么会自动有**」那句，她看一眼就知道不用自己填。
+ */
+function emptyBlock(text, why) {
     const box = el('div', 'wxg-empty', text);
+    if (trimText(why)) {
+        box.appendChild(el('div', 'wxg-empty-why', trimText(why)));
+    }
     const ico = document.createElement('span');
     ico.className = 'wxg-empty-ico';
     ico.setAttribute('aria-hidden', 'true');
@@ -127,8 +133,11 @@ function emptyBlock(text) {
 }
 
 /** 整页作品化空态（参照构画／千千结）：单色线条图标 ＋ 一句话 ＋ 一个实心主按钮，居中留白 */
-function heroEmpty(text, btnLabel, btnAction) {
+function heroEmpty(text, btnLabel, btnAction, why) {
     const box = el('div', 'wxg-empty is-hero', text);
+    if (trimText(why)) {
+        box.appendChild(el('div', 'wxg-empty-why', trimText(why)));
+    }
     const ico = document.createElement('span');
     ico.className = 'wxg-empty-ico';
     ico.setAttribute('aria-hidden', 'true');
@@ -1034,7 +1043,7 @@ function secWorld(host) {
     const worldCardsEmpty = !wFactions0.length && !wFacts0.length
         && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
     if (worldCardsEmpty) {
-        box.appendChild(emptyBlock('世界事实／脉动／风声 —— 还没有内容（引擎推出来才会展开）'));
+        box.appendChild(emptyBlock('世界事实／脉动／风声 —— 还没有内容（引擎推出来才会展开）', '为什么会自动有：你发消息后引擎会推一次，把硬事实、压力、风声落进来。'));
     }
 
     /* ★ [580] C1：势力厚度在面板上看得见（只读；改走世界步回写，⛕ 卡头再放一颗编辑） */
@@ -1455,7 +1464,7 @@ function secCharacters(host) {
     const box = section('角色状态', null, { open: true });
 
     if (!state.characters.length) {
-        box.appendChild(heroEmpty('名册还是空的：去「人物名册」从世界书读人，或点下面一键立起预设名册。', '一键盘入预设名册', 'preset-roster'));
+        box.appendChild(heroEmpty('名册还是空的：去「人物名册」从世界书读人，或点下面一键立起预设名册。', '一键盘入预设名册', 'preset-roster', '为什么会自动有：每次更新会把正文里出场的人认进来，也会从世界书读一遍。'));
         host.appendChild(box);
         return;
     }
@@ -2529,7 +2538,7 @@ function secChronicle(host) {
         + '编年**只给你看**：不注入、不喂模型。',
         { open: true });
     if (!list.length) {
-        box.appendChild(heroEmpty('还没有记录（更新几轮就有了）', '立刻更新', 'update-now'));
+        box.appendChild(heroEmpty('还没有记录（更新几轮就有了）', '立刻更新', 'update-now', '为什么会自动有：每次推演都会往这里记一条，你不用手填。'));
         host.appendChild(box);
         return;
     }

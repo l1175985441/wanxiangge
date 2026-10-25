@@ -4314,3 +4314,11 @@ body[data-wxg-theme="dark"] {
     min-width: 0;
     line-height: 1.55;
 }
+
+/* A8：空态的第二句——「为什么会自动有」 */
+.wxg-empty-why {
+    margin-top: var(--gap-sm);
+    font-size: var(--fs-note);
+    line-height: 1.5;
+    opacity: 0.78;
+}
