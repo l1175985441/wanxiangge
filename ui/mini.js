@@ -284,7 +284,7 @@ function elText(tag, cls, text) {
 function elBtn(text, action, title) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'wxg-mini-btn';
+    b.className = 'wxg-btn is-mini';
     b.textContent = text;
     b.title = title;
     b.setAttribute('data-mini-action', action);

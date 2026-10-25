@@ -82,13 +82,13 @@ export function openPanel() {
     const actions = document.createElement('div');
     actions.className = 'wxg-panel-actions';
     const refreshBtn = document.createElement('div');
-    refreshBtn.className = 'wxg-panel-btn';
+    refreshBtn.className = 'wxg-btn is-panel';
     refreshBtn.title = '刷新面板';
     refreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i>';
     refreshBtn.addEventListener('click', () => refreshPanel());
     actions.appendChild(refreshBtn);
     const closeBtn = document.createElement('div');
-    closeBtn.className = 'wxg-panel-btn';
+    closeBtn.className = 'wxg-btn is-panel';
     closeBtn.title = '关闭';
     closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
     closeBtn.addEventListener('click', () => closePanel());
@@ -196,7 +196,7 @@ function makeDraggable(root, handle) {
     let originY = 0;
 
     const onDown = (e) => {
-        if (e.target.closest('.wxg-panel-btn')) {
+        if (e.target.closest('.wxg-btn is-panel')) {
             return;   // 点按钮不算拖
         }
         const pt = pointOf(e);

@@ -548,7 +548,7 @@ function secStatus(host, intoSelf) {
      *   跟名册页那颗**同一个做法**（⛔ 两套）。
      */
     const sTop = el('div', 'wxg-roster-topbar');
-    const sFunc = button('功能 ⋮', 'status-func', 'wxg-func-btn');
+    const sFunc = button('功能 ⋮', 'status-func', 'wxg-btn is-func');
     sFunc.title = '导出与统计／可撤回的版本（入口位；包里就是这么标的）';
     sFunc.style.height = '28px';
     sFunc.style.minHeight = '28px';
@@ -557,7 +557,7 @@ function secStatus(host, intoSelf) {
     sFunc.style.whiteSpace = 'nowrap';
     sTop.appendChild(sFunc);
     // ⭐ 补⑤：「体检」入口（点一下出一份自检）
-    const sHeal = button('体检', 'health-open', 'wxg-func-btn');
+    const sHeal = button('体检', 'health-open', 'wxg-btn is-func');
     sHeal.title = '出一份自检：版本／开关／条数／最近失败分类（⛔ 不含正文与钥匙）';
     sHeal.style.height = '28px';
     sHeal.style.minHeight = '28px';
@@ -991,7 +991,7 @@ function secWorld(host) {
     // ⭐ 数据卡：默认只读（复核方第四条）——点「编辑」才能改
     // ⭐ 页头：右上「功能 ⋮」（照包；跟状态页、名册页同一个做法）
     const wTop = el('div', 'wxg-roster-topbar');
-    const wFunc = button('功能 ⋮', 'world-func', 'wxg-func-btn');
+    const wFunc = button('功能 ⋮', 'world-func', 'wxg-btn is-func');
     wFunc.style.height = '28px';
     wFunc.style.minHeight = '28px';
     wFunc.style.lineHeight = '26px';
@@ -2873,7 +2873,7 @@ function secRoster(host) {
         : null;
     // ⭐ 右上「功能 ⋮」（照包：去重合并／删除／清空的入口位）
     const topbar = el('div', 'wxg-roster-topbar');
-    const funcBtn = button('功能 ⋮', 'roster-func', 'wxg-func-btn');
+    const funcBtn = button('功能 ⋮', 'roster-func', 'wxg-btn is-func');
     // 同上：它也是 `menu_button`，不内联就会被撑到 36px（真机量到）
     funcBtn.style.height = '28px';
     funcBtn.style.minHeight = '28px';

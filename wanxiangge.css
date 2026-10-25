@@ -527,7 +527,7 @@
     gap: var(--gap-sm);
 }
 
-.wxg-mini-btn {
+.wxg-btn.is-mini {
     font: inherit;
     font-size: 12px;
     padding: 1px 8px;
@@ -539,7 +539,7 @@
     opacity: 0.85;
 }
 
-.wxg-mini-btn:hover {
+.wxg-btn.is-mini:hover {
     opacity: 1;
     background: var(--wxg-fill-strong, rgba(230, 231, 228, 0.13));
 }
@@ -1286,14 +1286,14 @@
     gap: var(--gap-xs);
 }
 
-.wxg-panel-btn {
+.wxg-btn.is-panel {
     cursor: pointer;
     padding: 2px 8px;
     border-radius: var(--wxg-r-xs);
     opacity: 0.85;
 }
 
-.wxg-panel-btn:hover {
+.wxg-btn.is-panel:hover {
     background: rgba(128, 128, 128, 0.28);
     opacity: 1;
 }
@@ -3294,7 +3294,7 @@ body.wxg-dragging {
     padding: 6px 13px; border-radius: var(--wxg-r-sm); font-size: 13px; cursor: pointer;
     border: 1px solid var(--wxg-border, #d5dade); background: transparent; color: var(--wxg-text, #1a1d1f);
 }
-.wxg-pc-foot .menu_button:disabled { opacity: .45; cursor: default; }
+.wxg-pc-foot .menu_button:disabled { opacity: .45; cursor: not-allowed; }   /* 规矩 2：不能点就是 not-allowed，⛔ 普通箭头 */
 .wxg-pc-nav { color: var(--wxg-dim, #6d747a); }
 .wxg-pc-foot .wxg-primary { background: var(--wxg-accent, #5ecfa4); border-color: var(--wxg-accent, #5ecfa4); color: var(--wxg-accent-ink, #101815); font-weight: 700; }
 .wanxiangge .wxg-r-more { margin-left: 4px; }
@@ -3431,11 +3431,11 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-sec:has(.wxg-roster) .wxg-sec-sub { text-align: center; }
 /* 「功能 ⋮」：右上角一条 */
 .wxg-roster-topbar { display: flex; justify-content: flex-end; margin: -4px 0 6px; }
-.wanxiangge .wxg-func-btn {
+.wanxiangge .wxg-btn.is-func {
     background: transparent; border: 1px solid var(--wxg-border, #d5dade);
     color: var(--wxg-dim, #6d747a); border-radius: var(--wxg-r-sm); padding: 4px 11px; font-size: 13px;
 }
-.wanxiangge .wxg-func-btn:hover { color: var(--wxg-text, #1a1d1f); }
+.wanxiangge .wxg-btn.is-func:hover { color: var(--wxg-text, #1a1d1f); }
 /* 分页贴页底：给它一条上分隔线，视觉上"到底了" */
 .wxg-ws-main .wxg-roster-pager { border-top: 1px solid var(--wxg-line, #e6e8ea); padding-top: 10px; margin-top: 4px; }
 
@@ -3443,7 +3443,7 @@ body.wxg-dragging {
  * ⭐ 名册 · 第 6 轮量出来的两处（真机量：行高 63px 该 ≈40；功能⋮ 按钮 48×36 ⇒ 字被挤换行）
  * ------------------------------------------------------------------------- */
 /* 「功能 ⋮」⛔ 不许换行、按内容撑开 */
-.wanxiangge .wxg-func-btn,
+.wanxiangge .wxg-btn.is-func,
 .wxg-ws-main .wxg-roster-topbar .menu_button {
     white-space: nowrap;
     flex: 0 0 auto;
@@ -3614,19 +3614,19 @@ body.wxg-dragging {
 /* ⭐ 首夜实测单第 6 条：按钮要有手感（常态／悬停／按下 三态肉眼可辨） */
 .wxg-card-actions button,
 .wxg-btn,
-.wxg-func-btn {
+.wxg-btn.is-func {
     transition: background-color .14s ease, border-color .14s ease, transform .08s ease, box-shadow .14s ease;
 }
 .wxg-card-actions button:hover:not([disabled]),
 .wxg-btn:hover:not([disabled]),
-.wxg-func-btn:hover:not([disabled]) {
+.wxg-btn.is-func:hover:not([disabled]) {
     background: color-mix(in srgb, currentColor 14%, transparent);
     border-color: color-mix(in srgb, currentColor 40%, transparent);
     box-shadow: 0 1px 6px color-mix(in srgb, currentColor 18%, transparent);
 }
 .wxg-card-actions button:active:not([disabled]),
 .wxg-btn:active:not([disabled]),
-.wxg-func-btn:active:not([disabled]) {
+.wxg-btn.is-func:active:not([disabled]) {
     transform: translateY(1px) scale(.985);
     background: color-mix(in srgb, currentColor 22%, transparent);
 }
@@ -3963,6 +3963,55 @@ body.wxg-dragging {
     background-image: var(--wxg-grad-head);
 }
 
+/* ==========================================================================
+规矩 1（阿砚 60 号补充）：**控件族只造一次**。
+  以后新页面只加“怎么排”，⛔ 新增控件类。
+  形状参照既有控件语言：一个 `.wxg-btn` 基类，差异用修饰类表达
+  （`.is-func`／`.is-panel`／`.is-mini`）——⛔ 再各写一套底色边框。
+  输入框与下拉同理：`。wxg-pole` 一个基类。
+========================================================================== */
+.wxg-btn {
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 5px var(--gap-md);
+    border: 1px solid var(--wxg-border, #d5dade);
+    border-radius: var(--wxg-r-md);
+    background: rgba(128, 128, 128, 0.06);
+    color: inherit;
+    cursor: pointer;
+}
+.wxg-btn.is-func {
+    background: transparent;
+    color: var(--wxg-dim, #6d747a);
+    border-radius: var(--wxg-r-sm);
+    padding: 4px 11px;
+}
+.wxg-btn.is-panel {
+    padding: 2px 8px;
+    border-radius: var(--wxg-r-xs);
+    opacity: 0.85;
+}
+.wxg-btn.is-mini {
+    padding: 1px 8px;
+    font-size: 12px;
+    border-radius: var(--wxg-r-pill);
+    background: transparent;
+    opacity: 0.85;
+}
+/* 规矩 2（阿砚 60 号补充）：**不能点的按钮必须看得出来**（挂基类，一处管全体） */
+.wxg-btn:disabled,
+.wxg-btn[disabled] {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+.wxg-btn:disabled:hover,
+.wxg-btn[disabled]:hover {
+    background: inherit;
+    box-shadow: none;
+    transform: none;
+}
+
 /* B1-2 渐变：按钮、徽章、活动态胶囊、分页 */
 .wxg-btn, .wxg-btn-sm, .wxg-btn-xs {
     background-image: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(0, 0, 0, .06));
@@ -4035,13 +4084,13 @@ body[data-wxg-theme="dark"] .wxg-pc,
     background-image: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(0, 0, 0, .04));
     box-shadow: var(--wxg-sh-1);
 }
-.wxg-ws-side-ico, .wxg-ws-side-item, .wxg-pc-kebab, .wxg-panel-btn, .wxg-mini-btn, .wxg-func-btn, .wxg-ws-chip {
+.wxg-ws-side-ico, .wxg-ws-side-item, .wxg-pc-kebab, .wxg-btn.is-panel, .wxg-btn.is-mini, .wxg-btn.is-func, .wxg-ws-chip {
     transition: transform var(--wxg-dur) var(--wxg-ease),
                 box-shadow var(--wxg-dur) var(--wxg-ease),
                 background-image var(--wxg-dur) var(--wxg-ease),
                 color var(--wxg-dur) var(--wxg-ease);
 }
-.wxg-ws-side-item:hover, .wxg-panel-btn:hover, .wxg-mini-btn:hover, .wxg-func-btn:hover, .wxg-ws-chip:hover {
+.wxg-ws-side-item:hover, .wxg-btn.is-panel:hover, .wxg-btn.is-mini:hover, .wxg-btn.is-func:hover, .wxg-ws-chip:hover {
     background-image: var(--wxg-grad-pill);
     box-shadow: var(--wxg-sh-2);
     transform: translateY(-1px);
@@ -4135,7 +4184,7 @@ body[data-wxg-theme="dark"] .wxg-pc,
         animation: none !important;
     }
     .wxg-btn, .wxg-btn-sm, .wxg-btn-xs, .wxg-primary, .wxg-pick,
-    .wxg-ws-side-item, .wxg-panel-btn, .wxg-mini-btn, .wxg-func-btn,
+    .wxg-ws-side-item, .wxg-btn.is-panel, .wxg-btn.is-mini, .wxg-btn.is-func,
     .wxg-ws-chip, .wxg-mini-ball, .wxg-crow, .wxg-rowitem, .wxg-fact,
     .wxg-card-chevron, .wxg-ws-x, .wxg-pc-nav {
         transition: none !important;
@@ -4468,3 +4517,9 @@ body[data-wxg-theme="dark"] {
 /* 同一行里“按钮＋下拉”要一样高，别一个 36 一个 38 */
 .wanxiangge .wxg-row .wxg-pole,
 .wanxiangge .wxg-line .wxg-pole { height: 36px; }
+
+/* 规矩 3（阿砚 60 号补充）：**一个短词不许占满整行**（实测一个三字下拉 746px）：
+   标签吃余宽、控件定宽。 */
+.wanxiangge select.wxg-pole { width: auto; max-width: 260px; }
+.wanxiangge input.wxg-pole[type="number"] { width: 96px; max-width: 120px; }
+.wanxiangge .wxg-field-label { flex: 1 1 auto; }
