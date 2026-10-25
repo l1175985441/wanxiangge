@@ -32,7 +32,7 @@ const DAY_PATTERNS = [
 export function parseGameClock(raw) {
     const text = String(raw == null ? '' : raw).trim();
     if (!text) {
-        return { ok: false, why: '世界钟是空的' };
+        return { ok: false, kind: 'empty', why: '世界钟是空的' };
     }
     let day = '';
     for (const re of DAY_PATTERNS) {
@@ -57,13 +57,13 @@ export function parseGameClock(raw) {
         }
     }
     if (!day && !period) {
-        return { ok: false, why: '既没有日期也没有时段' };
+        return { ok: false, kind: 'no-parts', why: '既没有日期也没有时段' };
     }
     if (!day) {
-        return { ok: false, why: '只有时段，没有日期（当不成锚）' };
+        return { ok: false, kind: 'period-only', why: '只有时段，没有日期（当不成锚）' };
     }
     if (!period) {
-        return { ok: false, why: '只有日期，没有时段（当不成锚）' };
+        return { ok: false, kind: 'day-only', why: '只有日期，没有时段（当不成锚）' };
     }
     return { ok: true, day, period, norm: day + ' ' + period };
 }
@@ -79,7 +79,7 @@ export function clockAnchor(raw) {
     if (parsed.ok) {
         return { kind: 'game-clock', raw: text, norm: parsed.norm, day: parsed.day, period: parsed.period };
     }
-    return { kind: 'text', raw: text, why: parsed.why };
+    return { kind: 'text', raw: text, why: parsed.why, failKind: parsed.kind || 'unknown' };
 }
 
 /** 一行人话（诊断用） */
@@ -88,5 +88,38 @@ export function clockAnchorLine(anchor) {
     if (a.kind === 'game-clock') {
         return '时间锚：游戏钟「' + String(a.norm) + '」';
     }
-    return '时间锚：普通文本（' + String(a.why || '未解析') + '）';
+    /* 1-c #8：读不出来的说法**只由 describeTimeRawFailure 一处出**（⛔ 这里另写一套） */
+    return '时间锚：' + describeTimeRawFailure(a.failKind, a.raw, 'health');
+}
+
+/*
+ * 1-c #8（阿砚 62 号）：时间原文读不出来的话——以前“跳过原因”与“自检文案”
+ *   各写各的，两套说法。现在只有这一个函数，按 `surface` 出不同粒度：
+ *     · health：体检报告用的一句话（不带原文，⛔ 泄露正文）
+ *     · hint：界面提示用的一句话（告诉她“现在退成什么了”）
+ *     · log：诊断日志用（带原文前 40 字，但仍不进账）
+ * @param {string} failKind empty|no-parts|period-only|day-only|unknown
+ * @param {string} src 世界钟原文
+ * @param {'health'|'hint'|'log'} surface
+ */
+export function describeTimeRawFailure(failKind, src, surface) {
+    const k = String(failKind || 'unknown');
+    const SHORT = {
+        'empty': '世界钟还没填',
+        'no-parts': '日期与时段都没读出来',
+        'period-only': '只有时段、没有日期',
+        'day-only': '只有日期、没有时段',
+        'unknown': '格式没见过',
+    };
+    const short = SHORT[k] || SHORT.unknown;
+    const s = String(surface || 'hint');
+    if (s === 'log') {
+        const raw = String(src == null ? '' : src).replace(/\s+/g, ' ').trim();
+        const cut = raw.length > 40 ? (raw.slice(0, 40) + '…') : raw;
+        return '时间原文没法当锚：' + short + '（原文：' + (cut || '（空）') + '）';
+    }
+    if (s === 'health') {
+        return '世界钟原文读不出来（' + short + '）——本轮不推时间';
+    }
+    return '时间锚退成普通文本：' + short;
 }
