@@ -4292,11 +4292,20 @@ body[data-wxg-theme="dark"] {
    ========================================================================== */
 @media (min-width: 1180px) {
     /*
-     * A6（阿砚实机结论）：宽屏这一档要**带 !important 且排在基础那条之后**，
-     *   否则基础的 `display: block !important` 会把它压住（原来多列从没生效就是这个原因）。
-     *   选择器比 `.wxg-ws-main .wxg-sec-body` 更具体 ⇒ 同块里也是它赢。
+     * A6（阿砚实机第二轮结论）：**列数别拿 `data-wxg-open` 判**——那是开合状态，
+     *   设置页初始没这个属性（单列），点一下折叠头就变 "1" ⇒ 整页从单列跳两列（0.3.518 带出来的新 bug）。
+     *   改用它已经盖好的 `data-wxg-five`（「调设置」那五页）来分区：
+     *     · 数据页（没有 five 标记）：两列；
+     *     · 设置页那五页（有 five 标记）：单列（卡标题居中＋保存靠右下，本来就是纵向表单）。
+     *   ⚠️ 选择器只能写 `.wxg-ws-main …`：`wanxiangge` 与 `wxg-ws-main` 在**同一个 <main> 上**，
+     *     写成后代组合（`.wanxiangge .wxg-ws-main …`）整条不匹配（阿砚第一版就这样，注入完没效果）。
      */
-    .wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body { display: grid !important; }
+    .wxg-ws-main .wxg-sec:not([data-wxg-five]) > .wxg-sec-body {
+        display: grid !important;
+    }
+    .wxg-ws-main .wxg-sec[data-wxg-five] > .wxg-sec-body {
+        display: block !important;
+    }
     .wxg-ws-main .wxg-sec-body {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
