@@ -9,6 +9,7 @@
 import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
+import { bindEscClose, unbindEscClose } from './esc-close.js';   /* TW 契约：Esc 监听配对清理 */
 import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
@@ -4190,18 +4191,24 @@ let openRecordAt = -1;
  * ★ 20261022 §五 5（真）：**浮层按 Esc 要能关**。
  *   只挂一次全局监听（⛔ 每开一次就挂一个）。
  */
+/*
+ * Esc 关人物浮层：挂一次全局监听（TW 契约：配对清理）。
+ *   实现搬到 `ui/esc-close.js`（主文件贴着 8200 行硬线）；这里只管“现在有没有开着的卡”。
+ */
 let personCardEscBound = false;
 function bindPersonCardEsc() {
     if (personCardEscBound) { return; }
-    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') { return; }
-    document.addEventListener('keydown', (ev) => {
-        const key = ev && (ev.key || ev.code);
-        if (String(key || '') !== 'Escape') { return; }
-        if (!personCardId) { return; }
-        closePersonCard();
-        if (typeof ev.preventDefault === 'function') { ev.preventDefault(); }
-    }, true);
+    bindEscClose({
+        isActive: () => Boolean(personCardId),
+        onEsc: () => closePersonCard(),
+    });
     personCardEscBound = true;
+}
+
+/** 卸掉 Esc 监听（停用／卸载时调） */
+export function unbindPersonCardEsc() {
+    unbindEscClose();
+    personCardEscBound = false;
 }
 
 export function openPersonCard(id) {

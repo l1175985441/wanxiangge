@@ -124,6 +124,10 @@ export function ensureWandEntry(waitMs) {
     }
 }
 
+export function stopWandWaiting() {
+    stopWaiting();
+}
+
 function stopWaiting() {
     if (observer) {
         observer.disconnect();

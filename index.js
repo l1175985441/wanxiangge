@@ -30,14 +30,14 @@ import { mountPanel, renderPanel, mountAllCards, refreshMountedCards } from './u
 import { openPanel, closePanel, isPanelOpen, refreshPanel } from './ui/shell.js';
 import { openWorkspace, isWorkspaceOpen, refreshWorkspace, closeWorkspace } from './ui/workspace.js';
 import { mountMini, refreshMini, closeMini } from './ui/mini.js';
-import { ensureWandEntry, syncEntryState } from './ui/wand.js';
+import { ensureWandEntry, syncEntryState, stopWandWaiting } from './ui/wand.js';   /* TW 契约：等容器的 observer 要能停 */
 import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
 import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.515';
+const VERSION = '0.3.516';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -331,6 +331,12 @@ function startEntryTimer() {
  *   ⛔ 动数据：账本照旧留在聊天档与世界书里 ✓
  */
 function teardownUi() {
+    /*
+     * TW 扩展契约（配对清理）：这两个都是**全局**监听器/定时器，不随 DOM 一起消失。
+     *   之前它们没进清理链（Esc 是匿名函数、等容器的 observer 没人停）⇒ 停用后仍在听。
+     */
+    try { unbindPersonCardEsc(); } catch (eEsc) { }
+    try { stopWandWaiting(); } catch (eWand) { }
     try { closeMini(); } catch (eMini) { /* 摘不掉也不能拦着停用 ✓ */ }
     try { closeWorkspace(); } catch (eWs) { }
     try { closePanel(); } catch (ePnl) { }
