@@ -23,6 +23,7 @@ const SHAPE = {
     quests: 'array',
     hidden: 'array',
     newPeople: 'array',
+    affinityTable: 'array',
     pipeline: 'object',
     lastUpdate: 'object',
 };
@@ -37,6 +38,7 @@ const DEFAULTS = {
     quests: [],
     hidden: [],
     newPeople: [],
+    affinityTable: [],
     pipeline: {},
     lastUpdate: {},
 };

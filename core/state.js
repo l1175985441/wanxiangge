@@ -385,6 +385,12 @@ function emptyState() {
         /* ★ [580]／世界记忆引擎 C2：这一楼推演前的存档点（换 swipe／重算时回这里，⛔ 叠脏账） */
         rollCheckpoint: null,
         newPeople: [],           // 新认的人（面板上看得见）
+        /*
+         * 好感表（阿砚第三批新活）：**存在聊天级帐本里**。
+         *   ⛔ 放楼层尾（楼层会被隐藏，表不会）；⛔ 放 `phone`（预设 [9] 每轮清空）。
+         *   表是 U 盘，不是计算器：值只能从手机原样抄进来。
+         */
+        affinityTable: [],
         stat: { recalled: 0, injected: 0, empty: 0, updates: 0 },
     };
 }

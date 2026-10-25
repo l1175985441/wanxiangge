@@ -70,7 +70,8 @@ import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下�
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
-import { clockAnchor } from './gametime.js';   /* 决定①：世界钟先解析、能解才当锚 */
+import { clockAnchor } from './gametime.js';
+import { syncFromPhone } from './affinity.js';   /* 新活：手机里有数就原样抄进表 */   /* 决定①：世界钟先解析、能解才当锚 */
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { lastInjectInfo, mentionedCharacters } from './recall.js';
 
@@ -2476,6 +2477,15 @@ async function runUpdateInner(opts) {
         lastRunGameTimeRaw: gameTimeRawNow,
         /* 决定①：能解出「日期＋时段」才当锚用，否则退化为普通文本锚（⛔ 改调度语义） */
         lastRunGameTimeAnchor: clockAnchor(gameTimeRawNow),
+        /* 新活：好感表只跟手机走（⛔ 自己算）；手机里没提到的人一动不动 */
+        affinitySync: (function () {
+            try {
+                const r = syncFromPhone(loadState(), text, Date.now());
+                return { added: r.added, updated: r.updated };
+            } catch (eAff) {
+                return { added: 0, updated: 0, error: String(eAff && eAff.message) };
+            }
+        })(),
         lastInject: lastInjectInfo(),
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
