@@ -758,6 +758,15 @@ export function getRoster() {
     return list;
 }
 
+/*
+ * 依据＝阿砚 4-b 最后 10 条 · ①（名单与正文分离）：
+ *   **人物只能来自这三个地方**：
+ *     · 账本里她认过的人（`state.characters`）；
+ *     · 世界书投影里认出来的人（`worldbook.peopleFromEntries`）；
+ *     · 她手动加的（就是调用这个函数）。
+ *   ⛔ 从正文里用正则回抽名字：那样会把“路人甲”“她”“我”也当成人物，
+ *      而且没办法说清这个人从哪来。来源集合见 `core/people-source.js`。
+ */
 export function addCharacter(name, extra) {
     const state = loadState();
     const c = createCharacter(name, extra);
