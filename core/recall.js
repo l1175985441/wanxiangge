@@ -279,6 +279,36 @@ function questBlock(c, inScene) {
  * @param {object} item { character, reason, inScene, protected }
  * @param {object} [opts] { anchorFloor } —— 本回合锚点楼（"楼层裁"要有它才算得出距离）
  */
+/**
+ * 好感从哪来（阿砚第三批新活）：**先看好感表**，表里没数才看角色自带的旧值。
+ *   表是 U 盘：值只能从手机抄过来；「未建立」的人 ⇒ **⛔ 出现数值型好感**（照旧写“未接入数据源”）。
+ */
+function affinityRowOf(name) {
+    try {
+        const rows = Array.isArray(loadState().affinityTable) ? loadState().affinityTable : [];
+        const key = trimText(name);
+        return rows.find((r) => r && trimText(r.name) === key) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const AFFINITY_NUM = /^-?\d+(?:\.\d+)?$/;
+
+/** 好感那一行：表有数 ⇒ 用表的；否则用角色旧值；都没有 ⇒ 如实说未接入 */
+function affinityLineOf(c) {
+    const row = affinityRowOf(c && c.name);
+    const rowVal = row ? trimText(row.affinity) : '';
+    if (AFFINITY_NUM.test(rowVal)) {
+        return '  好感：' + rowVal + '（读自好感表）';
+    }
+    const own = trimText(c && c.affinity);
+    if (AFFINITY_NUM.test(own)) {
+        return '  好感：' + own + (trimText(c && c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : '');
+    }
+    return '  好感：未接入数据源（不显示数值）';
+}
+
 function personBlock(item, opts) {
     const c = item.character;
     const anchorFloor = Number(opts && opts.anchorFloor);
@@ -295,13 +325,7 @@ function personBlock(item, opts) {
     const thinFront = item.protected === true;
     if (thinFront) {
         const lines = ['· ' + c.name];
-        const _affOkFront = /^-?\d+(?:\.\d+)?$/.test(trimText(c.affinity));
-        if (_affOkFront) {
-            lines.push('  好感：' + trimText(c.affinity)
-                + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
-        } else {
-            lines.push('  好感：未接入数据源（不显示数值）');
-        }
+    lines.push(affinityLineOf(c));   /* 新活：先好感表，再角色旧值 */
         if (trimText(c.age)) { lines.push('  年龄：' + trimText(c.age)); }
         if (trimText(c.identity)) { lines.push('  身份：' + trimText(c.identity)); }
         if (trimText(c.faction)) { lines.push('  所在势力：' + trimText(c.faction)); }
@@ -332,12 +356,7 @@ function personBlock(item, opts) {
      *   —— 那是**她定的“如实说、不填占位值”** ✓ ⇒ 不擅改 ✓（列回执待口径 ✓）
      */
     /* ⭐ 同上（防御性）：内存里已经是旧值也不写出文字型好感 ✓ */
-    const _affOk = /^-?\d+(?:\.\d+)?$/.test(trimText(c.affinity));
-    if (_affOk) {
-        lines.push('  好感：' + trimText(c.affinity) + (trimText(c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : ''));
-    } else {
-        lines.push('  好感：未接入数据源（不显示数值）');
-    }
+    lines.push(affinityLineOf(c));   /* 新活：后台出场也读好感表（⛔ 重算） */
     if (trimText(c.age)) {
         lines.push('  年龄：' + trimText(c.age));
     }
