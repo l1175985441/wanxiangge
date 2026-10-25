@@ -1038,7 +1038,7 @@ function secWorld(host) {
     const worldCardsEmpty = !wFactions0.length && !wFacts0.length
         && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
     if (worldCardsEmpty) {
-        box.appendChild(emptyBlock('世界事实／脉动／风声 —— 还没有内容（引擎推出来才会展开）', '为什么会自动有：你发消息后引擎会推一次，把硬事实、压力、风声落进来。'));
+        box.appendChild(emptyBlock('世界事实／脉动／风声 —— 还没有内容（引擎推出来才会展开）', '为什么会自动有：你发消息后引擎会推一次，把硬事实、压力、风声落进来。如果一直为空，先看总控「入口与启动」里自动更新有没有开着。'));
     }
 
     /* ★ [580] C1：势力厚度在面板上看得见（只读；改走世界步回写，⛕ 卡头再放一颗编辑） */
@@ -2605,6 +2605,17 @@ function secChronicle(host) {
     /* A4：搜索框（构造在 ui/chron-search.js，主文件别再长） */
     box.appendChild(makeChronSearch(el, chronSearch));
 
+    /*
+     * 三（阿砚九格）：编年顶部一条统计——按**我们自己的分类**算，⛔ 套它的 7 类。
+     *   「已归档」＝这本账里比当前可见范围（最近 120 条）更早的那些。
+     */
+    const archived = Math.max(0, list.length - all.length);
+    const stat = el('div', 'wxg-statbar');
+    stat.appendChild(el('span', 'wxg-statbar-k', '共 ' + String(list.length) + ' 条'));
+    stat.appendChild(el('span', null, '暗线 ' + String(countOf('暗线')) + ' 条'));
+    stat.appendChild(el('span', null, '已归档 ' + String(archived) + ' 条（早于可见的最近 ' + String(all.length) + ' 条）'));
+    box.appendChild(stat);
+
     // ② 一行小结：有几条、什么顺序
     const hit = el('div', 'wxg-hitbar');
     hit.appendChild(el('span', null, '这一筛 ' + String(matched.length) + ' 条'
@@ -2876,12 +2887,18 @@ function secRoster(host) {
      *   好感列空时去好感表取（有数就有内容）。
      */
     const cols = columnsFor(roster, state);
-    const list = el('div', 'wxg-roster wxg-table-' + String(cols.filled));
-    const rhead = el('div', 'wxg-thead wxg-table-' + String(cols.filled));
+    /*
+     * 二（阿砚九格）：三列都空时**别只剩「角色名称」一列**（右半屏空着，也看不出少了什么）。
+     *   留三列表头（名称／身份／势力）＋ 表内一行说明；⛔ 填假值（那是 A12 那类造假）。
+     */
+    const allEmpty = !cols.showAff && !cols.showId && !cols.showFac;
+    const head = allEmpty ? { showAff: false, showId: true, showFac: true, filled: 3 } : cols;
+    const list = el('div', 'wxg-roster wxg-table-' + String(head.filled));
+    const rhead = el('div', 'wxg-thead wxg-table-' + String(head.filled));
     rhead.appendChild(el('div', 'wxg-th', '角色名称'));
-    if (cols.showAff) { rhead.appendChild(el('div', 'wxg-th', '好感')); }
-    if (cols.showId) { rhead.appendChild(el('div', 'wxg-th', '身份')); }
-    if (cols.showFac) { rhead.appendChild(el('div', 'wxg-th', '势力')); }
+    if (head.showAff) { rhead.appendChild(el('div', 'wxg-th', '好感')); }
+    if (head.showId) { rhead.appendChild(el('div', 'wxg-th', '身份')); }
+    if (head.showFac) { rhead.appendChild(el('div', 'wxg-th', '势力')); }
     list.appendChild(rhead);
     for (const c of pageList) {
         const open = String(openChar) === String(c.id);
@@ -2995,6 +3012,10 @@ function secRoster(host) {
             r.appendChild(actions);
         }
         list.appendChild(r);
+    }
+    if (allEmpty) {
+        list.appendChild(el('div', 'wxg-note wxg-roster-blank',
+            '还没有身份／势力／好感——等正文回写，或从世界书读人时带进来。'));
     }
     cList.appendChild(list);
     if (pagerAtBottom) {
@@ -3716,7 +3737,8 @@ function secReport(host, intoBox) {
          */
         const cEmpty = card('每轮记录');
         cEmpty.appendChild(el('div', 'wxg-note', noteText));
-        cEmpty.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'));
+        cEmpty.appendChild(el('div', 'wxg-empty', '还没有记录：发一条消息、正文生成之后就会有了。'
+        + '如果发过了还是没有，去「自定义 API」看通道与地址填了没。'));
         box.appendChild(cEmpty);
         if (!intoBox) {
             host.appendChild(box);
