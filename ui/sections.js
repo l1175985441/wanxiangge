@@ -389,7 +389,7 @@ function textInput(id, value, placeholder, action, cls, type) {    const input =
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 支持传 'password'（默认遮住）✓ */
     input.type = type || 'text';
     input.id = id;
-    input.className = 'text_pole ' + (cls || '');
+    input.className = 'wxg-pole ' + (cls || '');
     input.value = asText(value);
     if (placeholder) {
         input.placeholder = placeholder;
@@ -402,7 +402,7 @@ function numberInput(id, value, min, max, action) {
     const input = document.createElement('input');
     input.type = 'number';
     input.id = id;
-    input.className = 'text_pole';
+    input.className = 'wxg-pole';
     input.min = String(min);
     input.max = String(max);
     input.step = '1';
@@ -414,7 +414,7 @@ function numberInput(id, value, min, max, action) {
 function textarea(id, value, placeholder, action, rows) {
     const box = document.createElement('textarea');
     box.id = id;
-    box.className = 'text_pole textarea_compact';
+    box.className = 'wxg-pole textarea_compact';
     box.rows = String(rows || 4);
     box.value = asText(value);
     if (placeholder) {
@@ -436,7 +436,7 @@ function button(label, action, cls, id) {
 function select(id, options, value, action, id2) {
     const s = document.createElement('select');
     s.id = id;
-    s.className = 'text_pole';
+    s.className = 'wxg-pole';
     s.setAttribute('data-action', action);
     if (id2) {
         s.setAttribute('data-id', id2);
@@ -1484,7 +1484,7 @@ function secCharacters(host) {
     const search = document.createElement('input');
     search.type = 'search';
     search.id = 'wxg-char-search';
-    search.className = 'text_pole wxg-search';
+    search.className = 'wxg-pole wxg-search';
     search.placeholder = '搜人：名字／别名／身份／势力／时间地点／正在经历／任务';
     search.value = charSearch.query;
     search.setAttribute('data-live-action', 'char-search');
@@ -1775,7 +1775,7 @@ function secCharacters(host) {
                     { value: '搁置', label: '搁置' },
                 ], trimText(q.status), 'set-quest-status', c.id);
                 st.setAttribute('data-title', trimText(q.title));
-                st.className = 'text_pole wxg-btn-sm';
+                st.className = 'wxg-pole wxg-btn-sm';
                 head.appendChild(st);
                 if (q.manual) {
                     head.appendChild(el('span', 'wxg-badge wxg-badge-warn', '已手动修改'));
@@ -3401,7 +3401,7 @@ function secApi(host) {
     /*
      * ⭐ LY6（材料 11·布局层）：**「连接方式」那一行要套 .wxg-line-v** ✓
      *   旧：把 .wxg-row 直接挂在 .wxg-line 下 ✗ ⇒ 少了标准的 .wxg-line-v 包装层 ✗
-     *     ⇒ `.wxg-line > .wxg-line-v > select.text_pole` 的宽度样式**完全没命中** #wxg-api-mode ✗
+     *     ⇒ `.wxg-line > .wxg-line-v > select.wxg-pole` 的宽度样式**完全没命中** #wxg-api-mode ✗
      *     ⇒ 而 .wxg-row 自带 margin:7px 0 ⇒ 这一行的上下间距比别的行大一圈 ✗
      */
     const modeWrap = el('div', 'wxg-line-v');
@@ -4335,7 +4335,9 @@ function renderPersonCard() {
     }
     {
         const rel = Number.isFinite(Number(one.relevance)) ? Number(one.relevance) : 1;
-        badges.appendChild(el('span', 'wxg-badge is-soft', '相关度 ' + String(rel) + '/3'));
+        const relBadge = el('span', 'wxg-badge is-soft', '相关度 ' + String(rel) + '/3');
+    relBadge.title = '相关度：当前正文提到他的强弱，从 0（没提到）到 3（正在跟他对戏）';   /* 六-4：1/3 是什么要能问到 */
+    badges.appendChild(relBadge);
     }
     if (one.manual) {
         badges.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
@@ -4369,8 +4371,8 @@ function renderPersonCard() {
      */
     const cid = one.id !== undefined && one.id !== null ? one.id : c.id;
 
-    row2('年龄', 'age', '未知', '身份', 'identity', '未知');
-    row2('所在势力', 'faction', '暂无', '好感', 'affinity', '未接入');
+    row2('年龄', 'age', '—', '身份', 'identity', '—');
+    row2('所在势力', 'faction', '—', '好感', 'affinity', '—');   /* 六-3：内部状态词不印给她 */
     /* ★ B1（六档名册）：档位可看可改，改了记手改锁 ✓ */
     {
         kv.appendChild(el('div', 'wxg-pc-k', '档位（六档）'));
@@ -4380,7 +4382,7 @@ function renderPersonCard() {
         kv.appendChild(roleSel);
     }
     /* ★ 她 22:2x 点头加的两格（事实，不是表演层）✓ */
-    row2('认知账（他会怎么做）', 'behaviorBounds', '他绝不会做的事', '知识面（他不知道什么）', 'knowledgeBounds', '他不知道的事');
+    row2('认知账（他会怎么做）', 'behaviorBounds', '（还没记）', '知识面（他不知道什么）', 'knowledgeBounds', '（还没记）');   /* 六-1：⛔ 拿字段名当内容 */
     /*
      * ⭐ 别名／玩家棋子也放进来。
      * ⚠️ 它们原来只在**行内展开**里（`set-alias` / `set-player`）——把行改成开浮层之后
@@ -4406,7 +4408,7 @@ function renderPersonCard() {
     pchk.setAttribute('data-action', 'set-player');
     pchk.setAttribute('data-id', cid);
     pbox.appendChild(pchk);
-    pbox.appendChild(el('span', null, '这是玩家棋子（⛔ AI 不扮演、不推演）'));
+    pbox.appendChild(el('span', null, '这是玩家棋子（AI 不扮演、不推演）'));
     kv.appendChild(el('div', 'wxg-pc-k', ''));
     const pwrap = el('div', 'wxg-pc-v');
     pwrap.classList.add('wxg-pc-full');
@@ -4511,7 +4513,7 @@ function renderPersonCard() {
      *     "推演时只喂清单里的"是**第二步**（她允许分两步）。
      */
     const kSec = el('div', 'wxg-pc-sec');
-    kSec.appendChild(el('div', 'wxg-pc-sech', '他知道什么（只收发生过的、他碰得到的；⛔ 编）'));
+    kSec.appendChild(el('div', 'wxg-pc-sech', '他知道什么（只收发生过的、他碰得到的；**不许编**）'));
     const kList = Array.isArray(one.knows) ? one.knows : [];
     if (!kList.length) {
         kSec.appendChild(el('div', 'wxg-empty', '还没记他知道什么（下面可以手加一条）'));
@@ -4611,7 +4613,7 @@ function renderPersonCard() {
                 { value: '搁置', label: '搁置' },
             ], trimText(q.status), 'set-quest-status', one.id);
             st.setAttribute('data-title', trimText(q.title));
-            st.className = 'text_pole wxg-btn-sm';
+            st.className = 'wxg-pole wxg-btn-sm';
             qh.appendChild(st);
             const qd = button('删', 'del-quest', 'wxg-btn-sm', one.id);
             qd.setAttribute('data-title', trimText(q.title));
@@ -4718,7 +4720,7 @@ function fieldBox(charId, field, value, placeholder) {
     const long = field === 'current' || field === 'timePlace';
     if (!personCardEditing) {
         const txt = trimText(value);
-        wrap.appendChild(el('div', 'wxg-pc-text' + (txt ? '' : ' is-empty'), txt || (placeholder || '未知')));
+        wrap.appendChild(el('div', 'wxg-pc-text' + (txt ? '' : ' is-empty'), txt || (placeholder || '—')));
         return wrap;
     }
     const input = long ? el('textarea', 'wxg-pc-input') : el('input', 'wxg-pc-input');
@@ -4726,7 +4728,7 @@ function fieldBox(charId, field, value, placeholder) {
         input.type = 'text';
     }
     input.value = trimText(value);
-    input.placeholder = placeholder || '未知';
+    input.placeholder = placeholder || '—';
     input.setAttribute('data-action', 'set-char-field');
     input.setAttribute('data-id', charId);
     input.setAttribute('data-key', field);
@@ -4767,7 +4769,10 @@ function bindPersonCardDrag(pop) {
         const nx = ox + (t.clientX - sx);
         const ny = oy + (t.clientY - sy);
         pop.style.left = String(Math.max(keepX - cardW, Math.min(vw - keepX, nx))) + 'px';
-        pop.style.top = String(Math.max(0, Math.min(vh - keepY, ny))) + 'px';
+        /* 五：拖拽也要夹在视口里（⌊L实际高算底边） */
+        const cardH = pop.getBoundingClientRect ? pop.getBoundingClientRect().height : 0;
+        const maxTop = Math.max(12, vh - 12 - (cardH || 0));
+        pop.style.top = String(Math.max(12, Math.min(maxTop, ny))) + 'px';
         e.preventDefault();
     };
     const up = () => {
@@ -5137,7 +5142,7 @@ function renderWorldEntryCard() {
         const sel = select('wxg-we-stage-' + String(openWorldEntry.idx),
             (item.kind === 'progress' ? STAGES_PROGRESS : STAGES_CONFLICT).map((x) => ({ value: x, label: x })),
             item.stage, 'set-hidden-stage', item.id);
-        sel.className = 'text_pole wxg-btn-sm';
+        sel.className = 'wxg-pole wxg-btn-sm';
         foot.appendChild(sel);
     }
     pop.appendChild(foot);
@@ -6850,7 +6855,7 @@ export function bindSectionEvents(host, refresh) {
                             if (others.length) {
                                 const selEl = document.createElement('select');
                                 selEl.id = 'wxg-merge-target';
-                                selEl.className = 'text_pole';
+                                selEl.className = 'wxg-pole';
                                 for (const x of others) {
                                     const o = document.createElement('option');
                                     o.value = String(x.name || '');

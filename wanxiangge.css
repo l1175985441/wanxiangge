@@ -3240,7 +3240,11 @@ body.wxg-dragging {
  * ======================================================================== */
 .wxg-pc {
     position: fixed; right: 46px; top: 96px; width: 592px; max-width: calc(100vw - 32px);
-    max-height: calc(100vh - 120px); overflow: auto; z-index: 30050;
+    /*
+     * 五（阿砚实机）：卡高原来写死 825（=945-120），但 top 可被拖动到 150 ⇒ 底边 975 超出视口 30px，
+     *   滚到底还压住最后一个按钮（footer sticky 73px）。现在**按视口算**，上下各留 12px。
+     */
+    max-height: calc(100vh - 24px); overflow: auto; z-index: 30050;
     background: var(--wxg-card-bg, #fff);
     color: var(--wxg-text, #1a1d1f);
     border: 1px solid var(--wxg-border, #d5dade);
@@ -4429,3 +4433,38 @@ body[data-wxg-theme="dark"] {
     /* 触屏没有 hover ⇒ 一律显示，⛔ 让删不掉 */
     .wxg-r .wxg-row-del { opacity: 1; }
 }
+
+/* 五：footer 是 sticky（73px），内容区底部留出位置，否则最后一个按钮被压住 */
+.wxg-pc .wxg-pc-body { padding-bottom: 84px; }
+
+/* ==========================================================================
+三（阿砚实机）：**别让酒馆原生控件插进我们的按钮排里**。
+  实测 71/197 个可点是 `text_pole`（白底 38px、半黑粗边），夹在「半透灰底 36px 浅灰边」的按钮中间很扎眼。
+  做法：**只换皮，不重写控件**——把 `.text_pole` 换成我们自己的 `.wxg-pole`，样式统一到按钮那一档；
+        原生 select 的键盘/可访问性保持（⛔ 不改逻辑、⛔ 设 appearance:none 自己画下拉）。
+========================================================================== */
+.wanxiangge .wxg-pole {
+    height: 36px;
+    box-sizing: border-box;
+    background: rgba(128, 128, 128, 0.06);
+    border: 1px solid rgb(213, 218, 222);
+    color: inherit;
+    border-radius: var(--wxg-r-md);
+    padding: 0 12px;
+    font-size: 13px;
+    line-height: 34px;
+    appearance: auto;
+}
+.wanxiangge textarea.wxg-pole {
+    height: auto;
+    min-height: 60px;
+    padding: 8px 12px;
+    line-height: 1.55;
+}
+.wanxiangge .wxg-pole:focus {
+    outline: 2px solid rgba(120, 132, 142, 0.35);
+    outline-offset: 1px;
+}
+/* 同一行里“按钮＋下拉”要一样高，别一个 36 一个 38 */
+.wanxiangge .wxg-row .wxg-pole,
+.wanxiangge .wxg-line .wxg-pole { height: 36px; }
