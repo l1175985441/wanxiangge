@@ -705,13 +705,18 @@
     display: none;
 }
 /*
- * A6 根因（阿砚实机量到的）：这里原来写死 `display: block !important`，
- *   把宽屏媒体查询里的 `display: grid` 压住了 ⇒ 多列从来没生效过（不是没写）。
- *   ⇒ 改成 revert：回落到媒体查询那一档（宽屏 grid、窄屏默认 block）。
- *   ⛔ 别在媒体查询里再加 !important 跟它硬碰——那会变成“由代码顺序决定”的坑。
+ * A6 根因（阿砚实机量了两轮，最后一条是她注入 CSS 试出来的）：
+ *   · 原来这里是 `display: block !important` ⇒ 把宽屏媒体查询的 `display: grid` 压住，多列从没生效；
+ *   · 上一版改成 `display: revert !important` **也不对**——`revert` 回的是**浏览器默认样式**（div=block），
+ *     ⛔ 不会回到同一份作者样式表里媒体查询那条 grid。这个错是我们俩一起认的。
+ *   · 正解：**宽窄各压一条、互斥**，两条都带 `!important`（不是“不许加”，是要各自独占一档）。
+ *   ⚠️ 下面那条 `display: none`（收起）保持不动。
+ */
+/* 窄屏（默认）：block；宽屏那条 grid !important 在下面 @media (min-width:1180px) 里，"
+ *   —— 同源 !important ⇒ 更靠后、更具体的那条赢（⛔ 靠 revert，也⛔ 靠顺序赌）
  */
 .wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body {
-    display: revert !important;
+    display: block !important;
 }
 
 /* ---- 状态行 ----
@@ -4286,6 +4291,12 @@ body[data-wxg-theme="dark"] {
         ⛔ 不是把所有东西拉宽（长文一行扫太久会累）——所以每列给最小 420px，超宽也不摊太开。
    ========================================================================== */
 @media (min-width: 1180px) {
+    /*
+     * A6（阿砚实机结论）：宽屏这一档要**带 !important 且排在基础那条之后**，
+     *   否则基础的 `display: block !important` 会把它压住（原来多列从没生效就是这个原因）。
+     *   选择器比 `.wxg-ws-main .wxg-sec-body` 更具体 ⇒ 同块里也是它赢。
+     */
+    .wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body { display: grid !important; }
     .wxg-ws-main .wxg-sec-body {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
@@ -4359,8 +4370,11 @@ body[data-wxg-theme="dark"] {
     margin-top: var(--gap-xs);
 }
 /* A6：折起来靠 CSS（⛔ 搬 DOM 节点）——卡头、摘要、「查看全部」之外的都先藏起来 */
-.wxg-card.is-compact > :not(.wxg-card-h):not(.wxg-card-sum):not(.wxg-card-more) { display: none; }
-.wxg-card.is-compact.is-open > :not(.wxg-card-h) { display: revert; }
+/*
+ * 「查看全部」折叠：代码里没上（decorateCard 只加摘要），
+ *   原来这两条是死代码，且 `display: revert` 语义不对（回的是浏览器默认）⇒ 删掉。
+ *   要补折叠时请用开合各一条互斥的媒体查询（同 A6那套）。
+ */
 @media (max-width: 720px) {
     .wxg-wgrid { grid-template-columns: 1fr; }
 }

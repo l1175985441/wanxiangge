@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.517';
+export const APP_VERSION = '0.3.518';
 
 export const LEDGER_VERSION = 3;
 
@@ -270,7 +270,7 @@ export const DEFAULT_PROMPT_WORLD = [
     '⛔ **世界是好几条线并排走的**：至少保留两条不同阵营／不同方向的线，⛔ 只演一条 ✓。',
     '⛔ 再说一遍格式：**下面骨架里的每一组都要出现**（空的就写 `[]`／`""`），⛔ 不许因为“这轮没事”就把组省掉 ✗；少一组就是输出不全，这一轮后台白跑 ✓。',
     '只输出 JSON，不要任何别的文字：',
-    '{"clock":"世界内时间（读不出来写未知）","place":"大致地点","bigPicture":"从高处看一眼：这个世界现在什么样（两三句）",',
+    '{"clock":"世界内时间（读不出来就留空）","place":"大致地点","bigPicture":"从高处看一眼：这个世界现在什么样（两三句）",',
     ' "situations":[{"title":"谁和谁在起冲突／在酝酿什么","sides":"哪几方","tier":"身边即时|几天内|长线大势","origin":"plot|ripple|state","cause":"这件事是怎么来的（上承）","effect":"往哪边走（下沿）","expected":"原先以为会怎样（预期）","result":"实际落到哪（实果；未结可空）","consequence":"余波／还会牵动什么","pressure":0–5的压力,"trend":"rising|falling|steady","visibility":"public|trace|private","evidence":"从正文里抄一句原文当证据"}],',
         /* P11/P12 (material 07): advance is no longer hardcoded and the two stage tracks
      *   are spelled out separately, with kind saying which track a line belongs to. */
@@ -328,7 +328,7 @@ export const DEFAULT_PROMPT_CHARS = [
     + '他的存在只由**别人**的行来侧面承载（见规矩 2）。',
     '',
     '只输出 JSON，不要任何别的文字：',
-    '{"clock":"世界内时间（读不出来写未知）","chars":[{"name":"角色名","age":"或空","identity":"或空",',
+    '{"clock":"世界内时间（读不出来就留空）","chars":[{"name":"角色名","age":"或空","identity":"或空",',
     /* P1 (material 07): the affinity field is removed from the model JSON template.
      *   Her words: affinity is READ-ONLY from her phone / body-text tags.
      *   Root cause: the template said "copy it verbatim" => the model copied the
