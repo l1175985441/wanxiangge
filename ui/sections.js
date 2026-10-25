@@ -471,7 +471,13 @@ export function hasUnsavedDraft() {
 
 function foldable(summaryText, open) {
     const d = document.createElement('details');
+    /*
+     * 依据＝阿砚第三批 N1（召回页折叠后下半屏全白）：
+     *   折叠体里没内容撑高度 ⇒ 一屏只剩三个折叠头。
+     *   现在：给最小高度（先把空白挡住），具体在 CSS `--wxg-fold-min`。
+     */
     d.className = 'wxg-report';
+    d.style.minHeight = 'var(--wxg-fold-min, 96px)';
     const s = document.createElement('summary');
     s.appendChild(el('span', null, summaryText));
     if (summaryText) {
