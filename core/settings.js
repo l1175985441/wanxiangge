@@ -343,22 +343,44 @@ export function defaultPrompt(kind) {
     return '';
 }
 
-/** 实际生效的提示词：留空＝内置；填了＝她的 */
-export function effectivePrompt(kind) {
+/**
+ * 依据＝阿砚 4-b 最后 10 条 · ⑦（**继承态必须能区分**）：
+ *   旧：`trimText(s.promptX) || 内置` —— “没设过”与“她把它清空了”**同义**，
+ *   她想“就是不要这块”楼时，系统会默默把内置塞回去。
+ *   现在三态：
+ *     · `null`   ⇒ **显式清空**（`empty`：真的不要）
+ *     · 非空字符串 ⇒ `custom`（她的）
+ *     · 字符串空串 / 键不存在 ⇒ `inherited`（用内置）
+ *   ⛔ 把 `null` 当“空字符串”：那样一个手误 `{}` 就会把提示词清成空。
+ */
+const PROMPT_KEYS = {
+    world: ['promptWorld', DEFAULT_PROMPT_WORLD],
+    chars: ['promptChars', DEFAULT_PROMPT_CHARS],
+    jailbreak: ['jailbreak', DEFAULT_JAILBREAK],
+    header: ['injectHeader', DEFAULT_INJECT_HEADER],
+};
+
+/** 提示词的三态判定：{ value, state: 'inherited'|'empty'|'custom' } */
+export function promptState(kind) {
+    const pair = PROMPT_KEYS[kind];
+    if (!pair) {
+        return { value: '', state: 'inherited' };
+    }
     const s = getSettings();
-    if (kind === 'world') {
-        return trimText(s.promptWorld) || DEFAULT_PROMPT_WORLD;
+    const raw = s[pair[0]];
+    if (raw === null) {
+        return { value: '', state: 'empty' };
     }
-    if (kind === 'chars') {
-        return trimText(s.promptChars) || DEFAULT_PROMPT_CHARS;
+    const trimmed = trimText(raw);
+    if (trimmed) {
+        return { value: trimmed, state: 'custom' };
     }
-    if (kind === 'jailbreak') {
-        return trimText(s.jailbreak) || DEFAULT_JAILBREAK;
-    }
-    if (kind === 'header') {
-        return trimText(s.injectHeader) || DEFAULT_INJECT_HEADER;
-    }
-    return '';
+    return { value: pair[1], state: 'inherited' };
+}
+
+/** 实际生效的提示词：继承⇒内置；显式清空⇒空；填了⇒她的 */
+export function effectivePrompt(kind) {
+    return promptState(kind).value;
 }
 
 /** 把 {{占位}} 换成真内容 */
