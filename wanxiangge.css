@@ -27,7 +27,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     list-style: none;
     user-select: none;
 }
@@ -64,7 +64,7 @@
     border-top: 1px dashed var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.3));
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: var(--gap-md);
 }
 
 .wxg-col {
@@ -89,7 +89,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wxg-name {
@@ -208,7 +208,7 @@
 .wxg-ws-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--gap-md);
     padding: 9px 14px;
     flex: 0 0 auto;
     background: var(--wxg-surface, #1d1f23);
@@ -248,7 +248,7 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: var(--gap-sm);
     flex-wrap: wrap;
     justify-content: flex-end;
 }
@@ -302,7 +302,7 @@
 .wxg-ws-side-item {
     display: flex;
     align-items: flex-start;
-    gap: 9px;
+    gap: var(--gap-md);
     width: 100%;
     text-align: left;
     font: inherit;
@@ -444,7 +444,7 @@
     z-index: 30020;
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--gap-md);
     font-size: 13px;
     color: var(--wxg-text, #e6e7e4);
     max-width: min(82vw, 640px);
@@ -510,7 +510,7 @@
 .wxg-mini-head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     margin-bottom: 7px;
     padding-bottom: 6px;
     border-bottom: 1px solid var(--wxg-border, #3a3f46);
@@ -524,7 +524,7 @@
 .wxg-mini-actions {
     margin-left: auto;
     display: flex;
-    gap: 5px;
+    gap: var(--gap-sm);
 }
 
 .wxg-mini-btn {
@@ -548,13 +548,13 @@
 .wxg-mini-body {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--gap-xs);
 }
 
 .wxg-mini-row {
     display: grid;
     grid-template-columns: 4.6em 1fr;
-    gap: 8px;
+    gap: var(--gap-md);
     align-items: baseline;
     line-height: 1.55;
 }
@@ -597,7 +597,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 2px 4px;
+    gap: var(--gap-xs) var(--gap-xs);
     padding: 4px 8px 0;
     margin-bottom: 10px;
     border: 1px solid var(--wxg-line);
@@ -656,7 +656,7 @@
 .wanxiangge .wxg-sec-head {
     padding: 8px 10px;
     background: var(--wxg-fill);
-    gap: var(--s2);
+    gap: var(--gap-md);
 }
 
 .wanxiangge .wxg-sec-head:hover {
@@ -666,7 +666,7 @@
 .wanxiangge .wxg-sec-titlewrap {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--gap-md);
     min-width: 0;
     flex-wrap: wrap;
 }
@@ -785,7 +785,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--s2);
+    gap: var(--gap-md);
     margin: 5px 0;
 }
 
@@ -800,14 +800,14 @@
 .wanxiangge .wxg-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s2) 14px;
+    gap: var(--gap-md) var(--gap-lg);
 }
 
 .wanxiangge .wxg-field {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--s2);
+    gap: var(--gap-md);
     /* ⚠️ 真机上看出来的：`flex: 1 1 200px` 会让"标签＋输入框"整组撑满一整行，
        标签被挤到上一行、输入框横跨全宽 ⇒ 改成按内容摆（放不下才换行）。 */
     flex: 0 1 auto;
@@ -840,7 +840,7 @@
 .wanxiangge .checkbox_label {
     display: flex;
     align-items: center;
-    gap: var(--s2);
+    gap: var(--gap-md);
     margin: 4px 0;
     line-height: 1.5;
 }
@@ -860,7 +860,7 @@
 .wanxiangge .wxg-list {
     display: flex;
     flex-direction: column;
-    gap: var(--s2);
+    gap: var(--gap-md);
     margin: 4px 0 8px;
 }
 
@@ -871,7 +871,7 @@
     background: var(--wxg-fill);
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-rowitem:hover {
@@ -882,7 +882,7 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-name {
@@ -930,7 +930,7 @@
 .wanxiangge .wxg-roster {
     display: flex;
     flex-direction: column;
-    gap: var(--s2);
+    gap: var(--gap-md);
 }
 
 .wanxiangge .wxg-char {
@@ -940,7 +940,7 @@
     background: var(--wxg-fill);
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--gap-sm);
     /* 名册人再多也别把每个卡片拉得特别宽（不然一行信息要横着扫很久） */
     max-width: 900px;
 }
@@ -949,7 +949,7 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-char-name {
@@ -959,7 +959,7 @@
 .wanxiangge .wxg-char-fields {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s2) 12px;
+    gap: var(--gap-md) var(--gap-md);
     align-items: center;
 }
 
@@ -988,7 +988,7 @@
 .wanxiangge .wxg-char-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s2);
+    gap: var(--gap-md);
 }
 
 /* ⚠️ 以前这些小按钮用 `wxg-mini` 当类名 —— 后来 `wxg-mini` 变成了**悬浮球的根节点**
@@ -1016,14 +1016,14 @@
 .wanxiangge .wxg-prof-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--gap-sm);
     margin-bottom: 7px;
 }
 
 .wanxiangge .wxg-prof {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: 6px 9px;
     border: 1px solid var(--wxg-line);
     border-radius: var(--wxg-radius);
@@ -1034,7 +1034,7 @@
 .wanxiangge .wxg-prof-info {
     display: flex;
     align-items: baseline;
-    gap: 7px;
+    gap: var(--gap-sm);
     min-width: 0;
     flex: 1 1 12em;
     flex-wrap: wrap;
@@ -1049,7 +1049,7 @@
 .wanxiangge .wxg-pickwrap {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: var(--gap-sm);
     margin: 5px 0 7px;
     align-items: center;
 }
@@ -1096,13 +1096,13 @@
     margin: 4px 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--gap-xs);
 }
 
 .wanxiangge .wxg-steps li {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: var(--gap-sm);
     font-size: 0.92em;
     line-height: 1.5;
 }
@@ -1120,7 +1120,7 @@
 .wanxiangge .wxg-report-list {
     display: flex;
     flex-direction: column;
-    gap: var(--s2);
+    gap: var(--gap-md);
 }
 
 .wanxiangge .wxg-report {
@@ -1134,7 +1134,7 @@
     padding: 6px 9px;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 10px;
+    gap: var(--gap-sm) var(--gap-md);
     align-items: baseline;
     font-size: 0.92em;
 }
@@ -1177,7 +1177,7 @@
     border-top: 1px solid var(--wxg-line);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-report-h {
@@ -1202,7 +1202,7 @@
 .wanxiangge .wxg-chron {
     display: flex;
     flex-direction: column;
-    gap: var(--s2);   /* 4-g #4：硬编码 2px 不留（编年行距见渲染层 #4） */
+    gap: var(--gap-md);   /* 4-g #4：硬编码 2px 不留（编年行距见渲染层 #4） */
     font-size: 0.9em;
     line-height: 1.55;
 }
@@ -1215,7 +1215,7 @@
 .wanxiangge .wxg-card-foot {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
     align-items: center;
 }
 
@@ -1252,7 +1252,7 @@
 .wxg-panel-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: 6px 10px;
     cursor: move;
     user-select: none;
@@ -1263,7 +1263,7 @@
 .wxg-panel-title {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
     font-weight: 700;
     letter-spacing: 0.4px;
 }
@@ -1272,7 +1272,7 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--gap-xs);
 }
 
 .wxg-panel-btn {
@@ -1325,7 +1325,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-ctools {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     flex-wrap: wrap;
     margin-bottom: 9px;
 }
@@ -1430,7 +1430,7 @@ body.wxg-dragging {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
+    gap: var(--gap-xs);
 }
 
 .wanxiangge .wxg-cname {
@@ -1508,7 +1508,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-savebar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     flex-wrap: wrap;
     margin-top: 12px;
     padding-top: 9px;
@@ -1625,7 +1625,7 @@ body.wxg-dragging {
 .wanxiangge label.checkbox_label {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--gap-xs);
     flex: 0 0 auto;
     white-space: nowrap;
 }
@@ -1668,7 +1668,7 @@ body.wxg-dragging {
 .wxg-ws .wxg-card > label.checkbox_label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--gap-md);
     padding: 6px 0;
     margin: 2px 0;
     white-space: normal;
@@ -1686,7 +1686,7 @@ body.wxg-dragging {
 /* ---- "文字 ＋ 数字框 ＋ 文字"这类行：垂直居中对齐，别看着断开 ---- */
 .wanxiangge .wxg-row {
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-row > input.text_pole[type='number'],
@@ -1729,7 +1729,12 @@ body.wxg-dragging {
     --fs-body: 13px;   /* A1：固定 px */
     --fs-head: 15px;   /* A1：固定 px */
     --fs-big: 19px;    /* A1：头号（弹窗标题／关键数字） */
-    --wxg-fold-min: 96px;   /* N1：折叠体最小高度，⛔ 下半屏全白 */
+    --wxg-fold-min: 96px;
+    /* A2：间距只留 4 档（4／6／10／16），⛔ 再写死数字 */
+    --gap-xs: 4px;
+    --gap-sm: 6px;
+    --gap-md: 10px;
+    --gap-lg: 16px;   /* N1：折叠体最小高度，⛔ 下半屏全白 */
     --r: 8px;
     /* 卡片底色：抬一档（文字色 5% 罩色）——深浅两套主题都成立 */
     --wxg-card-bg: rgba(128, 128, 128, 0.09);
@@ -1933,7 +1938,7 @@ body.wxg-dragging {
     display: grid;
     grid-template-columns: 9.5em 1fr;
     align-items: center;
-    gap: var(--s2) var(--s3);
+    gap: var(--gap-md) var(--gap-lg);
     padding: var(--s1) 0;
 }
 
@@ -1961,7 +1966,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--s2);
+    gap: var(--gap-md);
     min-width: 0;
 }
 
@@ -1973,7 +1978,7 @@ body.wxg-dragging {
 @media (max-width: 720px) {
     .wanxiangge .wxg-line {
         grid-template-columns: 1fr;
-        gap: var(--s1);
+        gap: var(--gap-xs);
     }
 
     .wanxiangge .wxg-line > .wxg-line-k {
@@ -2125,7 +2130,7 @@ body.wxg-dragging {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--gap-md);
     border: 0;
     background: transparent;
     border-radius: var(--r-ctl);
@@ -2174,7 +2179,7 @@ body.wxg-dragging {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--gap-sm);
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
@@ -2212,7 +2217,7 @@ body.wxg-dragging {
 
 /* 按钮与行内控件之间的间距拉开（参照图里都拉得比较开） */
 .wanxiangge .wxg-row {
-    gap: 10px;
+    gap: var(--gap-md);
     margin: 7px 0;
 }
 
@@ -2269,7 +2274,7 @@ body.wxg-dragging {
    --------------------------------------------------------------------------- */
 
 .wanxiangge label.checkbox_label {
-    gap: 10px;
+    gap: var(--gap-md);
     padding: 5px 0;
     font-size: 0.95em;
 }
@@ -2340,7 +2345,7 @@ body.wxg-dragging {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--gap-md);
     min-height: 0;
     padding: 20px 18px;
     border: 1px dashed var(--wxg-border, var(--wxg-line));
@@ -2376,7 +2381,7 @@ body.wxg-dragging {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: var(--gap-lg);
     min-height: 300px;
     padding: var(--s6) var(--s5);
     border-radius: var(--r-card);
@@ -2500,7 +2505,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
     padding: 0 0 var(--s3);
     margin-bottom: var(--s3);
     border-bottom: 1px solid var(--wxg-line);
@@ -2515,7 +2520,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-filter {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--gap-sm);
     height: 28px;
     padding: 0 11px;
     border: 1px solid var(--wxg-line);
@@ -2549,7 +2554,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--s2);
+    gap: var(--gap-md);
     padding: 0 0 var(--s2);
     font-size: var(--fs-note);
     color: var(--wxg-dim);
@@ -2564,7 +2569,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-grouphead {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: var(--s3) 0 var(--s1);
     font-size: var(--fs-note);
     color: var(--wxg-dim);
@@ -2582,7 +2587,7 @@ body.wxg-dragging {
     display: grid;
     grid-template-columns: 5.6em 1fr auto;
     align-items: baseline;
-    gap: 4px var(--s3);
+    gap: var(--gap-xs) var(--gap-lg);
     /*
      * 依据＝阿砚 3 件任务 · 渲染层 #4（编年行距）：
      *   三家实测行内边距都在 12–17px，我们只有 7px（比行间距还小）⇒ 挤成一团。
@@ -2617,7 +2622,7 @@ body.wxg-dragging {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
     font-size: 0.98em;
     line-height: 1.6;
 }
@@ -2638,7 +2643,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-r-act {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
     justify-self: end;
     white-space: nowrap;
 }
@@ -2705,7 +2710,7 @@ body.wxg-dragging {
     display: grid;
     grid-template-columns: 4.6em auto 1fr auto;
     align-items: center;
-    gap: 10px;
+    gap: var(--gap-md);
     padding: 8px 2px;
 }
 
@@ -2762,7 +2767,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: var(--s3) 0 var(--s1);
     margin-top: var(--s1);
     border-top: 1px solid var(--wxg-line);
@@ -2780,7 +2785,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: var(--gap-xs);
 }
 
 /* 页码里"当前这一页"＝实心主色（跟筛选胶囊一个语言） */
@@ -2845,7 +2850,7 @@ body.wxg-dragging {
     color: var(--wxg-text, inherit);
     display: flex;
     flex-direction: column;
-    gap: var(--s2);
+    gap: var(--gap-md);
 }
 
 .wanxiangge .wxg-app-pv-name {
@@ -2859,7 +2864,7 @@ body.wxg-dragging {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: var(--s2);
+    gap: var(--gap-md);
     padding: var(--s2) var(--s3);
     border-radius: var(--r-ctl);
     border: 1px dashed rgba(226, 163, 60, 0.55);
@@ -2911,7 +2916,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--s3);
+    gap: var(--gap-lg);
 }
 
 .wanxiangge .wxg-card.is-locked input.text_pole:not(.wxg-add-row *),
@@ -2972,7 +2977,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: var(--s1) 0 var(--s3);
     font-size: 1.02em;
 }
@@ -2997,7 +3002,7 @@ body.wxg-dragging {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--gap-md);
     padding: 6px 0;
     border-bottom: 1px solid rgba(128, 128, 128, 0.12);
 }
@@ -3031,7 +3036,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-cname-line {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 
 .wanxiangge .wxg-cname-line .wxg-r-caret {
@@ -3042,7 +3047,7 @@ body.wxg-dragging {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: var(--gap-xs);
     margin-top: 3px;
 }
 
@@ -3065,13 +3070,13 @@ body.wxg-dragging {
 .wanxiangge .wxg-cedit {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: var(--s2) var(--s3);
+    gap: var(--gap-md) var(--gap-lg);
 }
 
 .wanxiangge .wxg-cedit-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--gap-xs);
     min-width: 0;
 }
 
@@ -3093,7 +3098,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-ws-side-group {
     display: flex;
     align-items: baseline;
-    gap: 6px;
+    gap: var(--gap-sm);
     padding: var(--s3) var(--s2) 4px;
     margin-top: var(--s1);
 }
@@ -3233,14 +3238,14 @@ body.wxg-dragging {
     font-size: 13.5px;
 }
 .wxg-pc-head {
-    display: flex; align-items: flex-start; gap: 10px;
+    display: flex; align-items: flex-start; gap: var(--gap-md);
     padding: 14px 14px 10px; cursor: move; user-select: none;
 }
 .wxg-pc-grip { color: var(--wxg-dim, #6d747a); font-size: 15px; line-height: 24px; letter-spacing: -1px; }
 .wxg-pc-who { flex: 1; min-width: 0; }
 .wxg-pc-name { font-size: 26px; font-weight: 700; line-height: 1.15; }
 .wxg-pc-alias { color: var(--wxg-dim, #6d747a); font-size: 12.5px; margin-top: 5px; }
-.wxg-pc-badges { display: flex; gap: 6px; align-items: center; padding-top: 9px; flex: 0 0 auto; }
+.wxg-pc-badges { display: flex; gap: var(--gap-sm); align-items: center; padding-top: 9px; flex: 0 0 auto; }
 .wxg-pc-kebab, .wxg-pc-x {
     flex: 0 0 auto; background: transparent; border: 1px solid transparent;
     color: var(--wxg-dim, #6d747a); border-radius: var(--wxg-r-xs); padding: 2px 8px; font-size: 15px; cursor: pointer;
@@ -3249,7 +3254,7 @@ body.wxg-dragging {
 .wxg-pc-sec { padding: 12px 14px 4px; }
 .wxg-pc-sec + .wxg-pc-sec { border-top: 1px solid var(--wxg-line, #e6e8ea); }
 .wxg-pc-sech { color: var(--wxg-dim, #6d747a); font-size: 12px; margin-bottom: 9px; }
-.wxg-pc-kv { display: grid; grid-template-columns: 62px 1fr 62px 1fr; gap: 8px 12px; align-items: center; }
+.wxg-pc-kv { display: grid; grid-template-columns: 62px 1fr 62px 1fr; gap: var(--gap-md) var(--gap-md); align-items: center; }
 .wxg-pc-k { color: var(--wxg-dim, #6d747a); font-size: 12px; }
 .wxg-pc-v { min-width: 0; }
 .wxg-pc-v.wxg-pc-full { grid-column: 2 / -1; }
@@ -3263,9 +3268,9 @@ body.wxg-dragging {
 .wxg-pc-quote > div { font-size: 13px; line-height: 1.65; }
 .wxg-pc-quote > div + div { margin-top: 4px; }
 .wxg-pc-when { color: var(--wxg-dim, #6d747a); font-size: 11.5px; margin-right: 6px; }
-.wxg-pc-player { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--wxg-dim, #6d747a); }
+.wxg-pc-player { display: flex; align-items: center; gap: var(--gap-sm); font-size: 12.5px; color: var(--wxg-dim, #6d747a); }
 .wxg-pc-foot {
-    display: flex; align-items: center; gap: 9px; padding: 11px 14px 13px;
+    display: flex; align-items: center; gap: var(--gap-md); padding: 11px 14px 13px;
     border-top: 1px solid var(--wxg-line, #e6e8ea); background: var(--wxg-fill, rgba(0,0,0,.03));
 }
 .wxg-pc-counter { flex: 1; text-align: center; color: var(--wxg-dim, #6d747a); font-size: 12.5px; }
@@ -3296,7 +3301,7 @@ body.wxg-dragging {
      */
     background: var(--wxg-surface, var(--wxg-card-bg, #ffffff));
 }
-.wxg-pc-head { padding: 16px 18px 12px; gap: 12px; }
+.wxg-pc-head { padding: 16px 18px 12px; gap: var(--gap-md); }
 .wxg-pc-name { font-size: 27px; letter-spacing: .01em; overflow-wrap: anywhere; }
 .wxg-pc-alias { font-size: 13px; margin-top: 6px; }
 .wxg-pc-badges { padding-top: 10px; }
@@ -3306,7 +3311,7 @@ body.wxg-dragging {
 /* 两栏＝「标签 值 标签 值」四列（值列宽、标签列固定且不换行） */
 .wxg-pc-kv {
     grid-template-columns: 74px minmax(0, 1fr) 74px minmax(0, 1fr);
-    gap: 10px 16px;
+    gap: var(--gap-md) var(--gap-lg);
 }
 .wxg-pc-k { white-space: nowrap; font-size: 12.5px; }
 .wxg-pc-v.wxg-pc-full { grid-column: 2 / -1; }
@@ -3316,7 +3321,7 @@ body.wxg-dragging {
 .wxg-pc-foot {
     flex-wrap: nowrap;
     padding: 12px 18px 14px;
-    gap: 10px;
+    gap: var(--gap-md);
 }
 .wxg-pc-counter { flex: 1 1 auto; min-width: 64px; white-space: nowrap; }
 .wxg-pc-foot .menu_button,
@@ -3394,7 +3399,7 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-roster .wxg-th { padding: 8px 12px; }
 /* 最后一列：只要一个 › 和一个 ⋯，⛔ 不要框 */
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-act {
-    display: flex; align-items: center; justify-content: flex-end; gap: 2px;
+    display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-xs);
     padding: 4px 12px; border-left: none;
 }
 .wxg-ws-main .wxg-roster .wxg-r-caret { color: var(--wxg-dim, #6d747a); font-size: 13px; }
@@ -3456,7 +3461,7 @@ body.wxg-dragging {
 .wxg-ws-pagehead[data-wxg-sec="人物名册"] { text-align: center; }
 
 /* 筛选行：左边一排胶囊、右边一个搜索框（照包） */
-.wxg-ws-main .wxg-filters { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.wxg-ws-main .wxg-filters { display: flex; align-items: center; gap: var(--gap-sm); flex-wrap: wrap; }
 .wxg-ws-main .wxg-filters .wxg-searchwrap { margin-left: auto; position: relative; display: flex; align-items: center; }
 .wxg-ws-main .wxg-searchico {
     position: absolute; left: 9px; color: var(--wxg-dim, #6d747a); font-size: 13px; pointer-events: none;
@@ -3484,7 +3489,7 @@ body.wxg-dragging {
 .wxg-mini .wxg-mini-ops {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: var(--gap-sm);
 }
 .wanxiangge .wxg-mini-op,
 .wxg-mini .wxg-mini-op {
@@ -3511,7 +3516,7 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-two {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--s3, 12px);
+    gap: var(--gap-lg);
     align-items: start;
 }
 @media (max-width: 900px) {
@@ -3570,7 +3575,7 @@ body.wxg-dragging {
 .wxg-busy-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--gap-xs);
     padding: 2px 8px;
     border-radius: var(--wxg-r-pill);
     font-size: 12px;
@@ -3621,7 +3626,7 @@ body.wxg-dragging {
     padding: 6px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--gap-xs);
     background: var(--wxg-card-bg, var(--wxg-fill, #ffffff));
     border: 1px solid var(--wxg-border, #d5dade);
     border-radius: var(--wxg-r-md);
@@ -3672,7 +3677,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-chipwrap {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--gap-sm);
     margin-top: 8px;
     max-height: 220px;
     overflow: auto;
@@ -3681,7 +3686,7 @@ body.wxg-dragging {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-sm);
     margin: 6px 0;
 }
 .wanxiangge .wxg-chip {
@@ -3707,7 +3712,7 @@ body.wxg-dragging {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-md);
     margin: 6px 0 10px;
     padding: 8px 10px;
     background: var(--wxg-soft, rgba(0, 0, 0, 0.03));
@@ -3728,7 +3733,7 @@ body.wxg-dragging {
 .wanxiangge .wxg-add-row-hidden {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px 10px;
+    gap: var(--gap-md) var(--gap-md);
     align-items: center;
 }
 .wanxiangge .wxg-add-row-hidden > * {
@@ -3863,10 +3868,10 @@ body.wxg-dragging {
 .wxg-line-group {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px 12px;
+    gap: var(--gap-md) var(--gap-md);
     margin: 6px 0 10px;
 }
-.wxg-line-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wxg-line-cell { display: flex; flex-direction: column; gap: var(--gap-xs); min-width: 0; }
 .wxg-line-k { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wxg-line-v { min-width: 0; }
 .wxg-line-v .wxg-num, .wxg-line-v input, .wxg-line-v select { width: 100%; box-sizing: border-box; }
@@ -3890,7 +3895,7 @@ body.wxg-dragging {
 }
 @media (max-width: 480px) {
     .wxg-card, .wxg-sec { padding-left: 8px; padding-right: 8px; }
-    .wxg-card-actions { flex-wrap: wrap; gap: 6px; }
+    .wxg-card-actions { flex-wrap: wrap; gap: var(--gap-sm); }
     .wxg-ctable { font-size: 12px; }
     .wxg-pc { max-width: calc(100vw - 16px); }
 }
@@ -4206,7 +4211,7 @@ body[data-wxg-theme="dark"] {
    做法：图标放大到 22px、描边加粗；每项按图标名分一个色（颜色记身份，不只靠形状）；
         文字始终显示并加粗一档，选中项有实色侧条。
    ========================================================================== */
-.wxg-ws-side-item { gap: 10px; padding: 7px 10px; border-radius: var(--wxg-r-sm); }
+.wxg-ws-side-item { gap: var(--gap-md); padding: 7px 10px; border-radius: var(--wxg-r-sm); }
 .wxg-ws-side-ico { width: 22px; height: 22px; flex: 0 0 22px; opacity: .95; }
 .wxg-ws-side-ico svg { width: 22px; height: 22px; stroke-width: 2.2; }
 .wxg-ws-side-txt { font-weight: 600; font-size: 13.5px; letter-spacing: .2px; }
@@ -4245,11 +4250,11 @@ body[data-wxg-theme="dark"] {
    B2-3 顶栏不再挤（依据＝阿砚 B2-3「世界钟·周围·暗线·编年·读取控制·✕ 全一行」）
    做法：允许换行；小胶囊自己成一组靠右；窄屏时标题与胶囊分两行；✕ 永远贴右不换行。
    ========================================================================== */
-.wxg-ws-bar { flex-wrap: wrap; row-gap: 6px; column-gap: 10px; }
+.wxg-ws-bar { flex-wrap: wrap; row-gap: var(--gap-sm); column-gap: var(--gap-md); }
 .wxg-ws-titlebox { min-width: 0; flex: 1 1 200px; }
 .wxg-ws-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wxg-ws-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wxg-ws-right { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.wxg-ws-right { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: var(--gap-sm); min-width: 0; }
 .wxg-ws-quick { flex: 0 0 auto; }
 .wxg-ws-x { flex: 0 0 auto; }
 @media (max-width: 720px) {
@@ -4276,7 +4281,7 @@ body[data-wxg-theme="dark"] {
     .wxg-ws-main .wxg-sec-body {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-        gap: 12px;
+        gap: var(--gap-md);
         align-items: start;
     }
     /* 卡片在主区里不再各自卡死宽度（原来像被一条竖线截断） */
