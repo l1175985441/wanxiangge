@@ -3239,7 +3239,12 @@ body.wxg-dragging {
  *    挂在 body 上（真浮层）⇒ 选择器不带 .wanxiangge 前缀，改用自带类名。
  * ======================================================================== */
 .wxg-pc {
-    position: fixed; right: 46px; top: 96px; width: 592px; max-width: calc(100vw - 32px);
+    /*
+     * 五（阿砚实机第二轮）：**top 也要按视口算**——上一版只改了 max-height，
+     *   top 还是 150（拖动过的位置）⇒ 150 + 921 = 1071，反而比原来更超出。
+     *   这里取方案 A：上下各留 12px；拖动照旧改 left/top，⛔ 不引入 transform（会跟拖动打架）。
+     */
+    position: fixed; right: 46px; top: 12px; width: 592px; max-width: calc(100vw - 32px);
     /*
      * 五（阿砚实机）：卡高原来写死 825（=945-120），但 top 可被拖动到 150 ⇒ 底边 975 超出视口 30px，
      *   滚到底还压住最后一个按钮（footer sticky 73px）。现在**按视口算**，上下各留 12px。

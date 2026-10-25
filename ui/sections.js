@@ -10,6 +10,7 @@ import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
 import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全收；八：开关状态句 */
+import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
 import { markOneCol } from './onecol.js';   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -5928,22 +5929,21 @@ export function bindSectionEvents(host, refresh) {
     }
     host.__wxgBound = true;
 
+    /* 三：重画会把元素换掉 ⇒ 焦点会丢；记下/还回的实现在 ui/focus-keep.js（主文件行数硬线） */
     const rerender = () => {
+        const focusSnap = rememberFocus(document);
         const mode = host.getAttribute('data-wxg-mode') || 'settings';
-        /*
-         * ⚠️ 工作台模式下 `refresh()` 就是 `refreshWorkspace()`，它**自己会重画**一遍
-         *    ⇒ 这里再来一次 `renderSections` 就是**整页连画两次**：
-         *    白干一倍活儿，而且实测"连点同一颗按钮第 6 次"时界面会塌掉一半
-         *    （自审里量到控件从 80 掉到 20）。所以工作台那条路只走 refresh。
-         */
+        /* ⚠️ 工作台模式下 refresh() 自己会重画 ⇒ 这里再 renderSections 就是连画两次（实测控件 80→20） */
         if (mode === 'workspace' && typeof refresh === 'function') {
             refresh();
+            restoreFocus(focusSnap, document);
             return;
         }
         renderSections(host, { mode });
         if (typeof refresh === 'function') {
             refresh();
         }
+        restoreFocus(focusSnap, document);
     };
 
     const handler = async (e) => {
