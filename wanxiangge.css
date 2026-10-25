@@ -3238,19 +3238,24 @@ body.wxg-dragging {
  *    规矩：实底、细线分节、⛔ 不套虚框；颜色只上胶囊与主按钮；大名字做锚。
  *    挂在 body 上（真浮层）⇒ 选择器不带 .wanxiangge 前缀，改用自带类名。
  * ======================================================================== */
+/*
+ * 人物卡（浮层）——**只允许这一处定义**。
+ *   阿砚实机：这个选择器原来有**两个家**（一处 592 宽靠右 46／一处 795 宽居中），
+ *   同特异性下后面那条赢 ⇒ 她看到的 top 一直是 150（我只改了前一条，白改）。
+ *   现在合成一条：居中定宽 795、top 12px、max-height 按视口；拖动照旧改 left/top。
+ */
 .wxg-pc {
-    /*
-     * 五（阿砚实机第二轮）：**top 也要按视口算**——上一版只改了 max-height，
-     *   top 还是 150（拖动过的位置）⇒ 150 + 921 = 1071，反而比原来更超出。
-     *   这里取方案 A：上下各留 12px；拖动照旧改 left/top，⛔ 不引入 transform（会跟拖动打架）。
-     */
-    position: fixed; right: 46px; top: 12px; width: 592px; max-width: calc(100vw - 32px);
-    /*
-     * 五（阿砚实机）：卡高原来写死 825（=945-120），但 top 可被拖动到 150 ⇒ 底边 975 超出视口 30px，
-     *   滚到底还压住最后一个按钮（footer sticky 73px）。现在**按视口算**，上下各留 12px。
-     */
-    max-height: calc(100vh - 24px); overflow: auto; z-index: 30050;
-    background: var(--wxg-card-bg, #fff);
+    position: fixed;
+    left: max(16px, calc(50vw - 397px));
+    right: auto;
+    top: 12px;
+    width: 795px;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    z-index: 30050;
+    /* 修复单 #36c：跟色板走（⛔ 硬编码白底 ⇒ 深色色板下白字撞白底） */
+    background: var(--wxg-surface, var(--wxg-card-bg, #ffffff));
     color: var(--wxg-text, #1a1d1f);
     border: 1px solid var(--wxg-border, #d5dade);
     border-radius: var(--wxg-r-md);
@@ -3311,17 +3316,6 @@ body.wxg-dragging {
  *      两栏是「标签 值 标签 值」四列，值列要宽。
  *    ⚠️ 这一版把上一版那条 592px / 贴右 的规矩**覆盖掉**（后写的赢）。
  * ======================================================================== */
-.wxg-pc {
-    left: max(16px, calc(50vw - 397px)); right: auto; top: 150px;
-    width: 795px; max-width: calc(100vw - 48px);
-    /*
-     * ⭐ 修复单 #36c：**⛔ 硬编码白底**。
-     *   这里原来是 `#ffffff`，直接覆盖了上一条的 `var(--wxg-card-bg, #fff)`
-     *   ⇒ 她换深色色板时，卡片还是**白底**、而字变成浅色 ⇒ **白字撞白底**。
-     *   ⇒ 跟色板变量走（`--wxg-surface` 为主、`--wxg-card-bg` 兜底）。
-     */
-    background: var(--wxg-surface, var(--wxg-card-bg, #ffffff));
-}
 .wxg-pc-head { padding: 16px 18px 12px; gap: var(--gap-md); }
 /* 大标题档（统一 26px；阿砚件 7：26/27 只差 1px 不像有意两档） */
 .wxg-pc-name { font-size: 26px; letter-spacing: .01em; overflow-wrap: anywhere; }
