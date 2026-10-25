@@ -5301,6 +5301,20 @@ export function renderSections(host, opts) {
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
+        /*
+         * 一（阿砚九格）：**整页只有一个主卡时按单列排**，⛔ 让那卡占一轨、右半屏空着。
+         *   ⏐️ 判据用**页面级标记** `data-wxg-onecol`（整页 DOM 建完之后数一次）；
+         *   ⛔ 用 `:has(:only-of-type)`——`:only-of-type` 按标签名算，编年页 5 个子元素全是 div，永远不成立。
+         */
+        try {
+            for (const sec of asArray(stageEl.querySelectorAll('.wxg-sec'))) {
+                const body = sec.querySelector('.wxg-sec-body');
+                if (!body) { continue; }
+                const cards = asArray(body.children || []).filter((n) => n && n.classList && n.classList.contains('wxg-card'));
+                if (cards.length === 1) { sec.setAttribute('data-wxg-onecol', '1'); } else { sec.removeAttribute('data-wxg-onecol'); }
+            }
+        } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
+
         hangUp(host, stageEl);
         const added = asArray(host.children || []).length - before;
         if (!added) {

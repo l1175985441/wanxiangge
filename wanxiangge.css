@@ -4306,6 +4306,22 @@ body[data-wxg-theme="dark"] {
     .wxg-ws-main .wxg-sec[data-wxg-five] > .wxg-sec-body {
         display: block !important;
     }
+
+    /*
+     * 一（阿砚九格，实机量出来的）：`display:grid` 把**页面级工具条**也当独立网格项，
+     *   一个工具条占一轨 ⇒ 每行只放得下一个、另一半空着（编年页 1160 宽里 filters 第 1 轨、search 第 2 轨）。
+     *   两道解法：① 工具条统一跨满所有列；② 整页只有一个主卡时按单列排（标记由 sections.renderSections 数出来）。
+     */
+    .wxg-ws-main .wxg-sec-body > .wxg-filters,
+    .wxg-ws-main .wxg-sec-body > .wxg-searchwrap,
+    .wxg-ws-main .wxg-sec-body > .wxg-hitbar,
+    .wxg-ws-main .wxg-sec-body > .wxg-roster-topbar,
+    .wxg-ws-main .wxg-sec-body > .wxg-pager {
+        grid-column: 1 / -1;
+    }
+    .wxg-ws-main .wxg-sec[data-wxg-onecol] > .wxg-sec-body {
+        grid-template-columns: 1fr !important;
+    }
     .wxg-ws-main .wxg-sec-body {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
