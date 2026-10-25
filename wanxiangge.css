@@ -2460,7 +2460,7 @@ body.wxg-dragging {
 }
 
 .wanxiangge .wxg-badge.is-warn {
-    color: #e2a33c;
+    color: #8a5a00;   /* A10：琥珀加深，在米底上对比度过 4.5（原 #e2a33c 仅 1.84） */
     border-color: rgba(226, 163, 60, 0.55);
     background: rgba(226, 163, 60, 0.12);
 }
@@ -2484,7 +2484,7 @@ body.wxg-dragging {
 }
 
 .wanxiangge .wxg-badge-warn {
-    color: #e2a33c;
+    color: #8a5a00;   /* A10：琥珀加深，在米底上对比度过 4.5（原 #e2a33c 仅 1.84） */
     border-color: rgba(226, 163, 60, 0.55);
     border-style: solid;
     background: rgba(226, 163, 60, 0.12);

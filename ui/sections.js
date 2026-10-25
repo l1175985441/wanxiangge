@@ -709,14 +709,38 @@ function secGeneral(host) {
      * ★ 20261023（阿砘 16 号）：快照**列表**——她可以挑一份回去，⛔ 只能撤最近一次 ✗
      */
     try {
-        const snaps = listSnapshots();
+        
+/**
+ * 依据＝阿砚第三批 质感 A7（屏上露机器串）：快照行原来印 `1792783180646`，她看不懂。
+ *   现在：能认出的时间就写成「今天 14:05」「10-24 22:10」；认不出来写「—」（⛔ 把数字原样贴上去）。
+ */
+function humanStamp(at) {
+    const n = Number(at);
+    if (!Number.isFinite(n) || n <= 0) {
+        return '—';
+    }
+    const d = new Date(n);
+    if (Number.isNaN(d.getTime())) {
+        return '—';
+    }
+    const pad = (x) => (x < 10 ? '0' + String(x) : String(x));
+    const hhmm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const now = new Date();
+    const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    if (sameDay) {
+        return '今天 ' + hhmm;
+    }
+    return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + hhmm;
+}
+
+const snaps = listSnapshots();
         if (snaps.length) {
             const cSnap = card('快照（可回退）');
             cSnap.appendChild(el('div', 'wxg-note', '每次更新／合并／删楼／换版前都会先留一份。选一份点右边那颗，账就回到那时候。'));
             for (const sp of snaps.slice(0, 6)) {
                 const r2 = el('div', 'wxg-card-actions');
                 r2.appendChild(el('span', 'wxg-name', sp.label));
-                r2.appendChild(el('span', 'wxg-note', '  ' + String(sp.at || '') + '  · ' + String(sp.chars) + ' 人物 / ' + String(sp.events) + ' 事件'));
+                r2.appendChild(el('span', 'wxg-note', '  ' + humanStamp(sp.at) + '  · ' + String(sp.chars) + ' 人物 / ' + String(sp.events) + ' 事件'));
                 const b2 = button('恢复这一份', 'rollback-to', 'wxg-btn-sm', String(sp.index));
                 r2.appendChild(b2);
                 cSnap.appendChild(r2);
