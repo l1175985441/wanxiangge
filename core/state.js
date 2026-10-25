@@ -1669,11 +1669,21 @@ export function upsertFaction(line) {
         hit.scale = patch.scale || hit.scale;
         if (trimText(line && line.status) && FACTION_STATUSES.includes(trimText(line.status))) {
             hit.status = patch.status;
-        } else if (!trimText(hit.status)) { hit.status = '稳固'; }
+        } else if (!trimText(hit.status)) {
+            /*
+             * 依据＝阿砚第三批 质感 A12（空值落账＝造假）：
+             *   旧：没给状态就写死“稳固”——她没说过的话被当成了事实。
+             *   现在：**留空**（界面自己显示“—”），不替她下判断。
+             */
+            hit.status = '';
+        }
         const relIn = trimText(line && line.relation) === '紧张' ? '冷淡' : trimText(line && line.relation);
         if (relIn && FACTION_RELATIONS.includes(relIn)) {
             hit.relation = patch.relation;
-        } else if (!trimText(hit.relation)) { hit.relation = '中立'; }
+        } else if (!trimText(hit.relation)) {
+            /* A12 同理：关系也不替她默认成“中立” */
+            hit.relation = '';
+        }
         if (trimText(line && line.scope)) { hit.scope = patch.scope; }
         if ((Array.isArray(line && line.powerPillars) && line.powerPillars.length) || trimText(line && line.powerPillars)) {
             hit.powerPillars = patch.powerPillars;

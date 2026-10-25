@@ -2588,7 +2588,7 @@ function secChronicle(host) {
             if (trimText(c.who)) {
                 title.appendChild(el('span', 'wxg-r-who', c.who));
             } else {
-                title.appendChild(el('span', 'wxg-none', '（没点名）'));
+                title.appendChild(el('span', 'wxg-none', '（这轮没点到名）'));   /* A3：占位词改人话 */
             }
             if (c.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
