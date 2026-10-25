@@ -305,6 +305,16 @@ function renderDupPicker(host) {
     bar.appendChild(button('合并勾选的（' + String(dupPick.size) + '）', 'merge-selected-dupes', 'wxg-btn-sm wxg-primary'));
     bar.appendChild(button('关掉这张清单', 'dup-clear', 'wxg-btn-sm'));
     box.appendChild(bar);
+    /* A4：搜索框（和名册那个同款；⛔ 每敲一个字都重画，change 才筛） */
+    const chronSearchWrap = el('div', 'wxg-searchwrap');
+    chronSearchWrap.appendChild(el('span', 'wxg-searchico', '⌕'));
+    const chronInput = el('input', 'wxg-searchbox');
+    chronInput.type = 'search';
+    chronInput.placeholder = '搜：编年正文 或 类型';
+    chronInput.value = chronSearch;
+    chronInput.setAttribute('data-action', 'chron-search');
+    chronSearchWrap.appendChild(chronInput);
+    box.appendChild(chronSearchWrap);
 }
 
 function row(host, ...children) {
@@ -2393,6 +2403,11 @@ export function applyCharSearch(root, query) {
  * （"筛选带计数"是跟参照学的**做法**；文案是我们自己的——⛔ 别照抄别家的字。）
  */
 let chronFilter = 'all';
+/*
+ * 依据＝阿砚第三批 质感 A4（编年没有搜索）：编年越攒越多，只能靠翻页找。
+ *   加一个搜索词（搜正文／类型／人）；⛔ 落设置，只是“看的姿势”。
+ */
+let chronSearch = '';
 /**
  * ⭐「清空这个世界」的确认盒开着没有。
  * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
@@ -2529,7 +2544,18 @@ function secChronicle(host) {
     const KINDS = ['推演', '暗线', '警戒', '越界'];
     const countOf = (k) => list.filter((c) => String(c.kind || '推演').includes(k)).length;
     const all = list.slice(-120).reverse();
-    const matched = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演').includes(chronFilter));
+    let matched = chronFilter === 'all' ? all : all.filter((c) => String(c.kind || '推演').includes(chronFilter));
+    /* A4：搜索词叠在筛选之上（先筛类型、再搜字，顺序不影响结果，但口径要固定） */
+    const chronKw = trimText(chronSearch).toLowerCase();
+    if (chronKw) {
+        matched = matched.filter((c) => {
+            const hay = [c.text, c.title, c.kind, c.time, c.people, c.who]
+                .map((x) => (Array.isArray(x) ? x.join(' ') : String(x == null ? '' : x)))
+                .join(' ')
+                .toLowerCase();
+            return hay.includes(chronKw);
+        });
+    }
     // ⭐ 翻页：只画当前页（编年是越攒越多的，一长条滚不到头）
     chronPage = clampPage(chronPage, matched.length, PER_PAGE.chron);
     const shown = matched.slice((chronPage - 1) * PER_PAGE.chron, chronPage * PER_PAGE.chron);
@@ -6021,7 +6047,15 @@ export function bindSectionEvents(host, refresh) {
                     ]);
                     break;
                 }
-                case 'roster-search':
+                case 'chron-search':
+                /* A4：编年搜索（change 才重画） */
+                if (isChange) {
+                    chronSearch = trimText(target.value);
+                    chronPage = 1;
+                    rerender();
+                }
+                break;
+            case 'roster-search':
                     // 边打边筛（change 才重画，⛔ 每敲一个字都重画整页）
                     if (isChange) {
                         rosterSearch = trimText(target.value);
