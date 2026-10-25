@@ -2636,7 +2636,7 @@ function secChronicle(host) {
     }
 
     // ③ 按楼层分组，一组一个"行列表"（先按 floor 归桶、组内按时间从新到旧、组间按 floor 从大到小）
-    const cChron = card(chronFilter === 'all' ? '按回合攒的' : ('只看「' + chronFilter + '」'));
+    const cChron = card(chronFilter === 'all' ? '热账与旧卷（按回合攒）' : ('只看「' + chronFilter + '」'));
     const byFloor = new Map();
     for (const c of shown) {
         const f = Number.isFinite(c.floor) && c.floor >= 0 ? Number(c.floor) : -1;
@@ -2662,10 +2662,17 @@ function secChronicle(host) {
             }
             return b.floor - a.floor;
         });
+    /*
+     * 四（阿砚九格）：冷热分开命名——最新那一组叫「热账」，更早的都叫「旧卷」。
+     *   这不是纯视觉：她流程第⑤条“几百楼就把前面的剪出来单独封存”——这里是同一件事的可视化。
+     */
+    const hotFloor = groups.length ? groups[0].floor : null;
     for (const g of groups) {
+        const isHot = g.floor === hotFloor;
         const head = el('div', 'wxg-grouphead');
-        head.appendChild(el('b', null, g.floor >= 0 ? floorLabel(g.floor) : '未记楼层'));
-        head.appendChild(el('span', null, String(g.items.length) + ' 条'));
+        head.appendChild(el('b', null, (isHot ? '热账 · ' : '旧卷 · ')
+            + (g.floor >= 0 ? floorLabel(g.floor) : '未记楼层')));
+        head.appendChild(el('span', null, '共 ' + String(g.items.length) + ' 条'));
         cChron.appendChild(head);
         for (const c of g.items) {
             const r = el('div', 'wxg-r');
@@ -2696,7 +2703,7 @@ function secChronicle(host) {
              *    ⛔ 不能拿循环下标当账本下标（会删错人）。用对象身份回查最稳。
              */
             const at = list.indexOf(c);
-            const del = el('button', 'wxg-btn-xs wxg-del', '删');
+            const del = el('button', 'wxg-btn-xs wxg-del wxg-row-del', '删');   /* 五：hover 才现，屏上可见按钮减半 */
             del.type = 'button';
             del.setAttribute('data-action', 'del-chronicle');
             del.setAttribute('data-index', String(at));

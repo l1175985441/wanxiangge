@@ -4420,3 +4420,12 @@ body[data-wxg-theme="dark"] {
 .wxg-banner-v { opacity: 0.85; }
 .wxg-banner-more { flex-basis: 100%; font-size: var(--fs-label); }
 .wxg-banner-more > summary { cursor: pointer; }
+
+/* 五：行尾次要动作（删）默认收起，hover／键盘聚焦那一行才现 */
+.wxg-r .wxg-row-del { opacity: 0; transition: opacity .12s ease; }
+.wxg-r:hover .wxg-row-del,
+.wxg-r:focus-within .wxg-row-del { opacity: 1; }
+@media (hover: none) {
+    /* 触屏没有 hover ⇒ 一律显示，⛔ 让删不掉 */
+    .wxg-r .wxg-row-del { opacity: 1; }
+}
