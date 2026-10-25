@@ -356,7 +356,7 @@ function repairJson(text) {
 }
 
 /** 组装一次请求的超时控制 */
-function withTimeout(ms) {
+function withAbortTimeout(ms) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     let fired = false;
     const timer = setTimeout(() => {
@@ -564,7 +564,7 @@ export async function callModel(opts) {
 
     const timeoutMs = Number.isFinite(Number(o.timeoutMs)) ? Number(o.timeoutMs) : REQUEST_TIMEOUT_MS;
     const started = Date.now();
-    const timeout = withTimeout(timeoutMs);
+    const timeout = withAbortTimeout(timeoutMs);
     let autoVia = '';
     /*
      * ⭐ U16（材料 12·未覆盖死角）：**自动切换要记住、也要告诉她** ✓

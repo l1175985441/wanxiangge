@@ -12,7 +12,7 @@
 
 import { MINI_ID } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
-import { floorLabel } from '../core/utils.js';
+import { floorLabel, numOr } from '../core/utils.js';
 import { buildStateSummary } from '../core/summary.js';
 import { runUpdate, runReconcile } from '../core/pipeline.js';
 // ⭐ 操作组（目标包「悬浮球」）——跟总控操作卡**同一套函数**，⛔ 各算一套
@@ -114,8 +114,8 @@ export function mountMini() {
     wrapEl.appendChild(panelEl);
 
     const pos = s.mini || {};
-    wrapEl.style.left = (num(pos.x) !== null ? num(pos.x) : Math.max(12, winW() - 96)) + 'px';
-    wrapEl.style.top = (num(pos.y) !== null ? num(pos.y) : Math.max(12, winH() - 110)) + 'px';
+    wrapEl.style.left = (numOr(pos.x, null) !== null ? numOr(pos.x, null) : Math.max(12, winW() - 96)) + 'px';
+    wrapEl.style.top = (numOr(pos.y, null) !== null ? numOr(pos.y, null) : Math.max(12, winH() - 110)) + 'px';
 
     wrapEl.addEventListener('click', onMiniClick);
     // ⭐ 展开后**不自动收回**（原来鼠标一移开就缩回去 ⇒ 真机上想点面板里的东西会被它躲开，
@@ -265,10 +265,6 @@ export function refreshMini() {
 }
 
 /* ------------------------------ 小工具 ------------------------------ */
-
-function num(v) {
-    return Number.isFinite(Number(v)) ? Number(v) : null;
-}
 
 function winW() {
     return typeof window !== 'undefined' && window.innerWidth ? window.innerWidth : 1200;

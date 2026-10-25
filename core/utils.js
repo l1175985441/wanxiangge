@@ -162,3 +162,12 @@ export function floorLabel(floor) {
 
 /** 楼层号的说明（面板上写一次，免得她对着 #4 发懵） */
 export const FLOOR_NOTE = '楼层号 #N 与酒馆消息头上的编号一致（从 0 起）。';
+
+/**
+ * 依据＝阿砚第三批 质感 A11（一个概念两个家）：`num` 在世界书条目形状层与悬浮球那两个文件里各有一份，
+ *   **语义还不一样**（一个返回默认值、一个返 null）。现在只留这一份，差异用第二个参数表达。
+ */
+export function numOr(v, dflt) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : dflt;
+}

@@ -1,3 +1,4 @@
+import { numOr } from './utils.js';   /* A11：两份 num 收成一份 */
 /**
  * 万象阁 · 世界书条目**形状转换层**（新族 ↔ 我们内部用的形状）
  *
@@ -56,11 +57,6 @@ const MAPPED_NATIVE = [
     'sticky', 'cooldown', 'delay',
 ];
 
-function num(v, dflt) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : dflt;
-}
-
 function isNil(v) {
     return v === undefined || v === null;
 }
@@ -77,7 +73,7 @@ export function worldbookToNative(w) {
     const eff = src.effect && typeof src.effect === 'object' ? src.effect : {};
 
     const out = {
-        uid: num(src.uid, undefined),
+        uid: numOr(src.uid, undefined),
         name: src.name !== undefined ? src.name : '',
         comment: src.name !== undefined ? src.name : '',
         enabled: src.enabled !== false,
@@ -98,8 +94,8 @@ export function worldbookToNative(w) {
             || POSITION_FROM_NEW[(pos.type || '') + '|undefined']
             || 'before_character_definition',
         depth: isNil(pos.depth) ? null : pos.depth,
-        order: num(pos.order, 100),
-        probability: num(src.probability, 100),
+        order: numOr(pos.order, 100),
+        probability: numOr(src.probability, 100),
         exclude_recursion: rec.prevent_incoming === true,
         prevent_recursion: rec.prevent_outgoing === true,
         delay_until_recursion: isNil(rec.delay_until) ? false : rec.delay_until,
@@ -172,9 +168,9 @@ export function nativeToWorldbook(n) {
             type: p.type,
             role: p.role,
             depth: isNil(src.depth) ? 4 : src.depth,
-            order: num(src.order, 100),
+            order: numOr(src.order, 100),
         },
-        probability: num(src.probability, 100),
+        probability: numOr(src.probability, 100),
         recursion: {
             prevent_incoming: src.exclude_recursion === true,
             prevent_outgoing: src.prevent_recursion === true,

@@ -14,6 +14,8 @@
 
 import { LEDGER_VERSION } from './config.js';
 import { trimText, asText } from './utils.js';
+import { digestOf } from './provenance.js';   /* A11：两份 digestOf 收成一份（实现完全一致） */
+export { digestOf };   /* 对外 API 不变：以前从 bundle 拿的还能拿 */
 
 export const BUNDLE_SCHEMA = 'wanxiangge.ledger.bundle';
 /** 导入体积上限（字符）：超过就拒，⛔ 先解析再拒（别把内存吃爆） */
@@ -22,16 +24,6 @@ export const BUNDLE_MAX_CHARS = 4 * 1024 * 1024;
 export const BUNDLE_MAX_ITEMS = 20000;
 
 /** FNV-1a 32 位（确定性；只用来发现"被改过"，不用于安全） */
-export function digestOf(text) {
-    let h = 0x811c9dc5;
-    const s = asText(text);
-    for (let i = 0; i < s.length; i += 1) {
-        h ^= s.charCodeAt(i);
-        h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
-    }
-    return ('0000000' + h.toString(16)).slice(-8);
-}
-
 /** 摘要里给她看的几个数（导入前后能对一眼） */
 export function summarize(ledger) {
     const st = ledger && typeof ledger === 'object' ? ledger : {};

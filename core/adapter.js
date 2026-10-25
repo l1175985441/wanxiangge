@@ -283,7 +283,7 @@ export function saveState3() {
 }
 
 /** 超时闸：宿主的 saveChat 在取不到文件名时会静默 return，永远不解析 ⇒ 我们不能无限等 */
-function withTimeout(promise, ms, label) {
+function withPromiseTimeout(promise, ms, label) {
     return new Promise((resolve, reject) => {
         let done = false;
         const timer = setTimeout(() => {
@@ -342,7 +342,7 @@ export async function writeLedger(state, opts) {
     const save = pickSaver();
     if (save) {
         try {
-            await withTimeout(save(), timeoutMs, '存盘');
+            await withPromiseTimeout(save(), timeoutMs, '存盘');
             lastSaveOk = true;
             saveNote = '';
             lastSaveState = 'saved';
