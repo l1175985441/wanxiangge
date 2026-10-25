@@ -36,6 +36,7 @@ import {
 import { questStats } from '../core/summary.js';
 // ⭐ 补⑤ 体检报告（自检）
 import { columnsFor, rowAffinity } from '../core/roster-cols.js';   /* A5：空列不占位，好感从好感表取 */
+import { decorateCard } from './cardgrid.js';   /* A6：卡头＋一句摘要＋查看全部（不搬 DOM） */
 import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION, originPanel, agendaOriginPanel, viaLabel } from '../core/config.js';   /* I4 */
@@ -240,12 +241,10 @@ function section(title, hint, opts) {
     return body;
 }
 
+
 /**
- * ⭐ 一个"块"（卡片）—— 体检结论说得很对：**壳是设计过的、里子跌回表单**。
- * 内容得先装进结构：一个主题一块卡（浅描边＋块头一行小字），别全都平铺在一个大平面上。
- *
- * @param {string} title 块头那行小字（例："世界钟" / "好感来源"）；留空＝不带块头
- * @returns {HTMLElement} 往它上面加东西即可
+ * 一张卡：可选的卡头（`.wxg-card-h`）加内容。
+ *   ⚠️ 上一次整块删 `compactCard` 时把它一起删了（实测 `card is not defined`，123 项真红），这里补回来。
  */
 function card(title) {
     const box = el('div', 'wxg-card');
@@ -1006,7 +1005,12 @@ function secWorld(host) {
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
     line(cWorld, '这个世界现在什么样',
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
-    box.appendChild(cWorld);
+    /*
+     * A6：两列卡片网格。卡不再一条道摊到底，而是并排；每张卡带一句摘要，长的折起来。
+     */
+    const wgrid = el('div', 'wxg-wgrid');
+    box.appendChild(wgrid);   /* A6：先挂上去（否则「世界钟地点卡」会因为整个网格没挂而丢失） */
+    wgrid.appendChild(cWorld);
 
     /*
      * 依据＝阿砚 3 件任务 · 渲染层 #6（四张空卡合并成一行）：
@@ -1057,7 +1061,10 @@ function secWorld(host) {
         }
         cFac.appendChild(fl);
     }
-    if (!worldCardsEmpty) { box.appendChild(cFac); }
+    if (!worldCardsEmpty) {
+        decorateCard({ el: el, box: cFac, summaryText: wFactions0.length ? (String(wFactions0.length) + ' 个在册') : '' });
+        wgrid.appendChild(cFac);
+    }
 
     /* ★ [580] A3：世界事实键值账（只读；给她核对引擎对齐用，⛔ 不当注入叙述） */
     const cFacts = card('世界事实（键值）');
@@ -1084,7 +1091,11 @@ function secWorld(host) {
             cFacts.appendChild(el('div', 'wxg-note', '共 ' + String(factList.length) + ' 条，面板只列最近 40 条'));
         }
     }
-    if (!worldCardsEmpty) { box.appendChild(cFacts); }
+    if (!worldCardsEmpty) {
+        decorateCard({ el: el, box: cFacts, summaryText: wFacts0.length ? (String(wFacts0.length) + ' 条硬事实') : '' });
+        wgrid.appendChild(cFacts);
+    /* 世界钟与地点下面的卡片都进网格（A6） */
+    }
 
     /* ★ [580] A4：独立脉动＋巡查覆盖（只读；与局势并行，可看镜头外） */
     const cPulse = card('世界脉动（域／巡查）');
@@ -1139,7 +1150,10 @@ function secWorld(host) {
             cPulse.appendChild(cl);
         }
     }
-    if (!worldCardsEmpty) { box.appendChild(cPulse); }
+    if (!worldCardsEmpty) {
+        decorateCard({ el: el, box: cPulse, summaryText: wPulseDom0.length ? (String(wPulseDom0.length) + ' 个脉动域') : '' });
+        wgrid.appendChild(cPulse);
+    }
 
     /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
     const cWinds = card('风声（未证实）');
@@ -1167,7 +1181,10 @@ function secWorld(host) {
             cWinds.appendChild(el('div', 'wxg-note', '未证实传闻；⛔ 别当成已公开新闻。与 visibility=trace 对齐，同题只列一次。'));
         }
     }
-    if (!worldCardsEmpty) { box.appendChild(cWinds); }
+    if (!worldCardsEmpty) {
+        decorateCard({ el: el, box: cWinds, summaryText: wWinds0.length ? (String(wWinds0.length) + ' 条风声') : '' });
+        wgrid.appendChild(cWinds);
+    }
 
     /*
      * ★ [580]／工作流 D1：**时局简报成套骨架（只取面板分区）** ✓

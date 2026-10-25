@@ -4336,3 +4336,23 @@ body[data-wxg-theme="dark"] {
 .wxg-ws-statusband-cell { display: inline-flex; gap: var(--gap-xs); align-items: baseline; }
 .wxg-ws-statusband-k { opacity: 0.7; }
 .wxg-ws-statusband-v { font-weight: 600; }
+
+/* A6：世界状态两列卡片网格（卡头＋一句摘要＋查看全部） */
+.wxg-wgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--gap-lg);
+    align-items: start;
+}
+.wxg-card-sum {
+    flex-basis: 100%;
+    font-size: var(--fs-label);
+    opacity: 0.72;
+    margin-top: var(--gap-xs);
+}
+/* A6：折起来靠 CSS（⛔ 搬 DOM 节点）——卡头、摘要、「查看全部」之外的都先藏起来 */
+.wxg-card.is-compact > :not(.wxg-card-h):not(.wxg-card-sum):not(.wxg-card-more) { display: none; }
+.wxg-card.is-compact.is-open > :not(.wxg-card-h) { display: revert; }
+@media (max-width: 720px) {
+    .wxg-wgrid { grid-template-columns: 1fr; }
+}
