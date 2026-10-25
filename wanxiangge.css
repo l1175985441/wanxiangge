@@ -4322,3 +4322,17 @@ body[data-wxg-theme="dark"] {
     line-height: 1.5;
     opacity: 0.78;
 }
+
+/* A9：每页顶的全局状态带（世界钟 · 当前地点 · 上次更新） */
+.wxg-ws-statusband {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-md);
+    align-items: baseline;
+    padding: var(--gap-sm) var(--gap-lg);
+    border-bottom: 1px solid var(--wxg-line, rgba(0, 0, 0, 0.08));
+    font-size: var(--fs-label);
+}
+.wxg-ws-statusband-cell { display: inline-flex; gap: var(--gap-xs); align-items: baseline; }
+.wxg-ws-statusband-k { opacity: 0.7; }
+.wxg-ws-statusband-v { font-weight: 600; }

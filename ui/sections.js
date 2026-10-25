@@ -9,6 +9,7 @@
 import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
+import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
@@ -735,29 +736,6 @@ function secGeneral(host) {
      */
     try {
         
-/**
- * 依据＝阿砚第三批 质感 A7（屏上露机器串）：快照行原来印 `1792783180646`，她看不懂。
- *   现在：能认出的时间就写成「今天 14:05」「10-24 22:10」；认不出来写「—」（⛔ 把数字原样贴上去）。
- */
-function humanStamp(at) {
-    const n = Number(at);
-    if (!Number.isFinite(n) || n <= 0) {
-        return '—';
-    }
-    const d = new Date(n);
-    if (Number.isNaN(d.getTime())) {
-        return '—';
-    }
-    const pad = (x) => (x < 10 ? '0' + String(x) : String(x));
-    const hhmm = pad(d.getHours()) + ':' + pad(d.getMinutes());
-    const now = new Date();
-    const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    if (sameDay) {
-        return '今天 ' + hhmm;
-    }
-    return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + hhmm;
-}
-
 const snaps = listSnapshots();
         if (snaps.length) {
             const cSnap = card('快照（可回退）');

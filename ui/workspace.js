@@ -12,6 +12,7 @@
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, SIDEBAR_SHORT, groupOfSection } from '../core/config.js';
 import { getSettings, patchSettings } from '../core/settings.js';
+import { agoText } from '../core/timefmt.js';   /* A9：状态带要人话时间 */
 import { renderSections, bindSectionEvents, fillText, hasUnsavedDraft } from './sections.js';
 import { toast } from './toast.js';
 import { applyAppearance } from './theme.js';
@@ -26,6 +27,8 @@ let sideEl = null;
 let hostEl = null;
 /** 页级大标题那两个节点（在 hostEl 外面，⛔ 不参与 renderSections 的清空） */
 let pageHeadEl = null;
+/** A9：每页顶那条全局状态带（在 hostEl 外面，⛔ 被 renderSections 清掉） */
+let statusBandEl = null;
 let activeIndex = 0;
 
 /** 工作台开着吗 */
@@ -149,6 +152,16 @@ export function openWorkspace() {
     pageHeadEl.appendChild(h1sub);
     page.appendChild(pageHeadEl);
 
+    /*
+     * 依据＝阿砚第三批 质感 A9（每页没有一条全局状态带）：
+     *   每页顶都要能看到「世界钟 · 当前地点 · 上次更新」；⛔ 要翻回主窗口才知道现在几点。
+     *   放在 hostEl **外面**（和页头一个道理：renderSections 会清空 hostEl）。
+     */
+    statusBandEl = document.createElement('div');
+    statusBandEl.className = 'wxg-ws-statusband';
+    statusBandEl.setAttribute('data-wxg-statusband', '1');
+    page.appendChild(statusBandEl);
+
     hostEl = document.createElement('main');
     hostEl.className = 'wxg-ws-main wanxiangge';
     hostEl.setAttribute('data-wxg-mode', 'workspace');
@@ -192,6 +205,50 @@ export function openWorkspace() {
 }
 
 /** 刷新工作台内容（数据现取） */
+
+/**
+ * A9：把「世界钟 · 当前地点 · 上次更新」刷到状态带上。
+ *   取不到就写「未设定」（⛔ 编一个“早上”和她的世界对不上）。
+ */
+function paintStatusBand() {
+    if (!statusBandEl) {
+        return;
+    }
+    let clock = '未设定';
+    let place = '未设定';
+    let update = '还没更新过';
+    try {
+        const st = loadState();
+        const world = (st && st.world) || {};
+        clock = trimText(world.clock) || '未设定';
+        place = trimText(world.place) || '未设定';
+        const pipe = (st && st.pipeline) || {};
+        const ago = agoText(pipe.endedAt || pipe.startedAt);
+        update = ago ? ('上次更新：' + ago) : '还没更新过';
+    } catch (e) {
+        /* 读不到账也得有一条带子（⛔ 空白） */
+    }
+    while (statusBandEl.firstChild) {
+        statusBandEl.removeChild(statusBandEl.firstChild);
+    }
+    const mk = (label, value) => {
+        const span = document.createElement('span');
+        span.className = 'wxg-ws-statusband-cell';
+        const l = document.createElement('span');
+        l.className = 'wxg-ws-statusband-k';
+        l.textContent = label;
+        const v = document.createElement('span');
+        v.className = 'wxg-ws-statusband-v';
+        v.textContent = value;
+        span.appendChild(l);
+        span.appendChild(v);
+        return span;
+    };
+    statusBandEl.appendChild(mk('世界钟', clock));
+    statusBandEl.appendChild(mk('当前地点', place));
+    statusBandEl.appendChild(mk('进度', update));
+}
+
 export function refreshWorkspace() {
     if (!hostEl) {
         return;
@@ -199,6 +256,7 @@ export function refreshWorkspace() {
     applyAppearance(wsEl, getSettings().appearance || {});
     const scroll = hostEl.scrollTop;
     renderSections(hostEl, { mode: 'workspace' });
+    paintStatusBand();   /* A9：每页顶那条全局状态带 */
     /*
      * ⚠️⚠️ 致命遗漏（真机与自审一起抓到的）：工作台**从来没绑过事件**！
      *    `renderSections` 只画 DOM；点击／改动的处理在 `bindSectionEvents` 里，
