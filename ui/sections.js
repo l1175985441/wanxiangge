@@ -9,6 +9,8 @@
 import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
+import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全收；八：开关状态句 */
+import { markOneCol } from './onecol.js';   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
 import { makeChronSearch } from './chron-search.js';   /* A4：编年搜索框 */
@@ -251,6 +253,8 @@ function section(title, hint, opts) {
  * 一张卡：可选的卡头（`.wxg-card-h`）加内容。
  *   ⚠️ 上一次整块删 `compactCard` 时把它一起删了（实测 `card is not defined`，123 项真红），这里补回来。
  */
+
+
 function card(title) {
     const box = el('div', 'wxg-card');
     if (trimText(title)) {
@@ -666,6 +670,7 @@ function secGeneral(host) {
 
     const cRun = card('更新与节流');
     cRun.appendChild(checkbox('wxg-auto-update', '新楼生成后自动更新（关掉＝只手动更新）', s.autoUpdate, 'stage-auto-update'));
+    cRun.appendChild(stateLine({ el: el, on: s.autoUpdate, onText: '每产生新楼就会自动推一轮，你会看到状态自己变。', offText: '发消息不会自动推；要推请按「立刻更新」或工作台顶部的更新键。' }));
     row(cRun,
         field('更新频率', numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every')),
         el('span', 'wxg-note', '楼推进一次（1回合＝2楼；自动更新默认留一层缓冲只算已落定的楼，重 roll 同楼不重跑；想当场算最新楼点「立刻更新」）'));
@@ -683,7 +688,9 @@ function secGeneral(host) {
         cRun.appendChild(tip);
     }
     cRun.appendChild(checkbox('wxg-protected', '现场保护：正文刚演过的人，本轮只带状态、不重复推演', s.protectedBypass, 'stage-protected'));
+    cRun.appendChild(stateLine({ el: el, on: s.protectedBypass, onText: '正文里刚演过的人只带状态，引擎不会替他们再推一遍。', offText: '引擎可能替刚演过的人也推一遍（容易跟正文打架）。' }));
     cRun.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
+    cRun.appendChild(stateLine({ el: el, on: s.strictMention, onText: '只把本轮点名的人放进注入；没点到的人不会出现。', offText: '没点到的人也可能被带进来（上下文更全，但更占篇幅）。' }));
     box.appendChild(cRun);
 
     const cUi = card('入口与启动');
@@ -3102,6 +3109,7 @@ function secRecall(host) {
     const box = section('召回',
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false, five: true });
+    box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
     // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
     // ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
     const cPick = card('每一轮怎么挑');
@@ -3294,6 +3302,7 @@ function secApi(host) {
     const box = section('自定义 API（后台推演走这条通道）',
         '不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
         { open: false, five: true });
+    box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
     // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
     // ⭐ 第三层：这条通道也排成规整两列
     const cCh = card('通道');
@@ -3393,8 +3402,10 @@ function secApi(host) {
 
     line(bConn, '接口地址', textInput('wxg-api-url', api.url, 'https://…/v1', 'stage-api-url', 'wxg-short'));
     /* ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认 password（遮住）＋ 旁边一个「显示」开关 ✓ */
-    line(bConn, '密钥', textInput('wxg-api-key', api.key, 'sk-…', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
+    /* 九（阿砚九格）：密钥框补三句口径（本机读取·不离库·不打印），框里⛔ 回显 */
+    line(bConn, '密钥', textInput('wxg-api-key', api.key, '（本机读取，不打印）', 'stage-api-key', 'wxg-short', (apiKeyShown ? 'text' : 'password')),
         button(apiKeyShown ? '隐藏' : '显示', 'toggle-api-key', 'wxg-btn-sm'));
+    bConn.appendChild(el('div', 'wxg-note', '本机读取 · 不离库 · 不打印；只有你点「显示」才在框里露出来。'));
     line(bConn, '推演模型', textInput('wxg-api-model', api.model, '例：gemini-3.8-flash', 'stage-api-model', 'wxg-short'));
     /*
      * ⭐ 目标核对 3①：**拉取模型列表**（她："只能自己输名字太麻烦"）。
@@ -3607,7 +3618,8 @@ function secPrompts(host) {
     const editHead = foldable('改这套（留空＝用内置）', false);
     editHead.appendChild(textarea('wxg-inject-header', s.injectHeader, '（留空＝用内置那份）', 'stage-inject-header', 3));
     cHead.appendChild(editHead);
-    box.appendChild(cHead);
+        box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
+box.appendChild(cHead);
 
     // 其余三套长提示词 ＋ 恢复默认：收拢进同一张卡，告别 5 张大卡满屏堆叠
     const cMore = card('后台推演与破限提示词（按需展开）');
@@ -5301,19 +5313,8 @@ export function renderSections(host, opts) {
 
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
-        /*
-         * 一（阿砚九格）：**整页只有一个主卡时按单列排**，⛔ 让那卡占一轨、右半屏空着。
-         *   ⏐️ 判据用**页面级标记** `data-wxg-onecol`（整页 DOM 建完之后数一次）；
-         *   ⛔ 用 `:has(:only-of-type)`——`:only-of-type` 按标签名算，编年页 5 个子元素全是 div，永远不成立。
-         */
-        try {
-            for (const sec of asArray(stageEl.querySelectorAll('.wxg-sec'))) {
-                const body = sec.querySelector('.wxg-sec-body');
-                if (!body) { continue; }
-                const cards = asArray(body.children || []).filter((n) => n && n.classList && n.classList.contains('wxg-card'));
-                if (cards.length === 1) { sec.setAttribute('data-wxg-onecol', '1'); } else { sec.removeAttribute('data-wxg-onecol'); }
-            }
-        } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
+        /* 一：整页只有一个主卡 ⇒ 盖 `data-wxg-onecol`（实现在 ui/onecol.js） */
+        try { markOneCol({ stageEl: stageEl, asArray: asArray }); } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
 
         hangUp(host, stageEl);
         const added = asArray(host.children || []).length - before;
@@ -6105,7 +6106,22 @@ export function bindSectionEvents(host, refresh) {
                     ]);
                     break;
                 }
-                case 'chron-search':
+                case 'expand-all':
+            case 'collapse-all': {
+                /*
+                 * 六：本段里所有 <details> 一起开/收。
+                 *   ⛔ 不改 foldable 自己的记忆逻辑（toggle 事件会照常把状态记进 foldOpenState）。
+                 */
+                const secOf = target.closest && target.closest('.wxg-sec');
+                const open = action === 'expand-all';
+                if (secOf) {
+                    for (const d of asArray(secOf.querySelectorAll('details'))) {
+                        d.open = open;
+                    }
+                }
+                break;
+            }
+            case 'chron-search':
                 /* A4：编年搜索（change 才重画） */
                 if (isChange) {
                     chronSearch = trimText(target.value);
