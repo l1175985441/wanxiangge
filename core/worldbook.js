@@ -842,9 +842,15 @@ export function peopleFromEntries(entries, opts) {
             skipped += 1;
             continue;
         }
+        /*
+         * 4-b ⑩：**账本优先**。
+         *   同一个人如果账本里已经有 ⇒ 条目来源记 `ledger`（认人时以账本为准）；
+         *   只有世界书里有 ⇒ 记 `book`（它是投影，只用来补空缺）。
+         */
+        const ledgerHas = o.ledgerNames instanceof Set ? o.ledgerNames.has(key) : false;
         let rec = seen.get(key);
         if (!rec) {
-            rec = { name: person, comment: '', enabled: true, aliases: [], identityHint: '' };
+            rec = { name: person, comment: '', enabled: true, aliases: [], identityHint: '', from: ledgerHas ? 'ledger' : 'book' };
             seen.set(key, rec);
             people.push(rec);
         }

@@ -14,6 +14,7 @@
 // ⭐ L1：版本兜底用它（调用方不传 opts.version 时，不该报「未知」）
 import { LEDGER_VERSION, APP_VERSION } from './config.js';
 import { loadState } from './state.js';
+import { authorityLine } from './authority.js';   /* 4-b ⑩：两份存储的权威口径 */
 import { getChat } from './adapter.js';
 import { getSettings } from './settings.js';
 import { buildStateSummary } from './summary.js';
@@ -134,6 +135,8 @@ export function buildHealthReport(opts) {
         /* ⭐ L1：调用方没传就用自己的版本号（防御） */
         ['插件版本', String(o.version || APP_VERSION || '未知')],
         ['数据版本', 'v' + String(LEDGER_VERSION)],
+        /* 4-b ⑩：权威口径写在体检里，看一眼就知道冲突时听谁的 */
+        ['权威口径', authorityLine()],
         ['—— 开关 ——', ''],
         ['新楼生成后自动更新', s.autoUpdate ? '开' : '关'],
         ['更新频率', String(s.updateEvery) + ' 楼推进一次'],
