@@ -70,6 +70,7 @@ import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下�
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
+import { clockAnchor } from './gametime.js';   /* 决定①：世界钟先解析、能解才当锚 */
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { lastInjectInfo, mentionedCharacters } from './recall.js';
 
@@ -2473,6 +2474,8 @@ async function runUpdateInner(opts) {
         chatKey: chatKeyNow,
         lastRunChatKey: chatKeyNow,
         lastRunGameTimeRaw: gameTimeRawNow,
+        /* 决定①：能解出「日期＋时段」才当锚用，否则退化为普通文本锚（⛔ 改调度语义） */
+        lastRunGameTimeAnchor: clockAnchor(gameTimeRawNow),
         lastInject: lastInjectInfo(),
         endedAt: Date.now(),
         error: failed ? (lastError || '未知原因') : '',
