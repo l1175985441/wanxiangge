@@ -704,8 +704,14 @@
 .wanxiangge .wxg-sec > .wxg-sec-body {
     display: none;
 }
+/*
+ * A6 根因（阿砚实机量到的）：这里原来写死 `display: block !important`，
+ *   把宽屏媒体查询里的 `display: grid` 压住了 ⇒ 多列从来没生效过（不是没写）。
+ *   ⇒ 改成 revert：回落到媒体查询那一档（宽屏 grid、窄屏默认 block）。
+ *   ⛔ 别在媒体查询里再加 !important 跟它硬碰——那会变成“由代码顺序决定”的坑。
+ */
 .wanxiangge .wxg-sec[data-wxg-open="1"] > .wxg-sec-body {
-    display: block !important;
+    display: revert !important;
 }
 
 /* ---- 状态行 ----
@@ -3243,6 +3249,7 @@ body.wxg-dragging {
 }
 .wxg-pc-grip { color: var(--wxg-dim, #6d747a); font-size: 15px; line-height: 24px; letter-spacing: -1px; }
 .wxg-pc-who { flex: 1; min-width: 0; }
+/* 大标题档（统一 26px） */
 .wxg-pc-name { font-size: 26px; font-weight: 700; line-height: 1.15; }
 .wxg-pc-alias { color: var(--wxg-dim, #6d747a); font-size: 13px; margin-top: 5px; }
 .wxg-pc-badges { display: flex; gap: var(--gap-sm); align-items: center; padding-top: 9px; flex: 0 0 auto; }
@@ -3302,7 +3309,8 @@ body.wxg-dragging {
     background: var(--wxg-surface, var(--wxg-card-bg, #ffffff));
 }
 .wxg-pc-head { padding: 16px 18px 12px; gap: var(--gap-md); }
-.wxg-pc-name { font-size: 27px; letter-spacing: .01em; overflow-wrap: anywhere; }
+/* 大标题档（统一 26px；阿砚件 7：26/27 只差 1px 不像有意两档） */
+.wxg-pc-name { font-size: 26px; letter-spacing: .01em; overflow-wrap: anywhere; }
 .wxg-pc-alias { font-size: 13px; margin-top: 6px; }
 .wxg-pc-badges { padding-top: 10px; }
 .wxg-pc-sec { padding: 14px 18px 6px; }
@@ -4356,3 +4364,20 @@ body[data-wxg-theme="dark"] {
 @media (max-width: 720px) {
     .wxg-wgrid { grid-template-columns: 1fr; }
 }
+
+/* 必修 9：这一轮没进账的红条（不是 toast，也不是列表里的胶囊） */
+.wxg-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--gap-sm);
+    margin: var(--gap-sm) 0 var(--gap-md);
+    padding: var(--gap-sm) var(--gap-md);
+    border-left: 3px solid #b3261e;
+    background: rgba(179, 38, 30, 0.08);
+    border-radius: var(--wxg-r-sm);
+}
+.wxg-banner-k { font-weight: 700; }
+.wxg-banner-v { opacity: 0.85; }
+.wxg-banner-more { flex-basis: 100%; font-size: var(--fs-label); }
+.wxg-banner-more > summary { cursor: pointer; }

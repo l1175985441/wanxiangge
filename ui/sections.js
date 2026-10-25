@@ -9,7 +9,11 @@
 import {
     STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET,
 } from '../core/config.js';
+import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
+import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
+import { makeChronSearch } from './chron-search.js';   /* A4：编年搜索框 */
 import { bindEscClose, unbindEscClose } from './esc-close.js';   /* TW 契约：Esc 监听配对清理 */
+import { runWarning } from '../core/runwarn.js';   /* 必修 9：拒签要顶到上面（红条） */
 import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
@@ -316,16 +320,6 @@ function renderDupPicker(host) {
     bar.appendChild(button('合并勾选的（' + String(dupPick.size) + '）', 'merge-selected-dupes', 'wxg-btn-sm wxg-primary'));
     bar.appendChild(button('关掉这张清单', 'dup-clear', 'wxg-btn-sm'));
     box.appendChild(bar);
-    /* A4：搜索框（和名册那个同款；⛔ 每敲一个字都重画，change 才筛） */
-    const chronSearchWrap = el('div', 'wxg-searchwrap');
-    chronSearchWrap.appendChild(el('span', 'wxg-searchico', '⌕'));
-    const chronInput = el('input', 'wxg-searchbox');
-    chronInput.type = 'search';
-    chronInput.placeholder = '搜：编年正文 或 类型';
-    chronInput.value = chronSearch;
-    chronInput.setAttribute('data-action', 'chron-search');
-    chronSearchWrap.appendChild(chronInput);
-    box.appendChild(chronSearchWrap);
 }
 
 function row(host, ...children) {
@@ -493,12 +487,11 @@ export function hasUnsavedDraft() {
 function foldable(summaryText, open) {
     const d = document.createElement('details');
     /*
-     * 依据＝阿砚第三批 N1（召回页折叠后下半屏全白）：
-     *   折叠体里没内容撑高度 ⇒ 一屏只剩三个折叠头。
-     *   现在：给最小高度（先把空白挡住），具体在 CSS `--wxg-fold-min`。
+     * 依据＝阿砚第三批 N1（召回页折叠后下半屏全白）——上一版把 min-height 挂错了地方：
+     *   `<details>` 收起时仍在文档流里 ⇒ 三个收起的折叠头各被撑成 96px 空盒子（实机 369px 的来历）。
+     *   现在：`<details>` 什么都不挂；最小高度交给内容容器（展开时才在文档里，见 mkFold）。
      */
     d.className = 'wxg-report';
-    d.style.minHeight = 'var(--wxg-fold-min, 96px)';
     const s = document.createElement('summary');
     s.appendChild(el('span', null, summaryText));
     if (summaryText) {
@@ -1002,7 +995,8 @@ function secWorld(host) {
     /* ★ P2-7：**面板四分区**——世界总览／人物清单与状态／活跃暗线／记忆状态 ✓ */
     box.appendChild(el('div', 'wxg-note wxg-sec-head', '① 世界总览'));
     const cWorld = lockable(card('世界钟・地点'), 'world-clock');
-    line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20（读不出来写未知）', 'set-world-clock', 'wxg-short'));
+    /* 口径（与 core/config.js 一致）：**世界钟／地点允许写“未知”，其它格不许**；⛔ 在 UI 上教她写“未知”。 */
+    line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20', 'set-world-clock', 'wxg-short'));
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
     line(cWorld, '这个世界现在什么样',
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
@@ -1024,6 +1018,16 @@ function secWorld(host) {
     const wPulseDom0 = Array.isArray(wPulse0.domains) ? wPulse0.domains : [];
     const wPulseCov0 = (wPulse0.coverage && Array.isArray(wPulse0.coverage.entries)) ? wPulse0.coverage.entries : [];
     const wWinds0 = Array.isArray(w.winds) ? w.winds.filter((x) => x && (trimText(x.topic) || trimText(x.text))) : [];
+    /*
+     * 六（阿砚件 7）：世界事实／脉动／风声 三张“引擎还没推出来”的卡，各占一格就是三块空白。
+     *   ⇒ 三张都空时，把三张**装进一条折叠条**（标题写清楚、点开才看到分区）；有数据才各自展开。
+     *   势力那张是独立实体，⛔ 不并进来。
+     */
+    const engineEmpty = !wFacts0.length && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
+    const engineFold = engineEmpty
+        ? foldable('引擎还没推出来的（世界事实／脉动／风声） · 展开看分区', false)
+        : null;
+
     const worldCardsEmpty = !wFactions0.length && !wFacts0.length
         && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
     if (worldCardsEmpty) {
@@ -1094,7 +1098,7 @@ function secWorld(host) {
     }
     if (!worldCardsEmpty) {
         decorateCard({ el: el, box: cFacts, summaryText: wFacts0.length ? (String(wFacts0.length) + ' 条硬事实') : '' });
-        wgrid.appendChild(cFacts);
+        if (engineFold) { engineFold.appendChild(cFacts); } else { wgrid.appendChild(cFacts); }
     /* 世界钟与地点下面的卡片都进网格（A6） */
     }
 
@@ -1153,7 +1157,7 @@ function secWorld(host) {
     }
     if (!worldCardsEmpty) {
         decorateCard({ el: el, box: cPulse, summaryText: wPulseDom0.length ? (String(wPulseDom0.length) + ' 个脉动域') : '' });
-        wgrid.appendChild(cPulse);
+        if (engineFold) { engineFold.appendChild(cPulse); } else { wgrid.appendChild(cPulse); }
     }
 
     /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
@@ -1184,7 +1188,9 @@ function secWorld(host) {
     }
     if (!worldCardsEmpty) {
         decorateCard({ el: el, box: cWinds, summaryText: wWinds0.length ? (String(wWinds0.length) + ' 条风声') : '' });
-        wgrid.appendChild(cWinds);
+        if (engineFold) { engineFold.appendChild(cWinds); } else { wgrid.appendChild(cWinds); }
+        /* 六：三张“引擎还没推出来”的卡合成一条折叠条（有数据时才各自展开） */
+        if (engineFold) { wgrid.appendChild(engineFold); }
     }
 
     /*
@@ -2588,6 +2594,9 @@ function secChronicle(host) {
         chronFilter = 'all';
     }
     box.appendChild(bar);
+    /* A4：搜索框（和名册那个同款；⛔ 每敲一个字都重画，change 才筛） */
+    /* A4：搜索框（构造在 ui/chron-search.js，主文件别再长） */
+    box.appendChild(makeChronSearch(el, chronSearch));
 
     // ② 一行小结：有几条、什么顺序
     const hit = el('div', 'wxg-hitbar');
@@ -3125,11 +3134,13 @@ function secRecall(host) {
     const mkFold = (title, open) => {
         const f = foldable(title, open === true);
         const b = el('div', 'wxg-sec-body');
+        /* N1：最小高度挂这里——收起时整块不在文档里，就不会撑出空盒子 */
+        b.style.minHeight = 'var(--wxg-fold-min, 96px)';
         f.appendChild(b);
         cPick.appendChild(f);
         return b;
     };
-    const bPick = mkFold('挑谁（回溯大小／人物与事件封顶／排序）', false);
+    const bPick = mkFold('挑谁（回溯大小／人物与事件封顶／排序）', true);   /* N1：首组默认展开，那片空白自然没了 */
     const bCap = mkFold('容量锁（到顶怎么归并／淡出）', false);
     const bSize = mkFold('篇幅（注入字数／一轮推演几个）', false);
         lineGroup([
@@ -3601,7 +3612,8 @@ function secPrompts(host) {
     // 其余三套长提示词 ＋ 恢复默认：收拢进同一张卡，告别 5 张大卡满屏堆叠
     const cMore = card('后台推演与破限提示词（按需展开）');
     const addFoldedPrompt = (title, keyVal, kind, id, rows, hint) => {
-        const fold = foldable(title + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
+        /* 17-1：用途副标（文案在 ui/prompt-copy.js，主文件别再长） */
+    const fold = foldable(title + purposeOf(kind) + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
         const body = el('div', 'wxg-report-body');
         body.appendChild(el('div', 'wxg-note', hint));
         body.appendChild(el('pre', 'wxg-prompt-cur', effectivePrompt(kind)));
@@ -3611,6 +3623,17 @@ function secPrompts(host) {
         fold.appendChild(body);
         cMore.appendChild(fold);
     };
+
+    /*
+     * 17-2：她改提示词时要知道能引用什么（全库此前 0 个变量清单）。
+     *   清单在 ui/prompt-copy.js；这里只负责装进卡里。
+     */
+    const cVars = foldable('能写哪些变量 · 展开看清单', false);
+    for (const row of promptVarRows()) {
+        cVars.appendChild(el('div', 'wxg-note', row[0] + '  ' + row[1]));
+    }
+    cMore.appendChild(cVars);
+
     addFoldedPrompt('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
         '让模型推"世界现在什么样"时用的那套规矩。');
     addFoldedPrompt('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
@@ -3688,6 +3711,11 @@ function secReport(host, intoBox) {
         }
         return;
     }
+    /* 必修 9：这一轮没进账就在卡头下面放红条（⛔ toast／⛔ 埋在列表里）；画法在 ui/runwarn-view.js */
+    try {
+        renderRunWarn({ box: box, warn: runWarning(loadState()), el: el, doc: document });
+    } catch (eWarn) { /* 红条画不出来也不能拦着这页 */ }
+
     // ⭐ 装盒：报告列表一块（体检第一条）
     /*
      * ⭐ 有数据排版术：顶部一排**筛选胶囊带计数**（这一页天生带状态：成没成／注入没注入），

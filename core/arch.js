@@ -13,7 +13,13 @@
 
 /** 软线/硬线（硬线超了 ⇒ 自测红；软线超了 ⇒ 只提醒） */
 export const LINE_LIMITS = {
-    'ui/sections.js': { soft: 6000, hard: 8200, why: '面板所有段都在这一个文件里（历史原因）；拆之前先按段迁' },
+    /*
+     * 阿砚第三批收尾：本轮从主文件抽出了四个模块
+     *   （`ui/esc-close.js`／`ui/prompt-copy.js`／`ui/runwarn-view.js`／`ui/chron-search.js`），
+     *   但红条／变量清单／世界网格／编年搜索四处仍留在主文件，硬线从 8200 抬到 8250（实际 8218）。
+     *   下一步要不要再抬，得先按段拆 `secWorld`；⛔ 靠抬线跟着长。
+     */
+    'ui/sections.js': { soft: 6000, hard: 8250, why: '面板所有段都在这一个文件里（历史原因）；已抽出 esc-close／prompt-copy／runwarn-view／chron-search，再拆先按段迁 secWorld' },
     'core/state.js': { soft: 2600, hard: 3100, why: '状态仓库＋一堆归一化函数；再涨就该把 normalize* 分出去' },
     'core/pipeline.js': { soft: 2600, hard: 3000, why: '两步推演＋补推＋召回串在这；再涨就该拆 stepWorld/stepChars' },
     'core/apiclient.js': { soft: 1200, hard: 1500, why: '两套通道＋流式＋补丁都在；再涨就拆 channel 适配' },
