@@ -35,6 +35,7 @@ import {
 } from './theme.js';
 import { questStats } from '../core/summary.js';
 // ⭐ 补⑤ 体检报告（自检）
+import { columnsFor, rowAffinity } from '../core/roster-cols.js';   /* A5：空列不占位，好感从好感表取 */
 import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION, originPanel, agendaOriginPanel, viaLabel } from '../core/config.js';   /* I4 */
@@ -2836,13 +2837,17 @@ function secRoster(host) {
      *   现在：插到**第一张卡之前** ✓（与状态页／世界状态页同一个做法 ✓）
      */
     box.insertBefore(topbar, cIn);
-    const list = el('div', 'wxg-roster wxg-table-4');
-    // ⭐ 表头（照包：浅灰底，四列名：角色名称｜好感｜身份｜势力）
-    const rhead = el('div', 'wxg-thead wxg-table-4');
+    /*
+     * A5：**空列不占位** —— 整列没值（典型：势力）就连表头带单元格一起藏；
+     *   好感列空时去好感表取（有数就有内容）。
+     */
+    const cols = columnsFor(roster, state);
+    const list = el('div', 'wxg-roster wxg-table-' + String(cols.filled));
+    const rhead = el('div', 'wxg-thead wxg-table-' + String(cols.filled));
     rhead.appendChild(el('div', 'wxg-th', '角色名称'));
-    rhead.appendChild(el('div', 'wxg-th', '好感'));
-    rhead.appendChild(el('div', 'wxg-th', '身份'));
-    rhead.appendChild(el('div', 'wxg-th', '势力'));
+    if (cols.showAff) { rhead.appendChild(el('div', 'wxg-th', '好感')); }
+    if (cols.showId) { rhead.appendChild(el('div', 'wxg-th', '身份')); }
+    if (cols.showFac) { rhead.appendChild(el('div', 'wxg-th', '势力')); }
     list.appendChild(rhead);
     for (const c of pageList) {
         const open = String(openChar) === String(c.id);
@@ -2886,10 +2891,10 @@ function secRoster(host) {
         }
         main.appendChild(title);
         r.appendChild(main);
-        // ⭐ 后三列（照包）：好感 ｜ 身份 ｜ 势力 —— 空值一律 `—`（⛔ 不写"暂无一堆"）
-        r.appendChild(el('div', 'wxg-td wxg-c-aff', trimText(c.affinity) || '—'));
-        r.appendChild(el('div', 'wxg-td wxg-c-id', trimText(c.identity) || '—'));
-        r.appendChild(el('div', 'wxg-td wxg-c-fac', trimText(c.faction) || '—'));
+        // A5：按“这一列有没有值”决定画不画；好感优先读好感表
+        if (cols.showAff) { r.appendChild(el('div', 'wxg-td wxg-c-aff', rowAffinity(state, c) || '—')); }
+        if (cols.showId) { r.appendChild(el('div', 'wxg-td wxg-c-id', trimText(c.identity) || '—')); }
+        if (cols.showFac) { r.appendChild(el('div', 'wxg-td wxg-c-fac', trimText(c.faction) || '—')); }
         // ⭐ 被点开那一行：浅绿选中（包里 trow sel）
         if (open) {
             r.classList.add('is-sel');
