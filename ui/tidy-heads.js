@@ -104,3 +104,19 @@ export function titleNode(el, raw) {
     if (paren) { el.setAttribute('title', paren); }
     return el;
 }
+
+/**
+ * 83 号：**屏上不出技术串**（HTTP 530／重试）。
+ *   原文留给 `title=`（悬停看）与「⭘ 说明」里的「每轮记录」；屏上只留人话。
+ *   ⛔ 改楼号：`#0` 是酒馆楼号（她定的口径），保留。
+ * @param {string} s
+ */
+export function sanitizeTech(s) {
+    return String(s == null ? '' : s)
+        .replace(/（?HTTP\s*\d+[^）]*）?/gi, '')
+        .replace(/HTTP/gi, '')
+        .replace(/重试/g, '再跑')
+        .replace(/[ 	]{2,}/g, ' ')
+        .replace(/[  ]+·/g, ' ·')
+        .trim();
+}

@@ -14,7 +14,7 @@ import { markOneCol } from './onecol.js';
 import { statusHero } from './status-hero.js';
 import { foldStore, foldReport } from './status-folds.js';
 import { foldCard, cardLine, statusCardLine } from './card-fold.js';
-import { tidyHeadings, tidyText, titleNode } from './tidy-heads.js';   /* 75/77：标题与折叠条去括号（造的当下） */   /* 74/75：卡头三层＋一句话 */   /* 71：两条折叠 */
+import { tidyHeadings, tidyText, titleNode, sanitizeTech } from './tidy-heads.js';   /* 75/77：标题与折叠条去括号（造的当下） */   /* 74/75：卡头三层＋一句话 */   /* 71：两条折叠 */
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -25,7 +25,6 @@ import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只�
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
-// ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。 ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
 // ⭐ 浮层人物卡要用 findCharacter（按 id 取那一位；⛔ 不是 findCharacterByName）
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
@@ -573,7 +572,9 @@ function secStatus(host, intoSelf) {
     const report = storageReport();
     const line = el('div', 'wxg-store', report.text);
     line.setAttribute('data-tone', report.tone);
-    const ledgerLine = el('div', 'wxg-ledger', '上次更新：' + ledgerText());
+    const ledgerRaw = '上次更新：' + ledgerText();
+    const ledgerLine = el('div', 'wxg-ledger', sanitizeTech(ledgerRaw));
+    ledgerLine.title = ledgerRaw;
         /*
          * 依据＝阿砚 3 件任务 · 渲染层 #3：这行“世界四值”已并进**顶栏第五格**（不再单占一张卡）。
          *   去向：ui/workspace.js 的 renderChips → ['可撤回', ...]（同一份数据，⛔ 再渲染一遍）。
@@ -872,7 +873,8 @@ const snaps = listSnapshots();
             const liveRun2 = !!(typeof window !== 'undefined' && window.__wxgLiveRun);
             const running2 = !failed && liveRun2 && !!step && step !== 'done' && step !== 'idle';
             if (failed) {
-                progRow.textContent = '⚠ 上次：' + text;
+                progRow.textContent = '⚠ 上次：' + sanitizeTech(text);
+        progRow.title = text;
             } else if (running2) {
                 progRow.textContent = '⏳ ' + (text || '正在跑…');
             } else if (text && /补推中断|已取消/.test(text)) {
@@ -880,9 +882,9 @@ const snaps = listSnapshots();
                  * 断点续跑要**露出**（她那次"推了八成→再点→推完"的静默中断，屏上根本没说过）：
                  * 留着上次那句话，并告诉她**再点一次「补推历史」就能接着补**。
                  */
-                progRow.textContent = '⏸ ' + text + '（再点「补推历史」接着补；填了范围就按范围补）';
+                progRow.textContent = '⏸ ' + sanitizeTech(text) + '（再点「补推历史」接着补；填了范围就按范围补）';
             } else if (text) {
-                progRow.textContent = '上次：' + text;
+                progRow.textContent = '上次：' + sanitizeTech(text);   /* 83 */
             } else {
                 progRow.textContent = '（还没跑过；点「补推历史」按范围补，跑中这里会显示 n/N）';
             }
@@ -1740,8 +1742,7 @@ function secCharacters(host) {
             sch.appendChild(schBox);
             detail.appendChild(sch);
         }
-        // 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
-        // 整理规则（我定的）：进行中的排前面，完成/搁置的收进折叠里（不占地方，但一条不丢）
+        // 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么" 整理规则（我定的）：进行中的排前面，完成/搁置的收进折叠里（不占地方，但一条不丢）
         if (Array.isArray(c.quests) && c.quests.length) {
             const qBox = el('div', 'wxg-list');
             const open = c.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
@@ -1979,8 +1980,7 @@ function commitSection(secId) {
                 { applyToPanel: box[k] === true });
             continue;
         }
-        // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换
-        // （整块替换会把她存好的书签 `profiles` 一起冲掉）
+        // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换 （整块替换会把她存好的书签 `profiles` 一起冲掉）
         if (k === 'api' && box[k] && typeof box[k] === 'object') {
             patch.api = Object.assign({}, getSettings().api || {}, box[k], patch.api || {});
             continue;
