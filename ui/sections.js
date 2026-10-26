@@ -25,8 +25,7 @@ import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只�
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
-// ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。
-//    ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
+// ⭐ 删／清空那一组（她自己按的）：编年单条删、清空编年、清空这个聊天的世界。 ⚠️ 注释要写在 import **外面**——写进名单里会被"import 名字都对得上"那条静态检查当成名字（它逮过我一次）。
 // ⭐ 浮层人物卡要用 findCharacter（按 id 取那一位；⛔ 不是 findCharacterByName）
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
@@ -1707,7 +1706,6 @@ function secCharacters(host) {
             warn.setAttribute('data-tone', 'bad');
             detail.appendChild(warn);
         }
-
         // 过去经历
         const past = el('div', 'wxg-field');
         past.appendChild(el('label', null, '过去经历（由近到远，旧的自然淡化）'));
@@ -1750,7 +1748,6 @@ function secCharacters(host) {
             sch.appendChild(schBox);
             detail.appendChild(sch);
         }
-
         // 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么"
         // 整理规则（我定的）：进行中的排前面，完成/搁置的收进折叠里（不占地方，但一条不丢）
         if (Array.isArray(c.quests) && c.quests.length) {
@@ -2967,7 +2964,7 @@ function secRoster(host) {
             act.appendChild(button('恢复参与推演', 'unignore-char', 'wxg-btn-xs', c.id));
         } else if (c.isNew === true || isFresh(c)) {
             act.appendChild(button('收下', 'accept-new', 'wxg-btn-xs', c.id));
-            act.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-xs', c.id));
+            /* 79 ：忽略搬进 ⋯ */
         }
         act.appendChild(el('span', 'wxg-r-caret' + (open ? ' is-open' : ''), open ? '⌄' : '›'));
         /*
@@ -3013,6 +3010,9 @@ function secRoster(host) {
             playerLabel.appendChild(el('span', null,
                 c.isYou ? '玩家棋子（照酒馆里的人设名自动认的；不想算就取消勾）' : '玩家棋子'));
             actions.appendChild(playerLabel);
+            if (c.isNew === true || isFresh(c)) {
+                actions.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-xs', c.id));
+            }
             actions.appendChild(button('删', 'del-char', 'wxg-btn-xs', c.id));
             r.appendChild(actions);
         }
