@@ -4444,7 +4444,6 @@ function renderPersonCard() {
     kv.appendChild(cur);
     sec1.appendChild(kv);
     pop.appendChild(sec1);
-
     // ③ 过去经历：引文块（绿竖线），旧的自然淡化
     const sec2 = el('div', 'wxg-pc-sec');
     sec2.appendChild(el('div', 'wxg-pc-sech', '过去经历（由近到远，旧的自然淡化）'));
@@ -4491,7 +4490,6 @@ function renderPersonCard() {
         sec2.appendChild(q);
     }
     pop.appendChild(sec2);
-
     // ④ 底部条：换人（她拍的：上一位｜第几位/共几位｜下一位）＋ 合并 ＋ 保存
     /*
      * ⭐「不可靠」提醒（原本**只在角色状态页**）——她点名的污染就是这个，得当场说出来。
@@ -4957,7 +4955,6 @@ function renderWorldEntryCard() {
     const pop = el('div', 'wxg-pc wanxiangge');
     pop.id = 'wxg-world-entry';
     pop.setAttribute('role', 'dialog');
-
     // ① 头部
     const head = el('div', 'wxg-pc-head');
     head.appendChild(el('span', 'wxg-pc-grip', '⠿'));
@@ -4978,7 +4975,6 @@ function renderWorldEntryCard() {
     head.appendChild(kebab);
     head.appendChild(button('✕', 'we-close', 'wxg-pc-x'));
     pop.appendChild(head);
-
     // ② 信息区（键值两栏）
     const sec1 = el('div', 'wxg-pc-sec');
     sec1.appendChild(el('div', 'wxg-pc-sech', '这一条'));
@@ -5106,7 +5102,6 @@ function renderWorldEntryCard() {
     }
     sec1.appendChild(kv);
     pop.appendChild(sec1);
-
     // ③ 因果区（照世界账摆，⛔ 不另编；手改走上面「上承／下沿」⋮）
     const sec2 = el('div', 'wxg-pc-sec');
     sec2.appendChild(el('div', 'wxg-pc-sech', '因果（照世界账的记录摆 · 不另编）'));
@@ -5137,7 +5132,6 @@ function renderWorldEntryCard() {
         }
     }
     pop.appendChild(sec2);
-
     // ④ 底部
     const foot = el('div', 'wxg-pc-foot');
     foot.appendChild(button('关闭', 'we-close', 'wxg-pc-nav'));
@@ -5348,7 +5342,6 @@ export function renderSections(host, opts) {
                 console.warn('[万象阁] 摆回人物卡出错：', e);
             }
         }
-
         // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
         /* 一：整页只有一个主卡 ⇒ 盖 `data-wxg-onecol`（实现在 ui/onecol.js） */
@@ -5605,7 +5598,6 @@ function buildJumpNav(host) {
     } else {
         host.appendChild(nav);
     }
-
     // 滚动时高亮"你现在在哪一段"（scroll-spy）
     bindNavScrollSpy(host, nav);
     markActiveNav(host, nav);
@@ -5783,8 +5775,15 @@ async function readFromBook(book) {
             return { added: 0, skipped: 0 };
         }
         if (res.fellBack) {
-            toast.warn('模型这条线没通（' + (res.reason || '') + '）⇒ 只按规则收了名字**没分类**：'
-                + String(res.added) + ' 人。配好 API 再点一次就能分类建档。');
+            /*
+             * 87#4：不能只说“配好 API 再点”（她被这句害白试两次：API 已配好，是输入太长）。
+             *   必须说清“这次没分类，势力／局势都没读”，并给出兜底到了几条。
+             */
+            const num0 = (v) => (Number.isFinite(Number(v)) ? String(Number(v)) : '0');
+            toast.warn('模型这条线没通（' + (res.reason || '未知') + '）⇒ **这次没分类，势力／局势都没读**。'
+                + '人物按名字收了 ' + num0(res.added) + ' 人；势力／局势／地点按条目前缀兜底：'
+                + '势力 ' + num0(res.factions) + ' · 局势 ' + num0(res.situations) + ' · 地点 ' + num0(res.places) + '。'
+                + '下次点一次会从断点接着读。');
             return { added: res.added, skipped: 0 };
         }
         return res;
@@ -6953,7 +6952,12 @@ export function bindSectionEvents(host, refresh) {
                          *   ⇒ 一律兜底成 0／"没读到"，⛔ 不许再把 undefined 漏到她脸上。
                          */
                         const num = (v) => (Number.isFinite(Number(v)) ? String(Number(v)) : '0');
-                        toast.ok('读进来 ' + num(res.read) + ' 条'
+                        const bad = Array.isArray(res.failedChunks) ? res.failedChunks : [];
+        if (bad.length) {
+            toast.warn('其中 ' + String(bad.length) + ' 块没读成（原书第 ' + String(Number(bad[0].from) + 1)
+                + '–' + String(bad[0].to) + ' 条），其余已建档；再点一次会从这几块接着读。');
+        }
+        toast.ok('读进来 ' + num(res.read) + ' 条'
                             + (Number(res.disabled) > 0 ? '（另有 ' + num(res.disabled) + ' 条禁用，跳过）' : '')
                             + ' ⇒ 认出：人 ' + (res.added === undefined ? '没读到' : num(res.added))
                             + ' · 势力 ' + (res.factions === undefined ? '没读到' : num(res.factions))
@@ -7145,8 +7149,7 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'list-entries': {
                     const name = id;
-                    // ⭐ 记住"正在看哪本书"，重画之后自动摆回来
-                    //    （⛔ 不然她点一条之后列表就没了，没法接着点第二条）
+                    // ⭐ 记住"正在看哪本书"，重画之后自动摆回来 （⛔ 不然她点一条之后列表就没了，没法接着点第二条）
                     pickBook = trimText(name);
                     const entries = await getEntries(name);
                     pickEntries = entries;
@@ -7744,13 +7747,11 @@ export function bindSectionEvents(host, refresh) {
                         toast.fail('先给书签起个名字（例：主站／备用站）');
                         break;
                     }
-                    // ⭐ 存书签时把**这一段草稿里的改动也算上**（地址刚改、还没按保存也能存进书签）
-                    // ⚠️ 顺序要紧：**先**把 one 和 list 算好、**再** commitSection ——
+                    // ⭐ 存书签时把**这一段草稿里的改动也算上**（地址刚改、还没按保存也能存进书签） ⚠️ 顺序要紧：**先**把 one 和 list 算好、**再** commitSection ——
                     //    commitSection 会把草稿删掉，反过来写就只能拿到空的（这个坑真踩过）。
                     const live = getSettings().api || {};
                     const draft = stagingOf(stagingMode).api || {};
-                    // ⚠️ 草稿里的 profiles 是**打开面板那一刻的旧值**（甚至空的）
-                    //    ⇒ 合并时不许认它，否则会把刚存的书签冲掉。书签只认设置里那一份。
+                    // ⚠️ 草稿里的 profiles 是**打开面板那一刻的旧值**（甚至空的） ⇒ 合并时不许认它，否则会把刚存的书签冲掉。书签只认设置里那一份。
                     const cur = Object.assign({}, live, draft);
                     delete cur.profiles;
                     const one = {
@@ -8274,8 +8275,7 @@ export function bindSectionEvents(host, refresh) {
 
     host.addEventListener('click', handler);
     host.addEventListener('change', handler);
-    // ⭐ 角色搜索要"边打边筛"：只切显示、⛔ 不重画
-    //    （重画会把她正在打的字和滚动位置全弄没）
+    // ⭐ 角色搜索要"边打边筛"：只切显示、⛔ 不重画 （重画会把她正在打的字和滚动位置全弄没）
     host.addEventListener('input', (e) => {
         const t = e && e.target;
         if (!t || typeof t.getAttribute !== 'function') {

@@ -24,8 +24,16 @@ import { getSettings } from './settings.js';
 import { trimText, asText, matchKey, toList } from './utils.js';
 import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner, extractFormNames } from './worldbook.js';
 
-/** 一次最多送多少条给模型（太长就分片；⛔ 不是"过滤掉"，是分批读完） */
-const CHUNK = 40;
+/*
+ * 87/88 号（阿砚 01:00：“不行就跟工作流、观棋、世界之面一样做个分批读世界书”）
+ *   切法取「观棋」（story-world-v2/src/abstract.js chunkRowsWithRanges）：
+ *   **按字符累计切、每块带 from/to**（出错能定位是哪几条）；
+ *   初值不照它的 60000（那是只报名号的瘦提示词）——我们还要模型吐四类 JSON，6000 起步。
+ */
+export const CHUNK_CHAR_START = 6000;
+const CHUNK_CHAR_MIN = 500;
+/** 这些错就当“这块太大”（砍半重读），⛔ 不当“模型没通”直接降级 */
+const TOO_BIG_HINT = /ERR_INPUT_LIMIT|ERR_OUTPUT|JSON|截断|too long|context length|max_tokens/i;
 
 /**
  * 兜底路径里"**不是人**"的分类词（只影响兜底，⛔ 不影响模型那条线——
@@ -218,11 +226,57 @@ function normalizeWiki(raw) {
     return out;
 }
 
+/** 一条 entry 入 prompt 后大概多少字（标题＋正文＋栖栏） */
+function oneChars(x) {
+    return String(x.title || '').length + String(x.body || '').length + 8;
+}
+
+/** 从 from 开始取一块（按字符累计；单条超长就自成一块） */
+export function takeChunk(list, from, maxChar) {
+    let to = from;
+    let len = 0;
+    while (to < list.length) {
+        const one = oneChars(list[to]);
+        if (to > from && len + one > maxChar) {
+            break;
+        }
+        len += one;
+        to += 1;
+    }
+    return { from, to, chars: len, count: to - from };
+}
+
+/** 读爪印：上次读到哪块（⛔ 从头再来） */
+function readCheckpoint() {
+    try {
+        const cp = loadState().bookReadCheckpoint;
+        if (cp && typeof cp === 'object' && Array.isArray(cp.done)) {
+            return cp;
+        }
+    } catch (e) {
+        /* 读不到就当没爪印 */
+    }
+    return { done: [], maxChar: CHUNK_CHAR_START, book: '' };
+}
+
+/** 写爪印（每块读完就留一个） */
+function writeCheckpoint(cp) {
+    try {
+        const state = loadState();
+        state.bookReadCheckpoint = cp;
+        saveState();
+    } catch (e) {
+        /* 爪印写不了也不能拦着读 */
+    }
+}
+
 /**
- * 让模型给条目分类（分片送，合并结果）。
- * @returns {{ok: boolean, reason?: string, wiki: object, chunks: number}}
+ * 让模型给条目分类（按字符分片；失败砍半重试；每块留爪印）。
+ * @param {Array} entries
+ * @param {{bookName?: string, resume?: boolean}} [opts]
+ * @returns {{ok: boolean, reason?: string, wiki: object, chunks: number, failedChunks?: Array, maxChar?: number, resumedFrom?: number}}
  */
-export async function classifyBook(entries) {
+export async function classifyBook(entries, opts) {
     let callModelJson = null;
     try {
         ({ callModelJson } = await import('./apiclient.js'));
@@ -233,35 +287,93 @@ export async function classifyBook(entries) {
     if (!list.length) {
         return { ok: false, reason: '这本书里没有可用的条目', wiki: emptyWiki(), chunks: 0 };
     }
+    const bookKey = trimText(opts && opts.bookName);
+    const cp = (opts && opts.resume === false) ? { done: [], maxChar: CHUNK_CHAR_START, book: bookKey } : readCheckpoint();
+    /* 爪印只认“这本书 + 从头连续成功”的那段 */
+    let startIndex = 0;
+    /* 只认“同一本书 + 有书名”的爪印（⛔ 拿别的书的爪印跳过头） */
+    if (bookKey && cp && cp.book === bookKey && Array.isArray(cp.done)) {
+        const okMap = new Map(cp.done.filter((d) => d && d.ok).map((d) => [Number(d.from), Number(d.to)]));
+        while (okMap.has(startIndex)) {
+            startIndex = Number(okMap.get(startIndex));
+        }
+    }
+    if (startIndex >= list.length) {
+        /* 陈旧爪印把整本都盖了（但这次没读出任何东西）⇒ 当作失效，重头读 */
+        startIndex = 0;
+    }
+    let maxChar = Math.max(CHUNK_CHAR_MIN, Number(cp && cp.maxChar) || CHUNK_CHAR_START);
     const wiki = emptyWiki();
+    const failedChunks = [];
+    const done = Array.isArray(cp && cp.done) ? cp.done.slice() : [];
     let chunks = 0;
-    for (let i = 0; i < list.length; i += CHUNK) {
-        const part = list.slice(i, i + CHUNK);
+    let goodStreak = 0;
+    let i = startIndex;
+    while (i < list.length) {
+        const part = takeChunk(list, i, maxChar);
         chunks += 1;
         let res = null;
+        let errText = '';
         try {
             // eslint-disable-next-line no-await-in-loop
             res = await callModelJson({
                 system: CLASSIFY_SYSTEM,
-                prompt: '这是第 ' + String(chunks) + ' 批，共 ' + String(part.length) + ' 条：\n\n' + digestText(part),
+                prompt: '这是第 ' + String(chunks) + ' 批（原书第 ' + String(part.from + 1) + '–' + String(part.to) + ' 条），共 ' + String(part.count) + ' 条：\n\n' + digestText(list.slice(part.from, part.to)),
                 cheap: true,
             });
         } catch (e) {
-            return { ok: false, reason: '模型调用出错：' + (e && e.message ? e.message : String(e)), wiki, chunks };
+            errText = e && e.message ? e.message : String(e);
+            res = { ok: false, reason: errText };
         }
-        if (!res || !res.ok) {
-            return { ok: false, reason: (res && res.reason) || '模型没回可用的 JSON', wiki, chunks };
+        if (res && res.ok) {
+            const one = normalizeWiki(res.value);
+            wiki.characters.push(...one.characters);
+            wiki.factions.push(...one.factions);
+            wiki.situations.push(...one.situations);
+            wiki.places.push(...one.places);
+            wiki.hidden = Array.isArray(wiki.hidden) ? wiki.hidden : [];
+            wiki.hidden.push(...(Array.isArray(one.hidden) ? one.hidden : []));
+            done.push({ from: part.from, to: part.to, ok: true });
+            i = part.to;
+            goodStreak += 1;
+            /* 成功两块 ⇒ 慢慢加回上限（照世界背面） */
+            if (goodStreak >= 2 && maxChar < CHUNK_CHAR_START) {
+                maxChar = Math.min(CHUNK_CHAR_START, Math.ceil(maxChar * 1.2));
+                goodStreak = 0;
+            }
+            writeCheckpoint({ book: bookKey, done, maxChar, at: Date.now() });
+            continue;
         }
-        // ⚠️ `callModelJson` 回的是 `value`（⛔ 不是 `json`）——写错的话会静默分出 0 条
-        const one = normalizeWiki(res.value);
-        wiki.characters.push(...one.characters);
-        wiki.factions.push(...one.factions);
-        wiki.situations.push(...one.situations);
-        wiki.places.push(...one.places);
-    wiki.hidden = Array.isArray(wiki.hidden) ? wiki.hidden : [];
-    wiki.hidden.push(...(Array.isArray(one.hidden) ? one.hidden : []));
+        const reason = String((res && res.reason) || errText || '模型没回可用的 JSON');
+        if (TOO_BIG_HINT.test(reason) && part.count > 1) {
+            /*
+             * 这块太大 ⇒ 砍半再读同一段。
+             * ⛔ 写死 `Math.max(MIN, /2)`：短条目时会卡在一个怫人的下限上无限循环（真踩过）；
+             *   下限下就按“实际字数再砍一半”，直到只剩 1 条。
+             */
+            const half = Math.floor(maxChar / 2);
+            maxChar = (half >= CHUNK_CHAR_MIN) ? half : Math.max(1, Math.floor(part.chars / 2));
+            goodStreak = 0;
+            continue;
+        }
+        failedChunks.push({ from: part.from, to: part.to, reason: reason.slice(0, 120) });
+        done.push({ from: part.from, to: part.to, ok: false, reason: reason.slice(0, 60) });   /* 爪印里带失败原因，她能直接看 */
+        i = part.to;
+        writeCheckpoint({ book: bookKey, done, maxChar, at: Date.now() });
     }
-    return { ok: true, wiki, chunks };
+    const any = wiki.characters.length + wiki.factions.length + wiki.situations.length + wiki.places.length > 0;
+    if (!any) {
+        /*
+         * 全部块都“跑完了”但一条也没分出来 ⇒ 不能当成功（她会看到“读进来 0 条”却不知道为什么）。
+         *   交给上层走兜底，并把真实原因带回去。
+         */
+        return {
+            ok: false,
+            reason: (failedChunks[0] && failedChunks[0].reason) || '模型没分出任何条目（这本书的 JSON 是空的）',
+            wiki, chunks, failedChunks, maxChar, resumedFrom: startIndex,
+        };
+    }
+    return { ok: true, wiki, chunks, failedChunks, maxChar, resumedFrom: startIndex };
 }
 
 /** 去重（名字归一后比） */
@@ -628,6 +740,38 @@ export function ruleBasedPeople(entries) {
 }
 
 /**
+ * 87：**兜底版的世界档案**——按条目前缀分三类。
+ *   为何要：模型那条线不通时，旧代码直接写 `factions: 0` ⇒她看到永远是“只出一串名字”。
+ * @returns {{factions: Array, situations: Array, places: Array}}
+ */
+export function ruleBasedWorld(entries) {
+    const factions = [];
+    const situations = [];
+    const places = [];
+    for (const e of (Array.isArray(entries) ? entries : [])) {
+        const rawTitle = trimText(e && (e.comment || e.name || e.key));
+        if (!rawTitle) {
+            continue;
+        }
+        const m = rawTitle.match(/^\[([^\]]+)\]\s*(.+)$/);
+        const kind = trimText(m ? m[1] : '');
+        const name = trimText(m ? m[2] : rawTitle);
+        if (!name) {
+            continue;
+        }
+        const note = asText(e && e.content).replace(/\s+/g, ' ').trim().slice(0, 120);
+        if (/势力|组织|团体|阵营/.test(kind)) {
+            factions.push({ name, status: '', note });
+        } else if (/局势/.test(kind)) {
+            situations.push({ title: name, sides: '', pressure: 0, note });
+        } else if (/地点|场所|地图/.test(kind)) {
+            places.push({ name, note });
+        }
+    }
+    return { factions, situations, places };
+}
+
+/**
  * ★ 她 22:0x：**同一个人不要因为“变身形态”被拆成两条**（地场卫／夜礼服假面／安迪米欧国王 ⇒ 一个人）。
  *   判据（确定性、不看模型脸色）：B 的档案里提到 A 的名字 ⇒ A 是真名，B 是 A 的别名。
  *   （她的世界书里就是两条：地场卫一条、夜礼服假面一条，后者写着“地场卫的变身形态”。）
@@ -734,7 +878,7 @@ export async function importBookWiki(bookName, opts) {
     if (!read.ok) {
         return { ok: false, reason: read.reason };
     }
-    const cls = await classifyBook(read.entries);
+    const cls = await classifyBook(read.entries, { bookName: bookName });
     if (!cls.ok) {
         // 模型不行 ⇒ 明确报出来；她允许时给"规则版"兜底，但**说清是兜底**
         if (opts && opts.allowRuleFallback) {
@@ -743,11 +887,21 @@ export async function importBookWiki(bookName, opts) {
     // 她 [18]：跟模型线用**同一份**逻辑（⛔ 两处各写一遍，改一处忘一处）
     applyPeopleExtras(rb.people);
 
+            /*
+             * 87#3：兜底也不能把势力写死 0（她：一降级势力永远出不来）。
+             *   按条目前缀（[势力]／[局势]／[地点]）先建档，并在回执里说清是兜底。
+             */
+            const rw = ruleBasedWorld(read.entries);
+            const facN = rw.factions.length ? updateWorld({ factions: rw.factions }) && rw.factions.length : 0;
+            const sitN = rw.situations.length ? updateWorld({ situations: rw.situations }) && rw.situations.length : 0;
+            const plcN = rw.places.length;
             return {
                 ok: true, fellBack: true, reason: cls.reason,
                 read: read.entries.length, total: read.total, disabled: read.disabled,
                 added, skipped: rb.skipped,
-                factions: 0, situations: 0, places: 0, situationsTotal: 0,
+                factions: facN, situations: sitN, places: plcN,
+                situationsTotal: (loadState().world.situations || []).length,
+                fallbackWorld: { factions: rw.factions.length, situations: rw.situations.length, places: plcN },
             };
         }
         return { ok: false, reason: cls.reason, read: read.entries.length };
@@ -764,6 +918,9 @@ export async function importBookWiki(bookName, opts) {
         ok: true, fellBack: false,
         read: read.entries.length, total: read.total, disabled: read.disabled,
         chunks: cls.chunks,
+        failedChunks: cls.failedChunks || [],
+        maxChar: cls.maxChar,
+        resumedFrom: cls.resumedFrom,
         added: applied.people,
         factions: applied.factions,
         situations: applied.situations,

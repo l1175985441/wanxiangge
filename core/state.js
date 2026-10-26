@@ -392,6 +392,8 @@ function emptyState() {
          */
         affinityTable: [],
         stat: { recalled: 0, injected: 0, empty: 0, updates: 0 },
+    /* 88 号：读世界书的**爪印**（{书名, done:[{from,to,ok}], maxChar, at}）——半路停下下回接着走 */
+    bookReadCheckpoint: null,
     };
 }
 
@@ -459,6 +461,13 @@ function normalizeState(raw) {
             : null;
     }
     state.newPeople = Array.isArray(s.newPeople) ? s.newPeople.map(trimText).filter(Boolean) : [];
+    /* 88：爪印不能被归一化吃掉 */
+    {
+        const bc = s.bookReadCheckpoint;
+        state.bookReadCheckpoint = (bc && typeof bc === 'object' && Array.isArray(bc.done))
+            ? { book: trimText(bc.book), done: bc.done.slice(0, 500), maxChar: Number(bc.maxChar) || 0, at: Number(bc.at) || 0 }
+            : null;
+    }
     /*
      * 86 号：老账也要洗一遍（她盘里已经有占位句、重复 5 次的句子、退化提醒）。
      *   规则与 addChronicle 四道闸一致：占位句／元词／退化提醒不入库；同 (who,text,floor) 只留一条。
