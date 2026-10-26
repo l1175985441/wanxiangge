@@ -16,7 +16,7 @@ import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道�
 import { getSettings, effectivePrompt , effectiveSetting } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
 import { sourceOk, floorText, digestOf } from './provenance.js';
-import { affinityPromptBlock } from './affinity.js';   /* 新活：好感表每层都发 */   /* 4-b #6：注入指纹要用内容摘要 */
+import { affinityPromptBlock, affinityTableBlock, AFFINITY_UNSET } from './affinity.js';   /* 新活：好感表每层都发 */   /* 4-b #6：注入指纹要用内容摘要 */
 import { noteText } from './prompt.js';
 /* 4-b #6：上一次注入的指纹（诊断/自测用，⛔ 影响注入内容） */
 let lastInject = null;
@@ -302,11 +302,15 @@ function affinityLineOf(c) {
     if (AFFINITY_NUM.test(rowVal)) {
         return '  好感：' + rowVal + '（读自好感表）';
     }
+    /*
+     * 95 号：表里没数 ⇒ 写「未建立」（她的词），⛔ 再写「未接入数据源」这种开发话术。
+     *   角色自带旧值也只作为兜底显示，不算“读自好感表”。
+     */
     const own = trimText(c && c.affinity);
     if (AFFINITY_NUM.test(own)) {
         return '  好感：' + own + (trimText(c && c.affinitySource) ? '（读自' + trimText(c.affinitySource) + '）' : '');
     }
-    return '  好感：未接入数据源（不显示数值）';
+    return '  好感：' + AFFINITY_UNSET + '（表里还没这一行的数）';
 }
 
 function personBlock(item, opts) {
@@ -711,7 +715,7 @@ export function assembleInjectText(items, events, headerText, opts) {
     const state = loadState();
     const windOnly = (Array.isArray(state.world && state.world.winds) ? state.world.winds : []).some((x) => x && trimText(x.topic));
     // ⭐ 没有人物也没有事件也没有风声账 ⇒ 一个字都不注入（免得只灌一段世界钟，白占上下文）
-    if (!blocks.length && !evBlocks.length && !windOnly) {
+    if (!blocks.length && !evBlocks.length && !windOnly && !affinityTableBlock(state)) {
         return '';
     }
     const worldLines = [];
@@ -731,6 +735,11 @@ export function assembleInjectText(items, events, headerText, opts) {
     }
     if (blocks.length) {
         text += '\n【人物】\n' + blocks.join('\n');
+    }
+    /* 95：好感表**每层都进**（不分前后台） */
+    const affBlock = affinityTableBlock(state);
+    if (affBlock) {
+        text += '\n' + affBlock;
     }
     if (evBlocks.length) {
         text += '\n【世界上正在发生的事】\n' + evBlocks.join('');

@@ -472,7 +472,7 @@ function buildEntries() {
             '年龄：' + (trimText(c.age) || '未知'),
             '身份：' + (trimText(c.identity) || '未知'),
             '所在势力：' + (trimText(c.faction) || '未知'),
-            '好感：' + (trimText(c.affinity) || '未接入数据源'),
+            '好感：' + (trimText(c.affinity) || '未建立'),
             '时间・地点：' + (trimText(c.timePlace) || '未知'),
             '正在经历：' + (trimText(c.current) || '未知'),
         ];

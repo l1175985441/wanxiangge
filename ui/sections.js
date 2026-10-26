@@ -2988,7 +2988,7 @@ function secRoster(host) {
             const alias = textInput('wxg-alias-' + c.id, c.aliases.join('、'), '别名／昵称（顿号或逗号分开）', 'set-alias', 'wxg-alias');
             alias.setAttribute('data-id', c.id);
             fields.appendChild(alias);
-            const aff = textInput('wxg-aff-' + c.id, c.affinity, '好感（读自"手机"，未接入先空着）', 'set-affinity', 'wxg-affinity');
+            const aff = textInput('wxg-aff-' + c.id, c.affinity, '好感（读自手机；没有就空着）', 'set-affinity', 'wxg-affinity');
             aff.setAttribute('data-id', c.id);
             fields.appendChild(aff);
             r.appendChild(fields);
@@ -3310,7 +3310,7 @@ function secExtract(host) {
         stagedValue(SECID, 'onlyEnabledEntries', s.onlyEnabledEntries), 'stage-only-enabled'));
     line(cBook, '好感来源（"手机"）',
         textInput('wxg-affinity-source', stagedValue(SECID, 'affinitySource', s.affinitySource), '例：手机 或 关系表', 'stage-affinity-source', 'wxg-short'),
-        el('span', 'wxg-note', '留空＝不接（界面如实写"未接入"）'));
+        el('span', 'wxg-note', '留空＝还没有数（表里写「未建立」）'));
     box.appendChild(cBook);
     box.appendChild(saveBar(SECID));
     host.appendChild(box);
@@ -3814,7 +3814,7 @@ function secReport(host, intoBox) {
                 // 空值写「暂无」（复核方第六条：不隐身、不写"—"）
                 const bits = [trimText(c.name) || '未记名', '理由：' + (trimText(item.reason) || '暂无')];
                 const has = [];
-                has.push(trimText(c.affinity) ? '好感 ' + trimText(c.affinity) : '好感未接入数据源');
+                has.push(trimText(c.affinity) ? '好感 ' + trimText(c.affinity) : '好感未建立');
                 if (trimText(c.identity)) {
                     has.push('身份 ' + trimText(c.identity));
                 }

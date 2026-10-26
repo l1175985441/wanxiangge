@@ -178,3 +178,30 @@ export function affinityLine(state) {
     const withNum = rows.filter((r) => r && r.affinity && r.affinity !== AFFINITY_UNSET).length;
     return '好感表：' + String(rows.length) + ' 人（有数 ' + String(withNum) + ' 人）';
 }
+
+/**
+ * 95 号：**好感表块**——每层都进（不分前后台），一人一行约 60 字。
+ *   她：「好感那几行每层都进 prompt（不管出没出场）；人物资料仍按前后台分」。
+ *   ⛔ 不算、⛔ 不插值；表里是什么就写什么（没数 ⇒ 「未建立」）。
+ * @param {object} state
+ * @returns {string} 空字符串＝表里一个人都没有
+ */
+export function affinityTableBlock(state) {
+    const rows = Array.isArray(state && state.affinityTable) ? state.affinityTable : [];
+    if (!rows.length) {
+        return '';
+    }
+    const lines = ['【好感表（只读：数值只能从手机抄，本表不算）】'];
+    for (const r of rows) {
+        const name = String((r && r.name) || '').trim();
+        if (!name) {
+            continue;
+        }
+        const val = String((r && r.affinity) || '').trim() || AFFINITY_UNSET;
+        const at = Number(r && r.updatedAt);
+        const when = Number.isFinite(at) && at > 0 ? ('最后更新 ' + new Date(at).toLocaleString('zh-CN', { hour12: false })) : '最后更新 ——';
+        const src = String((r && r.source) || '').trim() || '从未出场';
+        lines.push('· ' + name + ' ｜ 好感 ' + val + ' ｜ ' + when + ' ｜ ' + src);
+    }
+    return lines.length > 1 ? (lines.join('\n') + '\n') : '';
+}

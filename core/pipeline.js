@@ -72,7 +72,7 @@ import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
 import { markBookDirty } from './book.js';
 import { clockAnchor } from './gametime.js';
-import { syncFromPhone } from './affinity.js';   /* 新活：手机里有数就原样抄进表 */   /* 决定①：世界钟先解析、能解才当锚 */
+import { syncFromPhone, ensureRow } from './affinity.js';   /* 新活：手机里有数就原样抄进表 */   /* 决定①：世界钟先解析、能解才当锚 */
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { lastInjectInfo, mentionedCharacters } from './recall.js';
 
@@ -1305,12 +1305,19 @@ function applyCharacter(raw, material, conflicts) {
      *   ⚠️材料 03 明确修正：**去掉 `&& !trimText(c.affinity)`** ✓
      *      （那是“空值锁”✗ ⇒ 只要格子里有初始值，后续正文里读到的更新就**永远写不进去** ✗）
      *   保留的三个条件：合法数字 ✓ ＋ 未接外部数据源 ✓ ＋ 该格未被手动锁定 ✓ */
+    /*
+     * 95 号（她 10-25 14:28：「数值按好感手机，更新按好感手机，**自己不更新**」）：
+     *   模型/正文写出的数值型好感一律**剔掉**（不落盘），只留表里从手机抄来的值；
+     *   若与表里旧值不符 ⇒ 当“编的”，留一条冲突给她看。
+     */
     const incomingAff = trimText(raw && raw.affinity);
-    if (/^-?\d+(?:\.\d+)?$/.test(incomingAff) && !trimText(c.affinitySource)) {
-        const old = trimText(c.affinity);
-        if (!(old && isFieldLocked('affinity') && old !== incomingAff)) {
-            patch.affinity = incomingAff;
+    if (/^-?\d+(?:\.\d+)?$/.test(incomingAff)) {
+        const rowA = (loadState().affinityTable || []).find((r) => r && matchKey(r.name) === matchKey(c.name));
+        const tableVal = rowA ? trimText(rowA.affinity) : '';
+        if (tableVal && tableVal !== incomingAff) {
+            conflicts.push(c.name + ' 的好感：正文写了 ' + incomingAff + '，但表里是 ' + tableVal + '（以手机为准，已剔掉正文那个）');
         }
+        delete patch.affinity;
     }
 
     // 世界钟的连续性：时间地点里若含时间，倒退就记一条异常（不覆盖）
@@ -2517,6 +2524,16 @@ async function runUpdateInner(opts) {
         /* 新活：好感表只跟手机走（⛔ 自己算）；手机里没提到的人一动不动 */
         affinitySync: (function () {
             try {
+                /* 95：先把**名册里每个人**都建行（没数 ⇒ 「未建立」），再按手机抄 */
+                {
+                    const stA = loadState();
+                    for (const cA of (stA.characters || [])) {
+                        if (cA && cA.name) {
+                            ensureRow(stA, cA.name, Date.now());
+                        }
+                    }
+                    saveState();
+                }
                 const r = syncFromPhone(loadState(), text, Date.now());
                 return { added: r.added, updated: r.updated };
             } catch (eAff) {
