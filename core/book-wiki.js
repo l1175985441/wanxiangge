@@ -126,7 +126,10 @@ const CLASSIFY_SYSTEM = [
     '     只保留真名「月野兔」；把「水手月亮」这种**变身形态的名字写进 aliases 数组**，真名写在 name，⛔ 不要拆成两个人！',
     '· factions＝势力／组织／团体／阵营（例：黑暗王国、水手战士、黑暗四天王）。',
     '· situations＝正在发生的**局势**：谁跟谁顶着、暗中在策划什么阴谋。要能从条目正文里读出来，⛔ 别编。',
+    '  ⛔ situations 的 title **不许照抄条目的标题**；如果这一条讲的是规则／机制／图鉴／篇章名／世界设定，就⛔ 不要放进 situations。',
+    '  ⭐ 这本书里如果没有“谁跟谁顶着”的局势，situations 就回**空数组 []**——⛔ 宁可 0 条，不许拿目录名凑数。',
     '· places＝地点（例：十番街、水晶东京）。',
+    '  ⛔ places 的 name **不许照抄条目的标题**；不是真地点就⛔ 不要放进 places。',
     '· hidden＝**暗线**：还没浮上台面的阴谋／计划／暗中行动（例：在港区的珠宝店收集能量）。',
     '  每条必须带：名称、**阶段**（萌芽／发酵／逼近／爆发／消散 或 筹备／执行／关键／完成）、**挂在什么时间或条件上**（例：晚上／放学后／三天后）。',
     '⛔ **公开的局势放 situations，暗中的阴谋放 hidden**，⛔ 两边都放。',
@@ -161,6 +164,11 @@ function emptyWiki() {
 }
 
 /** 把模型可能给的乱七八糟形状归一 */
+/** 91：模型有时把「[地点] 皇冠游戏中心」连前缀一起回来 ⇒ 归一时强制剥掉 */
+export function stripKindPrefix(s) {
+    return trimText(String(s == null ? '' : s).replace(/^\s*[\[【][^\]】]+[\]】]\s*/, ''));
+}
+
 function normalizeWiki(raw) {
     const out = emptyWiki();
     if (!raw || typeof raw !== 'object') {
@@ -184,7 +192,7 @@ function normalizeWiki(raw) {
         return en.length ? en : pick(aliasOf(cn));
     };
     for (const c of bucket('characters', ['角色', '人物'])) {
-        const name = trimText(typeof c === 'string' ? c : (c && (c.name || c.title)));
+        const name = stripKindPrefix(typeof c === 'string' ? c : (c && (c.name || c.title)));
         if (name) {
             out.characters.push({
                 name,
@@ -201,14 +209,14 @@ function normalizeWiki(raw) {
         }
     }
     for (const f of bucket('factions', ['势力', '组织'])) {
-        const name = trimText(typeof f === 'string' ? f : (f && (f.name || f.title)));
+        const name = stripKindPrefix(typeof f === 'string' ? f : (f && (f.name || f.title)));
         if (name) {
             out.factions.push({ name, note: trimText(f && f.note), scale: trimText(f && f.scale) });
         }
     }
     const MECHANIC = /机制|规则|设定|必杀|力量定档|扮演|叙事|变身/;
     for (const s of bucket('situations', ['局势', '事件'])) {
-        const title = trimText(typeof s === 'string' ? s : (s && (s.title || s.name)));
+        const title = stripKindPrefix(typeof s === 'string' ? s : (s && (s.title || s.name)));
         /* 90#5：机制／规则／设定类条目不是局势（她：「扮演与叙事规则」不该进局势） */
         if (title && MECHANIC.test(title)) {
             continue;
@@ -227,7 +235,7 @@ function normalizeWiki(raw) {
         }
     }
     for (const p of bucket('places', ['地点', '场所'])) {
-        const name = trimText(typeof p === 'string' ? p : (p && (p.name || p.title)));
+        const name = stripKindPrefix(typeof p === 'string' ? p : (p && (p.name || p.title)));
         if (name) {
             out.places.push({ name, note: trimText(p && p.note) });
         }
@@ -508,7 +516,64 @@ export function applyPeopleExtras(people) {
     return touched;
 }
 
-export function applyWiki(wiki) {
+/** 91：把“源条目标题 → 类别前缀”建成一张图（供机械闸用） */
+export function buildSourceTitleMap(sourceTitles) {
+    const map = new Map();
+    for (const s of (Array.isArray(sourceTitles) ? sourceTitles : [])) {
+        const nm = trimText(s && (s.title || s.name));
+        if (!nm) {
+            continue;
+        }
+        const m = nm.match(/^\[([^\]]+)\]\s*(.+)$/);
+        const kind = trimText(m ? m[1] : '');
+        const bare = trimText(m ? m[2] : nm);
+        if (bare) {
+            map.set(matchKey(bare), kind);
+        }
+    }
+    return map;
+}
+
+/**
+ * 91#1：这个名字是不是“抄源条目标题”。
+ *   命中源标题且**源条目不属于同类** ⇒ 是抄标题（要丢）；
+ *   若源条目就是同类（[地点] 十番街 → places）⇒ 保留。
+ * @param {string} rawTitle
+ * @param {Map<string,string>} srcMap
+ * @param {RegExp} kindRe
+ */
+export function isEchoTitle(rawTitle, srcMap, kindRe) {
+    const raw = trimText(rawTitle);
+    if (!raw || !srcMap) {
+        return false;
+    }
+    if (/身份|学校|规则|机制|设定|图鉴|篇（第|力量定档/.test(raw)) {
+        return true;
+    }
+    const m = raw.match(/^\[([^\]]+)\]\s*(.+)$/);
+    const bare = trimText(m ? m[2] : raw);
+    const hit = srcMap.get(matchKey(bare));
+    if (hit === undefined) {
+        return false;
+    }
+    const k = String(hit || '');
+    /* 目录类前缀（剧情线／核心／机制／设定…）不论同不同类都不当局势／地点／势力 */
+    if (/剧情|核心|机制|设定|图鉴|道具|物品|世界观|背景|种族|传说/.test(k)) {
+        return true;
+    }
+    return !kindRe.test(k);
+}
+
+export function applyWiki(wiki, opts) {
+    /*
+     * 91#1：**标题不许当结果**（最重要的一道，⛔ 只靠提示词）。
+     *   她真机：模型把「心力与战斗判定」「世界局势」「杂兵图鉴」这些**条目标题**原样当成
+     *   situations／places 交上来。规则：名字剔掉方括号前缀后，若与源条目标题完全相同 ⇒ **丢弃**。
+     *   例外：若命中的那条源条目本身就是同类（[地点]十番街）⇒ 保留（她判据 #2：真地点要留）。
+     */
+    const srcMap = buildSourceTitleMap(opts && opts.sourceTitles);
+    const echoDrop = { situations: 0, places: 0 };
+    const isEcho = (rawTitle, re) => isEchoTitle(rawTitle, srcMap, re);
     /*
      * ⚠️ 必须**容忍缺键**：`applyWiki` 是公开函数，调用方给的可能是"只有人物"的半截对象
      *    （模型有时也只回其中几类）——第一版少一个键就抛 `list is not iterable`，
@@ -543,7 +608,30 @@ export function applyWiki(wiki) {
         const looksProfession = /(?:管家|书家|作家|专家|行家|店家|东家|亲家|冤家|仇家|出家|在家|农家|法家|医家|画家|音乐家)$/.test(clean);
         return Boolean(clean) && !(looksProfession !== true && /^.{1,3}家(?:一家|一族)?$/.test(clean));
     });
+    /* 91：势力也不能把目录名（剧情线／机制）当成势力 */
+    w.factions = w.factions.filter((f) => {
+        if (isEchoTitle(f && f.name, srcMap, /势力|组织|团体|阵营/)) {
+            echoDrop.factions = (echoDrop.factions || 0) + 1;
+            return false;
+        }
+        return true;
+    });
     const facs = dedupe(w.factions, (f) => f.name);
+    /* 91#1 机械闸：把“照拄条目标题”的局势丢掉（真局势标题不会等于目录名） */
+    w.situations = w.situations.filter((s) => {
+        if (isEcho(s && s.title, /局势/)) {
+            echoDrop.situations += 1;
+            return false;
+        }
+        return true;
+    });
+    w.places = w.places.filter((p) => {
+        if (isEcho(p && (p.name || p.title), /地点|场所|地图/)) {
+            echoDrop.places += 1;
+            return false;
+        }
+        return true;
+    });
     const sits = dedupe(w.situations, (s) => s.title);
 
     // ① 人物 → 名册（身份／势力有就给上，⛔ 不给就算了，别编）
@@ -668,7 +756,6 @@ export function applyWiki(wiki) {
         situations: sits.length,
         places: (function () {
             /*
-             * 90#C：地点以前只数不存（回执说“地点 4”而 `world.places` 永远 0）；现在按名字合并落库。
              */
             const inPlaces = dedupe(w.places, (p) => p.name);
             if (!inPlaces.length) {
@@ -693,24 +780,14 @@ export function applyWiki(wiki) {
             return added;
         })(),
         situationsTotal,
+        dropped: echoDrop,   /* 91：丢了几条“抄标题”的局势／地点 */
     };
 }
 
 /**
- * 兜底：模型不可用时的**规则版**。
  *
- * ⛔ 旧版就是这个错：`extractNameFromTitle` 会把 `[势力] 黑暗王国` 剥成"黑暗王国"当人收
- *    （规则只看"剥壳能不能成名字"，不看是不是人）⇒ 势力／地点／道具全被当成人。
- *    ⇒ 这里**先看方括号里的分类词**：非"人"的类别一律不收（并且报出来收了几条）。
- * ⚠️ 调用方必须告诉用户"这次是规则版、没分类"——⛔ 不许假装是分类结果。
  */
 /**
- * ⭐⭐ 10-16 在她**真世界书**上跑出来的缺陷：
- *   条目叫「`[角色] 日常NPC：奈鲁与海野`」⇒ 被当成“非人名”**整条丢掉**，
- *   而他俩正是她那层里**露面最多**的（奈鲁 26 次、海野 15 次）⇒ **人在书里却没读出来**。
- *   她 [18] 的要求就是“读人出来、她一个都不用手并” ⇒ **不能静默丢**。
- *   这里只拆**最窄的一种**：「**类目词：甲与乙**」（类目词是 NPC／日常NPC／配角／路人／其他角色）
- *   ⇒ 拆成一人一条。**⛔ 碰“天王遥与海王满”那种没类目词的**（那类归她点头的“书形问题”）。
  */
 export function expandMultiNameEntries(entries) {
     const CAT = /^(?:\u65e5\u5e38NPC|NPC|\u914d\u89d2|\u8def\u4eba|\u5176\u4ed6\u89d2\u8272|\u516c\u4f17|\u80cc\u666f)$/;
@@ -734,10 +811,6 @@ export function expandMultiNameEntries(entries) {
         }
     }
     /*
-     * ★ 20261022 P0-5：这段「同步事件池」原来贴在这里，但本函数的 `out` 是**数组** ⇒
-     *   `out.situations` 恒 undefined ⇒ 两个 for 一次都不跑 ⇒ 导入的局势/暗线永远进不了
-     *   `state.events` ⇒ 发消息时按 events 挑世界事件 ⇒ **0 召回**。
-     *   已搬进 `applyWiki()`（那里才有真正的 `sits` 与 `w.hidden`）✓
      */
     return out;
 }
@@ -748,12 +821,8 @@ export function ruleBasedPeople(entries) {
     let skipped = 0;
     for (const e of expandMultiNameEntries(entries)) {
         const raw = trimText(e && (e.comment || e.name || e.key || e.keys));
-        // 方括号里的分类词（`[势力] X` / 【地点】X）
         const m = raw.match(/^[\[【(（]\s*([^\]】)）]{1,6})\s*[\]】)）]/);
         /*
-         * ⭐ 10-16 真书取证补一道：她那条是 `[角色] 关系：天王遥与海王满` ——
-         *   方括号里是「角色」、**类目词在冒号前面**（关系）⇒ 只查方括号那个词挡不住 ✗
-         *   ⇒ 把方括号剥掉之后，**再看一次「冒号前面的词」**是不是类目词。
          */
         {
             const bare = raw.replace(/^[\[\u3010(\uff08][^\]\u3011)\uff09]{1,8}[\]\u3011)\uff09]\s*/, '');
@@ -773,11 +842,6 @@ export function ruleBasedPeople(entries) {
             continue;
         }
         /*
-         * ⭐⭐ 她原话 [18]：「同一角色**被拆成两条记录**？合并一键解决」
-         *   —— 她 10-16 首夜实测：名册里「月野兔」与「水手月亮」被当两个人（**全表 6 组同型**）。
-         *   而书里**自己写着属主**：`[角色] 水手月亮` 的内容头＝「【角色档案：月野兔】…」。
-         *   ⇒ **规则兜底这条真路也要认属主**（⛔ 不能只在 worldbook.js 那个没人调的函数里认）。
-         *   ⚠️ 防误并：`水手小月亮` 的属主是**小小兔**（真另一人）——照它自己写的属主走。
          */
         const body = trimText(e && e.content);
         const owner = extractArchiveOwner(body);
@@ -811,9 +875,6 @@ export function ruleBasedPeople(entries) {
 }
 
 /**
- * 87：**兜底版的世界档案**——按条目前缀分三类。
- *   为何要：模型那条线不通时，旧代码直接写 `factions: 0` ⇒她看到永远是“只出一串名字”。
- * @returns {{factions: Array, situations: Array, places: Array}}
  */
 export function ruleBasedWorld(entries) {
     const factions = [];
@@ -843,10 +904,6 @@ export function ruleBasedWorld(entries) {
 }
 
 /**
- * ★ 她 22:0x：**同一个人不要因为“变身形态”被拆成两条**（地场卫／夜礼服假面／安迪米欧国王 ⇒ 一个人）。
- *   判据（确定性、不看模型脸色）：B 的档案里提到 A 的名字 ⇒ A 是真名，B 是 A 的别名。
- *   （她的世界书里就是两条：地场卫一条、夜礼服假面一条，后者写着“地场卫的变身形态”。）
- *   ⛔ 不猜、不合并“只是同姓/同势力”的人；⛔ 不丢任何一条的正文（并进 note）。
  */
 export function mergeAliasGroups(list) {
     const items = (Array.isArray(list) ? list : [])
@@ -897,9 +954,6 @@ export function mergeAliasGroups(list) {
 }
 
 /**
- * ★ 补单 1-③：**知识面＝读世界书出来的东西**，不是每轮现抽。
- *   匹配规则：这本书里"挂在他名下"的条目 —— 条目 key 里含他的名字／别名，或条目标题里含他的名字。
- *   落成：`knownFactKeys` ＝ 这些条目的标题（他名下的事）。
  */
 export function knowledgeKeysFromEntries(entries, name, aliases) {
     const names = [trimText(name)].concat(Array.isArray(aliases) ? aliases.map((a) => trimText(a)) : [])
@@ -924,14 +978,12 @@ export function knowledgeKeysFromEntries(entries, name, aliases) {
     return Array.from(new Set(out));
 }
 
-/** 把整本书里"挂在他名下"的条目落成他的知识面；返回落了几个人的 */
 export function applyKnowledgeFromEntries(entries, roster) {
     const list = Array.isArray(roster) ? roster : getRoster();
     let touched = 0;
     for (const c of list) {
         const keys = knowledgeKeysFromEntries(entries, c.name, c.aliases);
         if (keys.length) {
-            /* ★ [580] A5：世界书读人＝合法知识面写入口（allowKnownFace）✓ */
             updateCharacter(c.id, { knownFactKeys: keys }, { allowKnownFace: true, trackManual: false });
             touched += 1;
         }
@@ -940,10 +992,48 @@ export function applyKnowledgeFromEntries(entries, roster) {
 }
 
 /**
- * 一条龙：读书 → 分类 → 落账。
- * @param {string} bookName
- * @param {{allowRuleFallback?: boolean}} [opts]
  */
+
+/**
+ */
+export function pruneEchoWorld(entries) {
+    const map = buildSourceTitleMap((Array.isArray(entries) ? entries : []).map((e) => ({
+        title: (e && (e.comment || e.name || e.key)) || '',
+    })));
+    const out = { situations: 0, places: 0 };
+    if (!map.size) {
+        return out;
+    }
+    try {
+        const st = loadState();
+        const sits = Array.isArray(st.world && st.world.situations) ? st.world.situations : [];
+        const keptSits = sits.filter((s) => {
+            if (isEchoTitle(s && s.title, map, /局势/)) {
+                out.situations += 1;
+                return false;
+            }
+            return true;
+        });
+        const facs0 = Array.isArray(st.world && st.world.factions) ? st.world.factions : [];
+        const keptFacs = facs0.filter((f2) => !isEchoTitle(f2 && f2.name, map, /势力|组织|团体|阵营/));
+        out.factions = facs0.length - keptFacs.length;
+        const places = Array.isArray(st.world && st.world.places) ? st.world.places : [];
+        const keptPlaces = places.filter((p2) => {
+            if (isEchoTitle(p2 && p2.name, map, /地点|场所|地图/)) {
+                out.places += 1;
+                return false;
+            }
+            return true;
+        });
+        if (out.situations || out.places) {
+            updateWorld({ situations: keptSits, places: keptPlaces, factions: keptFacs });
+            saveState();
+        }
+    } catch (e) {
+    }
+    return out;
+}
+
 export async function importBookWiki(bookName, opts) {
     const read = await readWholeBook(bookName);
     if (!read.ok) {
@@ -951,23 +1041,20 @@ export async function importBookWiki(bookName, opts) {
     }
     const cls = await classifyBook(read.entries, { bookName: bookName });
     if (!cls.ok) {
-        // 模型不行 ⇒ 明确报出来；她允许时给"规则版"兜底，但**说清是兜底**
         if (opts && opts.allowRuleFallback) {
             const rb = ruleBasedPeople(read.entries);
             const added = addCharacters(rb.people.map((p) => p.name));
-    // 她 [18]：跟模型线用**同一份**逻辑（⛔ 两处各写一遍，改一处忘一处）
     applyPeopleExtras(rb.people);
 
             /*
-             * 87#3：兜底也不能把势力写死 0（她：一降级势力永远出不来）。
-             *   按条目前缀（[势力]／[局势]／[地点]）先建档，并在回执里说清是兜底。
              */
             const rw = ruleBasedWorld(read.entries);
             /*
-             * 90#B/#C：兜底**不允许整格覆盖**（她的 6 条势力被冲成 3 条），地点也不能只数不存。
-             *   直接走和模型线**同一份** `applyWiki`（它按 matchKey 合并、只 push 新的）。
              */
-            const appliedFb = applyWiki({ factions: rw.factions, situations: rw.situations, places: rw.places });
+            pruneEchoWorld(read.entries);   /* 91：兜底路也清 */
+            const appliedFb = applyWiki({ factions: rw.factions, situations: rw.situations, places: rw.places }, {
+                sourceTitles: read.entries.map((e) => ({ title: (e && (e.comment || e.name || e.key)) || '' })),
+            });
             const facN = appliedFb.factions;
             const sitN = appliedFb.situations;
             const plcN = appliedFb.places;
@@ -978,16 +1065,17 @@ export async function importBookWiki(bookName, opts) {
                 factions: facN, situations: sitN, places: plcN,
                 situationsTotal: (loadState().world.situations || []).length,
                 fallbackWorld: { factions: rw.factions.length, situations: rw.situations.length, places: plcN },
+                dropped: appliedFb.dropped || { situations: 0, places: 0 },
             };
         }
         return { ok: false, reason: cls.reason, read: read.entries.length };
     }
-    const applied = applyWiki(cls.wiki);
-    /* ★ 补单 1-③：知识面从这本书读（挂在他名下的条目），⛔ 每轮现抽 ✓ */
+    pruneEchoWorld(read.entries);   /* 91：清掉已入库的“抄标题”局势／地点 */
+    const applied = applyWiki(cls.wiki, {
+        sourceTitles: read.entries.map((e) => ({ title: (e && (e.comment || e.name || e.key)) || '' })),
+    });
     try { applyKnowledgeFromEntries(read.entries); } catch (eKnow) { }
     /*
-     * ⭐ 她 [18]：**模型线也得落别名／身份**。
-     *   这里 `read` 在作用域内（上一版插在 `applyWiki` 里取不到 read ⇒ 砸了 3 套）。
      */
     applyPeopleExtras(ruleBasedPeople(read.entries).people);
     return {
@@ -1002,5 +1090,6 @@ export async function importBookWiki(bookName, opts) {
         situations: applied.situations,
         places: applied.places,
         situationsTotal: applied.situationsTotal,
+        dropped: applied.dropped || { situations: 0, places: 0 },
     };
 }

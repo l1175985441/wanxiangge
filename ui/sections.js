@@ -25,7 +25,6 @@ import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只�
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
-// ⭐ 浮层人物卡要用 findCharacter（按 id 取那一位；⛔ 不是 findCharacterByName）
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     findCharacter,
@@ -6963,7 +6962,8 @@ export function bindSectionEvents(host, refresh) {
                             + ' · 势力 ' + (res.factions === undefined ? '没读到' : num(res.factions))
                             + ' · 局势 ' + (res.situations === undefined ? '没读到' : num(res.situations))
                             + ' · 地点 ' + (res.places === undefined ? '没读到' : num(res.places))
-                            + '（世界状态里现在共 ' + (res.situationsTotal === undefined ? '未知' : num(res.situationsTotal)) + ' 条）');
+                            + '（世界状态里现在共 ' + (res.situationsTotal === undefined ? '未知' : num(res.situationsTotal)) + ' 条）'
+            + (function () { const d = res.dropped || {}; const n = Number(d.situations || 0) + Number(d.places || 0); return n > 0 ? '；丢掉 ' + String(n) + ' 条“抄标题”的局势／地点' : ''; })());
                     }
                     rerender();
                     break;
