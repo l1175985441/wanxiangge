@@ -83,7 +83,8 @@ export function tidyHeadings(host) {
      *   旧：逗号列表一条 querySelectorAll ⇒ 宿主/模拟 DOM 不支持多选择器时**整条丢异常**，
      *   外层 catch 一吞 ⇒ 看上去“代码在、屏上没变”（真机六处括号就是这么活下来的）。
      */
-    const sels = ['.wxg-card-h', '.wxg-card-title', '.wxg-card-sum', '.wxg-sec-title', '.wxg-report-h', 'summary'];
+    /* 91：人名／势力名里也可能带括注（书里读进来的「地球（安迪米欧一方）」）⇒ 一样只留名词 */
+    const sels = ['.wxg-card-h', '.wxg-card-title', '.wxg-card-sum', '.wxg-sec-title', '.wxg-report-h', '.wxg-r-who', 'summary'];
     for (const sel of sels) {
         let list = [];
         try { list = Array.from(host.querySelectorAll(sel)); } catch (e) { list = []; }

@@ -33,7 +33,15 @@ import { getEntries, extractNameFromTitle, resolveBookName, extractArchiveOwner,
 export const CHUNK_CHAR_START = 6000;
 const CHUNK_CHAR_MIN = 500;
 /** 这些错就当“这块太大”（砍半重读），⛔ 不当“模型没通”直接降级 */
-const TOO_BIG_HINT = /ERR_INPUT_LIMIT|ERR_OUTPUT|JSON|截断|too long|context length|max_tokens/i;
+/*
+ * 90 号：旧正则太宽（连 `JSON`、`截断` 都算“太大”）⇒ 格式错也去砍半，
+ *   她真机上砍到 292 字、切 35 块、块块失败。现在拆两档：
+ *   ① **真·太大**（三样）⇒ 砍半重试；② **格式错** ⇒ 原位 softRetry 一次（不砍）。
+ */
+const HARD_TOO_BIG = /ERR_INPUT_LIMIT|context length|model_context_window/i;
+const FORMAT_HINT = /JSON|截断|键名|不是完整|too long|max_tokens/i;
+/* 保留旧名（外部/寄具可能引用） */
+const TOO_BIG_HINT = HARD_TOO_BIG;
 
 /**
  * 兜底路径里"**不是人**"的分类词（只影响兜底，⛔ 不影响模型那条线——
@@ -158,8 +166,24 @@ function normalizeWiki(raw) {
     if (!raw || typeof raw !== 'object') {
         return out;
     }
+    /*
+     * 90#D：模型可能回中文键（`{"角色":[...]}`）⇒ 旧代码认不出、整份当空。
+     *   这里做一层别名（也允许字符串数组）。
+     */
+    const aliasOf = (names) => {
+        for (const n of names) {
+            if (Array.isArray(raw[n])) {
+                return raw[n];
+            }
+        }
+        return null;
+    };
     const pick = (v) => (Array.isArray(v) ? v : []);
-    for (const c of pick(raw.characters)) {
+    const bucket = (key, cn) => {
+        const en = pick(raw[key]);
+        return en.length ? en : pick(aliasOf(cn));
+    };
+    for (const c of bucket('characters', ['角色', '人物'])) {
         const name = trimText(typeof c === 'string' ? c : (c && (c.name || c.title)));
         if (name) {
             out.characters.push({
@@ -176,14 +200,19 @@ function normalizeWiki(raw) {
             });
         }
     }
-    for (const f of pick(raw.factions)) {
+    for (const f of bucket('factions', ['势力', '组织'])) {
         const name = trimText(typeof f === 'string' ? f : (f && (f.name || f.title)));
         if (name) {
             out.factions.push({ name, note: trimText(f && f.note), scale: trimText(f && f.scale) });
         }
     }
-    for (const s of pick(raw.situations)) {
+    const MECHANIC = /机制|规则|设定|必杀|力量定档|扮演|叙事|变身/;
+    for (const s of bucket('situations', ['局势', '事件'])) {
         const title = trimText(typeof s === 'string' ? s : (s && (s.title || s.name)));
+        /* 90#5：机制／规则／设定类条目不是局势（她：「扮演与叙事规则」不该进局势） */
+        if (title && MECHANIC.test(title)) {
+            continue;
+        }
         if (title) {
             const tier = trimText(s && s.tier);
             out.situations.push({
@@ -197,7 +226,7 @@ function normalizeWiki(raw) {
             });
         }
     }
-    for (const p of pick(raw.places)) {
+    for (const p of bucket('places', ['地点', '场所'])) {
         const name = trimText(typeof p === 'string' ? p : (p && (p.name || p.title)));
         if (name) {
             out.places.push({ name, note: trimText(p && p.note) });
@@ -308,6 +337,7 @@ export async function classifyBook(entries, opts) {
     const done = Array.isArray(cp && cp.done) ? cp.done.slice() : [];
     let chunks = 0;
     let goodStreak = 0;
+    const softRetried = new Set();   /* 90：格式错只原位重试一次 */
     let i = startIndex;
     while (i < list.length) {
         const part = takeChunk(list, i, maxChar);
@@ -318,7 +348,15 @@ export async function classifyBook(entries, opts) {
             // eslint-disable-next-line no-await-in-loop
             res = await callModelJson({
                 system: CLASSIFY_SYSTEM,
-                prompt: '这是第 ' + String(chunks) + ' 批（原书第 ' + String(part.from + 1) + '–' + String(part.to) + ' 条），共 ' + String(part.count) + ' 条：\n\n' + digestText(list.slice(part.from, part.to)),
+                /*
+                 * 90 号（她抓的原文）：旧句只说“这是第 N 批…”，**没说要模型做什么** ⇒
+                 *   模型当成“投喂设定、你记一下”，回“已记录这条设定”。
+                 *   现在：**动词开头 + 四类名 + 只回 JSON**（她同款模型验过，44 秒全出）。
+                 */
+                prompt: '把下面这 ' + String(part.count) + ' 条世界书条目**分成四类**（characters／factions／situations／places），'
+                    + '只回一个 JSON 对象（键名用英文），⛔ 不要解释、⛔ 不要说“已记录”。'
+                    + '（原书第 ' + String(part.from + 1) + '–' + String(part.to) + ' 条）\n\n'
+                    + digestText(list.slice(part.from, part.to)),
                 cheap: true,
             });
         } catch (e) {
@@ -345,7 +383,15 @@ export async function classifyBook(entries, opts) {
             continue;
         }
         const reason = String((res && res.reason) || errText || '模型没回可用的 JSON');
-        if (TOO_BIG_HINT.test(reason) && part.count > 1) {
+        /*
+         * 90：**格式错不砍半**（砍了也不会对）——原位再试 1 次，把“只回 JSON”再喊一遍。
+         */
+        if (!HARD_TOO_BIG.test(reason) && FORMAT_HINT.test(reason) && !softRetried.has(part.from)) {
+            softRetried.add(part.from);
+            /* ⛔ 不改 maxChar；紧接着重读同一块 */
+            continue;
+        }
+        if (HARD_TOO_BIG.test(reason) && part.count > 1) {
             /*
              * 这块太大 ⇒ 砍半再读同一段。
              * ⛔ 写死 `Math.max(MIN, /2)`：短条目时会卡在一个怫人的下限上无限循环（真踩过）；
@@ -620,7 +666,32 @@ export function applyWiki(wiki) {
         people,
         factions: facs.length,
         situations: sits.length,
-        places: dedupe(w.places, (p) => p.name).length,
+        places: (function () {
+            /*
+             * 90#C：地点以前只数不存（回执说“地点 4”而 `world.places` 永远 0）；现在按名字合并落库。
+             */
+            const inPlaces = dedupe(w.places, (p) => p.name);
+            if (!inPlaces.length) {
+                return 0;
+            }
+            const st = loadState();
+            const cur = Array.isArray(st.world && st.world.places) ? st.world.places.slice() : [];
+            const seen = new Set(cur.map((x) => matchKey(x && x.name)));
+            let added = 0;
+            for (const p of inPlaces) {
+                const k = matchKey(p.name);
+                if (!k || seen.has(k)) {
+                    continue;
+                }
+                cur.push({ name: p.name, note: p.note });
+                seen.add(k);
+                added += 1;
+            }
+            if (added) {
+                updateWorld({ places: cur });
+            }
+            return added;
+        })(),
         situationsTotal,
     };
 }
@@ -892,9 +963,14 @@ export async function importBookWiki(bookName, opts) {
              *   按条目前缀（[势力]／[局势]／[地点]）先建档，并在回执里说清是兜底。
              */
             const rw = ruleBasedWorld(read.entries);
-            const facN = rw.factions.length ? updateWorld({ factions: rw.factions }) && rw.factions.length : 0;
-            const sitN = rw.situations.length ? updateWorld({ situations: rw.situations }) && rw.situations.length : 0;
-            const plcN = rw.places.length;
+            /*
+             * 90#B/#C：兜底**不允许整格覆盖**（她的 6 条势力被冲成 3 条），地点也不能只数不存。
+             *   直接走和模型线**同一份** `applyWiki`（它按 matchKey 合并、只 push 新的）。
+             */
+            const appliedFb = applyWiki({ factions: rw.factions, situations: rw.situations, places: rw.places });
+            const facN = appliedFb.factions;
+            const sitN = appliedFb.situations;
+            const plcN = appliedFb.places;
             return {
                 ok: true, fellBack: true, reason: cls.reason,
                 read: read.entries.length, total: read.total, disabled: read.disabled,
