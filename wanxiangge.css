@@ -4838,3 +4838,30 @@ body[data-wxg-theme="dark"] {
     white-space: nowrap;
     flex-wrap: nowrap;
 }
+
+/* ==========================================================================
+80 号：名册固定 **2 列**（名称｜操作）——卡只有 461px，5 列会算出 0px 列、act 压进名字格。
+  身份／势力并进名字格第二行（12px 灰字），取不到就不显示。
+========================================================================== */
+.wanxiangge .wxg-ws-main .wxg-roster .wxg-thead,
+.wanxiangge .wxg-ws-main .wxg-roster .wxg-r {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--gap-md);
+}
+.wanxiangge .wxg-ws-main .wxg-roster .wxg-c-meta {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--wxg-dim, #6d747a);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 80 号：空态的第二行（“为什么会自动有…”）默认不显示，进「⭘ 说明」 */
+.wxg-ws-main .wxg-empty-why {
+    display: none;
+}
+.wxg-ws-main.is-notes .wxg-empty-why {
+    display: block;
+}

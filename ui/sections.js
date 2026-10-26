@@ -46,7 +46,7 @@ import {
 } from './theme.js';
 import { questStats } from '../core/summary.js';
 // ⭐ 补⑤ 体检报告（自检）
-import { columnsFor, rowAffinity } from '../core/roster-cols.js';   /* A5：空列不占位，好感从好感表取 */
+import { columnsFor } from '../core/roster-cols.js';   /* 80：只用来判“身份／势力全空” */
 import { decorateCard } from './cardgrid.js';   /* A6：卡头＋一句摘要＋查看全部（不搬 DOM） */
 import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
@@ -61,8 +61,7 @@ import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates, undoLastMerge, hasMergeSnapshot } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
-// ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做）
-// ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
+// ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做） ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 import { takeSnapshot, openHiddenCount, sortRosterList } from '../core/state.js';
@@ -2889,17 +2888,14 @@ function secRoster(host) {
      */
     const cols = columnsFor(roster, state);
     /*
-     * 二（阿砚九格）：三列都空时**别只剩「角色名称」一列**（右半屏空着，也看不出少了什么）。
-     *   留三列表头（名称／身份／势力）＋ 表内一行说明；⛔ 填假值（那是 A12 那类造假）。
+     * 80 号：这块卡只有 461px（5 列必然挤：末列算出 0px、act 压进名字格 22px）
+     *   ⇒ 固定 **2 列**：名称｜操作。身份／势力并进名字格**第二行小灰字**，取不到就不显示。
      */
-    const allEmpty = !cols.showAff && !cols.showId && !cols.showFac;
-    const head = allEmpty ? { showAff: false, showId: true, showFac: true, filled: 3 } : cols;
-    const list = el('div', 'wxg-roster wxg-table-' + String(head.filled));
-    const rhead = el('div', 'wxg-thead wxg-table-' + String(head.filled));
+    const allEmpty = !cols.showId && !cols.showFac;
+    const list = el('div', 'wxg-roster wxg-table-2');
+    const rhead = el('div', 'wxg-thead wxg-table-2');
     rhead.appendChild(el('div', 'wxg-th', '角色名称'));
-    if (head.showAff) { rhead.appendChild(el('div', 'wxg-th', '好感')); }
-    if (head.showId) { rhead.appendChild(el('div', 'wxg-th', '身份')); }
-    if (head.showFac) { rhead.appendChild(el('div', 'wxg-th', '势力')); }
+    rhead.appendChild(el('div', 'wxg-th', ''));   /* 操作列无标题（⛔ 填字） */
     list.appendChild(rhead);
     for (const c of pageList) {
         const open = String(openChar) === String(c.id);
@@ -2945,9 +2941,13 @@ function secRoster(host) {
         main.appendChild(title);
         r.appendChild(main);
         // A5：按“这一列有没有值”决定画不画；好感优先读好感表
-        if (cols.showAff) { r.appendChild(el('div', 'wxg-td wxg-c-aff', rowAffinity(state, c) || '—')); }
-        if (cols.showId) { r.appendChild(el('div', 'wxg-td wxg-c-id', trimText(c.identity) || '—')); }
-        if (cols.showFac) { r.appendChild(el('div', 'wxg-td wxg-c-fac', trimText(c.faction) || '—')); }
+        /* 80 号：身份／势力不再占独立列，并进名字格第二行（小灰字） */
+        {
+            const meta = [];
+            if (trimText(c.identity)) { meta.push('身份 · ' + trimText(c.identity)); }
+            if (trimText(c.faction)) { meta.push('势力 · ' + trimText(c.faction)); }
+            if (meta.length) { main.appendChild(el('div', 'wxg-c-meta', meta.join('　'))); }
+        }
         // ⭐ 被点开那一行：浅绿选中（包里 trow sel）
         if (open) {
             r.classList.add('is-sel');
