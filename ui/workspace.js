@@ -11,7 +11,7 @@
  */
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, SIDEBAR_SHORT, groupOfSection } from '../core/config.js';
-import { tidyText, parenText } from './tidy-heads.js';   /* 78：左栏导航名词去括号 */
+import { tidyText, parenText, stripParen } from './tidy-heads.js';   /* 78：左栏导航名词去括号 */
 import { getSettings, patchSettings } from '../core/settings.js';
 import { agoText } from '../core/timefmt.js';   /* A9：状态带要人话时间 */
 import { renderSections, bindSectionEvents, fillText, hasUnsavedDraft } from './sections.js';
@@ -303,7 +303,9 @@ function buildSidebar() {
     let lastGroupKey = null;
     secs.forEach((sec, i) => {
         const titleEl = sec.querySelector('.wxg-sec-title');
-        const name = trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
+        /* 81：段标题已去括号（屏上只留名词）⇒ 原名从 data-wxg-title 取（⛔ 拿被去掉的那份） */
+    const name = trimText(sec.getAttribute ? sec.getAttribute('data-wxg-title') : '')
+        || trimText(titleEl && titleEl.textContent) || ('第 ' + String(i + 1) + ' 段');
         // ⭐ 侧栏用**简称**（全名会折成两行）；页头那行仍用全名（见 showIndex 里的 data-wxg-sec）。
         const brief = SIDEBAR_SHORT[name] || name;
         const group = groupOfSection(name);
@@ -338,7 +340,7 @@ function buildSidebar() {
         ico.innerHTML = iconSvg(iconKey);
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';
-        txt.textContent = brief;   // ⭐ 侧栏用简称（全名会折成两行）；页头仍用全名
+        txt.textContent = stripParen(String(brief));   // ⭐ 侧栏用简称；81 号：括号不上屏
     /*
      * 78 号：左栏也走同一条规矩——**屏上只留名词**，括号里的解释进 `title=`。
      *   导航越短越好扫；悬停仍能看到原文。

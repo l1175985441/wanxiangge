@@ -4865,3 +4865,8 @@ body[data-wxg-theme="dark"] {
 .wxg-ws-main.is-notes .wxg-empty-why {
     display: block;
 }
+
+/* 81 号：编年那张卡在 1058 的段里只占 420（因为段里还有工具条等，不走单卡规则）⇒ 显式跨列铺满 */
+.wanxiangge .wxg-ws-main .wxg-sec-body > .wxg-card.wxg-wide {
+    grid-column: 1 / -1;
+}

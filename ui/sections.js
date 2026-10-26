@@ -14,7 +14,7 @@ import { markOneCol } from './onecol.js';
 import { statusHero } from './status-hero.js';
 import { foldStore, foldReport } from './status-folds.js';
 import { foldCard, cardLine, statusCardLine } from './card-fold.js';
-import { tidyHeadings, tidyText } from './tidy-heads.js';   /* 75/77：标题与折叠条去括号（造的当下） */   /* 74/75：卡头三层＋一句话 */   /* 71：两条折叠 */
+import { tidyHeadings, tidyText, titleNode } from './tidy-heads.js';   /* 75/77：标题与折叠条去括号（造的当下） */   /* 74/75：卡头三层＋一句话 */   /* 71：两条折叠 */
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -65,7 +65,6 @@ import { toast } from './toast.js';
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 import { takeSnapshot, openHiddenCount, sortRosterList } from '../core/state.js';
-
 /* ------------------------------ 元素小件 ------------------------------ */
 
 /**
@@ -215,7 +214,7 @@ function section(title, hint, opts) {
     const head = el('div', 'wxg-sec-head');
     head.setAttribute('data-action', 'toggle-sec');
     const titleWrap = el('div', 'wxg-sec-titlewrap');
-    titleWrap.appendChild(el('b', 'wxg-sec-title', title));
+    drawer.setAttribute('data-wxg-title', String(title));   /* 81：左栏要用原名取简称与 title */ titleWrap.appendChild(titleNode(el('b', 'wxg-sec-title'), title));   /* 81：段标题也去括号 */
     titleWrap.appendChild(el('span', 'wxg-sec-sum', o.summary ? asText(o.summary) : ''));
     head.appendChild(titleWrap);
     head.appendChild(el('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
@@ -241,8 +240,7 @@ function section(title, hint, opts) {
      *    挂在壳上、而不是塞进正文——工作台里壳的标题行会被隐藏，副题由页头统一显示。
      */
     drawer.setAttribute('data-wxg-sub', trimText(hint));
-    // ⚠️ 这两个标记只给**离线预览页**用（它没有酒馆那套 JS，得照标记判断哪几段是展开的）：
-    //    ⛔ 不参与任何逻辑判断；我上一版把标记弄丢过，结果预览把每段正文都跳过了（只剩标题连成一坨）。
+    // ⚠️ 这两个标记只给**离线预览页**用（它没有酒馆那套 JS，得照标记判断哪几段是展开的）： ⛔ 不参与任何逻辑判断；我上一版把标记弄丢过，结果预览把每段正文都跳过了（只剩标题连成一坨）。
     body.setAttribute('data-wxg-sec', title);
     if (o.open) {
         body.setAttribute('data-wxg-open', '1');
@@ -258,7 +256,7 @@ function section(title, hint, opts) {
 function card(title) {
     const box = el('div', 'wxg-card');
     if (trimText(title)) {
-        box.appendChild(el('div', 'wxg-card-h', title));
+        box.appendChild(titleNode(el('div', 'wxg-card-h'), title));   /* 81：造的当下去括号 */
     }
     return box;
 }
@@ -974,9 +972,7 @@ function secWorld(host) {
         '世界局势＝势力的所有碰撞；暗线＝还没浮上台面的事，按阶段走、挂世界钟（不按回合数推，世界钟没到点不许提前冒头）。',
         { open: true, summary: trimText(w.clock) || '世界钟未知' });
 
-    // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上
-    // ⭐ 数据卡：默认只读（复核方第四条）——点「编辑」才能改
-    // ⭐ 页头：右上「功能 ⋮」（照包；跟状态页、名册页同一个做法）
+    // ⭐ 一次体检的结论：内容得**装进结构**（一个主题一块卡），别平铺在一个大平面上 ⭐ 数据卡：默认只读（复核方第四条）——点「编辑」才能改 ⭐ 页头：右上「功能 ⋮」（照包；跟状态页、名册页同一个做法）
     const wTop = el('div', 'wxg-roster-topbar');
     const wFunc = button('功能 ⋮', 'world-func', 'wxg-btn is-func');
     wFunc.style.height = '28px';
@@ -1276,8 +1272,7 @@ function secWorld(host) {
     if (!w.situations.length) {
         sit.appendChild(emptyBlock('还没有局势记录（点「立刻更新」让引擎算一次）'));
     } else {
-        // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行
-        // ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
+        // ⭐ 局势也能手改（条 22）：她看得见就该能改——改字、换火候、删掉，都行 ⭐ 行化：`火候胶囊 ｜ 局势名 ＋ 哪几方 ｜ 右侧改 ＋ 删`（一行一条）
         w.situations.forEach((item, idx) => {
             const r = el('div', 'wxg-r is-rowlink');
             /*
@@ -2630,6 +2625,7 @@ function secChronicle(host) {
 
     // ③ 按楼层分组，一组一个"行列表"（先按 floor 归桶、组内按时间从新到旧、组间按 floor 从大到小）
     const cChron = card(chronFilter === 'all' ? '热账与旧卷（按回合攒）' : ('只看「' + chronFilter + '」'));
+    cChron.classList.add('wxg-wide');   /* 81：卡片横向铺满（她：要么铺满、要么居中） */
     const byFloor = new Map();
     for (const c of shown) {
         const f = Number.isFinite(c.floor) && c.floor >= 0 ? Number(c.floor) : -1;
@@ -3261,7 +3257,9 @@ function secExtract(host) {
 
     const pick = el('div', 'wxg-pickwrap');
     pick.id = 'wxg-bookpick';
-    pick.appendChild(el('div', 'wxg-pick-head', '世界书（点一下＝进「提取」；再点＝进「排除」；再点＝拿掉；最后按段底的保存）'));
+        const pickHead = el('div', 'wxg-pick-head', '世界书');   /* 81：41 字说明进 title */
+    pickHead.title = '点一下＝进「提取」；再点＝进「排除」；再点＝拿掉；最后按段底的保存';
+    pick.appendChild(pickHead);
     cBook.appendChild(pick);
     row(cBook,
         button('读世界书列表', 'list-books', 'wxg-primary'),
@@ -3651,7 +3649,9 @@ box.appendChild(cHead);
     const cMore = card('后台推演与破限提示词（按需展开）');
     const addFoldedPrompt = (title, keyVal, kind, id, rows, hint) => {
         /* 17-1：用途副标（文案在 ui/prompt-copy.js，主文件别再长） */
-    const fold = foldable(title + purposeOf(kind) + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）', false);
+    /* 81：折叠行只留名词；用途与字数进 title */
+    const fold = foldable(title, false);
+    fold.title = (purposeOf(kind).replace(/^ · /, '') + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）').trim();
         const body = el('div', 'wxg-report-body');
         body.appendChild(el('div', 'wxg-note', hint));
         body.appendChild(el('pre', 'wxg-prompt-cur', effectivePrompt(kind)));
@@ -3666,7 +3666,7 @@ box.appendChild(cHead);
      * 17-2：她改提示词时要知道能引用什么（全库此前 0 个变量清单）。
      *   清单在 ui/prompt-copy.js；这里只负责装进卡里。
      */
-    const cVars = foldable('能写哪些变量 · 展开看清单', false);
+    const cVars = foldable('能写哪些变量', false);
     for (const row of promptVarRows()) {
         cVars.appendChild(el('div', 'wxg-note', row[0] + '  ' + row[1]));
     }

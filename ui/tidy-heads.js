@@ -90,3 +90,17 @@ export function tidyHeadings(host) {
         for (const n of list) { tidyText(n); }
     }
 }
+
+/**
+ * 把一个已建好的标题元素去括号：屏上留名词，括注进 `title`。
+ * 用在“造的当下”（card() 与 section()）——靠事后扫一遍会漏时序。
+ * @param {HTMLElement} el
+ * @param {string} raw
+ */
+export function titleNode(el, raw) {
+    const s = String(raw == null ? '' : raw);
+    const paren = parenText(s);
+    el.textContent = stripParen(s);
+    if (paren) { el.setAttribute('title', paren); }
+    return el;
+}
