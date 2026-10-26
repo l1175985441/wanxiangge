@@ -13,6 +13,7 @@ import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全
 import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
 import { markOneCol } from './onecol.js';
 import { statusHero } from './status-hero.js';
+import { foldStore, foldReport } from './status-folds.js';   /* 71：两条折叠 */
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -613,14 +614,8 @@ function secStatus(host, intoSelf) {
      *   拿不到卡就退回原样（⛔ 为了排版把信息弄丢）。
      */
     const progCard = colProg.querySelector ? colProg.querySelector('.wxg-card') : null;
-    if (progCard) {
-        progCard.appendChild(line);
-        progCard.appendChild(ledgerLine);
-    } else {
-        colProg.appendChild(line);
-        colProg.appendChild(ledgerLine);
-    }
-        box.appendChild(colProg);
+    (progCard || colProg).appendChild(foldStore({ el: el, doc: document, line: line, ledgerLine: ledgerLine }));
+    box.appendChild(colProg);
 
     const p = loadState().pipeline || {};
     /*
@@ -651,7 +646,10 @@ function secStatus(host, intoSelf) {
      *    跟上面的进度是同一件事的两面：一个看数量，一个看**到底送了什么**进去。
      *    ⛔ 不删内容，只是不再单占一个屏。
      */
-    secReport(host, box);
+    /* 71 号：「每轮记录」整卡默认折起（调模块） */
+    const repFold = foldReport({ el: el, doc: document });
+    box.appendChild(repFold.wrap);
+    secReport(host, repFold.body);
     if (!intoSelf) {
         host.appendChild(box);
     }

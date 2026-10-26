@@ -134,7 +134,17 @@ export function mountMini() {
     });
     makeDraggable(wrapEl, ballEl);
 
+    /*
+     * 71 号实机 bug：她刷新后 `[class*="wxg-mini"]` ＝ 0 个。
+     *   两种可能都堵上：① 宿主在这次 append 之后又把 body 清过（元素被摘掉）；
+     *   ② 模块状态还记得"挂过了"，但 DOM 里没了。
+     *   ⇒ 挂完**回查一次**，没有就再挂；`ensureMini()` 给初始化路径再调一次兜底。
+     *   ⚠️ 判据用 `getElementById`（⛔ class 选择器：老宿主/模拟环境不一定支持 * 选择器）。
+     */
     document.body.appendChild(wrapEl);
+    if (!document.getElementById(String(MINI_ID))) {
+        document.body.appendChild(wrapEl);
+    }
     if (pos.pinned) {
         setExpanded(true);
     }
@@ -535,4 +545,22 @@ function makeDraggable(root, handle) {
             document.removeEventListener('touchend', up);
         };
     }
+}
+
+/**
+ * 初始化兜底：DOM 里没有球就再挂一次（宿主把 body 清过、或挂载瞬间被摘掉时用）。
+ * ⛔ 用模块里的 wrapEl 判断（那个状态可能已经跟 DOM 不一致）。
+ */
+export function ensureMini() {
+    const s = getSettings();
+    if (!(s.mini || {}).show) {
+        return null;
+    }
+    if (document.getElementById(String(MINI_ID))) {
+        return null;
+    }
+    wrapEl = null;
+    ballEl = null;
+    panelEl = null;
+    return mountMini();
 }

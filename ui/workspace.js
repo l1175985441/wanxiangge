@@ -375,6 +375,8 @@ function renderChips() {
      */
     const close = box.querySelector('[data-ws-action="close"]');
     const keepQuick = box.querySelector('[data-ws-action="goto-readctl"]');
+    /* 71 号实机 bug：这里重建顶栏时没救「ⓘ 说明」⇒ 按钮被抹掉、说明再也打不开（她量到 DOM 里 0 个） */
+    const keepNotes = box.querySelector('[data-ws-action="toggle-notes"]');
     while (box.firstChild) {
         box.removeChild(box.firstChild);
     }
@@ -389,6 +391,9 @@ function renderChips() {
     }
     if (keepQuick) {
         box.appendChild(keepQuick);
+    }
+    if (keepNotes) {
+        box.appendChild(keepNotes);
     }
     if (close) {
         box.appendChild(close);   // 关闭按钮始终在最后

@@ -687,7 +687,7 @@
 /* ⚠️ 真机上长摘要被硬裁（标题行是 nowrap 的 flex）⇒ 超出收成省略号，
    并且不许把标题挤走（标题优先）。 */
 .wanxiangge .wxg-sec-sum {
-    font-size: 12px;
+    font-size: var(--fs-body);
     color: var(--wxg-dim);
     min-width: 0;
     flex: 0 1 auto;
@@ -926,7 +926,7 @@
 
 .wanxiangge .wxg-fact {
     opacity: 0.85;
-    font-size: 12px;
+    font-size: var(--fs-body);
     line-height: 1.55;
     word-break: break-word;
 }
@@ -937,7 +937,7 @@
 
 .wanxiangge .wxg-empty {
     opacity: 0.6;
-    font-size: 12px;
+    font-size: var(--fs-body);
     padding: 4px 0;
 }
 
@@ -1195,7 +1195,7 @@
 
 .wanxiangge .wxg-report-time {
     opacity: 0.7;
-    font-size: 12px;
+    font-size: var(--fs-note);
 }
 
 .wanxiangge .wxg-report-floor {
@@ -1225,7 +1225,7 @@
 .wanxiangge .wxg-report-text {
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 12px;
+    font-size: var(--fs-body);
     line-height: 1.6;
     padding: 6px 8px;
     border-radius: var(--wxg-radius);
@@ -1238,7 +1238,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-md);   /* 4-g #4：硬编码 2px 不留（编年行距见渲染层 #4） */
-    font-size: 12px;
+    font-size: var(--fs-body);
     line-height: 1.55;
 }
 
@@ -2056,7 +2056,7 @@ body.wxg-dragging {
     /* 字号：页级大标题（22px+） / 卡头 / 标签 */
     --fs-h1: 19px   /* A1：大标题归 19 档 */;
     --fs-h2: 18px   /* 71 号：卡头就是 H 档（旧 15px ⇒ 整屏没有落脚点） */;
-    --fs-label: 12px;   /* A1：固定 px（原 .74em 算出 10.212） */
+    --fs-label: 11px;   /* 71 号：标签档归 N档≤11（旧 12px） */
 }
 
 /* ---------------------------------------------------------------------------
@@ -4711,3 +4711,26 @@ body[data-wxg-theme="dark"] {
 }
 .wxg-runwarn-more { font-size: var(--fs-body); }
 .wxg-runwarn-sum { cursor: pointer; color: #b3261e; }
+
+/* ==========================================================================
+71b：字号口径收口（阿砚复量：12px 仍占 72%）
+  前面几处同属性有两个家（一处 body 一处 note、一处 12 一处 13）⇒ 这里按类收一次：
+   · 整句容器 → var(--fs-body)（14）
+   · 标签级（≤6 字：单位/时间戳/键名/行首小字）→ var(--fs-note)（11）
+========================================================================== */
+.wanxiangge .wxg-empty,
+.wanxiangge .wxg-empty-why,
+.wanxiangge .wxg-report-text,
+.wanxiangge .wxg-fact,
+.wanxiangge .wxg-chron,
+.wanxiangge .wxg-sec-sum {
+    font-size: var(--fs-body);
+}
+.wanxiangge .wxg-pc-k,
+.wanxiangge .wxg-pc-when,
+.wanxiangge .wxg-line-k,
+.wanxiangge .wxg-report-time,
+.wanxiangge .wxg-unit,
+.wanxiangge .wxg-when {
+    font-size: var(--fs-note);
+}
