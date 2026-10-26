@@ -27,6 +27,25 @@ export function stripParen(s) {
  */
 export function tidyText(el) {
     if (!el) { return; }
+    /*
+     * 75 号：`<summary>` 里除了标题还有一句话行（`.wxg-card-sum-line`）。
+     *   直接用 textContent 会连一句话一起拆 ⇒ 只动**标题那个文本节点**。
+     */
+    const isSummary = String(el.tagName || '').toUpperCase() === 'SUMMARY';
+    if (isSummary) {
+        const first = el.firstChild;
+        if (!first || first.nodeType !== 3) { return; }
+        const raw0 = String(first.nodeValue == null ? '' : first.nodeValue);
+        const paren0 = parenText(raw0);
+        const clean0 = stripParen(raw0);
+        if (clean0 && clean0 !== raw0.trim()) {
+            first.nodeValue = clean0;
+            if (paren0 && !el.getAttribute('title')) {
+                el.setAttribute('title', paren0);
+            }
+        }
+        return;
+    }
     const raw = String(el.textContent == null ? '' : el.textContent);
     const paren = parenText(raw);
     const clean = stripParen(raw);
@@ -44,7 +63,7 @@ export function tidyText(el) {
  */
 export function tidyHeadings(host) {
     if (!host || typeof host.querySelectorAll !== 'function') { return; }
-    for (const n of host.querySelectorAll('.wxg-card-h, .wxg-card-title, .wxg-card-sum, .wxg-sec-title, .wxg-report-h')) {
+    for (const n of host.querySelectorAll('.wxg-card-h, .wxg-card-title, .wxg-card-sum, .wxg-sec-title, .wxg-report-h, summary')) {
         tidyText(n);
     }
 }

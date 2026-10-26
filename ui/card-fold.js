@@ -68,6 +68,11 @@ export function cardLine(title, state) {
         const place = String((w.place == null ? '' : w.place)).trim() || '地点未记';
         return clock + ' · ' + place;
     }
+    if (t.indexOf('时局简报') >= 0) {
+        const dom = (w.pulse && Array.isArray(w.pulse.domains)) ? w.pulse.domains.length : 0;
+        return n(w.situations) + ' 条局势 · ' + dom + ' 个域在压';
+    }
+    if (t.indexOf('人物') >= 0) { return n(s.roster || s.chars) + ' 人在册'; }
     if (t.indexOf('势力') >= 0) { return n(w.factions) + ' 个在册'; }
     if (t.indexOf('世界事实') >= 0) { return n(w.facts) + ' 条事实'; }
     if (t.indexOf('脉动') >= 0) { return n(w.pulse) + ' 条压力'; }
