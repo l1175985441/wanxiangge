@@ -1017,7 +1017,7 @@ function secWorld(host) {
      */
     const engineEmpty = !wFacts0.length && !wPulseDom0.length && !wPulseCov0.length && !wWinds0.length;
     const engineFold = engineEmpty
-        ? foldable('引擎还没推出来的（世界事实／脉动／风声） · 展开看分区', false)
+        ? foldable('引擎还没推出来的（世界事实／脉动／风声）', false)
         : null;
 
     const worldCardsEmpty = !wFactions0.length && !wFacts0.length
@@ -2008,8 +2008,7 @@ function commitSection(secId) {
             patch[k] = box[k];
         }
     }
-    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。
-    //    patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
+    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。 patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
     //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
     delete stagingOf(modeForSection(secId))[secId];
     patchSettings(patch);
@@ -2716,8 +2715,7 @@ function secRoster(host) {
     box.appendChild(el('div', 'wxg-note', d.total
         ? '现有 ' + String(d.total) + ' 人' + (d.players ? '（其中玩家棋子 ' + String(d.players) + ' 人）' : '')
         : '还没有人物。'));
-    // ⭐「新认的人」接上显示（条 12：这个数组原来只写不读）。
-    //    她最需要知道的恰恰是"引擎自己认了谁"——认错了要能一眼看见并处理。
+    // ⭐「新认的人」接上显示（条 12：这个数组原来只写不读）。 她最需要知道的恰恰是"引擎自己认了谁"——认错了要能一眼看见并处理。
     if (fresh.length) {
         const line = el('div', 'wxg-store', '引擎新认了 ' + String(fresh.length) + ' 个人：' + fresh.join('、')
             + '（名字对不对？不对就点「按这条合并…」并进老记录，或「忽略这条」）');
@@ -4070,7 +4068,9 @@ function secSteps(host, intoBox) {
      * ⭐ 逐楼清单**收进折叠条**（照"一屏一个焦点"）：主画面就是上面那张统计表，
      *    想看"到底是哪几楼"再点开。⏐ 不是删掉——她要的是两份都在。
      */
-    const detail = foldable('展开看是哪几楼（' + num(total) + '）', false);
+    /* 84：折叠标题只留名词；「展开看是哪几楼（N）」进 title */
+    const detail = foldable('逐楼清单', false);
+    detail.title = '展开看是哪几楼（' + num(total) + '）';
     const fbar = el('div', 'wxg-filters');
     const mk = (key, label, n) => {
         const b = el('button', 'wxg-filter' + (stepFilter === key ? ' is-on' : ''), label);
