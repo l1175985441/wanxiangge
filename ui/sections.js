@@ -11,7 +11,8 @@ import {
 } from '../core/config.js';
 import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全收；八：开关状态句 */
 import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
-import { markOneCol } from './onecol.js';   /* 一：单卡页标记 */
+import { markOneCol } from './onecol.js';
+import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
 import { makeChronSearch } from './chron-search.js';   /* A4：编年搜索框 */
@@ -967,19 +968,6 @@ const snaps = listSnapshots();
  * 暗线阶段 → 胶囊样式（走的是"阶段"这条线：萌芽最早、消散/完成收尾）。
  * ⛔ 按语义分档，不按颜色名——以后加阶段也不用改这里。
  */
-function stageTone(stage) {
-    const s = asText(stage);
-    if (s === '消散' || s === '完成') {
-        return 'is-off';
-    }
-    if (s === '爆发' || s === '关键' || s === '逼近') {
-        return 'is-warn';
-    }
-    if (s === '发酵' || s === '执行') {
-        return 'is-info';
-    }
-    return 'is-info'; // 萌芽／筹备
-}
 
 function secWorld(host) {
     const state = loadState();
@@ -1388,6 +1376,11 @@ function secWorld(host) {
                 r.setAttribute('data-kind', 'hidden');
                 r.setAttribute('data-index', String(hidIdx));
             r.appendChild(el('span', 'wxg-badge ' + stageTone(h.stage), trimText(h.stage) || '萌芽'));
+    {
+        /* 阶段数字（同行同字号）；空／乱写不出数字 */
+        const prog = stageProgress(h.stage, h.kind);
+        if (prog) { r.appendChild(el('span', 'wxg-badge is-soft wxg-stage-num', prog.text)); }
+    }
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
             title.appendChild(el('span', 'wxg-r-who', trimText(h.name) || '（未记名）'));
@@ -4969,6 +4962,11 @@ function renderWorldEntryCard() {
     head.appendChild(who);
     const badges = el('div', 'wxg-pc-badges');
     badges.appendChild(el('span', 'wxg-badge ' + (pillCls || ''), pillText));
+    if (isHidden) {
+        /* 只有暗线的阶段才有 n/4 或 n/5；局势没这等枚举 ⇒ 不出数字 */
+        const prog2 = stageProgress(item.stage, item.kind);
+        if (prog2) { badges.appendChild(el('span', 'wxg-badge is-soft wxg-stage-num', prog2.text)); }
+    }
     head.appendChild(badges);
     const kebab = button('⋮', 'we-edit', 'wxg-pc-kebab');
     kebab.title = openWorldEntryEditing ? '正在编辑（点一下收起）' : '编辑这一条（点了才可改，不点只读）';
