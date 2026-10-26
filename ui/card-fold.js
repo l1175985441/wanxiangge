@@ -1,3 +1,5 @@
+import { tidyText } from './tidy-heads.js';
+
 /**
  * 万象阁 · 卡头三层 ＋ 右侧一个 ∨（阿砚 74 号）
  *
@@ -28,6 +30,12 @@ export function foldCard(args) {
     const sum = doc.createElement('summary');
     sum.className = 'wxg-card-sum';
     sum.textContent = String(head.textContent || '').trim();
+    /*
+     * 77 号：**造的当下就去括号**。
+     *   旧：靠 `renderSections` 末尾扫一遍 ⇒ 折叠是在那之后才发生的，
+     *   summary 根本没被扫到（真机六处括号一处未动）。
+     */
+    tidyText(sum);
     /*
      * 75 号（她：折过头了，只剩标题）：折叠态必须带**一句话正文**（14px，≤60 字）。
      *   行文本由调用方传（`line`）——⛔ 写“展开看…”这种占位句。

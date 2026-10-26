@@ -33,13 +33,28 @@ export function tidyText(el) {
      */
     const isSummary = String(el.tagName || '').toUpperCase() === 'SUMMARY';
     if (isSummary) {
+        /*
+         * summary 里的标题可能是**文本节点**（foldCard）也可能是**<span>**（foldable）。
+         *   ⛔ 只认 nodeType === 3：真机上对，但模拟宿主里节点常带不全 nodeType ⇒ 误以为“不是文本”直接跳过。
+         */
         const first = el.firstChild;
-        if (!first || first.nodeType !== 3) { return; }
-        const raw0 = String(first.nodeValue == null ? '' : first.nodeValue);
+        if (!first) {
+            /* 場景：宿主/DOM 实现不给 firstChild（模拟环境就这样）⇒ 退回整句处理，⛔ 直接丢弃 */
+            const rawAll = String(el.textContent == null ? '' : el.textContent);
+            const pAll = parenText(rawAll);
+            const cAll = stripParen(rawAll);
+            if (cAll && cAll !== rawAll.trim()) {
+                el.textContent = cAll;
+                if (pAll && !el.getAttribute('title')) { el.setAttribute('title', pAll); }
+            }
+            return;
+        }
+        const isText = (first.nodeType === 3) || (typeof first.nodeValue === 'string' && !first.tagName);
+        const raw0 = isText ? String(first.nodeValue == null ? '' : first.nodeValue) : String(first.textContent == null ? '' : first.textContent);
         const paren0 = parenText(raw0);
         const clean0 = stripParen(raw0);
         if (clean0 && clean0 !== raw0.trim()) {
-            first.nodeValue = clean0;
+            if (isText) { first.nodeValue = clean0; } else { first.textContent = clean0; }
             if (paren0 && !el.getAttribute('title')) {
                 el.setAttribute('title', paren0);
             }
@@ -63,7 +78,15 @@ export function tidyText(el) {
  */
 export function tidyHeadings(host) {
     if (!host || typeof host.querySelectorAll !== 'function') { return; }
-    for (const n of host.querySelectorAll('.wxg-card-h, .wxg-card-title, .wxg-card-sum, .wxg-sec-title, .wxg-report-h, summary')) {
-        tidyText(n);
+    /*
+     * 77 号：**一个选择器一次查**。
+     *   旧：逗号列表一条 querySelectorAll ⇒ 宿主/模拟 DOM 不支持多选择器时**整条丢异常**，
+     *   外层 catch 一吞 ⇒ 看上去“代码在、屏上没变”（真机六处括号就是这么活下来的）。
+     */
+    const sels = ['.wxg-card-h', '.wxg-card-title', '.wxg-card-sum', '.wxg-sec-title', '.wxg-report-h', 'summary'];
+    for (const sel of sels) {
+        let list = [];
+        try { list = Array.from(host.querySelectorAll(sel)); } catch (e) { list = []; }
+        for (const n of list) { tidyText(n); }
     }
 }

@@ -1,3 +1,5 @@
+import { tidyText } from './tidy-heads.js';
+
 /**
  * 万象阁 · 状态页的两条折叠（阿砚 71 号）
  *
@@ -17,6 +19,7 @@ export function foldStore(args) {
     det.className = 'wxg-status-detail';
     const sum = doc.createElement('summary');
     sum.textContent = '存档 · 上次更新';
+    tidyText(sum);   /* 77 号：造的当下去括号 */
     det.appendChild(sum);
     if (a.line) { det.appendChild(a.line); }
     if (a.ledgerLine) { det.appendChild(a.ledgerLine); }
@@ -36,6 +39,7 @@ export function foldReport(args) {
     wrap.className = 'wxg-rep-fold';
     const summary = doc.createElement('summary');
     summary.textContent = '每轮记录（展开看每一轮送进去什么）';
+    tidyText(summary);   /* 77 号：当场去括号，原文进 title */
     wrap.appendChild(summary);
     const body = el('div', 'wxg-plain');
     wrap.appendChild(body);
