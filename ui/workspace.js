@@ -116,6 +116,17 @@ export function openWorkspace() {
     quickRead.title = '直达「读取控制（四格）」那一页';
     quickRead.setAttribute('data-ws-action', 'goto-readctl');
     right.appendChild(quickRead);
+    /*
+     * 阿砚 71 号：说明文字默认不显示 ⇒ 顶栏给一颗「ⓘ 说明」，点一下才把它们放出来。
+     *   ⛔ 每张卡各自一个开关（那又是一堆小字）。
+     */
+    const notesBtn = document.createElement('button');
+    notesBtn.className = 'wxg-ws-quick wxg-notes-btn';
+    notesBtn.type = 'button';
+    notesBtn.textContent = 'ⓘ 说明';
+    notesBtn.title = '显示／隐藏页面里的说明与提示';
+    notesBtn.setAttribute('data-ws-action', 'toggle-notes');
+    right.appendChild(notesBtn);
     const close = document.createElement('button');
     close.className = 'wxg-ws-x';
     close.type = 'button';
@@ -499,6 +510,19 @@ function onWorkspaceClick(e) {
         const hit = items.findIndex((b) => String(b && b.textContent || '').indexOf('读取控制') >= 0);
         if (hit >= 0) {
             showIndex(hit, true);
+        }
+        return;
+    }
+    if (action === 'toggle-notes') {
+        /* 切 `.is-notes`：说明／副标题默认藏，点开才看 */
+        const main = root.querySelector('.wxg-ws-main');
+        if (main) {
+            main.classList.toggle('is-notes');
+            const on = main.classList.contains('is-notes');
+            const btn = root.querySelector('[data-ws-action="toggle-notes"]');
+            if (btn) {
+                btn.textContent = on ? 'ⓘ 收起' : 'ⓘ 说明';
+            }
         }
         return;
     }

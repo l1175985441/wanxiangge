@@ -1760,10 +1760,15 @@ body.wxg-dragging {
      *   0.96em≈13.4px、1.02em≈14.3px —— **三档挤在一起**（正文与标题差 0.9px）⇒ 看着乱。
      *   现在拉开（按 14px 基底换算）：元信息≈10px、正文≈13px、标题≈15px。
      */
-    --fs-note: 10px;   /* A1：改固定 px（5 档 10／12／13／15／19），⛔ em 叠乘出怪小数 */
-    --fs-body: 13px;   /* A1：固定 px */
-    --fs-head: 15px;   /* A1：固定 px */
-    --fs-big: 19px;    /* A1：头号（弹窗标题／关键数字） */
+    /*
+     * 阿砚 71 号（她：一堆文字噗在脸上）：字号只留**三层**——
+     *   H 主信息 **≥18**（每屏要有一处：这屏在讲什么）、B 正文 **13–14**、N 注释 **≤11**（默认收起）。
+     *   实测旧值：注释 10px 占全屏 86%、卡头被压成 10px（下面那条错覆盖）⇒ 整屏没有一个落脚点。
+     */
+    --fs-note: 11px;   /* N：注释（默认收起） */
+    --fs-body: 14px;   /* B：正文 */
+    --fs-head: 18px;   /* H：卡片头（这张卡在讲什么） */
+    --fs-big: 19px;    /* 页级标题 */
     --wxg-fold-min: 96px;
     /* A2：间距只留 4 档（4／6／10／16），⛔ 再写死数字 */
     --gap-xs: 4px;
@@ -1891,7 +1896,7 @@ body.wxg-dragging {
 
 .wanxiangge .wxg-report-h,
 .wanxiangge .wxg-card-h {
-    font-size: var(--fs-note);
+    font-size: var(--fs-head);   /* H 档：⛔ 再被压成注释字号（旧：10px，整屏没有落脚点） */
 }
 
 /* ---- 主按钮：一页一个，它就是"该点的那个" ---- */
@@ -2050,7 +2055,7 @@ body.wxg-dragging {
     --s6: 40px;
     /* 字号：页级大标题（22px+） / 卡头 / 标签 */
     --fs-h1: 19px   /* A1：大标题归 19 档 */;
-    --fs-h2: 15px   /* A1：小标题归 15 档 */;
+    --fs-h2: 18px   /* 71 号：卡头就是 H 档（旧 15px ⇒ 整屏没有落脚点） */;
     --fs-label: 12px;   /* A1：固定 px（原 .74em 算出 10.212） */
 }
 
@@ -4653,3 +4658,56 @@ body[data-wxg-theme="dark"] {
     height: 28px;
     min-height: 28px;
 }
+
+/* ==========================================================================
+阿砚 71 号：**解释性文字默认撤下去**（她：一堆文字噗在脸上，点都不愿意点）
+  · 页面副标题（原本一大段“这页是干什么的”）默认不显示；
+  · `.wxg-note`／`.wxg-hint`（说明/提示）默认不显示；
+  · 需要时由工作台顶栏那个「ⓘ 说明」开关一次性打开（`.is-notes`）。
+  ⛔ 删信息：只是默认不看。
+========================================================================== */
+.wxg-ws-main .wxg-sec-sub,
+.wxg-ws-main .wxg-sec-body .wxg-note,
+.wxg-ws-main .wxg-sec-body .wxg-hint {
+    display: none;
+}
+.wxg-ws-main.is-notes .wxg-sec-sub,
+.wxg-ws-main.is-notes .wxg-sec-body .wxg-note,
+.wxg-ws-main.is-notes .wxg-sec-body .wxg-hint {
+    display: block;
+    font-size: var(--fs-note);
+}
+
+/* 状态行（存档/上次更新）是**正文档**，⛔ 再按注释档压成 10px */
+.wanxiangge .wxg-store,
+.wanxiangge .wxg-ledger {
+    font-size: var(--fs-body);
+}
+
+/* 一屏一句话（H 档）：每页顶上先说“这一屏在讲什么” */
+.wanxiangge .wxg-sec-hero {
+    font-size: var(--fs-head);
+    font-weight: 700;
+    line-height: 1.45;
+    margin: 2px 0 var(--s3);
+    color: var(--wxg-text-strong, inherit);
+}
+
+/* 71 号：没进账的提示**不再是常驻大块**——一颗小红点 ＋ 一行摘要，点开看详情 */
+.wxg-runwarn {
+    display: flex;
+    align-items: baseline;
+    gap: var(--gap-sm);
+    margin: 2px 0 var(--s3);
+    font-size: var(--fs-body);
+}
+.wxg-runwarn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e0654f;
+    flex: 0 0 auto;
+    transform: translateY(-1px);
+}
+.wxg-runwarn-more { font-size: var(--fs-body); }
+.wxg-runwarn-sum { cursor: pointer; color: #b3261e; }

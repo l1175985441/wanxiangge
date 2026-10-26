@@ -12,6 +12,7 @@ import {
 import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全收；八：开关状态句 */
 import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
 import { markOneCol } from './onecol.js';
+import { statusHero } from './status-hero.js';
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -249,7 +250,6 @@ function section(title, hint, opts) {
     }
     return body;
 }
-
 
 /**
  * 一张卡：可选的卡头（`.wxg-card-h`）加内容。
@@ -532,6 +532,7 @@ function secStatus(host, intoSelf) {
         '账本存没存、引擎跑到哪楼、每轮到底送进去什么——'
         + '原来分三页，其实是同一件事。',
         { open: true });
+    box.appendChild(statusHero({ el: el, state: loadState() }));   /* 71 号：一屏一句 H 档人话 */
     /*
      * ⭐ 「现在怎么样」这张卡**壳撕了**（照状态页目标态的 ⛔ 清单：
      *   它的信息＝每轮记录最新一条，重复）。
