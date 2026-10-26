@@ -11,6 +11,7 @@
  */
 
 import { WORKSPACE_ID, MINI_ID, SIDEBAR_ICONS, SIDEBAR_SHORT, groupOfSection } from '../core/config.js';
+import { tidyText, parenText } from './tidy-heads.js';   /* 78：左栏导航名词去括号 */
 import { getSettings, patchSettings } from '../core/settings.js';
 import { agoText } from '../core/timefmt.js';   /* A9：状态带要人话时间 */
 import { renderSections, bindSectionEvents, fillText, hasUnsavedDraft } from './sections.js';
@@ -338,6 +339,21 @@ function buildSidebar() {
         const txt = document.createElement('span');
         txt.className = 'wxg-ws-side-txt';
         txt.textContent = brief;   // ⭐ 侧栏用简称（全名会折成两行）；页头仍用全名
+    /*
+     * 78 号：左栏也走同一条规矩——**屏上只留名词**，括号里的解释进 `title=`。
+     *   导航越短越好扫；悬停仍能看到原文。
+     */
+    tidyText(txt);
+    {
+        /*
+         * 标题优先取**全名**里的括注（更说得清楚）：
+         *   「读取控制」全名括注是「提取／排除四格」，简称里只剩「四格」。
+         */
+        const paren = parenText(name) || parenText(brief);
+        if (paren && !btn.getAttribute('title')) {
+            btn.setAttribute('title', paren);
+        }
+    }
         btn.appendChild(ico);
         btn.appendChild(txt);
         sideEl.appendChild(btn);
