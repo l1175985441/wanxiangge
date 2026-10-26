@@ -3407,8 +3407,12 @@ body.wxg-dragging {
 .wxg-ws-main .wxg-roster .wxg-thead,
 .wxg-ws-main .wxg-roster .wxg-r {
     display: grid;
-    /* 79 号：末列不许写死 84px（新认那行 act 实测 191px）；名字列给到 160px 下限 */
-    grid-template-columns: minmax(160px, 1.35fr) minmax(0, .95fr) minmax(0, 1.15fr) minmax(0, 1fr) auto;
+    /*
+     * 82 号：这里是名册网格的**唯一定义点**（本来在尾部另写一条 2 列覆盖，真机上没生效 ⇒
+     *   直接把基础规则改成 2 列：名称｜操作）。旧值是 5 列（160/91/110/96/auto）。
+     */
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--gap-md);
     align-items: center;
     gap: 0;
 }
@@ -4400,7 +4404,7 @@ body[data-wxg-theme="dark"] {
      *     · 数据页（没有 five 标记）：两列；
      *     · 设置页那五页（有 five 标记）：单列（卡标题居中＋保存靠右下，本来就是纵向表单）。
      *   ⚠️ 选择器只能写 `.wxg-ws-main …`：`wanxiangge` 与 `wxg-ws-main` 在**同一个 <main> 上**，
-     *     写成后代组合（`.wanxiangge .wxg-ws-main …`）整条不匹配（阿砚第一版就这样，注入完没效果）。
+     *     写成后代组合（`.wanxiangge.wxg-ws-main …`）整条不匹配（阿砚第一版就这样，注入完没效果）。
      */
     .wxg-ws-main .wxg-sec:not([data-wxg-five]) > .wxg-sec-body {
         display: grid !important;
@@ -4834,7 +4838,7 @@ body[data-wxg-theme="dark"] {
 }
 
 /* 79 号：行动列里的按钮不许折行（折了就往左顶名字） */
-.wanxiangge .wxg-ws-main .wxg-roster .wxg-r .wxg-r-act {
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-r .wxg-r-act {
     white-space: nowrap;
     flex-wrap: nowrap;
 }
@@ -4843,12 +4847,12 @@ body[data-wxg-theme="dark"] {
 80 号：名册固定 **2 列**（名称｜操作）——卡只有 461px，5 列会算出 0px 列、act 压进名字格。
   身份／势力并进名字格第二行（12px 灰字），取不到就不显示。
 ========================================================================== */
-.wanxiangge .wxg-ws-main .wxg-roster .wxg-thead,
-.wanxiangge .wxg-ws-main .wxg-roster .wxg-r {
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-thead,
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-r {
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--gap-md);
 }
-.wanxiangge .wxg-ws-main .wxg-roster .wxg-c-meta {
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-c-meta {
     font-size: 12px;
     line-height: 1.35;
     color: var(--wxg-dim, #6d747a);
@@ -4867,6 +4871,24 @@ body[data-wxg-theme="dark"] {
 }
 
 /* 81 号：编年那张卡在 1058 的段里只占 420（因为段里还有工具条等，不走单卡规则）⇒ 显式跨列铺满 */
-.wanxiangge .wxg-ws-main .wxg-sec-body > .wxg-card.wxg-wide {
+.wanxiangge.wxg-ws-main .wxg-sec-body > .wxg-card.wxg-wide {
     grid-column: 1 / -1;
+}
+
+/* ==========================================================================
+82 号
+  · 折叠条 `details.wxg-report` 原来继承 ST 的 6px 圆角 ⇒ 归到控件档 9；
+  · 名册只剩两列，列间不再要竖线（表头右端会多出一根光杆）。
+========================================================================== */
+.wanxiangge.wxg-ws-main details.wxg-report:not(.is-row) {
+    border-radius: var(--r-ctl, 9px);
+}
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-thead > * + *,
+.wanxiangge.wxg-ws-main .wxg-roster .wxg-r > * + * {
+    border-left: none;
+}
+
+/* 82 号：预设片（自定义 API 页）也是 6px 圆角 ⇒ 归到控件档 9 */
+.wanxiangge.wxg-ws-main .wxg-prof {
+    border-radius: var(--r-ctl, 9px);
 }

@@ -86,6 +86,13 @@ export function cardLine(title, state) {
     if (t.indexOf('脉动') >= 0) { return n(w.pulse) + ' 条压力'; }
     if (t.indexOf('风声') >= 0) { return n(w.winds) + ' 条风声'; }
     if (t.indexOf('局势') >= 0) { return n(w.situations) + ' 条局势'; }
+    if (t.indexOf('记忆') >= 0) {
+        const m = s.memory || {};
+        const bits = [];
+        if (Number(m.rounds) > 0) { bits.push(String(Number(m.rounds)) + ' 轮'); }
+        if (String(m.promise || '').trim()) { bits.push('承诺 1'); }
+        return bits.length ? bits.join(' · ') : '还没记下什么';
+    }
     if (t.indexOf('暗线') >= 0) { return n(w.hidden) + ' 条暗线'; }
     return '';
 }

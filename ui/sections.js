@@ -1363,8 +1363,7 @@ function secWorld(host) {
         for (let hidIdx = 0; hidIdx < w.hidden.length; hidIdx += 1) {
                 const h = w.hidden[hidIdx];
             const r = el('div', 'wxg-r is-rowlink');
-                // ⭐ 点行开浮层（同局势）；行内下拉与「删」各自有 data-action。
-                // ⚠️ 用**自己的类名** `is-rowlink`，⛔ 蹭 `.is-click`（它带着两列的规矩）
+                // ⭐ 点行开浮层（同局势）；行内下拉与「删」各自有 data-action。 ⚠️ 用**自己的类名** `is-rowlink`，⛔ 蹭 `.is-click`（它带着两列的规矩）
                 r.setAttribute('data-action', 'open-world-entry');
                 r.setAttribute('data-kind', 'hidden');
                 r.setAttribute('data-index', String(hidIdx));
@@ -1668,8 +1667,7 @@ function secCharacters(host) {
         curArea.setAttribute('data-id', c.id);
         curArea.setAttribute('data-key', 'current');
         curWrap.appendChild(curArea);
-        // ⚠️ 必须挂进 editGrid（网格）——挂到 editBox 上的话它成了 flex 项，
-        //    会并排飘在右边，`grid-column: 1/-1` 根本不生效（真机截图里看出来的）
+        // ⚠️ 必须挂进 editGrid（网格）——挂到 editBox 上的话它成了 flex 项， 会并排飘在右边，`grid-column: 1/-1` 根本不生效（真机截图里看出来的）
         editGrid.appendChild(curWrap);
         detail.appendChild(editBox);
         /*
@@ -2736,6 +2734,7 @@ function secRoster(host) {
      */
     const hasPeople = roster.length > 0;
     const cIn = card('录入');
+    cIn.classList.add('wxg-wide');
     // 有人的时候：整块录入收进一个折叠条（点一下展开）；空名册时才直接摊开
     let inTarget = cIn;
     if (hasPeople) {
@@ -2787,6 +2786,7 @@ function secRoster(host) {
     box.appendChild(chLine);
 
     const cList = card('名册');
+    cList.classList.add('wxg-wide');   /* 82：名册表铺满（卡只占左半，右半空） */
     /*
      * ⭐ 行化（有数据排版术第七条）：**一个人一行**。
      *    `名字 ＋ 胶囊（玩家棋子/新认/已手改）｜ 别名·好感 灰字 ｜ 右侧 改 · 删`
