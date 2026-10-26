@@ -4734,3 +4734,17 @@ body[data-wxg-theme="dark"] {
 .wanxiangge .wxg-when {
     font-size: var(--fs-note);
 }
+
+/* 73 号：顶栏「上次更新失败」不再占一行字——只留一颗红点，原因在 title 里 */
+.wxg-ws-chip.wxg-ws-chip-dot {
+    width: 9px;
+    height: 9px;
+    min-width: 9px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    line-height: 0;
+    background: #e0654f;
+    border: 1px solid rgba(224, 101, 79, 0.45);
+    cursor: help;
+}

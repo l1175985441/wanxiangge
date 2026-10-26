@@ -29,7 +29,7 @@ import {
 import { mountPanel, renderPanel, mountAllCards, refreshMountedCards } from './ui/render.js';
 import { openPanel, closePanel, isPanelOpen, refreshPanel } from './ui/shell.js';
 import { openWorkspace, isWorkspaceOpen, refreshWorkspace, closeWorkspace } from './ui/workspace.js';
-import { mountMini, refreshMini, closeMini, ensureMini } from './ui/mini.js';
+import { mountMini, refreshMini, closeMini, ensureMini, healMini } from './ui/mini.js';
 import { ensureWandEntry, syncEntryState, stopWandWaiting } from './ui/wand.js';   /* TW 契约：等容器的 observer 要能停 */
 import { getSettings, reloadSettings } from './core/settings.js';
 import { runReconcile, markFloorSwiped } from './core/pipeline.js';
@@ -37,7 +37,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.537';
+const VERSION = '0.3.538';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -568,6 +568,7 @@ function boot() {
                     mountMini();
                     /* 71 号：宿主可能在挂完之后清过 body ⇒ 回查一次，没了就再挂 */
                     ensureMini();
+                    healMini();
                 } catch (e) {
                     console.warn('[万象阁] 悬浮小框没挂上：', e);
                 }

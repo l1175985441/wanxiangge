@@ -384,7 +384,16 @@ function renderChips() {
         const chip = document.createElement('span');
         chip.className = 'wxg-ws-chip';
         if (k.startsWith('⚠')) {
-            chip.className += ' wxg-ws-chip-bad';
+            /*
+             * 73 号：失败不再把技术串摆在顶栏上——**只留一颗红点**，
+             *   原因（HTTP 530、#0 这类）进 `title`，鼠标悬停才看；点开去「每轮记录」看全文。
+             */
+            chip.className += ' wxg-ws-chip-bad wxg-ws-chip-dot';
+            chip.title = k + '：' + v;
+            chip.textContent = '';
+            chip.setAttribute('aria-label', '上次更新失败（悬停看原因）');
+            box.appendChild(chip);
+            continue;
         }
         chip.textContent = k + '：' + v;
         box.appendChild(chip);
@@ -519,12 +528,17 @@ function onWorkspaceClick(e) {
         return;
     }
     if (action === 'toggle-notes') {
-        /* 切 `.is-notes`：说明／副标题默认藏，点开才看 */
-        const main = root.querySelector('.wxg-ws-main');
+        /*
+         * 73 号实机：点了不动。真因＝这里引用了 `root`，但 `root` 不是本函数作用域里的名字
+         *   ⇒ 每次点击都抛 `ReferenceError: root is not defined`（被外层 try 吞掉，表现成"点了没反应"）。
+         *   现在从 `hostEl` 往上找工作台根（⛔ 再赌一个未定义的变量）。
+         */
+        const rootEl = (hostEl && typeof hostEl.closest === 'function') ? hostEl.closest('.wxg-ws') : null;
+        const main = (rootEl || document).querySelector('.wxg-ws-main');
         if (main) {
             main.classList.toggle('is-notes');
             const on = main.classList.contains('is-notes');
-            const btn = root.querySelector('[data-ws-action="toggle-notes"]');
+            const btn = (rootEl || document).querySelector('[data-ws-action="toggle-notes"]');
             if (btn) {
                 btn.textContent = on ? 'ⓘ 收起' : 'ⓘ 说明';
             }

@@ -58,6 +58,15 @@ export function mountMini() {
         closeMini();
         return null;
     }
+    /*
+     * 73 号（真机第三跑仍为 0）：模块记得"挂过了"（wrapEl 非空），但 DOM 里已经没了
+     *   ⇒ 这里原来直接 refresh 就返回，永远不会重建。现在先用 DOM 校一次。
+     */
+    if (wrapEl && !document.getElementById(String(MINI_ID))) {
+        wrapEl = null;
+        ballEl = null;
+        panelEl = null;
+    }
     if (isMiniOpen()) {
         refreshMini();
         return wrapEl;
@@ -132,7 +141,11 @@ export function mountMini() {
             setExpanded(true, { auto: true });
         }
     });
-    makeDraggable(wrapEl, ballEl);
+    document.body.appendChild(wrapEl);
+    if (!document.getElementById(String(MINI_ID))) {
+        document.body.appendChild(wrapEl);
+    }
+    try { makeDraggable(wrapEl, ballEl); } catch (eDrag) { /* 73 号：拖拽配不上不能让球没了 */ }
 
     /*
      * 71 号实机 bug：她刷新后 `[class*="wxg-mini"]` ＝ 0 个。
@@ -141,14 +154,13 @@ export function mountMini() {
      *   ⇒ 挂完**回查一次**，没有就再挂；`ensureMini()` 给初始化路径再调一次兜底。
      *   ⚠️ 判据用 `getElementById`（⛔ class 选择器：老宿主/模拟环境不一定支持 * 选择器）。
      */
-    document.body.appendChild(wrapEl);
-    if (!document.getElementById(String(MINI_ID))) {
-        document.body.appendChild(wrapEl);
-    }
-    if (pos.pinned) {
-        setExpanded(true);
-    }
-    refreshMini();
+    /* 73 号：挂载成功之后，任何一步（展开/刷新）出错都⛔ 影响球已经在了这件事 */
+    try {
+        if (pos.pinned) { setExpanded(true); }
+    } catch (ePin) { /* 展不开就先收着 */ }
+    try {
+        refreshMini();
+    } catch (eRef) { /* 内容刷不出来也留着球 */ }
     return wrapEl;
 }
 
@@ -563,4 +575,23 @@ export function ensureMini() {
     ballEl = null;
     panelEl = null;
     return mountMini();
+}
+
+/**
+ * 73 号：悬浮球**刷新后不在**（真机三跑都是 0）。
+ *   单次 ensureMini 只覆盖"初始化那一瞬"；宿主若在那之后清了一次 body，球又没了。
+ *   这里按 0／800／2500／6000ms 重试几次（幂等，找到就停）。
+ * @param {Array<number>} delays
+ */
+export function healMini(delays) {
+    const list = Array.isArray(delays) && delays.length ? delays : [0, 800, 2500, 6000];
+    for (const ms of list) {
+        setTimeout(() => {
+            try {
+                ensureMini();
+            } catch (e) {
+                /* 挂不上也不能炸整页 */
+            }
+        }, ms);
+    }
 }
