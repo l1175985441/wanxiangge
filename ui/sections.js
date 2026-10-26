@@ -2931,16 +2931,17 @@ function secRoster(host) {
         if (c.isNew || isFresh(c)) {
             title.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }
-        if (c.manual) {
-            title.appendChild(el('span', 'wxg-badge is-info', '已手改'));
+    /* 67 号：两颗挤在一行会裁掉第二颗 ⇒ **合成一颗**，细节进 title（⛔ 调 min-width） */
+    const flags = [];
+    if (c.manual) { flags.push('已手改'); }
+    if (c.noBench === true) { flags.push('不推'); }
+    if (flags.length) {
+        const badge = el('span', 'wxg-badge ' + (c.manual ? 'is-info' : ''), flags.join(' · '));
+        if (flags.length === 2) {
+            badge.title = '这一位你手动改过，且已关掉「推演／平行事件」';
         }
-        /*
-         * ⭐ 补①的验收④：「名册上看得出来谁关了」。
-         *   用**灰胶囊「不推」**（不是红的）：这不是错，是她主动关的。
-         */
-        if (c.noBench === true) {
-            title.appendChild(el('span', 'wxg-badge', '不推'));
-        }
+        title.appendChild(badge);
+    }
         main.appendChild(title);
         r.appendChild(main);
         // A5：按“这一列有没有值”决定画不画；好感优先读好感表

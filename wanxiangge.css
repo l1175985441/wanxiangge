@@ -3467,7 +3467,12 @@ body.wxg-dragging {
  * 川（阿砚 66 号）：名字与徽章同行时：名字被 flex 压到 7px（一个字都露不出）。
  *   名字给最小宽（min-width:5em）并吃剩余；徽章不参与伸缩。
  */
-.wxg-ws-main .wxg-roster .wxg-r .wxg-r-title { flex-wrap: nowrap; overflow: hidden; }
+/*
+ * 阿砚 67 号：名字＋徽章挤不下时**换行**（⛔ nowrap + 硬裁）。
+ *   名字保有 5em 最小宽（不被压没）；徽章换到第二行去，
+ *   行高只在**真挤不下**时才变两行（宽屏不变）。
+ */
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-title { flex-wrap: wrap; overflow: hidden; }
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-who {
     flex: 1 1 auto;
     min-width: 5em;
