@@ -194,9 +194,17 @@
    ⭐ 这是我们**自己的地盘**：配色走 `--wxg-*`（由 ui/theme.js 按她的选择写进来），
       ⛔ 不再迁就酒馆主题——但每个变量都给兜底值，万一没设也不会变成透明/看不见。 */
 
+/*
+ * 川（阿砚 66 号）：窄屏下 ST 把 BODY 改成 position:fixed、HTML 上又带着单位矩阵 transform
+ *   ⇒ HTML 高 0，而 transform 让它成为 fixed 的包含块 ⇒ `inset:0` 上下都落在 0 高里 ⇒ 整页塔成 0。
+ *   改成显式 vh/vw（跟包含块无关）；⛔ 再写 bottom/right/inset:0。
+ */
 .wxg-ws {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     z-index: 30010;
     display: flex;
     flex-direction: column;
@@ -3455,8 +3463,19 @@ body.wxg-dragging {
 /* 行收紧：行高由格子撑，格子只留一行的高度 */
 .wxg-ws-main .wxg-roster .wxg-r { min-height: 0; line-height: 1.35; }
 .wxg-ws-main .wxg-roster .wxg-r .wxg-td { padding: 6px 12px; line-height: 1.35; }
+/*
+ * 川（阿砚 66 号）：名字与徽章同行时：名字被 flex 压到 7px（一个字都露不出）。
+ *   名字给最小宽（min-width:5em）并吃剩余；徽章不参与伸缩。
+ */
 .wxg-ws-main .wxg-roster .wxg-r .wxg-r-title { flex-wrap: nowrap; overflow: hidden; }
-.wxg-ws-main .wxg-roster .wxg-r .wxg-r-who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-who {
+    flex: 1 1 auto;
+    min-width: 5em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wxg-ws-main .wxg-roster .wxg-r .wxg-r-title > .wxg-badge { flex: 0 0 auto; }
 
 /* ---------------------------------------------------------------------------
  * ⭐ 行高真凶（第 6 轮真机量出来）：最后那格里的 `⋯` 按钮被全局 `menu_button` 撑到 **36px**，
