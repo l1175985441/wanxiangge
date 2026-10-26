@@ -744,6 +744,22 @@
     line-height: 1.8;
     position: relative;
 }
+/* 67 号：状态行是**纯文字**，⛔ 它不是可点元素 ⇒ 让它一律不接鼠标，
+   这样即使排版里被挤到按钮上方，点击也会穿过它落到按钮上（真机：三个分段按钮全被它盖住）。 */
+.wanxiangge .wxg-ledger,
+.wanxiangge .wxg-store {
+    pointer-events: none;
+}
+/* 可点的行／工具条：显式抬到状态行之上（position 才吃 z-index）。 */
+.wanxiangge .wxg-filters,
+.wanxiangge .wxg-roster-topbar,
+.wanxiangge .wxg-hitbar,
+.wanxiangge .wxg-searchwrap,
+.wanxiangge .wxg-card-actions,
+.wanxiangge .wxg-savebar {
+    position: relative;
+    z-index: 2;
+}
 
 /* ⭐ 状态点：一条状态是不是"正常"要**一眼看出来**（对照别家插件那排绿点看出来的）。
    用主题的强调色，⛔ 不自定品牌色（换主题才不会打架）。 */
