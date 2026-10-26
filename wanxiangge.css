@@ -4565,55 +4565,68 @@ body[data-wxg-theme="dark"] {
 
 
 
+
+
 /* ==========================================================================
-尺子（阿砚 69 号：同口径对齐观棋——**一张脸不许长六种按钮**）
-  实测（她真机 10 页 222 个）：高度 6 档 22/23/24/28/36/38、圆角 4 种、padding 5 种。
-  现在只收三样，⛔ 不动字号（字号 5 档是她早定过的）：
-    · 高度：常规 **36**、小号 **32**、纯图标 **24**（图标单独成类，⛔ 混在文字钮里）
-    · 圆角：按钮一律 **9px**；`999px` 只准给徽章
-    · padding：**两种**——常规 `0 12px`、大钮 `0 16px`
-  写法放在文件末尾：同特异性下后写者赢，⛔ 靠 !important。
-  ⚠️ 选择器**必须带元素名**（`button.wxg-btn-sm`）：不带的 (0,2,0) 打不过上面那条
-     `.wanxiangge button.menu_button` (0,2,1)（真踩过：写完了还全是 36/16）。
+尺子 v2（阿砚 70 号更正 69 号：判据改成 **按用途分类，类内只许一档**）
+  69 号那条「全站只留 2 档」是错的：世界背面 7 档/4 种圆角，她按它**不觉得别扭**——
+  因为它的 7 档是**按用途分开**的（图标 42×42／导航 75×46／小钮 28／主钮 38·46），类内统一。
+  我们的病是**同一类文字按钮里混了 22/23/24/28/36/38**。⇒ 真判据：类内一档，跨类可以多档。
+
+  四类（按用途分，⛔ 按尺寸分）：
+    ① 图标钮（⋮ ✕ ⠿ 这类纯符号）      24×24 圆形 50%   padding 0     字号 13
+    ② 小钮／行内钮（行里、卡右上角）    28 高            padding 0 10  字号 12  圆角 9
+    ③ 常规钮（段里、卡底主要动作）      36 高            padding 0 12  字号 13  圆角 9
+    ④ 主钮／大钮（页级、CTA）          38 高            padding 0 16  字号 13  圆角 9
+  ⚠️ 选择器必须带元素名：不带元素名的 (0,2,0) 打不过 `.wanxiangge button.menu_button` (0,2,1)
+     （69 号第一次改完还全 36/16 就是这个坑）。
+  ⚠️ 顺序也要紧：默认（③）先写，②④①依次覆盖，靠"同特异性后写者赢"。
 ========================================================================== */
 
-/* ---- ① 常规 36 ---- */
-.wanxiangge button.wxg-btn,
-.wanxiangge button.wxg-empty .menu_button,
-.wanxiangge .wxg-empty .menu_button,
-.wanxiangge .wxg-empty button,
-.wanxiangge .wxg-pc-foot button,
-.wanxiangge .wxg-pc-foot .menu_button,
-.wanxiangge .wxg-savebar button,
-.wanxiangge .wxg-card-actions button {
+/* ---- ③ 常规钮：所有 menu_button 的默认档（先写） ---- */
+.wanxiangge button.menu_button {
     height: 36px;
     min-height: 36px;
     box-sizing: border-box;
     padding: 0 12px;
-    border-radius: var(--r-ctl, 9px);   /* 控件的 9px 档（走令牌，⛔ 字面值） */
+    border-radius: var(--r-ctl, 9px);
+    font-size: 13px;
     line-height: 1;
 }
 
-/* ---- ② 小号 32（把 22/23/24/28 全并进来） ---- */
-.wanxiangge button.wxg-btn-sm,
+/* ---- ② 小钮／行内钮：28 ---- */
 .wanxiangge button.wxg-btn-xs,
-.wanxiangge button.wxg-btn.is-func,
-.wanxiangge button.wxg-btn.is-panel,
+.wanxiangge button.wxg-btn-sm,
 .wanxiangge button.wxg-btn.is-mini,
+.wanxiangge button.wxg-btn.is-panel,
+.wanxiangge button.wxg-btn.is-func,
 .wanxiangge button.wxg-filter,
 .wanxiangge button.wxg-pick,
-.wanxiangge button.wxg-nav-btn,
-.wanxiangge .wxg-r .wxg-btn-xs,
-.wanxiangge .wxg-roster .wxg-btn-sm {
-    height: 32px;
-    min-height: 32px;
+.wanxiangge button.wxg-nav-btn {
+    height: 28px;
+    min-height: 28px;
     box-sizing: border-box;
-    padding: 0 12px;
-    border-radius: var(--r-ctl, 9px);   /* 控件的 9px 档（走令牌，⛔ 字面值） */
+    padding: 0 10px;
+    border-radius: var(--r-ctl, 9px);
+    font-size: 12px;
     line-height: 1;
 }
 
-/* ---- ③ 纯图标 24（单独成类；⋮ ✕ 这类不跟文字钮混） ---- */
+/* ---- ④ 主钮／大钮：38（页级、CTA） ---- */
+.wanxiangge button.wxg-btn-lg,
+.wanxiangge button.wxg-primary,
+.wanxiangge .menu_button.wxg-primary,
+.wanxiangge .wxg-empty.is-hero .menu_button {
+    height: 38px;
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-radius: var(--r-ctl, 9px);
+    font-size: 13px;
+    line-height: 1;
+}
+
+/* ---- ① 图标钮：24×24 圆形（世界背面就这么干，圆形不算"不统一"） ---- */
 .wanxiangge button.wxg-icon-btn,
 .wanxiangge button.wxg-pc-kebab,
 .wanxiangge button.wxg-pc-x,
@@ -4624,33 +4637,19 @@ body[data-wxg-theme="dark"] {
     min-height: 24px;
     box-sizing: border-box;
     padding: 0;
-    border-radius: var(--r-ctl, 9px);   /* 控件的 9px 档（走令牌，⛔ 字面值） */
+    border-radius: 50%;
+    font-size: 13px;
     line-height: 1;
 }
 
-/* ---- ④ 大钮：仍然 36 高，只是左右更宽 ---- */
-.wanxiangge button.wxg-btn-lg,
-.wanxiangge .wxg-empty.is-hero .menu_button,
-.wanxiangge button.wxg-primary,
-.wanxiangge .menu_button.wxg-primary {
-    height: 36px;
-    min-height: 36px;
-    padding: 0 16px;
-    border-radius: var(--r-ctl, 9px);   /* 控件的 9px 档（走令牌，⛔ 字面值） */
-}
-
-/* ---- ⑤ 圆角口径：按钮只有 9；胶囊只留给徽章 ---- */
-.wanxiangge button,
-.wanxiangge .menu_button {
-    border-radius: var(--r-ctl, 9px);   /* 控件的 9px 档（走令牌，⛔ 字面值） */
-}
+/* 圆角口径：按钮只 9（图标圆形是规则内的例外）；999 只给徽章 */
 .wanxiangge .wxg-badge,
 .wanxiangge .wxg-busy-pill {
     border-radius: var(--wxg-r-pill);
 }
-/* 名册行的那个 `⋯` 原来被压成 22 高（真机量出来的行高真凶）⇒ 归到 32 那档 */
+/* 名册行尾那个 `⋯` 当年被压成 22 高（真机量出来的行高真凶）⇒ 归到小钮档 */
 .wanxiangge .wxg-r-act .wxg-btn-xs,
 .wanxiangge .wxg-r-act button {
-    height: 32px;
-    min-height: 32px;
+    height: 28px;
+    min-height: 28px;
 }
