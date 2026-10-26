@@ -300,7 +300,7 @@ function renderDupPicker(host) {
     dupGroups.forEach((g, gi) => {
         const wrap = el('div', 'wxg-dup-group');
         wrap.appendChild(el('div', 'wxg-note',
-            '第 ' + String(gi + 1) + ' 组 · 保留：' + ((g[0] && g[0].name) || '（未记名）')));
+            '第 ' + String(gi + 1) + ' 组 · 保留：' + ((g[0] && g[0].name) || '未记名')));
         for (let i = 1; i < g.length; i += 1) {
             const m = g[i] || {};
             const lab = el('label', 'wxg-dup-item');
@@ -310,7 +310,7 @@ function renderDupPicker(host) {
             cb.setAttribute('data-action', 'dup-toggle');
             cb.setAttribute('data-id', m.id || '');
             lab.appendChild(cb);
-            lab.appendChild(el('span', '', ' ' + (m.name || '（未记名）')));
+            lab.appendChild(el('span', '', ' ' + (m.name || '未记名')));
             wrap.appendChild(lab);
         }
         box.appendChild(wrap);
@@ -535,7 +535,8 @@ function secStatus(host, intoSelf) {
         if (recent.length) {
             const rc = card('最近发生');
             for (const c of recent) {
-                rc.appendChild(el('div', 'wxg-r-sub', (trimText(c.who) ? trimText(c.who) + '：' : '') + (trimText(c.text) || '暂无')));
+                const line = (trimText(c.who) ? trimText(c.who) + '：' : '') + (trimText(c.text) || '暂无');
+            rc.appendChild(el('div', 'wxg-recent-line', line.slice(0, 30)));
             }
             box.appendChild(rc);
         }
@@ -1048,7 +1049,7 @@ function secWorld(host) {
             const r = el('div', 'wxg-r');
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
-            title.appendChild(el('span', 'wxg-r-who', trimText(f.name) || '（未记名）'));
+            title.appendChild(el('span', 'wxg-r-who', trimText(f.name) || '未记名'));
             /* 依据＝渲染层 #2（显示层）：没写就**不印这个胶囊**，⛔ 拿“稳固”“中立”凑 */
             if (trimText(f.status)) {
                 title.appendChild(el('span', 'wxg-badge is-info', trimText(f.status)));
@@ -1120,7 +1121,7 @@ function secWorld(host) {
                 const r = el('div', 'wxg-r');
                 const main = el('div', 'wxg-r-main');
                 const title = el('div', 'wxg-r-title');
-                title.appendChild(el('span', 'wxg-r-who', trimText(d.label) || '（未记名）'));
+                title.appendChild(el('span', 'wxg-r-who', trimText(d.label) || '未记名'));
                 if (trimText(d.kind) && trimText(d.kind) !== 'other') {
                     title.appendChild(el('span', 'wxg-badge is-soft', trimText(d.kind)));
                 }
@@ -1145,7 +1146,7 @@ function secWorld(host) {
                 const r = el('div', 'wxg-r');
                 const main = el('div', 'wxg-r-main');
                 const title = el('div', 'wxg-r-title');
-                title.appendChild(el('span', 'wxg-r-who', trimText(e.label) || '（未记名）'));
+                title.appendChild(el('span', 'wxg-r-who', trimText(e.label) || '未记名'));
                 if (trimText(e.kind) && trimText(e.kind) !== 'general') {
                     title.appendChild(el('span', 'wxg-badge is-soft', trimText(e.kind)));
                 }
@@ -1296,7 +1297,7 @@ function secWorld(host) {
             r.appendChild(tierW);
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
-            title.appendChild(el('span', 'wxg-r-who', trimText(item.title) || '（未记名）'));
+            title.appendChild(el('span', 'wxg-r-who', trimText(item.title) || '未记名'));
             if (item.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
             }
@@ -1378,7 +1379,7 @@ function secWorld(host) {
     }
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
-            title.appendChild(el('span', 'wxg-r-who', trimText(h.name) || '（未记名）'));
+            title.appendChild(el('span', 'wxg-r-who', trimText(h.name) || '未记名'));
             if (trimText(h.tier)) {
                 title.appendChild(el('span', 'wxg-badge is-off', trimText(h.tier)));
             }
@@ -2673,7 +2674,7 @@ function secChronicle(host) {
             if (trimText(c.who)) {
                 title.appendChild(el('span', 'wxg-r-who', c.who));
             } else {
-                title.appendChild(el('span', 'wxg-none', '（这轮没点到名）'));   /* A3：占位词改人话 */
+                title.appendChild(el('span', 'wxg-none', '这轮没点到名'));   /* A3：占位词改人话 */
             }
             if (c.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
@@ -3130,8 +3131,7 @@ function secRecall(host) {
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false, five: true });
     box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
-    // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条）
-    // ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
+    // ⭐ 装盒：数字那几行一块、卡片开关一块（体检第一条） ⭐ 第三层：数字行排成规整两列（左标签右控件，竖着扫一列就行）
     const cPick = card('每一轮怎么挑');
     /*
      * ★ 20261023（阿砚 15 号）：三项一行的**组**。
@@ -3325,8 +3325,7 @@ function secApi(host) {
         '不锁死在酒馆默认连接上。云酒馆建议「经酒馆服务器转发」——密钥留在服务器侧，也绕开跨域。',
         { open: false, five: true });
     box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
-    // ⭐ 装盒：通道 一块、书签 一块（体检第一条）
-    // ⭐ 第三层：这条通道也排成规整两列
+    // ⭐ 装盒：通道 一块、书签 一块（体检第一条） ⭐ 第三层：这条通道也排成规整两列
     const cCh = card('通道');
     /*
      * ⭐⭐ 她 13:xx 澄清后的真需求（我上一版 v0.3.71 修错了地方 ✗）：
@@ -3801,7 +3800,9 @@ function secReport(host, intoBox) {
             sum.appendChild(el('span', 'wxg-badge ' + statusTone(rec), statusText));
             sum.appendChild(el('span', 'wxg-note', floorLabel(rec.floor)
                 + (rec.injectStatus === 'ok' ? ' · ' + String(shownChars) + ' 字' : '')));
-            sum.appendChild(el('span', 'wxg-r-who', rec.chars && rec.chars.length ? rec.chars.join('、') : '暂无'));
+            sum.appendChild(el('span', 'wxg-r-who', rec.chars && rec.chars.length
+                    ? rec.chars.map((x) => trimText(x && x.name) || trimText(x)).filter(Boolean).join('、')
+                    : '暂无'));   /* 86：对象数组直接 join 会出 [object Object] */
         }
         const body = el('div', 'wxg-report-body');
 
@@ -3812,7 +3813,7 @@ function secReport(host, intoBox) {
             for (const item of rec.items) {
                 const c = item && item.character ? item.character : {};
                 // 空值写「暂无」（复核方第六条：不隐身、不写"—"）
-                const bits = [trimText(c.name) || '（未记名）', '理由：' + (trimText(item.reason) || '暂无')];
+                const bits = [trimText(c.name) || '未记名', '理由：' + (trimText(item.reason) || '暂无')];
                 const has = [];
                 has.push(trimText(c.affinity) ? '好感 ' + trimText(c.affinity) : '好感未接入数据源');
                 if (trimText(c.identity)) {
@@ -5370,8 +5371,7 @@ export function renderSections(host, opts) {
         } catch (e) {
             console.warn('[万象阁] 上只读锁出错：', e);
         }
-        // ⭐ 读取控制：刚才在挑某本书的条目 ⇒ 重画之后把它摆回来
-        //    （⛔ 不然点一条之后列表就没了，没法接着点第二条）
+        // ⭐ 读取控制：刚才在挑某本书的条目 ⇒ 重画之后把它摆回来 （⛔ 不然点一条之后列表就没了，没法接着点第二条）
         try {
             renderEntryPick(host);
         } catch (e) {
@@ -6423,7 +6423,7 @@ export function bindSectionEvents(host, refresh) {
                     if (Number.isFinite(idx) && list[idx]) {
                         const gone = list.splice(idx, 1)[0];
                         updateWorld({ situations: list }, { manual: true });
-                        addChronicle({ floor: -1, kind: '局势·手动删除', who: '', text: trimText(gone.title) || '（未记名）' });
+                        addChronicle({ floor: -1, kind: '局势·手动删除', who: '', text: trimText(gone.title) || '未记名' });
                         toast.ok('删掉了（已在编年里留痕）');
                         rerender();
                     }

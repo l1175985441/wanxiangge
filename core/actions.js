@@ -1,5 +1,7 @@
 /* ------------------------------ 视图刷新（修复单 #21） ------------------------------ */
 
+import { setViewRefresherHook } from './viewhook.js';
+
 let viewRefresher = null;
 
 /**
@@ -11,6 +13,7 @@ let viewRefresher = null;
  */
 export function setViewRefresher(fn) {
     viewRefresher = typeof fn === 'function' ? fn : null;
+    setViewRefresherHook(viewRefresher);
 }
 
 /**

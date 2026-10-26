@@ -100,7 +100,7 @@ export function cardLine(title, state) {
         const bits = [];
         if (Number(m.rounds) > 0) { bits.push(String(Number(m.rounds)) + ' 轮'); }
         if (String(m.promise || '').trim()) { bits.push('承诺 1'); }
-        return bits.length ? bits.join(' · ') : '还没记下什么';
+        return bits.length ? bits.join(' · ') : '';   /* 86#7：没记忆字段就不说这句 */
     }
     if (t.indexOf('暗线') >= 0) { return n(w.hidden) + ' 条暗线'; }
     return '';

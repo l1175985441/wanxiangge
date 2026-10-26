@@ -248,7 +248,7 @@
 }
 
 .wxg-ws-sub {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--wxg-dim, rgba(230, 231, 228, 0.62));
 }
 
@@ -262,7 +262,7 @@
 }
 
 .wxg-ws-chip {
-    font-size: 12px;
+    font-size: 13px;
     padding: 2px 10px;
     border: 1px solid var(--wxg-border, #3a3f46);
     border-radius: var(--wxg-r-pill);
@@ -347,6 +347,7 @@
     min-width: 0;
     overflow: hidden;
     line-height: 1.35;
+    font-size: 13px;
 }
 
 /* 右侧内容：一屏只说一件事（当前段）；内边距统一交给 pagehead 与 sec-body，消除 20px 错位 */
@@ -591,7 +592,7 @@
         font-size: 13px;
     }
     .wxg-ws-side-txt {
-        font-size: 12px;
+        font-size: 13px;
     }
     .wxg-ws-main {
         padding: 12px 12px 22px;
@@ -3149,7 +3150,7 @@ body.wxg-dragging {
 }
 
 .wanxiangge .wxg-ws-side-group-k {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.08em;
     color: var(--wxg-dim);
@@ -4481,7 +4482,7 @@ body[data-wxg-theme="dark"] {
     align-items: baseline;
     padding: var(--gap-sm) var(--gap-lg);
     border-bottom: 1px solid var(--wxg-line, rgba(0, 0, 0, 0.08));
-    font-size: var(--fs-label);
+    font-size: var(--fs-body);   /* 86：状态条 11px → 13（走令牌） */
 }
 .wxg-ws-statusband-cell { display: inline-flex; gap: var(--gap-xs); align-items: baseline; }
 .wxg-ws-statusband-k { opacity: 0.7; }
@@ -4891,4 +4892,22 @@ body[data-wxg-theme="dark"] {
 /* 82 号：预设片（自定义 API 页）也是 6px 圆角 ⇒ 归到控件档 9 */
 .wanxiangge.wxg-ws-main .wxg-prof {
     border-radius: var(--r-ctl, 9px);
+}
+
+/* 86#11：「最近发生」行用 19px（>15px 字符要 ≥100；字号只许任可档位） */
+.wanxiangge.wxg-ws-main .wxg-recent-line {
+    font-size: 19px;
+    line-height: 1.4;
+    color: var(--wxg-text, #1a1d1f);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * 86：作者样式会盖过“关着的 details 不显示内容”（74 号踩过同一个坑）：
+ *   `.wxg-report.is-row` 自带 display ⇒ 每轮记录的 30 行在折叠态下照样显示、还把 [object Object] 拉上屏。
+ */
+.wanxiangge.wxg-ws-main details:not([open]) > *:not(summary) {
+    display: none !important;
 }

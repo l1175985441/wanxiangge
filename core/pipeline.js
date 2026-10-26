@@ -47,6 +47,7 @@ function retryTokens(base, attempt) {
     return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
 import { getChat, personaNames, currentChatKey } from './adapter.js';
+import { refreshViewsSoon } from './viewhook.js';   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
@@ -1324,7 +1325,14 @@ function applyCharacter(raw, material, conflicts) {
     Object.assign(c, patch);
     c.updatedAt = Date.now();
     // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
-    const cur = trimText(raw && raw.current);
+    let cur = trimText(raw && raw.current);
+    /* 86#3：元描述（推演位／观察位／静止观察）→ 视为没写：不落库、不进编年 */
+    if (cur && /推演位|观察位|静止观察|待推演/.test(cur)) {
+        c.current = '';
+        delete c.currentSuspect;
+        delete c.currentSuspectWhy;
+        cur = '';
+    }
     if (cur) {
         /*
          * ⭐ 污染的正门在这儿（她点名的）：模型在"正在经历"里写了**下一步动作／预判**，
@@ -2046,12 +2054,7 @@ export function checkActingAsMe(rows, floor) {
             conflicts: hits.slice(0, 5),
             text: '注意：这一轮推演里有 ' + String(hits.length) + ' 处写到"我"（该由你自己决定的事）——内容留着没动，但请看一眼',
         });
-        addChronicle({
-            floor,
-            kind: '退化提醒·写到"我"',
-            who: '',
-            text: hits.join('；'),
-        });
+        /* 86#4：体检结果只进 pipeline.conflicts，⛔ 当世界事件写编年 */
     }
     return hits.length;
 }
@@ -2467,6 +2470,7 @@ async function runUpdateInner(opts) {
         console.warn('[万象阁] 送达回执没算成：', e);
     }
 
+    refreshViewsSoon();   /* 86#5/#6：跑完先排一次界面刷新 */
     setPipeline({
         status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
         step: '完成',

@@ -459,6 +459,27 @@ function normalizeState(raw) {
             : null;
     }
     state.newPeople = Array.isArray(s.newPeople) ? s.newPeople.map(trimText).filter(Boolean) : [];
+    /*
+     * 86 号：老账也要洗一遍（她盘里已经有占位句、重复 5 次的句子、退化提醒）。
+     *   规则与 addChronicle 四道闸一致：占位句／元词／退化提醒不入库；同 (who,text,floor) 只留一条。
+     */
+    try {
+        const META = /推演位|观察位|静止观察|待推演/;
+        const seen = new Set();
+        state.chronicle = (state.chronicle || []).filter((x) => {
+            if (!x) { return false; }
+            const tx = trimText(x.text);
+            if (!tx || tx === '待我做决定' || META.test(tx)) { return false; }
+            if (String(trimText(x.kind)).indexOf('退化提醒') === 0) { return false; }
+            const key = String(trimText(x.who)) + '|' + tx + '|' + String(Number(x.floor));
+            if (seen.has(key)) { return false; }
+            seen.add(key);
+            return true;
+        });
+        for (const c of (state.characters || [])) {
+            if (c && typeof c.current === 'string' && META.test(c.current)) { c.current = ''; }
+        }
+    } catch (e86) { /* 洗不了也不能影响读账本 */ }
     state.stat = Object.assign(base.stat, s.stat && typeof s.stat === 'object' ? s.stat : {});
     /*
      * 依据＝阿砚第三批 硬-1（路线②：旧形永远合法 ＋ 幂等收口）：
@@ -2165,6 +2186,38 @@ export function addChronicle(entry) {
     if (!text) {
         return null;
     }
+    /*
+     * 86 号：编年只记“发生了什么”。四道闸：
+     *   ① 占位句「待我做决定」不是事件（current 里照留）；
+     *   ② 元描述（推演位／观察位／静止观察）不是实况；
+     *   ③ 管线自己的体检（退化提醒）不是世界事件；
+     *   ④ 同 (who,text,floor) 只留一条（旧：只比最后一条）。
+     */
+    if (text === '待我做决定') {
+        return null;
+    }
+    if (/推演位|观察位|静止观察|待推演/.test(text)) {
+        return null;
+    }
+    if (trimText(entry && entry.kind).indexOf('退化提醒') === 0) {
+        return null;
+    }
+    /*
+     * 86 号：编年只记“发生了什么”。四道闸：
+     *   ① 占位句「待我做决定」不是事件（current 里照留）；
+     *   ② 元描述（推演位／观察位／静止观察）不是实况；
+     *   ③ 管线自己的体检（退化提醒）不是世界事件；
+     *   ④ 同 (who,text,floor) 只留一条（旧：只比最后一条）。
+     */
+    if (text === '待我做决定') {
+        return null;
+    }
+    if (/推演位|观察位|静止观察|待推演/.test(text)) {
+        return null;
+    }
+    if (trimText(entry && entry.kind).indexOf('退化提醒') === 0) {
+        return null;
+    }
     const row = {
         at: Number(entry.at || now()),
         floor: Number.isFinite(entry.floor) ? entry.floor : -1,
@@ -2176,9 +2229,10 @@ export function addChronicle(entry) {
     if (entry.clock) {
         row.clock = trimText(entry.clock);
     }
-    const last = state.chronicle[state.chronicle.length - 1];
-    if (last && last.text === row.text && last.who === row.who && last.kind === row.kind) {
-        return null;   // 同一句话不重复记
+    /* 86#2：同 (who,text,floor) 只留一条（旧：只比最后一条，中间隔着别人就重记） */
+    const dup = state.chronicle.some((x) => x && x.who === row.who && x.text === row.text && x.floor === row.floor);
+    if (dup) {
+        return null;
     }
     state.chronicle.push(row);
     // ⚠️ 上限要取**她配的那个数**（`LIMITS.capChronicle`，界面上能改），
