@@ -2047,7 +2047,7 @@ body.wxg-dragging {
     --ctl-h-btn: 36px;
     --ctl-h-sm: 32px;
     --r-ctl: 9px;
-    --r-card: 12px;
+    --r-card: 22px;   /* 74 号：卡档圆角归 22（旧 12） */
     /*
      * 4-g #4：间距只留一套（--s1..--s6，阶梯 4·8·12·16·24·40）。
      *   这里原来又定了 --s5:28px ⇒ 同名两个值，此处只补 --s6（页级大留白）。
@@ -4767,8 +4767,11 @@ body[data-wxg-theme="dark"] {
     display: flex;
     align-items: center;
     gap: var(--gap-sm);
-    min-height: 44px;
-    padding: 10px 14px;
+    /* 75 号：折叠态整卡落在 **80–96px**（她给的区间）⇒ summary 定高 88（border-box） */
+    min-height: 88px;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    line-height: 1.25;   /* 不设就继承 1.7，18px 字行高 30.6、直接顶破 96 */
     font-size: var(--fs-head);       /* 17–18 */
     font-weight: 700;
     cursor: pointer;
@@ -4800,4 +4803,31 @@ body[data-wxg-theme="dark"] {
 }
 .wanxiangge .wxg-card-fold[open] > .wxg-card-body {
     display: block;
+}
+
+/* 74 号：段壳借用了 ST 的 `.inline-drawer` 类 ⇒ 被 ST 的 6px 圆角染上了；这里按“卡档 22”覆盖 */
+.wanxiangge .wxg-sec.inline-drawer {
+    border-radius: var(--wxg-r-md);
+}
+
+/* 74 号：页头副题（就是段说明那句“账本存没存…”）默认不显示；开「⭘ 说明」才看 */
+#wxg-ws-h1sub {
+    display: none;
+}
+.wxg-ws-main.is-notes #wxg-ws-h1sub {
+    display: block;
+}
+
+/* 74 号：折叠态卡要带**一句话正文**（14px，≤60 字）——她：不是“只剩标题” */
+.wanxiangge .wxg-card-fold > summary.wxg-card-sum {
+    flex-wrap: wrap;
+    row-gap: var(--gap-xs);
+}
+.wanxiangge .wxg-card-sum-line {
+    flex-basis: 100%;
+    font-size: var(--fs-body);
+    font-weight: 400;
+    opacity: 0.85;
+    line-height: 1.3;
+    min-height: 18px;
 }

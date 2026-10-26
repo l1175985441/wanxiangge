@@ -14,7 +14,8 @@ import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画
 import { markOneCol } from './onecol.js';
 import { statusHero } from './status-hero.js';
 import { foldStore, foldReport } from './status-folds.js';
-import { foldCard } from './card-fold.js';   /* 74：卡头三层＋右侧 ∨ */   /* 71：两条折叠 */
+import { foldCard, cardLine, statusCardLine } from './card-fold.js';
+import { tidyHeadings } from './tidy-heads.js';   /* 75：标题去括号 */   /* 74/75：卡头三层＋一句话 */   /* 71：两条折叠 */
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -222,7 +223,6 @@ function section(title, hint, opts) {
     head.appendChild(titleWrap);
     head.appendChild(el('div', 'inline-drawer-icon fa-solid fa-circle-chevron-down down'));
     drawer.appendChild(head);
-
     const body = el('div', 'wxg-sec-body inline-drawer-content');
     if (hint && typeof hint === 'string') {
         /*
@@ -615,7 +615,7 @@ function secStatus(host, intoSelf) {
      */
     const progCard = colProg.querySelector ? colProg.querySelector('.wxg-card') : null;
     (progCard || colProg).appendChild(foldStore({ el: el, doc: document, line: line, ledgerLine: ledgerLine }));
-    if (progCard) { foldCard({ card: progCard, doc: document }); }   /* 74：主卡只留标题行 */
+    if (progCard) { foldCard({ card: progCard, doc: document, line: statusCardLine(loadState(), runWarning(loadState())) }); }   /* 75：带一句话 */
     box.appendChild(colProg);
 
     const p = loadState().pipeline || {};
@@ -1452,7 +1452,10 @@ function secWorld(host) {
     }
     box.appendChild(cMem);
     /* 74：世界状态页每张卡默认只给标题行 */
-    for (const c of asArray(box.querySelectorAll('.wxg-card'))) { foldCard({ card: c, doc: document }); }
+    const stW = loadState();
+    for (const c of asArray(box.querySelectorAll('.wxg-card'))) {
+        foldCard({ card: c, doc: document, line: cardLine((c.querySelector('.wxg-card-h') || {}).textContent || '', stW) });
+    }
     host.appendChild(box);
 }
 
@@ -5349,6 +5352,7 @@ export function renderSections(host, opts) {
         const before = asArray(host.children || []).length;
         /* 一：整页只有一个主卡 ⇒ 盖 `data-wxg-onecol`（实现在 ui/onecol.js） */
         try { markOneCol({ stageEl: stageEl, asArray: asArray }); } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
+    try { tidyHeadings(host); } catch (eTidy) { console.warn('[万象阁] 标题去括号出错：', eTidy); }   /* 75 */
 
         hangUp(host, stageEl);
         const added = asArray(host.children || []).length - before;
