@@ -529,6 +529,17 @@ function secStatus(host, intoSelf) {
         + '原来分三页，其实是同一件事。',
         { open: true });
     box.appendChild(statusHero({ el: el, state: loadState() }));   /* 71 号：一屏一句 H 档人话 */
+    /* 85#11：满数据下状态页不能全空 ⇒ 给最近发生的 3 条 */
+    try {
+        const recent = getChronicle().slice(-3).reverse();
+        if (recent.length) {
+            const rc = card('最近发生');
+            for (const c of recent) {
+                rc.appendChild(el('div', 'wxg-r-sub', (trimText(c.who) ? trimText(c.who) + '：' : '') + (trimText(c.text) || '暂无')));
+            }
+            box.appendChild(rc);
+        }
+    } catch (eRecent) { /* 拿不到编年就不印 */ }
     /*
      * ⭐ 「现在怎么样」这张卡**壳撕了**（照状态页目标态的 ⛔ 清单：
      *   它的信息＝每轮记录最新一条，重复）。
@@ -1052,7 +1063,7 @@ function secWorld(host) {
             if (trimText(f.scope)) { bits.push('范围：' + trimText(f.scope)); }
             const pillars = Array.isArray(f.powerPillars) ? f.powerPillars.map(trimText).filter(Boolean) : [];
             if (pillars.length) { bits.push('支柱：' + pillars.join('／')); }
-            main.appendChild(el('div', 'wxg-r-sub', bits.join(' · ') || '厚度还没写'));
+            if (bits.length) { main.appendChild(el('div', 'wxg-r-sub', bits.join(' · '))); }   /* 85#9：没数据不印占位句 */
             r.appendChild(main);
             fl.appendChild(r);
         }
@@ -1202,9 +1213,8 @@ function secWorld(host) {
         sits.slice()
             .filter((s) => s && trimText(s.title))
             .sort((a, b) => (Number(b.pressure) || 0) - (Number(a.pressure) || 0))
-            .slice(0, 4)
             .forEach((s) => {
-                const p = Number.isFinite(Number(s.pressure)) ? ('压' + String(Number(s.pressure)) + '/5') : '';
+                const p = Number.isFinite(Number(s.pressure)) ? ('压 ' + String(Number(s.pressure)) + ' 成') : '';
                 driveLines.push((p ? p + ' · ' : '') + trimText(s.title)
                     + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : ''));
             });
@@ -1212,17 +1222,9 @@ function secWorld(host) {
             .filter((d) => d && trimText(d.label) && Number(d.pressure) >= 2)
             .slice(0, 3)
             .forEach((d) => {
-                driveLines.push('域·' + trimText(d.label) + '（压' + String(Number(d.pressure) || 0) + '）'
+                driveLines.push('域·' + trimText(d.label) + '（压 ' + String(Number(d.pressure) || 0) + ' 成）'
                     + (trimText(d.state) ? '：' + trimText(d.state) : ''));
             });
-
-        const gapLines = facs.filter((f) => f && trimText(f.name)).slice(0, 8).map((f) => {
-            const bits = [trimText(f.name)];
-            if (trimText(f.status)) { bits.push(trimText(f.status)); }
-            if (trimText(f.relation)) { bits.push('对玩家·' + trimText(f.relation)); }
-            if (trimText(f.scale)) { bits.push(trimText(f.scale)); }
-            return bits.join('｜');
-        });
 
         const brewLines = [];
         sits.filter((s) => s && trimText(s.title) && (
@@ -1257,7 +1259,6 @@ function secWorld(host) {
             cBrief.appendChild(ul);
         };
         putBrief('驱动力（高压局势／脉动域）', driveLines, '还没有可派生的驱动力');
-        putBrief('格局（在册势力运势／态度）', gapLines, '还没有在册势力');
         putBrief('酝酿中（升温／未结／活跃暗线）', brewLines, '还没有酝酿中的线');
         cBrief.appendChild(el('div', 'wxg-note', '本卡只给人看；内容来自局势／势力／暗线／脉动账，⛔ 不另写叙述、不进主模型注入。'));
     }
@@ -2008,8 +2009,7 @@ function commitSection(secId) {
             patch[k] = box[k];
         }
     }
-    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。 patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话，
-    //    这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
+    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。 patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话， 这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
     delete stagingOf(modeForSection(secId))[secId];
     patchSettings(patch);
     /*
@@ -2655,11 +2655,14 @@ function secChronicle(host) {
     const hotFloor = groups.length ? groups[0].floor : null;
     for (const g of groups) {
         const isHot = g.floor === hotFloor;
-        const head = el('div', 'wxg-grouphead');
-        head.appendChild(el('b', null, (isHot ? '热账 · ' : '旧卷 · ')
-            + (g.floor >= 0 ? floorLabel(g.floor) : '未记楼层')));
-        head.appendChild(el('span', null, '共 ' + String(g.items.length) + ' 条'));
-        cChron.appendChild(head);
+        const showHead = g.items.length > 1;   /* 85#10：单条不印卷头（但行还要画） */
+        if (showHead) {
+            const head = el('div', 'wxg-grouphead');
+            head.appendChild(el('b', null, (isHot ? '热账 · ' : '旧卷 · ')
+                + (g.floor >= 0 ? floorLabel(g.floor) : '未记楼层')));
+            head.appendChild(el('span', null, '共 ' + String(g.items.length) + ' 条'));
+            cChron.appendChild(head);
+        }
         for (const c of g.items) {
             const r = el('div', 'wxg-r');
             // 骨架列：时间（等宽数字，竖着对齐）
@@ -2848,16 +2851,13 @@ function secRoster(host) {
 
     // ⚠️ 按**筛完的数量**夹页（换筛选后可能只剩几条，别停在一个空页上）
     rosterPage = clampPage(rosterPage, shownRoster.length, PER_PAGE.roster);
-    const pageList = shownRoster.slice((rosterPage - 1) * PER_PAGE.roster,
-        rosterPage * PER_PAGE.roster);
+    const pageList = shownRoster;   /* 85#1：全部渲染（不再分页） */
     /*
      * ⭐ 翻页条：**挪到页底**（照目标包：分页贴页底）。
      *    原来放在**列表上方**——那是早期参照的做法；包里明确要"贴页底"。
      *    ⛔ 改回上面（虽然长列表里"翻页在下头"要滑到底才看得到）——**以包为准**。
      */
-    const pagerAtBottom = shownRoster.length > PER_PAGE.roster
-        ? () => pager('roster-page', rosterPage, PER_PAGE.roster, shownRoster.length)
-        : null;
+    const pagerAtBottom = null;   /* 85#1：不再分页 */
     // ⭐ 右上「功能 ⋮」（照包：去重合并／删除／清空的入口位）
     const topbar = el('div', 'wxg-roster-topbar');
     const funcBtn = button('功能 ⋮', 'roster-func', 'wxg-btn is-func');
@@ -2918,7 +2918,7 @@ function secRoster(host) {
             // ⭐ 自动认出来的"你"（跟观棋那个「你 · 玩家棋子」一个意思）
             title.appendChild(el('span', 'wxg-badge is-ok', '你'));
         }
-        if (c.isNew || isFresh(c)) {
+        if (isFresh(c)) {   /* 85#12：只认 newPeople */
             title.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }
     /* 67 号：两颗挤在一行会裁掉第二颗 ⇒ **合成一颗**，细节进 title（⛔ 调 min-width） */
@@ -2956,7 +2956,7 @@ function secRoster(host) {
          */
         if (c.ignored === true) {
             act.appendChild(button('恢复参与推演', 'unignore-char', 'wxg-btn-xs', c.id));
-        } else if (c.isNew === true || isFresh(c)) {
+        } else if (isFresh(c)) {
             act.appendChild(button('收下', 'accept-new', 'wxg-btn-xs', c.id));
             /* 79 ：忽略搬进 ⋯ */
         }
@@ -3004,7 +3004,7 @@ function secRoster(host) {
             playerLabel.appendChild(el('span', null,
                 c.isYou ? '玩家棋子（照酒馆里的人设名自动认的；不想算就取消勾）' : '玩家棋子'));
             actions.appendChild(playerLabel);
-            if (c.isNew === true || isFresh(c)) {
+            if (isFresh(c)) {
                 actions.appendChild(button('忽略这条', 'ignore-char', 'wxg-btn-xs', c.id));
             }
             actions.appendChild(button('删', 'del-char', 'wxg-btn-xs', c.id));

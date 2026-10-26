@@ -25,6 +25,15 @@ export function foldCard(args) {
     if (!head) {
         return null;
     }
+    /*
+     * 85#4：`decorateCard()` 会把一个 `.wxg-card-sum` 塞进卡头（当年为了绕开模拟 DOM）。
+     *   我们拿卡头文本做 summary 时会把它一并吃进去 ⇒ 「势力6 个在册6 个在册」。
+     *   这里先把它摘掉（屏上只留标题，数字走我们自己那句话）。
+     */
+    const dupSum = head.querySelector ? head.querySelector('.wxg-card-sum') : null;
+    if (dupSum && dupSum.remove) {
+        dupSum.remove();
+    }
     const det = doc.createElement('details');
     det.className = 'wxg-card-fold';
     const sum = doc.createElement('summary');
@@ -80,7 +89,7 @@ export function cardLine(title, state) {
         const dom = (w.pulse && Array.isArray(w.pulse.domains)) ? w.pulse.domains.length : 0;
         return n(w.situations) + ' 条局势 · ' + dom + ' 个域在压';
     }
-    if (t.indexOf('人物') >= 0) { return n(s.roster || s.chars) + ' 人在册'; }
+    if (t.indexOf('人物') >= 0) { return n(s.roster || s.chars || s.characters) + ' 人在册'; }
     if (t.indexOf('势力') >= 0) { return n(w.factions) + ' 个在册'; }
     if (t.indexOf('世界事实') >= 0) { return n(w.facts) + ' 条事实'; }
     if (t.indexOf('脉动') >= 0) { return n(w.pulse) + ' 条压力'; }
