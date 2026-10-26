@@ -13,7 +13,8 @@ import { expandPair, stateLine } from './controls-note.js';   /* 六：全展全
 import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
 import { markOneCol } from './onecol.js';
 import { statusHero } from './status-hero.js';
-import { foldStore, foldReport } from './status-folds.js';   /* 71：两条折叠 */
+import { foldStore, foldReport } from './status-folds.js';
+import { foldCard } from './card-fold.js';   /* 74：卡头三层＋右侧 ∨ */   /* 71：两条折叠 */
 import { stageProgress, stageTone } from './stage-progress.js';   /* 阶段：数字进度＋徽章调子 */   /* 一：单卡页标记 */
 import { purposeOf, promptVarRows } from './prompt-copy.js';   /* 17-1／17-2：用途副标与变量清单 */
 import { renderRunWarn } from './runwarn-view.js';   /* 必修 9：红条画法 */
@@ -256,7 +257,6 @@ function section(title, hint, opts) {
  * 一张卡：可选的卡头（`.wxg-card-h`）加内容。
  *   ⚠️ 上一次整块删 `compactCard` 时把它一起删了（实测 `card is not defined`，123 项真红），这里补回来。
  */
-
 
 function card(title) {
     const box = el('div', 'wxg-card');
@@ -615,6 +615,7 @@ function secStatus(host, intoSelf) {
      */
     const progCard = colProg.querySelector ? colProg.querySelector('.wxg-card') : null;
     (progCard || colProg).appendChild(foldStore({ el: el, doc: document, line: line, ledgerLine: ledgerLine }));
+    if (progCard) { foldCard({ card: progCard, doc: document }); }   /* 74：主卡只留标题行 */
     box.appendChild(colProg);
 
     const p = loadState().pipeline || {};
@@ -1450,6 +1451,8 @@ function secWorld(host) {
             + '（流水锚点第 ' + String(Number.isFinite(atF) ? atF : -1) + ' 楼）。'));
     }
     box.appendChild(cMem);
+    /* 74：世界状态页每张卡默认只给标题行 */
+    for (const c of asArray(box.querySelectorAll('.wxg-card'))) { foldCard({ card: c, doc: document }); }
     host.appendChild(box);
 }
 
@@ -1889,7 +1892,6 @@ function modeForSection(secId) {
     return m || stagingMode;
 }
 
-
 function stagingOf(mode) {
     const m = asText(mode) || 'settings';
     if (!stagingByMode[m]) {
@@ -2099,7 +2101,6 @@ function syncApiFromDom(host) {
     }
     patchSettings({ api: cur });
 }
-
 
 /**
  * ⭐ `stage-*` 动作总表：动作名 → [这一段, 设置键, 取值方式]。
@@ -7613,9 +7614,6 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 四格 ---- */
                 /* ⭐ 先进草稿（等段底那颗「保存」一起存），⛔ 不再改一处存一处 */
-
-
-
 
                 case 'set-extract-tags': if (isChange) { patchSettings({ extractTags: target.value }); toast.ok('提取标签已保存'); } break;
                 case 'set-exclude-tags': if (isChange) { patchSettings({ excludeTags: target.value }); toast.ok('排除标签已保存'); } break;

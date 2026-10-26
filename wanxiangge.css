@@ -3963,10 +3963,14 @@ body.wxg-dragging {
 
 :root {
     /* B-1 圆角五档（依据＝阿砚 B1-5：原来 19 种值、无体系） */
-    --wxg-r-xs: 6px;
-    --wxg-r-sm: 8px;
-    --wxg-r-md: 12px;
-    --wxg-r-lg: 16px;
+    /*
+     * 74 号：形状只留**两族**——卡／面板／浮层 **22px**、控件 **9px**、徽章 pill（999）。
+     *   旧：6／8／12／16 四种混着用（她量到卡上也是 4 种一起出现）。
+     */
+    --wxg-r-xs: 9px;
+    --wxg-r-sm: 9px;
+    --wxg-r-md: 22px;
+    --wxg-r-lg: 22px;
     --wxg-r-pill: 999px;
     /* 旧名全部指向新档（⛔ 再一天一种叫法） */
     --r: var(--wxg-r-md);
@@ -4747,4 +4751,53 @@ body[data-wxg-theme="dark"] {
     background: #e0654f;
     border: 1px solid rgba(224, 101, 79, 0.45);
     cursor: help;
+}
+
+/* ==========================================================================
+74 号：卡头三层 ＋ 标题行右侧一个 ∨（她：默认只给 badge／标题 17–18／一句话）
+  · `foldCard()` 把 `.wxg-card-h` 变成 `<summary>`，其余内容进 `.wxg-card-body`；
+  · 折叠态整卡 ≤96 高：summary 只占一行（18px 标题 + 上下 12px 内边距）；
+  · ∨ 画在 summary 右侧（⛔ 卡底再放"展开"按钮）。
+========================================================================== */
+.wanxiangge .wxg-card.is-fold {
+    padding: 0;
+    border-radius: var(--wxg-r-md);   /* 卡＝22 */
+}
+.wanxiangge .wxg-card-fold > summary.wxg-card-sum {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: var(--fs-head);       /* 17–18 */
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+}
+.wanxiangge .wxg-card-fold > summary.wxg-card-sum::-webkit-details-marker {
+    display: none;
+}
+.wanxiangge .wxg-card-fold > summary.wxg-card-sum::after {
+    content: '∨';
+    margin-left: auto;
+    font-size: var(--fs-body);
+    font-weight: 400;
+    opacity: 0.7;
+}
+.wanxiangge .wxg-card-fold[open] > summary.wxg-card-sum::after {
+    content: '∧';
+}
+.wanxiangge .wxg-card-fold > .wxg-card-body {
+    padding: 0 14px 12px;
+}
+/*
+ * ⚠️ 关着的 `<details>` 靠浏览器默认规则藏内容，但**作者样式会盖过 UA 规则**——
+ *   现有 `.wxg-card-body` 那条带 display，结果是"折了还看得见"（真踩过：body 仍 display:flex、高 47）。
+ *   ⇒ 这里显式把开合两态写死。
+ */
+.wanxiangge .wxg-card-fold:not([open]) > .wxg-card-body {
+    display: none;
+}
+.wanxiangge .wxg-card-fold[open] > .wxg-card-body {
+    display: block;
 }
