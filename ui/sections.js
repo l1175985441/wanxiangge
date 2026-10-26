@@ -43,7 +43,6 @@ import {
     PALETTE_KEYS, PALETTE_NAMES, resolveAppearance, applyAppearance, palettePatch,
 } from './theme.js';
 import { questStats } from '../core/summary.js';
-// ⭐ 补⑤ 体检报告（自检）
 import { columnsFor } from '../core/roster-cols.js';   /* 80：只用来判“身份／势力全空” */
 import { decorateCard } from './cardgrid.js';   /* A6：卡头＋一句摘要＋查看全部（不搬 DOM） */
 import { buildHealthReport } from '../core/health.js';
@@ -2918,6 +2917,7 @@ function secRoster(host) {
             // ⭐ 自动认出来的"你"（跟观棋那个「你 · 玩家棋子」一个意思）
             title.appendChild(el('span', 'wxg-badge is-ok', '你'));
         }
+        title.appendChild(el('span', 'wxg-badge ' + (c.offstage === true ? 'is-soft' : 'is-ok'), c.offstage === true ? '后台' : '前台'));
         if (isFresh(c)) {   /* 85#12：只认 newPeople */
             title.appendChild(el('span', 'wxg-badge is-warn', '新认的人'));
         }

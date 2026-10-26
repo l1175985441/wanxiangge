@@ -122,8 +122,8 @@ const CLASSIFY_SYSTEM = [
     '  ⭐⭐ 特别重要：如果一个条目是**家庭／组合／多人合集**（例如标题叫「月野家」「奈鲁与海野」「四天王」），',
     '     **你必须从它的正文里把每一个具体人物的名字单独拆出来**（例如拆出：月野育子、月野谦之、月野进悟；大阪奈鲁、海野栗雄），',
     '     一人一条放进 characters，⛔ **绝不要把「月野家」这种家庭合集名当成一个人**！',
-    '  ⭐⭐ 如果一个条目是某个角色的**变身形态／马甲**（正文里写了【角色档案：真名】，如「水手月亮」其实是「月野兔」），',
-    '     只保留真名「月野兔」；把「水手月亮」这种**变身形态的名字写进 aliases 数组**，真名写在 name，⛔ 不要拆成两个人！',
+    '  ⭐⭐ identity（身份）：变身形态（如「水手月亮」）写在身份里（多条用；隔开），⛔ 写进 aliases；',,
+    '  ⭐ aliases（别名）：**只放名字的别的叫法**（小名／昵称）；⛔ 不放变身形态、⛔ 不放身份。',
     '· factions＝势力／组织／团体／阵营（例：黑暗王国、水手战士、黑暗四天王）。',
     '· situations＝正在发生的**局势**：谁跟谁顶着、暗中在策划什么阴谋。要能从条目正文里读出来，⛔ 别编。',
     '  ⛔ situations 的 title **不许照抄条目的标题**；如果这一条讲的是规则／机制／图鉴／篇章名／世界设定，就⛔ 不要放进 situations。',
@@ -194,17 +194,19 @@ function normalizeWiki(raw) {
     for (const c of bucket('characters', ['角色', '人物'])) {
         const name = stripKindPrefix(typeof c === 'string' ? c : (c && (c.name || c.title)));
         if (name) {
+            /* 94：模型给的 aliases（形态）并回 identity；aliases 只她手填 */
+            const mAlias = (Array.isArray(c && c.aliases) ? c.aliases : []).map((x) => trimText(x)).filter(Boolean);
+            const idParts = [trimText(c && c.identity)].concat(mAlias).filter(Boolean);
             out.characters.push({
                 name,
                 note: trimText(c && c.note),
-                identity: trimText(c && c.identity),
+                identity: idParts.join('；'),
                 faction: trimText(c && c.faction),
                 /* P2 (material 07): carry the aliases through (the model is told to put
                  *   transformation-form names here) - previously they were dropped. */
                 behaviorBounds: trimText(c && c.behaviorBounds),
-        knowledgeBounds: trimText(c && c.knowledgeBounds),
-        aliases: Array.isArray(c && c.aliases)
-                    ? c.aliases.map((x) => trimText(x)).filter(Boolean) : [],
+                knowledgeBounds: trimText(c && c.knowledgeBounds),
+                aliases: [],   /* 94：模型给的别名不落库（只她手填） */
             });
         }
     }
@@ -858,16 +860,16 @@ export function ruleBasedPeople(entries) {
             seen.set(k, rec);
             people.push(rec);
         }
-        if (isPart && rec.aliases.indexOf(person) < 0) {
-            rec.aliases.push(person);
+        if (isPart && String(rec.identityHint || '').indexOf(person) < 0) {
+            rec.identityHint = rec.identityHint ? (rec.identityHint + '；' + person) : person;
         }
         {
             const forms = extractFormNames(body);
             const cand = forms.concat(isPart ? [person] : []);
-            for (const f of cand) {
-                if (f && !rec.identityHint) {
-                    rec.identityHint = f;
-                }
+            const have = String(rec.identityHint || '');
+            const add = cand.filter((f) => f && have.indexOf(f) < 0);
+            if (add.length) {
+                rec.identityHint = (have ? have + '；' : '') + add.join('；');
             }
         }
     }
@@ -977,7 +979,6 @@ export function knowledgeKeysFromEntries(entries, name, aliases) {
     }
     return Array.from(new Set(out));
 }
-
 export function applyKnowledgeFromEntries(entries, roster) {
     const list = Array.isArray(roster) ? roster : getRoster();
     let touched = 0;
@@ -990,10 +991,8 @@ export function applyKnowledgeFromEntries(entries, roster) {
     }
     return touched;
 }
-
 /**
  */
-
 /**
  */
 export function pruneEchoWorld(entries) {
@@ -1033,7 +1032,6 @@ export function pruneEchoWorld(entries) {
     }
     return out;
 }
-
 export async function importBookWiki(bookName, opts) {
     const read = await readWholeBook(bookName);
     if (!read.ok) {
@@ -1045,7 +1043,6 @@ export async function importBookWiki(bookName, opts) {
             const rb = ruleBasedPeople(read.entries);
             const added = addCharacters(rb.people.map((p) => p.name));
     applyPeopleExtras(rb.people);
-
             /*
              */
             const rw = ruleBasedWorld(read.entries);
@@ -1092,4 +1089,8 @@ export async function importBookWiki(bookName, opts) {
         situationsTotal: applied.situationsTotal,
         dropped: applied.dropped || { situations: 0, places: 0 },
     };
+}
+/** 94 寄具用：暴露 normalizeWiki（不改生产路径） */
+export function normalizeWikiForTest(raw) {
+    return normalizeWiki(raw);
 }

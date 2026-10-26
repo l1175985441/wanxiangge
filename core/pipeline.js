@@ -1324,6 +1324,7 @@ function applyCharacter(raw, material, conflicts) {
 
     Object.assign(c, patch);
     c.updatedAt = Date.now();
+    c.settledRun = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算的时间戳 */
     // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
     let cur = trimText(raw && raw.current);
     /* 86#3：元描述（推演位／观察位／静止观察）→ 视为没写：不落库、不进编年 */
@@ -1613,6 +1614,21 @@ async function stepCharacters(material, attempt) {
     // "我"（玩家棋子）**不建自己的推演行**——他的存在由**别人**的行侧面承载
     // （见提示词规矩 2／14：说话、看、递、反应）。这里的过滤是**有意保留**的（N4）。
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
+    /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次 */
+    {
+        const runSeq = Number((loadState().pipeline || {}).runs || 1);
+        const pickedIds = new Set(picked.map((c) => c.id));
+        const starving = roster.filter((c) => c && !c.isPlayer && c.ignored !== true && c.noBench !== true
+            && !pickedIds.has(c.id) && (runSeq - Number(c.settledRun || 0)) >= 3
+            && (trimText(c.current) || (Array.isArray(c.past) && c.past.length)));
+        for (const c of starving) {
+            picked.push(c);
+            pickedIds.add(c.id);
+            try {
+                addChronicle({ floor: material.floor, kind: '保底结算·三个周期未结算', who: c.name, text: '连续 3 个周期没结算，强制结算一次' });
+            } catch (eStarve) { /* 留痕失败不能拦着推演 */ }
+        }
+    }
     if (!picked.length) {
         return { ok: true, summary: '这一轮没有要处理的角色（都在省额度轮转里）' };
     }
@@ -2249,6 +2265,7 @@ async function runUpdateInner(opts) {
         }
     })();
 
+        const prevRuns = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算用的轮次 */
     setPipeline({
         kind: 'update',
         status: 'running',
@@ -2262,6 +2279,7 @@ async function runUpdateInner(opts) {
         atFloor: floor,
         cancelRequested: false,
         conflicts: [],
+        runs: prevRuns + 1,
     });
 
     // 取材料：最近几楼（含隐藏楼）＋ 走四格清洗
@@ -2383,6 +2401,21 @@ async function runUpdateInner(opts) {
             }
             charRes = await stepCharacters(material, attempt);
             if (charRes.ok) {
+                /* 94：离场的人转后台（保留 current，不清空）；在场的标回前台 */
+                try {
+                    const st4 = loadState();
+                    for (const c4 of (st4.characters || [])) {
+                        if (!c4 || c4.isPlayer) { continue; }
+                        const pf = Number(c4.presentFloor);
+                        if (Number.isFinite(pf) && pf >= Number(material.floor)) {
+                            c4.offstage = false;
+                            delete c4.offstageSince;
+                        } else if (Number.isFinite(pf) && pf >= 0) {
+                            c4.offstage = true;
+                            if (!Number.isFinite(Number(c4.offstageSince))) { c4.offstageSince = Number(material.floor); }
+                        }
+                    }
+                } catch (eOff) { /* 标不了也不能拦着主流程 */ }
                 break;
             }
             lastError = charRes.reason;
