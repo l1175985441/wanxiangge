@@ -16,7 +16,8 @@ import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道�
 import { getSettings, effectivePrompt , effectiveSetting } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
 import { sourceOk, floorText, digestOf } from './provenance.js';
-import { affinityPromptBlock, affinityTableBlock, AFFINITY_UNSET } from './affinity.js';   /* 新活：好感表每层都发 */   /* 4-b #6：注入指纹要用内容摘要 */
+import { affinityPromptBlock, affinityTableBlock, AFFINITY_UNSET } from './affinity.js';
+import { memoryBlock } from './chronicle-brief.js';   /* 99：编年→往事（喂模型） */   /* 新活：好感表每层都发 */   /* 4-b #6：注入指纹要用内容摘要 */
 import { noteText } from './prompt.js';
 /* 4-b #6：上一次注入的指纹（诊断/自测用，⛔ 影响注入内容） */
 let lastInject = null;
@@ -740,6 +741,19 @@ export function assembleInjectText(items, events, headerText, opts) {
     const affBlock = affinityTableBlock(state);
     if (affBlock) {
         text += '\n' + affBlock;
+    }
+    /* 99：往事也每层都进（从编年里挑；收场那类最后才砍） */
+    const memRows = (Array.isArray(state.memories) ? state.memories : []).map((m) => ({
+        line: String((m && (m.text || m.line)) || ''),
+        floor: Number(m && m.floor) || 0,
+        expired: !!(m && m.expired),
+    }));
+    const memBlock = memoryBlock(memRows, {
+        limit: Number((state.settings && state.settings.memoriesPerRound) || 40),
+        hints: entries.map((e) => String((e.item && e.item.character && e.item.character.name) || '')).filter(Boolean),
+    });
+    if (memBlock) {
+        text += '\n' + memBlock;
     }
     if (evBlocks.length) {
         text += '\n【世界上正在发生的事】\n' + evBlocks.join('');

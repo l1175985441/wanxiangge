@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.558';
+export const APP_VERSION = '0.3.559';
 
 export const LEDGER_VERSION = 3;
 
@@ -393,6 +393,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
     maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
     /** 96：后台（不在场）人物推演人数上限（⛔ 写死；她要的是可读配置） */
     backstageNpcBudget: 6,
+    /** 99：每轮往事最多给模型几条（她填，⛔ 写死） */
+    memoriesPerRound: 40,
+    /** 99：编年条数上限（她填，⛔ 写死） */
+    chronicleCap: 500,
     autoUpdate: true,       // 新楼生成后自动更新
     affinitySource: '',     // "手机"好感的数据源（世界书名 或 条目关键词；留空＝不接）
 

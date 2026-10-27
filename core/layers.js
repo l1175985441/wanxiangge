@@ -16,6 +16,8 @@ import {
     WORLD_SYSTEM, SITUATION_SYSTEM, HIDDEN_SYSTEM,
     worldGate, situationGate, hiddenGate,
 } from './prompts-layers.js';
+import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';   /* 99：第六份提示词 */
+import { syncMemories, ensureMilestones } from './chronicle-brief.js';
 import { getSettings } from './settings.js';
 import { trimText, matchKey } from './utils.js';
 
@@ -178,5 +180,40 @@ export async function runLayers(material) {
     try { out.world = await runWorldLayer(material, {}); } catch (e1) { out.world = { ok: false, reason: String(e1) }; }
     try { out.situation = await runSituationLayer(material); } catch (e2) { out.situation = { ok: false, reason: String(e2) }; }
     try { out.hidden = await runHiddenLayer(material); } catch (e3) { out.hidden = { ok: false, reason: String(e3) }; }
+    try { out.chronicle = await runChronicleLayer(material); } catch (e4) { out.chronicle = { ok: false, reason: String(e4) }; }
     return { ok: true, layers: out };
+}
+
+/** 编年层（第六份提示词）：只往回看；写 chronicle，同步出 memories，归类三层 */
+export async function runChronicleLayer(material) {
+    const res = await callModelJson({
+        system: CHRONICLE_SYSTEM,
+        prompt: '本轮正文：\n' + String((material && material.rawText) || '').slice(0, 6000)
+            + '\n\n现有编年（最近 12 条）：\n'
+            + ((loadState().chronicle || []).slice(-12).map((c) => '· ' + String((c && (c.text || c.line)) || '')).join('\n') || '（无）'),
+        cheap: true,
+    });
+    if (!res || !res.ok) {
+        return { ok: false, reason: (res && res.reason) || '编年层没回可用 JSON' };
+    }
+    const v = res.value || {};
+    const st = loadState();
+    st.chronicle = Array.isArray(st.chronicle) ? st.chronicle : [];
+    for (const row of (Array.isArray(v.chronicle_append) ? v.chronicle_append : [])) {
+        const line = String((row && (row.line || row.text)) || '').trim();
+        if (line) {
+            st.chronicle.push({ text: line, floor: Number(row && row.floor) || 0, at: Date.now() });
+        }
+    }
+    ensureMilestones(st);
+    for (const ms of (Array.isArray(v.milestones_upsert) ? v.milestones_upsert : [])) {
+        const tier = String((ms && ms.tier) || '').trim();
+        if (tier && Array.isArray(st.milestones[tier])) {
+            st.milestones[tier].push({ title: String(ms.title || ''), text: String(ms.text || ''), fromFloor: Number(ms.fromFloor) || 0 });
+        }
+    }
+    saveState();
+    const sync = syncMemories(st, { limit: Number(getSettings().chronicleCap) || 500 });
+    saveState();
+    return { ok: true, appended: (v.chronicle_append || []).length, memories: sync.added };
 }

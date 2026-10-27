@@ -365,7 +365,9 @@ function emptyState() {
             manual: false,
         },
         events: [],              // 召回用的世界事件（由世界状态派生，带有效期）
-        chronicle: [],           // 编年：只给她看，不注入、不喂模型
+        chronicle: [],           // 编年：给她看（可翻、可改）
+    memories: [],            // 99：往事（从编年里挑出来喂模型）——两本账分开存
+    milestones: { 正史: [], 特异点: [], 母题: [] },   // 99：归类三层（只往上提）
         lastUpdate: { at: 0, status: 'idle', note: '', floor: -1 },
         pipeline: {              // 更新流水（失败可见＋重试上限）
             kind: '',
@@ -2188,7 +2190,7 @@ export function syncWorldEvents() {
 
 /* ------------------------------ 编年 ------------------------------ */
 
-/** 往编年添一条（只给她看，⛔ 不注入、不喂模型） */
+/** 往编年添一条（给她看；99 起编年会转成「往事」喂模型） */
 export function addChronicle(entry) {
     const state = loadState();
     const text = trimText(entry && entry.text);
