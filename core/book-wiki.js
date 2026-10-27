@@ -121,6 +121,7 @@ const CLASSIFY_SYSTEM = [
     '  ⭐⭐ 特别重要：如果一个条目是**家庭／组合／多人合集**（例如标题叫「月野家」「奈鲁与海野」「四天王」），',
     '     **你必须从它的正文里把每一个具体人物的名字单独拆出来**（例如拆出：月野育子、月野谦之、月野进悟；大阪奈鲁、海野栗雄），',
     '     一人一条放进 characters，⛔ **绝不要把「月野家」这种家庭合集名当成一个人**！',
+    '  ⭐ age（年龄）：只写书里明述的数字或说法（「32 岁」／「看上去三十出头」）；书里没写 ⇒ 留空，⛔ 不许估。',
     '  ⭐⭐ identity（身份）：变身形态（如「水手月亮」）写在身份里（多条用；隔开），⛔ 写进 aliases；',,
     '  ⭐ aliases（别名）：**只放名字的别的叫法**（小名／昵称）；⛔ 不放变身形态、⛔ 不放身份。',
     '· factions＝势力／组织／团体／阵营（例：黑暗王国、水手战士、黑暗四天王）。',
@@ -144,7 +145,7 @@ const CLASSIFY_SYSTEM = [
     '6. 其余分类拿不准的**宁可放进 characters**，⛔ 不要丢。',
     '',
     '只回 JSON，⛔ 不要解释、不要 markdown 代码块：',
-    '{"characters":[{"name":"","note":"","identity":"","faction":"","aliases":[]}],'
+    '{"characters":[{"name":"","note":"","age":"","identity":"","faction":"","aliases":[]}],'
     + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型；⛔ 不是实力）"}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
     + '"places":[{"name":"","note":""}],'
@@ -199,6 +200,7 @@ function normalizeWiki(raw) {
             out.characters.push({
                 name,
                 note: trimText(c && c.note),
+                age: trimText(c && c.age),   /* 109：读世界书要年龄 */
                 identity: idParts.join('；'),
                 faction: trimText(c && c.faction),
                 /* P2 (material 07): carry the aliases through (the model is told to put
