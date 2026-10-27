@@ -9,7 +9,7 @@
  *   · 万象阁 · 世界状态摘要 —— ★ [580] D2：结构化常驻摘要槽（事实列表；⛔ 经济／民生／心理／下一步）
  *   · 万象阁 · 总览       —— 现在这个世界什么样
  *   · 万象阁 · 世界状态   —— 局势与暗线
- *   · 万象阁 · 人物/<名字> —— 每人一条（七格）
+ *   · 万象阁 · 人物/<名字> —— 每人一条（八格）
  *   · 万象阁 · 编年       —— 按时间归档（分页，旧的留在后面的页里）
  *   · 万象阁 · 世界钟     —— 时间与地点（防时空跳变）
  *
@@ -468,7 +468,7 @@ function buildEntries() {
 
     for (const c of state.characters) {
         const lines = [
-            '七格：',
+            '八格：',
             '年龄：' + (trimText(c.age) || '未知'),
             '身份：' + (trimText(c.identity) || '未知'),
             '所在势力：' + (trimText(c.faction) || '未知'),
@@ -611,4 +611,33 @@ export async function flushBook() {
     }
     dirty = false;
     return publishToBook({ force: true });
+}
+
+/**
+ * 106：一个人的世界书条目行（导出供自测；八格，含日程）
+ * @param {object} c
+ * @returns {string[]}
+ */
+export function characterEntryLines(c) {
+    const ids = (Array.isArray(c && c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+    const lines = [
+        '八格：',
+        '年龄：' + (trimText(c.age) || '未知'),
+        '身份：' + (ids.length ? ids.join('／') : (trimText(c.identity) || '未知')),
+        '所在势力：' + (trimText(c.faction) || '未知'),
+        '好感：' + (trimText(c.affinity) || '未建立'),
+        '时间・地点：' + (trimText(c.timePlace) || '未知'),
+        '正在经历：' + (trimText(c.current) || '未知'),
+        '日程：' + (function () {
+            const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);
+            if (!todo.length) { return '（暂无）'; }
+            return todo.slice(0, 3).map((s) => (s.dueReached ? '【已到点】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
+        })(),
+    ];
+    if (Array.isArray(c.past)) {
+        for (const p of c.past) {
+            lines.push('过去经历：' + trimText(p && p.text));
+        }
+    }
+    return lines;
 }

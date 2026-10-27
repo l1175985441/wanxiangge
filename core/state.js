@@ -1,9 +1,9 @@
 /**
- * 万象阁 · 状态仓库（v3：世界状态／暗线／角色七格／平行事件／编年／日程／快照）
+ * 万象阁 · 状态仓库（v3：世界状态／暗线／角色八格／平行事件／编年／日程／快照）
  *
  * 规矩：
  *   · 名册与账本**按聊天各分各的**（新聊天＝新世界，数据不串）；
- *   · 每个角色七格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点；
+ *   · 每个角色八格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点；
  *   · 一切"会更新"的字段都带 manual 标记：手改过的，引擎⛔ 不许无脑冲掉；
  *   · 拿不到数据就留空或标"未知"，⛔ 绝不用占位值凑数；
  *   · 每次更新前留一版快照，能撤回。
@@ -69,7 +69,7 @@ function SHAPE_VERSION_NOW() { return Number(LEDGER_VERSION) || 3; }
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */
-const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds', 'role'];
+const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds', 'schedule', 'role'];
 
 /** 人物记录的标准结构（缺键补齐，多余的键保留） */
 /**
@@ -167,7 +167,12 @@ export function normalizeCharacter(raw) {
         })(),
         affinitySource: trimText(c.affinitySource),
         age: trimText(c.age),
-        identity: trimText(c.identity),
+        /* 106：身份可多条（她：「身份（可多条）」）；identity 保留作主身份 */
+    identities: (Array.isArray(c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean),
+    identity: (function () {
+        const arr = (Array.isArray(c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+        return arr.length ? arr[0] : trimText(c.identity);
+    })(),
         past: Array.isArray(c.past) ? c.past.filter(Boolean).map((p) => ({
             text: trimText(p && p.text),
             injected: (p && p.injected) === true,
@@ -186,6 +191,9 @@ export function normalizeCharacter(raw) {
             dueReached: (s && s.dueReached) === true,
             sinceDay: Number.isFinite(Number(s && s.sinceDay)) ? Number(s.sinceDay) : null,
             sinceMinutes: Number.isFinite(Number(s && s.sinceMinutes)) ? Number(s.sinceMinutes) : null,
+        /* 106：四时点的数据前提（origin 原定期限，firedPoints 已报过哪些点） */
+        originDue: trimText(s && s.originDue),
+        firedPoints: Array.isArray(s && s.firedPoints) ? s.firedPoints.map((x) => trimText(x)).filter(Boolean) : [],
             /* A1：日程也要认得是第几版／哪一楼 */
             swipe: Number.isFinite(Number(s && s.swipe)) ? Number(s.swipe) : null,
             floor: Number.isFinite(Number(s && s.floor)) ? Number(s.floor) : -1,
@@ -278,7 +286,7 @@ export function normalizeCharacter(raw) {
 
 /**
  * 老数据迁移：以前存过"推断（infer）"这一格 —— 按需求书这一格**不该存在**
- * （她定的角色字段只有七格：年龄／身份／过去经历／正在经历／所在势力／好感值／时间・地点）。
+ * （她定的角色字段只有八格：年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间・地点／日程）。
  * ⛔ 不静默丢：把它搬进**编年**留档（标注来源），再从角色身上摘掉。
  *
  * ⚠️⚠️ 这里必须走**原始账本**（`readLedger`），⛔ **不能走 `loadState()`**：
@@ -1830,7 +1838,7 @@ export function upsertHidden(line) {
         note: trimText(line.note),
         /* ⭐ C12（材料 13）：**新建暗线也要带上因果** ✓ */
         cause: trimText(line.cause),
-        /* ★ P2-5（修复单 20261019）：暗线补齐七格 ✓ */
+        /* ★ P2-5（修复单 20261019）：暗线补齐八格 ✓ */
         owner: trimText(line.owner),
         goal: trimText(line.goal),
         visibility: trimText(line.visibility),

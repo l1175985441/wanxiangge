@@ -1,5 +1,5 @@
 /**
- * 万象阁 · 更新流水（世界状态＋角色七格＋平行事件＋编年）
+ * 万象阁 · 更新流水（世界状态＋角色八格＋平行事件＋编年）
  *
  * 一次更新＝**两小步请求**（世界状态 1 次 ＋ 十几个角色合并成 1 次结构化输出，由 callBudget 把关上限），
  * ⛔ 不许十几个角色一轮各发一个请求。
@@ -50,7 +50,7 @@ import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
 import { timeSpanOf, isUnavailable } from './presence.js';
-import { lifeTickDue, countdownOf, shouldRunUpdate } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
+import { lifeTickDue, countdownOf, shouldRunUpdate, pointOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
@@ -1699,7 +1699,16 @@ async function stepCharacters(material, attempt) {
             if (tick.due) {
                 lines.push('  生活结算：距上次已 ' + Math.floor(tick.waitedMinutes / 60) + ' 小时（节拍 ' + tick.cadenceHours + ' 小时）');
             }
-            const cd = countdownOf(c.dueMinute, w0.clockMinute);
+            /* 106：四时点优先，countdownOf 兜底 */
+            let cd = { phrase: '' };
+            {
+                const pt = pointOf({ dueMinute: c.dueMinute, originDueMinute: c.originDueMinute, firedPoints: c.firedPoints }, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
+                if (pt === 'due') { cd = { phrase: '已到点·本轮应履约' }; }
+                else if (pt === 'origin') { cd = { phrase: '原定期限已过（被顺延过）' }; }
+                else if (pt === 'late') { cd = { phrase: '快到时间了' }; }
+                else if (pt === 'mid') { cd = { phrase: '进展中' }; }
+                else { cd = countdownOf(c.dueMinute, w0.clockMinute, c.lastSettledMinute); }
+            }
             if (cd.phrase) {
                 lines.push('  日子：' + cd.phrase);
             }

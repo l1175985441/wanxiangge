@@ -15,7 +15,7 @@
 
 import { trimText } from './utils.js';
 
-/** 七格：她可以锁的字段（与 STATUS_MANUAL_KEYS 同源，这里独立声明避免循环依赖） */
+/** 八格：她可以锁的字段（与 STATUS_MANUAL_KEYS 同源，这里独立声明避免循环依赖） */
 export const LOCKABLE_FIELDS = ['age', 'identity', 'past', 'current', 'faction', 'affinity', 'timePlace'];
 
 /**

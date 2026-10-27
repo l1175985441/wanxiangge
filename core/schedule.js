@@ -46,7 +46,7 @@ export function lifeTickDue(c, nowMinute) {
  * 提前量（根 ④）：七天窗口 ＋ 四种说法
  * @returns {{inWindow: boolean, days:number, phrase:string}}
  */
-export function countdownOf(dueMinute, nowMinute) {
+export function countdownOf(dueMinute, nowMinute, startedAtMinute) {
     const due = Number(dueMinute);
     const now = Number(nowMinute) || 0;
     if (!Number.isFinite(due)) {
@@ -59,6 +59,10 @@ export function countdownOf(dueMinute, nowMinute) {
     }
     if (left <= 24 * 60) {
         return { inWindow: true, days: 0, phrase: '就是今天' };
+    }
+    /* 106：提前量的第三种说法——进行中 */
+    if (Number.isFinite(Number(startedAtMinute)) && isOngoing(startedAtMinute, dueMinute, nowMinute)) {
+        return { inWindow: true, days, phrase: '进行中' };
     }
     if (left <= WEEK_MINUTES) {
         return { inWindow: true, days, phrase: '还有 ' + String(days) + ' 天' };
@@ -95,4 +99,47 @@ export function shouldRunUpdate(a) {
     }
     const base = Number.isFinite(last) ? last : -1;
     return { run: target > base, targetFloor: target };
+}
+
+/* ── 106：四时点（mid／late／origin／due）——照 dayclock 的思路重写，⛔ 不 import 它 ── */
+export const POINTS = ['mid', 'late', 'origin', 'due'];
+
+/**
+ * 这条日程本轮该报哪个点；**只报最靠后的一个**（防刷屏）。
+ * @param {object} item 日程条目（what/dueMinute/originDueMinute/firedPoints）
+ * @param {{nowMinute:number, createdAtMinute:number, lateAtPct:number, midEveryDays:number}} ctx
+ * @returns {'due'|'origin'|'late'|'mid'|null}
+ */
+export function pointOf(item, ctx) {
+    const c = ctx || {};
+    const now = Number(c.nowMinute) || 0;
+    const it = item || {};
+    const due = Number(it.dueMinute);
+    const origin = Number(it.originDueMinute);
+    const fired = Array.isArray(it.firedPoints) ? it.firedPoints.map(String) : [];
+    /* due：已到期 */
+    if (Number.isFinite(due) && now >= due && !fired.includes('due')) {
+        return 'due';
+    }
+    /* origin：原定期限已过但被顺延过（origin < due） */
+    if (Number.isFinite(due) && Number.isFinite(origin) && origin < due && now >= origin && !fired.includes('origin')) {
+        return 'origin';
+    }
+    /* late：进度 ≥ lateAtPct（默认 85%） */
+    const start = Number(c.createdAtMinute);
+    if (Number.isFinite(due) && Number.isFinite(start) && due > start) {
+        const pct = (now - start) / (due - start);
+        const lateAt = Number.isFinite(Number(c.lateAtPct)) ? Number(c.lateAtPct) / 100 : 0.85;
+        if (pct >= lateAt && now < due && !fired.includes('late')) {
+            return 'late';
+        }
+        /* mid：按 midEveryDays 切段，走到下一段且没报过 */
+        const everyDays = Number.isFinite(Number(c.midEveryDays)) ? Number(c.midEveryDays) : 7;
+        const seg = Math.floor((now - start) / (everyDays * 24 * 60));
+        const firedMid = fired.filter((x) => x === 'mid').length;
+        if (seg >= 1 && firedMid < seg && now < due) {
+            return 'mid';
+        }
+    }
+    return null;
 }

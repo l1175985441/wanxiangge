@@ -332,7 +332,11 @@ function personBlock(item, opts) {
         const lines = ['· ' + c.name];
     lines.push(affinityLineOf(c));   /* 新活：先好感表，再角色旧值 */
         if (trimText(c.age)) { lines.push('  年龄：' + trimText(c.age)); }
-        if (trimText(c.identity)) { lines.push('  身份：' + trimText(c.identity)); }
+        {
+        const ids = (Array.isArray(c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+        const idText = ids.length ? ids.join('／') : trimText(c.identity);
+        if (idText) { lines.push('  身份：' + idText); }
+    }
         if (trimText(c.faction)) { lines.push('  所在势力：' + trimText(c.faction)); }
         if (trimText(c.timePlace)) { lines.push('  时间·地点：' + trimText(c.timePlace)); }
         /* ⛔ 前台不端「正在经历」——[579]：正在进行时不召回 */
@@ -343,7 +347,16 @@ function personBlock(item, opts) {
             /* 只认隐藏楼；没楼层号／不在隐藏集 ⇒ 不端（[579]） */
             return Number.isFinite(from) && hidFront.has(from);
         });
-        if (pastFront.length) {
+        /* 106：前台薄块也要端日程（她定的 8 格里有日程）；只端未完成的、不超 3 条 */
+    {
+        const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done)
+            .sort((a2, b2) => String(a2.due || '').localeCompare(String(b2.due || '')))
+            .slice(0, 3);
+        if (todo.length) {
+            lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；'));
+        }
+    }
+    if (pastFront.length) {
             lines.push('  <Historical_Occurrences>');
             lines.push('  【注意】所有回忆为过去式，请勿将回忆中的任何状态理解为当前状态，仅作剧情参考。');
             lines.push('  过去经历（隐藏楼·由近到远）：' + pastFront.map((p) => trimText(p.text)).join('；'));
@@ -366,7 +379,10 @@ function personBlock(item, opts) {
         lines.push('  年龄：' + trimText(c.age));
     }
     if (trimText(c.identity)) {
-        lines.push('  身份：' + trimText(c.identity));
+        {
+        const ids2 = (Array.isArray(c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+        lines.push('  身份：' + (ids2.length ? ids2.join('／') : trimText(c.identity)));
+    }
     }
     if (trimText(c.faction)) {
         lines.push('  所在势力：' + trimText(c.faction));
@@ -488,7 +504,7 @@ function personBlock(item, opts) {
     }
 
     // ⛔ 这里原来会把"推断"喂回模型 —— 按需求书去掉了：
-    //    她定的角色字段只有七格（年龄／身份／过去经历／正在经历／所在势力／好感值／时间・地点），
+    //    她定的角色字段只有八格（年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间・地点／日程），
     //    推断不是一格；防"推断被当成已发生"靠的是提示词硬规矩（⛔ 不写下步动作／不写预判），
     //    ⛔ 不是靠"多存一格推断再喂回去"——那反而给了模型一份"可能发生"的素材。
     /* ★ [579]：下一步行动／长期目标（quests）前台后台都不注入 ✓

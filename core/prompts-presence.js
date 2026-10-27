@@ -34,7 +34,7 @@ export const FRONT_SYSTEM = [
     '',
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
-    ' "people_upsert":[{"id":"","name":"","current":"这一层他做了什么（一句话，带时间跨度）",',
+    ' "people_upsert":[{"id":"","name":"","identities":["身份可多条，没有就空数组"],"current":"这一层他做了什么（一句话，带时间跨度）",',
     '   "past_append":"只在这层有重大影响时填；否则空串","timePlace":"","affinity":""}]}',
 ].join('\n');
 
@@ -64,6 +64,6 @@ export const BACK_SYSTEM = [
     '',
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
-    ' "people_upsert":[{"id":"","name":"","current":"他现在在哪、在做什么（自然推进）",',
+    ' "people_upsert":[{"id":"","name":"","identities":["身份可多条，没有就空数组"],"current":"他现在在哪、在做什么（自然推进）",',
     '   "past_append":"标“推演”的一条；无则空串","stagnant":false}]}',
 ].join('\n');
