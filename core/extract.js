@@ -332,5 +332,9 @@ export function isHiddenMessage(message) {
     if (!message || typeof message !== 'object') {
         return false;
     }
-    return message.is_hidden === true || message.hidden === true;
+    /*
+     * 105 号：酒館里的隐藏楼层字段是 **is_system**（同仓 engine.js／pipeline.js 都这么判）；
+     *   旧的 is_hidden／hidden 保留作兜底（部分寄具还在造它们）。
+     */
+    return message.is_system === true || message.is_hidden === true || message.hidden === true;
 }

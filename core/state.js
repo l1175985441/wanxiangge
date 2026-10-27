@@ -173,7 +173,7 @@ export function normalizeCharacter(raw) {
             injected: (p && p.injected) === true,
             at: Number((p && p.at) || 0),
             manual: (p && p.manual) === true,
-            // ⭐ 来源楼层（"楼层裁"用）：老数据没有就是 undefined ⇒ 当很老、照端
+            // ⭐ 来源楼层（"楼层裁"用）：老数据没有就是 undefined ⇒ **不端**（与 recall.js 那条一致：判不出来源就不认它来自隐藏楼）
             fromFloor: Number.isFinite(Number(p && p.fromFloor)) ? Number(p.fromFloor) : undefined,
         })).filter((p) => p.text) : [],
         current: trimText(c.current),
