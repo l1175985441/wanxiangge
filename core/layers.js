@@ -20,7 +20,7 @@ import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';   /* 99：第六份�
 import { syncMemories, ensureMilestones } from './chronicle-brief.js';
 import { upsertClue, advanceClue, addEcho, upsertOpinion } from './extra-ledgers.js';
 import { OPINION_SYSTEM, publicCandidates, gateOpinion } from './prompts-opinion.js';   /* 101：第七份（舆情，只读） */
-import { getSettings } from './settings.js';
+import { getSettings, effectivePrompt } from './settings.js';
 import { trimText, matchKey } from './utils.js';
 
 function stNow() { return loadState(); }
@@ -74,7 +74,7 @@ function hiddenBrief() {
 export async function runWorldLayer(material, opts) {
     const el = Number(opts && opts.elapsedMinutes);
     const res = await callModelJson({
-        system: WORLD_SYSTEM,
+        system: effectivePrompt('worldLayer') || WORLD_SYSTEM,
         prompt: '世界钟：' + (trimText(material && material.clock) || '未知') + '\n'
             + '最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000) + '\n\n'
             + '人物（只读名字｜在哪｜在做什么）：\n' + rosterBrief(),
@@ -116,7 +116,7 @@ export async function runWorldLayer(material, opts) {
 /** 局势层（读世界 ✅，⛔ 不读 hidden） */
 export async function runSituationLayer(material) {
     const res = await callModelJson({
-        system: SITUATION_SYSTEM,
+        system: effectivePrompt('situation') || SITUATION_SYSTEM,
         prompt: worldBrief() + '\n\n人物（名字｜在哪｜在做什么）：\n' + rosterBrief()
             + '\n\n最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000),
         cheap: true,
@@ -161,7 +161,7 @@ export async function runSituationLayer(material) {
 /** 暗流层（读世界＋局势 ✅，⛔ 不写 situations） */
 export async function runHiddenLayer(material) {
     const res = await callModelJson({
-        system: HIDDEN_SYSTEM,
+        system: effectivePrompt('hiddenLayer') || HIDDEN_SYSTEM,
         prompt: worldBrief() + '\n\n现有暗流：\n' + (hiddenBrief() || '（无）')
             + '\n\n人物（名字｜在哪｜在做什么）：\n' + rosterBrief()
             + '\n\n最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000),
@@ -213,7 +213,7 @@ export async function runLayers(material) {
 /** 编年层（第六份提示词）：只往回看；写 chronicle，同步出 memories，归类三层 */
 export async function runChronicleLayer(material) {
     const res = await callModelJson({
-        system: CHRONICLE_SYSTEM,
+        system: effectivePrompt('chronicle') || CHRONICLE_SYSTEM,
         prompt: '本轮正文：\n' + String((material && material.rawText) || '').slice(0, 6000)
             + '\n\n现有编年（最近 12 条）：\n'
             + ((loadState().chronicle || []).slice(-12).map((c) => '· ' + String((c && (c.text || c.line)) || '')).join('\n') || '（无）'),
@@ -255,7 +255,7 @@ export async function runOpinionLayer(material, opts) {
         return { ok: true, empty: true, reason: '没有可公开的事件 → 空快照' };
     }
     const res = await callModelJson({
-        system: OPINION_SYSTEM,
+        system: effectivePrompt('opinion') || OPINION_SYSTEM,
         prompt: 'public_event_candidates：\n' + JSON.stringify(cands, null, 1)
             + '\n\nprevious_snapshot：\n' + JSON.stringify((st.opinionSnapshot || { news: [], forums: [] }), null, 1)
             + '\n\nelapsed_news_world_minutes：' + String(Number(opts && opts.newsMinutes) || 0)
