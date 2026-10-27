@@ -1867,6 +1867,17 @@ export function upsertHidden(line) {
  * ★ P2-6：**未完的暗线有几条**（已走完阶段的不算）。
  *   用来给她一个数字，而不是让她自己数。
  */
+/** 108：把「哪几方」写成人话（模型偶尔回数组，也不能变 [object Object]） */
+export function sideText(v) {
+    if (Array.isArray(v)) {
+        return v.map((x) => {
+            if (!x || typeof x !== 'object') { return trimText(x); }
+            return trimText(x.who) + (trimText(x.claim) ? ' 说' + trimText(x.claim) : '');
+        }).filter(Boolean).join('；');
+    }
+    return trimText(v);
+}
+
 export function openHiddenCount() {
     const list = (loadState().world.hidden || []);
     return list.filter((h) => h && !isLineDone(h.stage)).length;
@@ -2044,7 +2055,11 @@ export function normalizeSituation(s) {
     const pNum = Number(src.pressure);
     return {
         title: trimText(src.title || src.text),
-        sides: trimText(src.sides),
+        sides: sideText(src.sides),
+        /* 108：证据档位单独一个字段（给引擎判降级；字符串 sides 不动） */
+        evidenceTiers: (Array.isArray(src.evidenceTiers) ? src.evidenceTiers : [])
+            .filter((x) => x && trimText(x.who))
+            .map((x) => ({ who: trimText(x.who), tier: trimText(x.tier) || 'inferred' })),
         tier: trimText(src.tier),
         cause: trimText(src.cause),
         effect: trimText(src.effect),
@@ -2089,7 +2104,7 @@ export function setEvents(events) {
         title: trimText(e.title),
         text: trimText(e.text),
         kind: trimText(e.kind) || 'situation',   // situation｜hidden
-        sides: trimText(e.sides),
+        sides: sideText(e.sides),
         tier: trimText(e.tier),
         origin: (() => {
             const o = String(trimText(e.origin) || '').toLowerCase();
@@ -2175,7 +2190,7 @@ export function syncWorldEvents() {
             kind: 'situation',
             source: 'situation',
             quote: trimText(s && (s.evidence || s.note)) || tt,
-            sides: trimText(s && s.sides),
+            sides: sideText(s && s.sides),
             tier: trimText(s && s.tier),
             origin: trimText(s && s.origin),
             cause: trimText(s && s.cause),

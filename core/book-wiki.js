@@ -78,7 +78,6 @@ function entryDigest(entry) {
  */
 export async function readWholeBook(bookName) {
     const settings = getSettings();
-    // ⭐ 修复单 #14：同上——用**回退后的书名**去比对排除名单。
     const name = typeof resolveBookName === 'function' ? resolveBookName(bookName) : trimText(bookName);
     const blocked = toList(settings.excludeBooks).some((b) => matchKey(b) === matchKey(name));
     if (blocked) {
@@ -227,7 +226,11 @@ function normalizeWiki(raw) {
             const tier = trimText(s && s.tier);
             out.situations.push({
                 title,
-                sides: trimText(s && s.sides),
+                /* 108：模型偶尔把 sides 回成数组 ⇒ 写成人话（⛔ [object Object]） */
+                sides: (function () { const v = s && s.sides; if (!Array.isArray(v)) { return trimText(v); } return v.map((x) => (x && typeof x === 'object') ? (trimText(x.who) + (trimText(x.claim) ? ' 说' + trimText(x.claim) : '')) : trimText(x)).filter(Boolean).join('；'); })(),
+                evidenceTiers: (Array.isArray(s && s.evidenceTiers) ? s.evidenceTiers : [])
+                    .filter((x) => x && trimText(x.who))
+                    .map((x) => ({ who: trimText(x.who), tier: trimText(x.tier) || 'inferred' })),
                 tier: TIERS.includes(tier) ? tier : '',
                 note: trimText(s && s.note),
                 /* ⭐ C12：导入的局势也要带因果 ✓ */
@@ -356,7 +359,6 @@ export async function classifyBook(entries, opts) {
         let res = null;
         let errText = '';
         try {
-            // eslint-disable-next-line no-await-in-loop
             res = await callModelJson({
                 system: CLASSIFY_SYSTEM,
                 /*
@@ -637,7 +639,6 @@ export function applyWiki(wiki, opts) {
     });
     const sits = dedupe(w.situations, (s) => s.title);
 
-    // ① 人物 → 名册（身份／势力有就给上，⛔ 不给就算了，别编）
     const people = addCharacters(chars.map((c) => c.name));
     if (chars.length) {
         const state = loadState();
@@ -701,7 +702,6 @@ export function applyWiki(wiki, opts) {
             });
         } catch (e) { /* one bad line must not break the import */ }
     }
-    // ② 势力 ＋ 局势 → 世界状态（都记成"局势"，势力名当作一方）
     const merged = [];
     /* ★ P1-1：势力进独立实体（带 id），⛔ 再摊成一条“局势”冒充它 ✓ */
     for (const f of facs) {

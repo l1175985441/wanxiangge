@@ -408,7 +408,29 @@ function dampenSituationPressure(oldP, newP, deltaMin) {
     return np;
 }
 
-function mergeSituationFields(old, inc, clockDeltaMin) {
+const EVIDENCE_RANK = { fact: 3, confirmed: 2, inferred: 1, conservative: 0 };
+function topTierOf(list) {
+    let best = -1;
+    let tier = '';
+    for (const x of (Array.isArray(list) ? list : [])) {
+        const r = Object.prototype.hasOwnProperty.call(EVIDENCE_RANK, String(x && x.tier)) ? EVIDENCE_RANK[String(x.tier)] : -1;
+        if (r > best) { best = r; tier = String(x.tier || ''); }
+    }
+    return { rank: best, tier };
+}
+export function mergeSituationFields(old, inc, clockDeltaMin) {
+    /* 108：低档不覆盖高档（同档比先落账）；低档那条留成 basis:未证实 */
+    {
+        const oldTop = topTierOf(old && old.evidenceTiers);
+        const incTop = topTierOf(inc && inc.evidenceTiers);
+        if (oldTop.rank >= 0 && incTop.rank >= 0 && incTop.rank < oldTop.rank) {
+            return Object.assign({}, old, { basis: '未证实', lowEvidence: incTop.tier, lowEvidenceAt: Date.now() });
+        }
+        /* 同档：先落账的赢 ⇒ 不覆盖（不要一直刷新同一条） */
+        if (oldTop.rank >= 0 && incTop.rank === oldTop.rank) {
+            return Object.assign({}, old);
+        }
+    }
     const nextP = dampenSituationPressure(old && old.pressure, inc && inc.pressure, clockDeltaMin);
     return Object.assign({}, old, {
         title: trimText(inc.title) || old.title,
@@ -431,6 +453,7 @@ function mergeSituationFields(old, inc, clockDeltaMin) {
         /* visibility 归一在落 events 时再走 resolveVisibility；这里先留模型／旧值 */
         visibility: trimText(inc.visibility) || old.visibility,
         evidence: trimText(inc.evidence) || old.evidence,
+        evidenceTiers: (Array.isArray(inc.evidenceTiers) && inc.evidenceTiers.length) ? inc.evidenceTiers : (Array.isArray(old.evidenceTiers) ? old.evidenceTiers : []),
         at: Date.now(),
         floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : old.floor,
         source: trimText(inc.source) || old.source,
@@ -2514,8 +2537,6 @@ async function runUpdateInner(opts) {
         : '更新完成'))
         + (parts.length ? '：' + parts.join('；') : (lastError ? '：' + lastError : ''));
 
-    // ⭐ 把这一轮的"与你手改冲突"条目**留档**到更新那一刻的召回记录上，
-    //    这样面板「过程报告」里那一轮点开就能看见具体哪条冲突、引擎保留了哪个版本（条 16）。
     if (Array.isArray(charRes.conflicts) && charRes.conflicts.length) {
         const list = state.recallRecords;
         let target = null;
@@ -2597,7 +2618,6 @@ async function runUpdateInner(opts) {
         error: failed ? (lastError || '未知原因') : '',
         text,
         cursor: msgs.length,
-        // ⭐ #19：失败了就把锚点退回去（⛔ 不许假装这一楼算过了）
         atFloor: failed ? prevAtFloor : floor,
         conflicts: Array.isArray(charRes.conflicts) ? charRes.conflicts.slice(0, 20) : [],
     });
@@ -2611,11 +2631,9 @@ async function runUpdateInner(opts) {
             const st2 = loadState();
             st2.failLog = Array.isArray(st2.failLog) ? st2.failLog : [];
             st2.failLog.push({ at: Date.now(), kind: classifyFailure(lastError) });
-            // 只留最近 30 条（够她看趋势，⛔ 不让它长成第二个账本）
             st2.failLog = st2.failLog.slice(-30);
             saveState();
         } catch (e) {
-            // 记不进就算了，⛔ 不能因为它把主流程带崩
         }
     }
     state.lastUpdate = {
@@ -2703,7 +2721,6 @@ export async function runBackfill(opts) {
      *   ⚠️ 默认（不传 limit）＝照旧**全部补**（向后兼容，⛔ 不改老行为）。
      */
     const lim = Number.isFinite(o.limit) ? Math.floor(o.limit) : 0;
-    // ⭐修复 1：修掉 TDZ 崩溃 ✓（原来在初始化前就读 `todo2.length` ✗ ⇒ 填范围必崩 ✗）
     const todo2 = lim > 0 ? todo.slice(Math.max(0, todo.length - lim)) : todo;
     if (!todo2.length) {
         return { ok: true, text: '没有要补的楼了' };
@@ -2729,8 +2746,6 @@ export async function runBackfill(opts) {
     let done = 0;
     let failedAt = '';
     /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⛔ 逐楼一整轮 ✗） */
-    // ⭐修复 1：修掉“传错变量” ✓（旧：传 `todo` ✗ ⇒ 她填的“只补最近 N 楼”**生效不了** ✗）
-    //   并把“每轮最多喂多少字正文”的上限一并传进去 ✓
     const batches = buildScanBatches(todo2, worldMaterialCap());
     for (const batch of batches) {
         const floor = batch[batch.length - 1];
@@ -2738,9 +2753,6 @@ export async function runBackfill(opts) {
             break;
         }
         setPipeline({ text: '补推中：' + floorLabel(batch[0]) + '→' + floorLabel(floor) + '（已完成 ' + String(done) + '/' + String(todo2.length) + '）', cursor: done });
-        // 一步一步来：每一步都是独立的一次更新（每步都在 2 分钟预算内）
-        // eslint-disable-next-line no-await-in-loop
-        // ⭐ L3：补批循环**传 keepCancel** ⇒ 入口不会把她刚按的"取消"吞掉（防御性）
         const res = await runUpdate({ manual: true, floor, batchFloors: batch, keepCancel: true });
         if (!res.ok) {
             failedAt = floorLabel(floor) + '：' + (res.reason || '失败');
@@ -2788,8 +2800,6 @@ export function runReconcile() {
     }
 
     const before = state.recallRecords.length;
-    // ⭐ 对账要按 **mesId 优先、发言文本兜底** 重新定位：光过滤不重排的话，
-    //    中间删一楼会让其后所有记录的 floor 全部错位，下一次对账把它们**误删**（雪崩）。
     const byMesId = new Map();
     const userFloors = [];
     chat.forEach((m, idx) => {
@@ -2817,7 +2827,6 @@ export function runReconcile() {
             }
             return true;
         }
-        // 没有 mesId（或酒馆消息对象未带 mesId）：先核对原楼层，错位时按发言文本 lead 就近重定位
         const lead = trimText(r.lead);
         const m = chat[r.floor];
         if (m && m.is_user && !m.is_system && (!lead || trimText(m.mes) === lead)) {
@@ -2845,7 +2854,6 @@ export function runReconcile() {
     });
     const removed = before - state.recallRecords.length;
 
-    // 编年里超过现有楼的推演记录：不删，只标记"楼已不在"（软处理，她要能回看）
     let orphan = 0;
     for (const c of state.chronicle) {
         if (Number.isFinite(c.floor) && c.floor >= 0 && c.floor >= chat.length) {
@@ -2875,7 +2883,6 @@ export function runReconcile() {
                 lastValidFloor = f;
             }
         }
-        // ⚠️ 编年里一条有效楼都没有时：若 lastUpdate 那个数**本身还有效**，就保住它（别越对齐越丢）
         if (lastValidFloor < 0 && Number.isFinite(luFloor) && luFloor >= 0 && luFloor < chat.length) {
             lastValidFloor = luFloor;
         }
