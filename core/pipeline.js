@@ -47,7 +47,8 @@ function retryTokens(base, attempt) {
     return clampNumber(Math.round(b * 1.5), b, RETRY_TOKEN_CAP, b);
 }
 import { getChat, personaNames, currentChatKey } from './adapter.js';
-import { refreshViewsSoon } from './viewhook.js';   /* 86#5/#6：跑完刷新界面 */
+import { refreshViewsSoon } from './viewhook.js';
+import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
@@ -2338,6 +2339,7 @@ async function runUpdateInner(opts) {
     let lastError = '';
     let worldRes = { ok: false, reason: '没跑' };
     let charRes = { ok: false, reason: '没跑' };
+    let lastLayers = null;   /* 98：三层跑完的回执（供回执／自测看） */
 
     /*
      * ⭐⭐ R4（材料 05）：**让 worldAtFloor 真正被读** ✓
@@ -2373,6 +2375,12 @@ async function runUpdateInner(opts) {
         }
         worldRes = await stepWorld(material, attempt);
             if (worldRes.ok) {
+        /* 98：三层独立提示词（世界→局势→暗流）——开关在 settings.layerPrompts，默认关 */
+        try {
+            const layerOut = await runLayers(material);
+            if (layerOut && layerOut.layers) { lastLayers = layerOut.layers; }
+        } catch (eLayers) { console.warn('[万象阁] 三层提示词没跑成：', eLayers); }
+
                 /* ⭐谷歌复核（二）：世界状态成功 ⇒ **立刻落盘** ✓ + 记下 worldAtFloor ✓
                  *   ⇒ 之后角色步挂了，**绝不回滚它** ✓（下次从这批的角色步接着跑 ✓） */
                 try {
