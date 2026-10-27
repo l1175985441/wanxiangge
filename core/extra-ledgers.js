@@ -10,14 +10,23 @@
  * 四本账都挂在聊天级 state 上，⛔ 不挂楼层。
  */
 
-const CLUE_STATES = ['new', 'developing', 'triggered', 'resolved', 'discarded'];
+const CLUE_STATES = ['new', 'developing', 'triggered', 'echoed', 'resolved', 'discarded'];   /* 103：第六态 echoed（余波） */
 const NEXT_STATE = {
     new: ['developing', 'discarded'],
     developing: ['triggered', 'discarded'],
-    triggered: ['resolved', 'discarded'],
+    /* 103：触发后可先余波，也可直接结案（小事不必绕） */
+    triggered: ['echoed', 'resolved', 'discarded'],
+    /* 余波只能收束，⛔ 不许退回 triggered */
+    echoed: ['resolved', 'discarded'],
     resolved: [],
     discarded: [],
 };
+
+/** 103：这条线还在跑吗（余波算未完；⛔ 写成“只有 developing／triggered 算未完”会漏掉余波） */
+export function isClueOpen(clue) {
+    const s = t(clue && clue.state);
+    return Boolean(s) && s !== 'resolved' && s !== 'discarded';
+}
 
 const CLUE_CAP = 480;
 const ECHO_CAP = 80;

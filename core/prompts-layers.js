@@ -59,7 +59,7 @@ export const WORLD_SYSTEM = [
     ' "world_facts_invalidate":[{"key":"","reason":""}],',
     ' "world_pulse_upsert":[{"label":"","kind":"environment|government|economy|organization|infrastructure|security|culture|media|community|other",',
     '   "state":"","pressure":1,"trend":"stable|rising|falling|volatile","evidence":"","visibility":"hidden|trace|known"}],',
-    ' "clues_upsert":[{"title":"","status":"developing|triggered","note":""}],',
+    ' "clues_upsert":[{"title":"","status":"developing|triggered|echoed","note":""}],',
     ' "clues_resolve":[{"id":"","status":"resolved|discarded","reason":""}]}',
 ].join('\n');
 
