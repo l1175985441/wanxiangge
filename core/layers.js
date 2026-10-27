@@ -16,7 +16,8 @@ import {
     WORLD_SYSTEM, SITUATION_SYSTEM, HIDDEN_SYSTEM,
     worldGate, situationGate, hiddenGate,
 } from './prompts-layers.js';
-import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';   /* 99：第六份提示词 */
+import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';
+import { splitPicked, planCalls, mergeSides, sideOutcome } from './chars-split.js';   /* 107-B：人物步拆分的纯函数 */   /* 99：第六份提示词 */
 import { syncMemories, ensureMilestones } from './chronicle-brief.js';
 import { upsertClue, advanceClue, addEcho, upsertOpinion } from './extra-ledgers.js';
 import { OPINION_SYSTEM, publicCandidates, gateOpinion } from './prompts-opinion.js';   /* 101：第七份（舆情，只读） */
@@ -269,4 +270,28 @@ export async function runOpinionLayer(material, opts) {
     st.opinionSnapshot = { news: g.news, forums: g.forums, at: Date.now() };
     saveState();
     return { ok: true, news: g.news.length, forums: g.forums.length, dropped: g.dropped };
+}
+
+/**
+ * 107-B：人物步拆两次请求的**计划层**（纯函数包一层，供单测）。
+ * ⚠️ stepCharacters 尚未改接这一层（改主流程会连带崩寄具）。
+ */
+export function previewCharSplit(picked, onStageIds, opts) {
+    const sides = splitPicked(picked, onStageIds);
+    const groups = planCalls(sides, {
+        splitOn: !!(opts && opts.splitOn),
+        frontSystem: (opts && opts.frontSystem) || '',
+        backSystem: (opts && opts.backSystem) || '',
+    });
+    return { sides, groups };
+}
+
+/** 107-B：合并两侧结果（前台优先）—— 纯函数，供单测 */
+export function mergeCharSides(sideResults) {
+    return mergeSides(sideResults);
+}
+
+/** 107-B：一侧失败不牵连（只要有一侧成功） */
+export function charSideOutcome(results) {
+    return sideOutcome(results);
 }
