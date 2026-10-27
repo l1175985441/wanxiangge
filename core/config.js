@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.557';
+export const APP_VERSION = '0.3.558';
 
 export const LEDGER_VERSION = 3;
 
@@ -391,6 +391,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     backfillN: '',          // 补推历史的范围（留空＝全部；材料 11 · ST4 补上）         // 推进几层楼自动更新一次（1回合=2楼；2＝每轮更新且停在上一轮，推荐）
     protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
     maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
+    /** 96：后台（不在场）人物推演人数上限（⛔ 写死；她要的是可读配置） */
+    backstageNpcBudget: 6,
     autoUpdate: true,       // 新楼生成后自动更新
     affinitySource: '',     // "手机"好感的数据源（世界书名 或 条目关键词；留空＝不接）
 

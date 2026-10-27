@@ -48,6 +48,8 @@ function retryTokens(base, attempt) {
 }
 import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
+import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
+import { timeSpanOf, isUnavailable } from './presence.js';   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
@@ -1643,6 +1645,9 @@ async function stepCharacters(material, attempt) {
 
     /* P4 part 2 (material 07): tell the model WHO the player is - see the note below. */
     /* P19 (material 07): say the in-scene / off-scene rules once, not once per character. */
+    /* 96：两块独立提示词——前台一块、后台一块（⛔ 合成一份） */
+    const frontBlock = FRONT_SYSTEM;
+    const backBlock = BACK_SYSTEM;
     const charsHeader = [
         '【每个角色都适用的两条硬规矩】',
         '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写；正文停在问句／等表态 ⇒ 写「待我做决定」，⛔ 替我选。',
@@ -1660,6 +1665,8 @@ async function stepCharacters(material, attempt) {
     })();
     const charLines = picked.map((c) => {
         const inScene = onStageIds.has(c.id);
+        /* 96：死亡／昏迷／被封印 ⇒ 不算人（两侧都不写） */
+        if (isUnavailable(c)) { return ''; }
         const lines = [
             // c.isPlayer 不会为真（上面已过滤）；留着是为将来放开时也能显示对
             '· ' + c.name + '（' + (inScene ? '现场' : '不在场') + (c.isPlayer ? '／玩家棋子' : '') + '）',
@@ -1669,6 +1676,7 @@ async function stepCharacters(material, attempt) {
             + ' ｜ 好感 ' + (trimText(c.affinity) || '未接入')
             + ' ｜ 时间地点 ' + (trimText(c.timePlace) || '未知'),
         ];
+        if (inScene) { lines.push('  时间跨度：' + timeSpanOf(c, (loadState().world || {}).clock)); }
         if (trimText(c.current)) {
             const curLine = currentPromptLine(c);
             if (curLine) { lines.push('  上一轮"正在经历"：' + curLine); }
