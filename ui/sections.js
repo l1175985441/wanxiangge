@@ -24,7 +24,7 @@ import { runWarning } from '../core/runwarn.js';   /* 必修 9：拒签要顶到
 import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
-import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault } from '../core/settings.js';
+import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     findCharacter,
@@ -1859,7 +1859,6 @@ function secCharacters(host) {
             detail.appendChild(qBox);
         }
 
-        // 合并与收下
         const badges = el('div', 'wxg-row');
         badges.appendChild(button('按这条合并…', 'merge-into', 'wxg-btn-sm', c.id));
         if (c.isNew) {
@@ -1874,7 +1873,6 @@ function secCharacters(host) {
     }
 
     table.appendChild(tbody);
-    // 7 列装不下时横向滚，⛔ 不硬挤成一团
     const twrap = el('div', 'wxg-ctablewrap');
     twrap.appendChild(table);
     box.appendChild(twrap);
@@ -1884,7 +1882,6 @@ function secCharacters(host) {
         + '搜索只筛显示，不动数据。'));
     host.appendChild(box);
 
-    // 按当前的搜索词先筛一遍
     applyCharSearch(host, charSearch.query);
 }
 
@@ -2006,7 +2003,6 @@ function commitSection(secId) {
     }
     const patch = {};
     for (const k of Object.keys(box)) {
-        // 整块外观（色板＋四个颜色槽）
         if (k === 'appearance' && box[k] && typeof box[k] === 'object') {
             /*
              * ⭐ 复审追加 3①：**这里得用 `patch.appearance` 打底**，而且**关键序**。
@@ -2039,7 +2035,6 @@ function commitSection(secId) {
                 { applyToPanel: box[k] === true });
             continue;
         }
-        // 走 api 那一格的键：**逐键合并**，⛔ 不整块替换 （整块替换会把她存好的书签 `profiles` 一起冲掉）
         if (k === 'api' && box[k] && typeof box[k] === 'object') {
             patch.api = Object.assign({}, getSettings().api || {}, box[k], patch.api || {});
             continue;
@@ -2067,7 +2062,6 @@ function commitSection(secId) {
             patch[k] = box[k];
         }
     }
-    // ⚠️ 顺序：**先把草稿摘掉，再落盘**。 patchSettings 会触发重画（重画又从草稿读值）⇒ 反过来写的话， 这一段刚保存的值会被"还留着的旧草稿"覆盖回去（真踩过）。
     delete stagingOf(modeForSection(secId))[secId];
     patchSettings(patch);
     /*
@@ -2156,7 +2150,6 @@ function syncApiFromDom(host) {
  * 有了它，各处控件只要把 `set-xxx` 写成 `stage-xxx` 就进了草稿，⛔ 不用每个都写一个 case。
  */
 const STAGE_MAP = {
-    // 总控
     'stage-auto-update': ['general', 'autoUpdate', 'checked'],
     'stage-update-every': ['general', 'updateEvery', 'value'],
     /* 补推范围也走草稿；这个键必须在表里，否则输入先被通用分支接走、switch 里那段永远走不到 ✓ */
@@ -2164,10 +2157,8 @@ const STAGE_MAP = {
     'stage-protected': ['general', 'protectedBypass', 'checked'],
     'stage-strict': ['general', 'strictMention', 'checked'],
     'stage-panel-on-start': ['general', 'showPanelOnStart', 'checked'],
-    // 外观
     'stage-app-to-panel': ['appearance', 'applyToPanel', 'checked'],
     'stage-layout-mode': ['appearance', 'layoutMode', 'value'],
-    // 召回
     'stage-recent-turns': ['recall', 'recentTurns', 'value'],
     'stage-cap-people': ['recall', 'capPeople', 'value'],
     'stage-max-events': ['recall', 'maxEvents', 'value'],
@@ -2181,7 +2172,6 @@ const STAGE_MAP = {
     'stage-sort-mode': ['recall', 'sortMode', 'value'],
     'stage-card': ['recall', 'cardEnabled', 'checked'],
     'stage-show-empty': ['recall', 'showEmptyCard', 'checked'],
-    // 自定义 API
     'stage-api-mode': ['api', 'mode', 'value'],
     'stage-api-url': ['api', 'url', 'value'],
     'stage-api-key': ['api', 'key', 'value'],
@@ -2194,7 +2184,6 @@ const STAGE_MAP = {
     'stage-api-extra-headers': ['api', 'extraHeaders', 'value'],
     'stage-api-material-cap': ['api', 'materialCap', 'value'],
     'stage-auto-retry-max': ['api', 'autoRetryMax', 'value'],
-    // 读取控制（四格）
     'stage-extract-tags': ['extract', 'extractTags', 'value'],
     'stage-exclude-tags': ['extract', 'excludeTags', 'value'],
     'stage-extract-books': ['extract', 'extractBooks', 'value'],
@@ -2204,7 +2193,6 @@ const STAGE_MAP = {
     'stage-strip-paired': ['extract', 'stripPairedBlocks', 'checked'],
     'stage-strip-comments': ['extract', 'stripHtmlComments', 'checked'],
     'stage-only-enabled': ['extract', 'onlyEnabledEntries', 'checked'],
-    // 提示词
     'stage-inject-header': ['prompts', 'injectHeader', 'value'],
     'stage-prompt-world': ['prompts', 'promptWorld', 'value'],
     'stage-prompt-chars': ['prompts', 'promptChars', 'value'],
@@ -2299,7 +2287,6 @@ function stageOne(action, target) {
     if (action === 'stage-api-mode' && trimText((getSettings().api || {}).currentProfile)) {
         stage('api', 'api', Object.assign({}, getSettings().api || {}, { currentProfile: '' }));
     }
-    // 外观那块是整块存的（色板＋四个颜色槽）
     if (action === 'stage-appearance') {
         const key = target.id;                        // wxg-app-xxx → 槽位名
         const slot = key.replace('wxg-app-', '');
@@ -2399,7 +2386,6 @@ function refreshSaveBar(host, secId) {
     if (!bar || !bar.parentNode) {
         return;
     }
-    // ⚠️ 用"插新的、删旧的"（不依赖 replaceChild：假 DOM 上不稳）
     const parent = bar.parentNode;
     const fresh = saveBar(secId);
     parent.insertBefore(fresh, bar);
@@ -2447,7 +2433,6 @@ export function applyCharSearch(root, query) {
         if (hit) {
             shown += 1;
         }
-        // 明细行跟着主人一起藏
         const id = tr.getAttribute('data-id');
         const detail = root.querySelector('.wxg-cdetail-row[data-detail-of="' + id + '"]');
         if (detail && detail.classList && !hit) {
@@ -2534,7 +2519,6 @@ function pager(action, page, per, total) {
     }
     bar.appendChild(next);
 
-    // 页数不多时直接给页码（点着比一页页翻快）
     if (pages > 1 && pages <= 12) {
         const nums = el('div', 'wxg-pager-nums');
         for (let i = 1; i <= pages; i += 1) {
@@ -2595,7 +2579,6 @@ function secChronicle(host) {
         host.appendChild(box);
         return;
     }
-    // ⭐ 装盒：编年列表一块（体检第一条）
     /*
      * ⭐ 行化一切（有数据排版术第七条）：
      *    `时间（骨架列）｜ 谁 ＋ 正文 ｜ 种类胶囊`，一行一件事；
@@ -2618,11 +2601,9 @@ function secChronicle(host) {
             return hay.includes(chronKw);
         });
     }
-    // ⭐ 翻页：只画当前页（编年是越攒越多的，一长条滚不到头）
     chronPage = clampPage(chronPage, matched.length, PER_PAGE.chron);
     const shown = matched.slice((chronPage - 1) * PER_PAGE.chron, chronPage * PER_PAGE.chron);
 
-    // ① 筛选胶囊（带计数）——做法学参照，字用我们自己的
     const bar = el('div', 'wxg-filters');
     const mkFilter = (key, label, n) => {
         const b = el('button', 'wxg-filter' + (chronFilter === key ? ' is-on' : ''), label);
@@ -2640,7 +2621,6 @@ function secChronicle(host) {
         }
     }
     if (chronFilter !== 'all' && !countOf(chronFilter)) {
-        // 筛到空的时候也得有路回去（⛔ 不留一个空屏）
         chronFilter = 'all';
     }
     box.appendChild(bar);
@@ -2659,7 +2639,6 @@ function secChronicle(host) {
     stat.appendChild(el('span', null, '已归档 ' + String(archived) + ' 条（早于可见的最近 ' + String(all.length) + ' 条）'));
     box.appendChild(stat);
 
-    // ② 一行小结：有几条、什么顺序
     const hit = el('div', 'wxg-hitbar');
     hit.appendChild(el('span', null, '这一筛 ' + String(matched.length) + ' 条'
         + (matched.length === list.length ? '' : '（全账本 ' + String(list.length) + ' 条）')));
@@ -2678,7 +2657,6 @@ function secChronicle(host) {
         box.appendChild(pager('chron-page', chronPage, PER_PAGE.chron, matched.length));
     }
 
-    // ③ 按楼层分组，一组一个"行列表"（先按 floor 归桶、组内按时间从新到旧、组间按 floor 从大到小）
     const cChron = card(chronFilter === 'all' ? '热账与旧卷（按回合攒）' : ('只看「' + chronFilter + '」'));
     cChron.classList.add('wxg-wide');   /* 81：卡片横向铺满（她：要么铺满、要么居中） */
     const byFloor = new Map();
@@ -2723,9 +2701,7 @@ function secChronicle(host) {
         }
         for (const c of g.items) {
             const r = el('div', 'wxg-r');
-            // 骨架列：时间（等宽数字，竖着对齐）
             r.appendChild(el('div', 'wxg-r-k wxg-num', shortTime(c.at)));
-            // 主列：谁（＋已手改）／正文（最多两行）
             const main = el('div', 'wxg-r-main');
             const title = el('div', 'wxg-r-title');
             if (trimText(c.who)) {
@@ -2739,7 +2715,6 @@ function secChronicle(host) {
             main.appendChild(title);
             main.appendChild(el('div', 'wxg-r-sub', trimText(c.text) || '暂无'));
             r.appendChild(main);
-            // 右列：种类胶囊（⛔ 彩色只上胶囊）
             const act = el('div', 'wxg-r-act');
             act.appendChild(el('span', 'wxg-badge ' + kindTone(c.kind), String(c.kind || '推演')));
             /*
@@ -7430,12 +7405,31 @@ export function bindSectionEvents(host, refresh) {
                                         : true;
                                     if (!ask) { return; }
                                     takeSnapshot('导入备份前');
-                                    const res = importState(data);
+                                    /* 111：备份里带设置才问一句；不带就照旧（⛔ 报错） */
+                        const hasSettings = !!(data && data.settings && typeof data.settings === 'object' && Object.keys(data.settings).length);
+                        let importSettings = false;
+                        if (hasSettings) {
+                            try {
+                                importSettings = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+                                    ? window.confirm('这份备份里还带了设置（含 API 书签与密钥）。\n\n要连设置一起导入吗？\n⚠️ 会覆盖本机现在的设置与 API；选「取消」就只导账本。')
+                                    : false;
+                            } catch (eAsk2) { importSettings = false; }
+                        }
+                        const res = importState(data);
                                     if (!res || res.ok !== true) {
                                         toast.fail('导入没成：' + ((res && res.reason) || '不知道为什么'));
                                         return;
                                     }
-                                    const cnt = (res && res.counts) || {};
+                                    if (importSettings) {
+                            takeSnapshot('导入设置前');
+                            try {
+                                patchSettings(data.settings || {});
+                                toast.ok('设置也导进来了');
+                            } catch (eSetImp) {
+                                toast.fail('设置导入没成：' + ((eSetImp && eSetImp.message) || String(eSetImp)));
+                            }
+                        }
+                        const cnt = (res && res.counts) || {};
                                     toast.ok('导入好了：人 ' + String(cnt.characters || 0)
                                         + ' ｜ 暗线 ' + String(cnt.hidden || 0)
                                         + ' ｜ 局势 ' + String(cnt.situations || 0)
@@ -7475,7 +7469,13 @@ export function bindSectionEvents(host, refresh) {
         break;
     }
     case 'export-data':
-                    downloadText('万象阁备份-' + (function () { /* ⭐ U19：用**本地**日期（⛔ UTC：北京凌晨 0–8 点导出会显示成“昨天” ✗） */ var d0 = new Date(); return d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0'); })() + '.json', JSON.stringify(exportState(), null, 2));
+                    downloadText('万象阁备份-' + (function () { /* ⭐ U19：用**本地**日期（⛔ UTC：北京凌晨 0–8 点导出会显示成“昨天” ✗） */ var d0 = new Date(); return d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0'); })() + '.json', JSON.stringify({
+            kind: 'wanxiangge-backup',
+            version: String((getSettings().version || '')),
+            at: Date.now(),
+            state: exportState(),
+            settings: exportSettings(),
+        }, null, 2));
                     toast.ok('备份已导出');
                     break;
 

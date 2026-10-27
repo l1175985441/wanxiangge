@@ -475,3 +475,12 @@ export function settingSourceLine() {
     const r = effectiveSettingsOf(['capPeople', 'injectCharCap', 'recentTurns']);
     return sourceLine(r.sources);
 }
+
+/** 111：导出整份设置（深拷贝；⛔ 返回活对象） */
+export function exportSettings() {
+    try {
+        return JSON.parse(JSON.stringify(getSettings()));
+    } catch (e) {
+        return {};
+    }
+}
