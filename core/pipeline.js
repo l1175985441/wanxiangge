@@ -74,6 +74,7 @@ import { render, noteText } from './prompt.js';
 import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下“本来会改成什么” */   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
 import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
+import { addElapsed, stripModelDateFields } from './world-events.js';   /* 100：走钟／模型无权写绝对时间 */
 import { markBookDirty } from './book.js';
 import { clockAnchor } from './gametime.js';
 import { syncFromPhone, ensureRow } from './affinity.js';   /* 新活：手机里有数就原样抄进表 */   /* 决定①：世界钟先解析、能解才当锚 */
@@ -853,9 +854,14 @@ async function stepWorld(material, attempt) {
 
     /* 100：**走钟**——只累加模型给的 elapsed_minutes（⛔ 模型无权重栰绝对日期） */
     {
-        const el = Number(v.elapsed_minutes);
+        /* 100：模型无权写绝对时间（⛔ clockMinute／clock_anchor） */
+        const clean = stripModelDateFields(v);
+        const el = Number(clean.elapsed_minutes);
         if (Number.isFinite(el) && el > 0) {
-            addWorldMinutes(loadState(), el);
+            const r = addElapsed(loadState(), el, material.rawText || '');
+            if (r.reason) {
+                conflicts.push(r.reason);
+            }
             saveState();
         }
     }
