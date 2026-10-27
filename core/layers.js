@@ -18,8 +18,11 @@ import {
 } from './prompts-layers.js';
 import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';   /* 99：第六份提示词 */
 import { syncMemories, ensureMilestones } from './chronicle-brief.js';
+import { upsertClue, advanceClue, addEcho, upsertOpinion } from './extra-ledgers.js';
 import { getSettings } from './settings.js';
 import { trimText, matchKey } from './utils.js';
+
+function stNow() { return loadState(); }
 
 function playerNames() {
     try {
@@ -96,6 +99,15 @@ export async function runWorldLayer(material, opts) {
         }
         updateWorld({ facts: facts.slice(0, 160) });
         saveState();
+        /* 101：世界层产出的线索（人物步不许写知识面） */
+        for (const c of (g.value.clues_upsert || [])) {
+            upsertClue(stNow(), c);
+        }
+        for (const r of (g.value.clues_resolve || [])) {
+            const tgt = String((r && r.status) || '') === 'discarded' ? 'discarded' : 'resolved';
+            advanceClue(stNow(), r && r.id, tgt, Date.now());
+        }
+        saveState();
     } catch (eW) { /* 落不了也不能炸主流程 */ }
     return { ok: true, dropped: g.dropped, notes: g.notes, empty: g.empty };
 }
@@ -128,6 +140,18 @@ export async function runSituationLayer(material) {
             }
         }
         updateWorld({ situations: before });
+        for (const r of (g.value.situations_resolve || [])) {
+            const org = before.find((x) => x && (String(x.id) === String(r && r.id) || x.title === String(r && r.title)));
+            if (org && (r.status === 'resolved' || r.status === 'missed' || r.status === 'cancelled')) {
+                addEcho(loadState(), { eventId: String(org.id || org.title), text: String(r.result || org.title || ''), resolved: true, fromFloor: Number(org.floor) || 0 });
+            }
+        }
+        /* 舆情：只收 publicity=public 的局势 */
+        for (const s of before) {
+            if (s && String(s.publicity) === 'public') {
+                upsertOpinion(loadState(), { topic: String(s.title || ''), publicity: 'public', heat: Number(s.pressure) || 1, fromFloor: Number(s.floor) || 0 });
+            }
+        }
         saveState();
     } catch (eS) { /* 同上 */ }
     return { ok: true, dropped: g.dropped, notes: g.notes };
