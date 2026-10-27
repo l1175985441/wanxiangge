@@ -19,6 +19,7 @@ import {
 import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';   /* 99：第六份提示词 */
 import { syncMemories, ensureMilestones } from './chronicle-brief.js';
 import { upsertClue, advanceClue, addEcho, upsertOpinion } from './extra-ledgers.js';
+import { OPINION_SYSTEM, publicCandidates, gateOpinion } from './prompts-opinion.js';   /* 101：第七份（舆情，只读） */
 import { getSettings } from './settings.js';
 import { trimText, matchKey } from './utils.js';
 
@@ -205,6 +206,7 @@ export async function runLayers(material) {
     try { out.situation = await runSituationLayer(material); } catch (e2) { out.situation = { ok: false, reason: String(e2) }; }
     try { out.hidden = await runHiddenLayer(material); } catch (e3) { out.hidden = { ok: false, reason: String(e3) }; }
     try { out.chronicle = await runChronicleLayer(material); } catch (e4) { out.chronicle = { ok: false, reason: String(e4) }; }
+    try { out.opinion = await runOpinionLayer(material); } catch (e5) { out.opinion = { ok: false, reason: String(e5) }; }
     return { ok: true, layers: out };
 }
 
@@ -240,4 +242,31 @@ export async function runChronicleLayer(material) {
     const sync = syncMemories(st, { limit: Number(getSettings().chronicleCap) || 500 });
     saveState();
     return { ok: true, appended: (v.chronicle_append || []).length, memories: sync.added };
+}
+
+/** 舆情层（第 7 份）：只读快照；⛔ 不改 situations／characters／hidden／clock／chronicle */
+export async function runOpinionLayer(material, opts) {
+    const st = loadState();
+    const cands = publicCandidates((st.world && st.world.situations) || [], 24);
+    if (!cands.length) {
+        /* 闸 7：候选全空 ⇒ 空快照，不报错、不重试 */
+        st.opinionSnapshot = { news: [], forums: [], at: Date.now() };
+        saveState();
+        return { ok: true, empty: true, reason: '没有可公开的事件 → 空快照' };
+    }
+    const res = await callModelJson({
+        system: OPINION_SYSTEM,
+        prompt: 'public_event_candidates：\n' + JSON.stringify(cands, null, 1)
+            + '\n\nprevious_snapshot：\n' + JSON.stringify((st.opinionSnapshot || { news: [], forums: [] }), null, 1)
+            + '\n\nelapsed_news_world_minutes：' + String(Number(opts && opts.newsMinutes) || 0)
+            + '\nelapsed_forum_world_minutes：' + String(Number(opts && opts.forumMinutes) || 0),
+        cheap: true,
+    });
+    if (!res || !res.ok) {
+        return { ok: false, reason: (res && res.reason) || '舆情层没回可用 JSON' };
+    }
+    const g = gateOpinion(res.value || {}, cands, { previous: (st.opinionSnapshot && st.opinionSnapshot.news) || [] });
+    st.opinionSnapshot = { news: g.news, forums: g.forums, at: Date.now() };
+    saveState();
+    return { ok: true, news: g.news.length, forums: g.forums.length, dropped: g.dropped };
 }
