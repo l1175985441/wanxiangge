@@ -49,7 +49,8 @@ function retryTokens(base, attempt) {
 import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
-import { timeSpanOf, isUnavailable } from './presence.js';   /* 96：前后台判定／时间跨度 */
+import { timeSpanOf, isUnavailable } from './presence.js';
+import { lifeTickDue, countdownOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
@@ -1685,6 +1686,18 @@ async function stepCharacters(material, attempt) {
             + ' ｜ 时间地点 ' + (trimText(c.timePlace) || '未知'),
         ];
         if (inScene) { lines.push('  时间跨度：' + timeSpanOf(c, (loadState().world || {}).clock)); }
+        /* 102：生活节拍（到期就提一句；没大事也要给自然状态） */
+        {
+            const w0 = loadState().world || {};
+            const tick = lifeTickDue(c, w0.clockMinute);
+            if (tick.due) {
+                lines.push('  生活结算：距上次已 ' + Math.floor(tick.waitedMinutes / 60) + ' 小时（节拍 ' + tick.cadenceHours + ' 小时）');
+            }
+            const cd = countdownOf(c.dueMinute, w0.clockMinute);
+            if (cd.phrase) {
+                lines.push('  日子：' + cd.phrase);
+            }
+        }
         if (trimText(c.current)) {
             const curLine = currentPromptLine(c);
             if (curLine) { lines.push('  上一轮"正在经历"：' + curLine); }
