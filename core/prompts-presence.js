@@ -34,8 +34,10 @@ export const FRONT_SYSTEM = [
     '',
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
-    ' "people_upsert":[{"id":"","name":"","identities":["身份可多条，没有就空数组"],"current":"这一层他做了什么（一句话，带时间跨度）",',
-    '   "past_append":"只在这层有重大影响时填；否则空串","timePlace":"","affinity":""}]}',
+    ' "people_upsert":[{"id":"","name":"","age":"","identities":["身份可多条"],"faction":"","timePlace":"",',
+'   "power":"","behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
+'   "current":"这一层他做了什么（一句话，带时间跨度）",',
+    '   "past_append":"只在这层有重大影响时填；否则空串","timePlace":""}]}',
 ].join('\n');
 
 /* ───────── 后台：允许推演，但⛔ 不许当实锤、⛔ 不许硬造冲突 ───────── */
@@ -64,6 +66,8 @@ export const BACK_SYSTEM = [
     '',
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
-    ' "people_upsert":[{"id":"","name":"","identities":["身份可多条，没有就空数组"],"current":"他现在在哪、在做什么（自然推进）",',
+    ' "people_upsert":[{"id":"","name":"","age":"","identities":["身份可多条"],"faction":"","timePlace":"",',
+'   "power":"","behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
+'   "current":"他现在在哪、在做什么（自然推进）",',
     '   "past_append":"标“推演”的一条；无则空串","stagnant":false}]}',
 ].join('\n');

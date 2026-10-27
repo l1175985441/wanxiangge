@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.572';
+export const APP_VERSION = '0.3.573';
 
 export const LEDGER_VERSION = 3;
 
@@ -337,9 +337,6 @@ export const DEFAULT_PROMPT_CHARS = [
      *   placeholder into JSON => the code stored it as a real affinity value. */
     ' "faction":"或空","timePlace":"他在什么时间、什么地点",',
     /* ★ P1-2／[580] B5：角色抽「实力」；势力抽「规模」——两套字段，⛔ 别串 */
-    ' "power":"实力（角色本人；或空；⛔ 不是势力的规模）",',
- ' "behaviorBounds":"认知账：他会怎么做（他绝不会做的事；没就空）",',
- ' "knowledgeBounds":"知识面：他不知道的事（没就空）",',
     ' "past":["本轮**刚变成过去**的 0～1 条（第一人称；⛔ 不要把旧经历重抄一遍 ⛔）"],',
     ' "current":"【现场】只总结正文里已经写了的他此刻在做的事（⛔ 正文没写的别写；正文在等\"我\"表态就写待我做决定）；'
     + '【不在场】他此刻正在做什么（进行时推演，⛔ 不写下一步）",',

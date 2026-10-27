@@ -49,7 +49,7 @@ function retryTokens(base, attempt) {
 import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
-import { timeSpanOf, isUnavailable } from './presence.js';
+import { timeSpanOf, isUnavailable, justLeft, hasDrive, classifyPresence } from './presence.js';
 import { lifeTickDue, countdownOf, shouldRunUpdate, pointOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
@@ -1607,7 +1607,7 @@ async function stepCharacters(material, attempt) {
         }
         return stageRaw || material.recentText || material.rawText || '';
     })();
-    const onStage = whoIsOnStage(bodyForStage, roster);
+    const onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚走了就算后台 */
     const onStageIds = new Set(onStage.map((c) => c.id));
 
     // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
@@ -1640,6 +1640,19 @@ async function stepCharacters(material, attempt) {
         (Array.isArray(loadState().world.spotlight) ? loadState().world.spotlight : [])
             .map((n) => matchKey(n)).filter(Boolean),
     );
+    /* 107：驱动力校验（A 契约／B 剧情／C 局势）：只在名额不够时才筛，不够就全推 */
+    try {
+        const stD = loadState();
+        const driveCtx = {
+            quests: (stD.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])),
+            situations: (stD.world && stD.world.situations) || [],
+        };
+        if (bench.length > Math.max(0, Number(maxParallelSetting) || 6) * 2) {
+            for (let bi = bench.length - 1; bi >= 0; bi -= 1) {
+                if (!hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); }
+            }
+        }
+    } catch (eDrive) { /* 筛不了就不筛，⛔ 把人搞没 */ }
     const rotated = bench.slice().sort((a, b) => {
         const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;
         const bSpot = spotKeys.has(matchKey(b.name)) ? 1 : 0;
@@ -1662,6 +1675,9 @@ async function stepCharacters(material, attempt) {
     // "我"（玩家棋子）**不建自己的推演行**——他的存在由**别人**的行侧面承载
     // （见提示词规矩 2／14：说话、看、递、反应）。这里的过滤是**有意保留**的（N4）。
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
+    /* 107：兜底汇总（不另判一次；只用来记“这轮谁算后台、谁静滞”） */
+    let presenceInfo = null;
+    try { presenceInfo = classifyPresence({ roster, bodyText: bodyForStage, playerName: '', settings, quests: loadState().characters.flatMap((c) => c.quests || []), situations: (loadState().world && loadState().world.situations) || [] }); } catch (ePres) { presenceInfo = null; }
     /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次 */
     {
         const runSeq = Number((loadState().pipeline || {}).runs || 1);
@@ -1857,7 +1873,6 @@ async function stepCharacters(material, attempt) {
          *   ⇒ 循环里补喂；`checkActingAsMe` 也会顺带读到它（下面那个字段同族加上了）。
          */
         row.allQuests = Array.isArray(v.quests) ? v.quests : [];
-        // 现场标记由我们决定（⛔ 不让模型自己选，免得它把在场的人当不在场去推演）
         const found = picked.find((c) => c.name === trimText(raw && raw.name));
         row.onStage = found ? onStageIds.has(found.id) : false;
         const done = applyCharacter(row, material, conflicts);
@@ -1866,7 +1881,6 @@ async function stepCharacters(material, attempt) {
             if (done.isNew) {
                 newPeople += 1;
             }
-            // ⭐ 任务落账（主线／支线）：模型给了才写，⛔ 没给不留空壳
             if (Array.isArray(done.quests) && done.quests.length) {
                 const who = loadState().characters.find((x) => x.name === done.name);
                 if (who) {
@@ -1901,10 +1915,8 @@ async function stepCharacters(material, attempt) {
         }
     }
 
-    // 退化要出声：万一模型替"我"写了动作，记一条给她看（⛔ 不静默）
     const meHits = checkActingAsMe(rows, material.floor);
 
-    // 世界钟那一步可能带回来更新过的钟，这里再补读一次
     /*
      * ⭐⭐ Q5（材料 05 · 她原话 [150][151]）：**世界钟要有保底** ✓
      *   旧：完全靠模型从清洗后的 {{recent}} 里找 ✗
@@ -2003,7 +2015,6 @@ export function checkActingAsMe(rows, floor) {
 
     for (const raw of rowsArr) {
         const name = trimText(raw && raw.name);
-        // 模型能写、我们会落的**全部文本字段**都过一遍（不只是 current）
         const pieces = [];
         for (const f of ['current', 'timePlace', 'identity', 'age', 'faction']) {
             const text = trimText(raw && raw[f]);
@@ -2024,10 +2035,6 @@ export function checkActingAsMe(rows, floor) {
                 pieces.push({ f: 'schedule', text: joined });
             }
         }
-        // ⭐ 任务也算"模型写下的字"：子项里要是写了"下一步／明天去…"这种，
-        //    跟"只写这一步"的规矩是同一个禁区 ⇒ 一样要拦住、要出声（⛔ 不静默）
-        // ⭐ 修复单 #16：顶层 quests（喂进 row.allQuests 的那份）也**一并过禁区**——
-        //    ⛔ 只查行内 quests 的话，顶层格式写的"我"字会漏检。
         if (Array.isArray(raw && raw.quests) || Array.isArray(raw && raw.allQuests)) {
             /*
              * ⭐ 复审追加 B3：**顶层任务只取"属于本行的"**。
@@ -2112,7 +2119,6 @@ export function checkActingAsMe(rows, floor) {
             if (meSubject) {
                 reasons.push('"我"自己做了动作');
             }
-            // ② 预判"我"
             if (/我(接下来|之后|下一步|等会儿|一会儿)/.test(text)) {
                 reasons.push('预判"我"接下来会怎样');
             }
@@ -2128,7 +2134,6 @@ export function checkActingAsMe(rows, floor) {
                 || /(明天|后天|次日|下次|回头|待会儿|等会儿|过几天)\s*(去|要|会|准备|打算|再|得)/.test(text)) {
                 reasons.push('写了"下一步动作／后续预测"（任务是目标层，⛔ 不写下一步）');
             }
-            // ③ 改"我"处境的被动句（⛔ 侧面豁免不适用这类）
             const passive = text.match(/(被|给|让|叫)([^，。；！？]{0,8})我(带|拉|推|抱|赶|送|打|抓|拽|扔|丢|抬|背)/)
                 || text.match(/被[^，。；！？]{0,6}的\s*我/);
             if (passive) {
@@ -2316,7 +2321,6 @@ async function runUpdateInner(opts) {
         }
     }
 
-    // 留一版快照（撤回用）
     const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
     /*
      * ⭐ 修复单 #19：开跑前先把两个"锚点"记下来，失败要退回原值——
@@ -2357,7 +2361,6 @@ async function runUpdateInner(opts) {
         runs: prevRuns + 1,
     });
 
-    // 取材料：最近几楼（含隐藏楼）＋ 走四格清洗
     /* ⭐ 谷歌（一）：分批时按**这一批楼层**拼材料 ✓；单楼旧行为照旧 ✓ */
     const msgs = (Array.isArray(o.batchFloors) && o.batchFloors.length)
         ? messagesOfFloors(o.batchFloors)
@@ -2371,8 +2374,6 @@ async function runUpdateInner(opts) {
         batch: Array.isArray(o.batchFloors) && o.batchFloors.length > 0,
         floor,
         recentText: cleaned.text,
-        // ⭐ 另留一份"清洗前"的原文：判"谁在现场""这句正文里有没有"要用它——
-        //    清洗会剥掉状态栏之类，拿剥过的文本去判会冤枉（把一个明明写到的人判成"不在场"）。
         rawText: msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n'),
         messages: msgs,
         fellBack: cleaned.fellBack,
@@ -2428,7 +2429,6 @@ async function runUpdateInner(opts) {
         worldRes = { ok: true, reason: '这一楼的世界步上一轮已经成功过 ⇒ 跳过，直接接着跑角色步 ✓' };
     }
 
-    // 世界这一步（占 1 步预算）：带重试上限
     if (!worldStepDone && stepsUsed < budget) {
         stepsUsed += 1;
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
@@ -2473,7 +2473,6 @@ async function runUpdateInner(opts) {
         }
     }
 
-    // 角色这一步（占 1 步预算，十几个角色合并成一次算）：带重试上限
     if (!cancelRequested && worldRes.ok && stepsUsed < budget) {
         stepsUsed += 1;
         setPipeline({ step: '读角色状态与平行事件', text: '正在算角色状态与平行事件' });
@@ -2520,7 +2519,6 @@ async function runUpdateInner(opts) {
     state.stat.updates = Number(state.stat.updates || 0) + 1;
     saveState();
 
-    // 收尾：把这一轮的结果落进世界书，并更新账本状态
     const failed = cancelRequested ? false : !(worldRes.ok && charRes.ok);
     const parts = [];
     if (worldRes.ok) {
