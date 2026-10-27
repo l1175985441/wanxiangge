@@ -233,6 +233,7 @@ function normalizeWiki(raw) {
                 /* ⭐ C12：导入的局势也要带因果 ✓ */
                 cause: trimText(s && (s.cause || s.from)),
                 effect: trimText(s && (s.effect || s.to)),
+                clock_mode: trimText(s && s.clock_mode), due: trimText(s && (s.due || s.due_at)), publicity: trimText(s && s.publicity), public_trace: trimText(s && s.public_trace), caused_by: trimText(s && s.caused_by), impact_records: Array.isArray(s && s.impact_records) ? s.impact_records : [],
             });
         }
     }

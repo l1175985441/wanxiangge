@@ -850,6 +850,14 @@ async function stepWorld(material, attempt) {
         }
     }
 
+    /* 100：**走钟**——只累加模型给的 elapsed_minutes（⛔ 模型无权重栰绝对日期） */
+    {
+        const el = Number(v.elapsed_minutes);
+        if (Number.isFinite(el) && el > 0) {
+            addWorldMinutes(loadState(), el);
+            saveState();
+        }
+    }
     // 世界钟：只接受"往前走"的钟（模型写倒退就保留旧的并记一条）
     const notes = [];
     const newClock = trimText(v.clock);

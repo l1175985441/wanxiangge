@@ -471,3 +471,20 @@ export function clockWentBackwards(oldText, newText) {
 
     return absB < absA - 5;   // 少超过 5 分钟才算倒退（可能是模型瞎写）
 }
+
+/**
+ * 100 号：**走钟**（世界背面 1A/1B/1C）。
+ * ⛔ 模型无权初始化或重栰绝对日期；只能由引擎按 elapsed_minutes 累加。
+ * @param {object} state
+ * @param {number} minutes 本轮真实经过的分钟（负数不认）
+ * @returns {{before: number, after: number, added: number}}
+ */
+export function addWorldMinutes(state, minutes) {
+    const st = state || {};
+    const w = st.world && typeof st.world === 'object' ? st.world : (st.world = {});
+    const before = Number(w.clockMinute);
+    const base = Number.isFinite(before) && before > 0 ? before : 0;
+    const add = Math.max(0, Math.floor(Number(minutes) || 0));
+    w.clockMinute = base + add;
+    return { before: base, after: w.clockMinute, added: add };
+}

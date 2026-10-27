@@ -357,7 +357,8 @@ function emptyState() {
             winds: [],           // {topic, text, kind, source, at, floor}
             hidden: [],          // 暗线：{id, name, stage, kind, trigger, tier, note, log[], manual}
             hiddenTombstones: [],  // ★ P2-6：删掉的暗线留碑「谁、什么时候被删」
-            clock: '',           // 世界内时间（只有钟是准的）
+            clock: '',           // 世界内时间（文本，给人看）
+        clockMinute: 0,      // 100：绝对分钟（引擎累加；模型无权改）
             place: '',
             /* ★ [580]／观棋 B4：上轮正文点到的名／势力 → 本轮必须有下文 */
             spotlight: [],
