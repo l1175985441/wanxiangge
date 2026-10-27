@@ -1163,9 +1163,27 @@ function secWorld(host) {
     }
 
     /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
-    const cWinds = card('风声（未证实）');
+    const cWinds = card('风声与新闻');
     {
-        const windList = listWindsView(24);
+        /* 102：已公开组（publicity=public）；⛔ 不展开论坛 */
+    const pubNews = (w.situations || []).filter((s2) => s2 && s2.publicity === 'public').slice(0, 6);
+    if (pubNews.length) {
+        const nl = el('div', 'wxg-list');
+        for (const n2 of pubNews) {
+            const rr = el('div', 'wxg-r');
+            const mm = el('div', 'wxg-r-main');
+            const tt2 = el('div', 'wxg-r-title');
+            tt2.appendChild(el('span', 'wxg-r-who', trimText(n2.publicHeadline || n2.public_headline || n2.title) || '（未记题）'));
+            tt2.appendChild(el('span', 'wxg-badge is-info', '已公开'));
+            mm.appendChild(tt2);
+            mm.appendChild(el('div', 'wxg-r-sub', (trimText(n2.publicTrace || n2.public_trace) || '公共传播') + ' ｜ 热度 ' + String(Math.max(1, Math.min(3, Number(n2.pressure) || 1)))));
+            rr.appendChild(mm);
+            nl.appendChild(rr);
+        }
+        cWinds.appendChild(el('div', 'wxg-note', '【已公开】'));
+        cWinds.appendChild(nl);
+    }
+    const windList = listWindsView(24);
         if (!windList.length) {
             cWinds.appendChild(emptyBlock('还没有风声（局势标 trace、或世界步带回 winds 时会落进来）'));
         } else {
@@ -1383,6 +1401,10 @@ function secWorld(host) {
             }
             if (h.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
+            }
+            /* 102：回声台账里有这条 ⇒ 行尾一个「已承接」（⛔ 单开卡） */
+            if ((loadState().echoes || []).some((e2) => e2 && (String(e2.eventId) === String(h.id) || String(e2.title || '').indexOf(trimText(h.name)) >= 0))) {
+                title.appendChild(el('span', 'wxg-badge is-ok', '已承接'));
             }
             main.appendChild(title);
             // 第二行：到点条件 ／ 现在到哪一步（空值写"暂无"，⛔ 不隐身）
@@ -1699,6 +1721,27 @@ function secCharacters(host) {
                 + '　⇒ 已标出来、但没擅自改它，你看着办（下一步该由你回话决定）');
             warn.setAttribute('data-tone', 'bad');
             detail.appendChild(warn);
+        }
+        /* 102：最近和谁通过消息（≤5 条；没有就不显示这块） */
+        {
+            const myThreads = (loadState().threads || []).filter((th) => th && (th.members || []).includes(trimText(c.name)));
+            const msgs = [];
+            for (const th of myThreads) {
+                for (const m of (th.messages || [])) {
+                    if (m && (m.from === trimText(c.name) || (th.members || []).includes(m.from))) { msgs.push(m); }
+                }
+            }
+            msgs.sort((a2, b2) => (Number(b2.at) || 0) - (Number(a2.at) || 0));
+            if (msgs.length) {
+                const mb = el('div', 'wxg-field');
+                mb.appendChild(el('label', null, '最近和谁通过消息'));
+                for (const m of msgs.slice(0, 5)) {
+                    const th = myThreads.find((x) => (x.messages || []).includes(m)) || {};
+                    const other = (th.members || []).find((x) => x !== trimText(c.name)) || '';
+                    mb.appendChild(el('div', 'wxg-fact', '· ' + (other || m.from) + '　「' + trimText(m.text).slice(0, 40) + '」'));
+                }
+                detail.appendChild(mb);
+            }
         }
         // 过去经历
         const past = el('div', 'wxg-field');
@@ -5307,7 +5350,6 @@ export function renderSections(host, opts) {
          */
         secChronicle(stageEl);
         secRoster(stageEl);
-        // ③ 配置：设一次就不动
         secGeneral(stageEl);
         secAppearance(stageEl);
         secRecall(stageEl);
@@ -5341,7 +5383,6 @@ export function renderSections(host, opts) {
                 console.warn('[万象阁] 摆回人物卡出错：', e);
             }
         }
-        // 自检：一段都没画出来 ⇒ 也要说出来，⛔ 不留白板
         const before = asArray(host.children || []).length;
         /* 一：整页只有一个主卡 ⇒ 盖 `data-wxg-onecol`（实现在 ui/onecol.js） */
         try { markOneCol({ stageEl: stageEl, asArray: asArray }); } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
@@ -5363,7 +5404,6 @@ export function renderSections(host, opts) {
         } catch (e) {
             console.warn('[万象阁] 上只读锁出错：', e);
         }
-        // ⭐ 读取控制：刚才在挑某本书的条目 ⇒ 重画之后把它摆回来 （⛔ 不然点一条之后列表就没了，没法接着点第二条）
         try {
             renderEntryPick(host);
         } catch (e) {
@@ -5590,14 +5630,12 @@ function buildJumpNav(host) {
         btn.setAttribute('data-jump', String(i));
         nav.appendChild(btn);
     });
-    // ⚠️ 要插在**最前面**：用 firstChild 当参照（appendChild 那样会跑到末尾去）
     const first = (host.children && host.children.length) ? host.children[0] : null;
     if (first) {
         host.insertBefore(nav, first);
     } else {
         host.appendChild(nav);
     }
-    // 滚动时高亮"你现在在哪一段"（scroll-spy）
     bindNavScrollSpy(host, nav);
     markActiveNav(host, nav);
 }
@@ -5610,7 +5648,6 @@ function bindNavScrollSpy(host, nav) {
     if (typeof host.removeEventListener === 'function' && host.__wxgSpy) {
         host.removeEventListener('scroll', host.__wxgSpy);
         host.__wxgSpy = null;
-        // 顺手把滚动动效的监听也撤掉
         if (host.__wxgEndTimer) {
             clearTimeout(host.__wxgEndTimer);
             host.__wxgEndTimer = null;
@@ -5643,7 +5680,6 @@ function markActiveNav(host, nav) {
     if (!secs.length || !btns.length) {
         return;
     }
-    // 视口顶端往下一点点的位置当作"当前行"
     const hostTop = Number(host.getBoundingClientRect ? host.getBoundingClientRect().top : 0);
     const line = hostTop + 24;
     let active = 0;
@@ -5673,7 +5709,6 @@ export function jumpToSection(host, index) {
     if (!sec) {
         return;
     }
-    // 展开它（酒馆的折叠是内联样式管的，这里直接设）
     const body = sec.querySelector('.wxg-sec-body');
     if (body && body.style) {
         body.style.display = 'block';
@@ -5695,11 +5730,9 @@ export function jumpToSection(host, index) {
 /**
  * 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非原生层的东西原样搬 */
 function hangUp(host, staging) {
-    // ⚠️ children 是 HTMLCollection：先转数组再遍历／查找（真机就栽在这里）
     for (const node of asArray(staging.children || [])) {
         const drawer = node && node.__wxgDrawer;
         if (drawer) {
-            // 正文层放回壳里（它本来就在壳里，这里是幂等的），再整壳挂上去
             if (!asArray(drawer.children || []).includes(node)) {
                 drawer.appendChild(node);
             }
@@ -5725,7 +5758,6 @@ function drawFailure(host, err) {
             box.appendChild(el('div', 'wxg-fact', '这一段没画出来：把这句反馈给我们就行'));
         host.appendChild(box);
     } catch (e) {
-        // 连兜底都画不出来就只能认了
     }
 }
 
@@ -5823,7 +5855,6 @@ function copyToClipboard(text, btn) {
             return;
         }
     } catch (e) {
-        // 落到兜底
     }
     fallbackCopy(text, done);
 }
@@ -5958,7 +5989,6 @@ export function bindSectionEvents(host, refresh) {
         if (host) {
             lastSectionsHost = host;
         }
-        // ⭐ 顶部"快速跳转"：它没有 data-action（那是给会改数据的东西用的）
         const jump = e.target.closest && e.target.closest('[data-jump]');
         if (jump) {
             jumpToSection(host, jump.getAttribute('data-jump'));
@@ -5975,11 +6005,9 @@ export function bindSectionEvents(host, refresh) {
         const id = target.getAttribute('data-id') || '';
         const key = target.getAttribute('data-key') || '';
         const isChange = e.type === 'change';
-        // 事件触发时一律以当前宿主容器自己的 data-wxg-mode 为准，隔离不同面板的草稿池
         stagingMode = (host && typeof host.getAttribute === 'function' && host.getAttribute('data-wxg-mode')) || 'settings';
 
         try {
-            // ⭐ 通用草稿入口：凡是 `stage-*` 的控件，一律只进草稿（段底一起保存）
             if (action.indexOf('stage-') === 0) {
                 if (!isChange) { return; }
                 const which = stageOne(action, target);
@@ -6021,20 +6049,17 @@ export function bindSectionEvents(host, refresh) {
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
                 case 'chron-filter': {
-                    // 编年的筛选胶囊：只换筛选条件再重画（⛔ 不落设置、不动数据）
                     chronFilter = trimText(id) || 'all';
                     chronPage = 1; // ⚠️ 换了筛选要回第一页（不然可能停在一个空页上）
                     rerender();
                     break;
                 }
                 case 'report-filter': {
-                    // 过程报告的筛选胶囊（同上，只看不改数据）
                     reportFilter = trimText(id) || 'all';
                     rerender();
                     break;
                 }
                 case 'step-filter': {
-                    // 现在的进度：筛选胶囊（看看哪几楼还没做）
                     stepFilter = trimText(id) || 'all';
                     stepPage = 1;
                     rerender();
@@ -6046,7 +6071,6 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'roster-filter': {
-                    // 名册的筛选胶囊（同上）
                     /* ★ R62：点已选中的创建/修改时间 ⇒ 切正反序 ✓ */
                     const wantR = trimText(id) || 'all';
                     if (wantR === rosterFilter && (wantR === 'created' || wantR === 'changed' || wantR === 'name')) {
@@ -6165,7 +6189,6 @@ export function bindSectionEvents(host, refresh) {
                 }
                 break;
             case 'roster-search':
-                    // 边打边筛（change 才重画，⛔ 每敲一个字都重画整页）
                     if (isChange) {
                         rosterSearch = trimText(target.value);
                         rosterPage = 1;
@@ -6173,7 +6196,6 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 case 'roster-page': {
-                    // 翻页：这里只存目标页；**夹取在渲染时按筛完的数量做**（见 secRoster）
                     rosterPage = Math.max(1, Math.round(Number(id) || 1));
                     rerender();
                     break;
@@ -6272,13 +6294,11 @@ export function bindSectionEvents(host, refresh) {
                     toast.ok('已收起编辑（改哪格存哪格，引擎不会冲掉）');
                     break;
                 case 'edit-char': {
-                    // 名册行上的「改」：展开/收起那个人的三个输入框
                     openChar = String(openChar) === String(id) ? '' : String(id);
                     rerender();
                     break;
                 }
                 case 'edit-situation': {
-                    // 局势行上的「改」：展开/收起那一行的编辑框（⛔ 不重画别的东西）
                     const idx = Number(target.getAttribute('data-index'));
                     openSituation = String(openSituation) === String(idx) ? -1 : idx;
                     rerender();
@@ -6329,7 +6349,6 @@ export function bindSectionEvents(host, refresh) {
                         toast.warn('已经有同名的暗线／局势了，换个名字吧（⛔ 两条撞名会找错 ✗）');
                         return false;
                     }
-                        // \u2460 \u540c\u6b65\u7f16\u5e74\uff08state.chronicle\uff09\u91cc\u7684 who \u4e0e text\uff0c\u4fdd\u8bc1\u6d6e\u5c42\u300c\u56e0\u679c\u300d\u4e0d\u65ad\u94fe \u2713
                         for (const c of (state.chronicle || [])) {
                             if (!c) continue;
                             if (trimText(c.who) === oldName) {
@@ -6340,13 +6359,11 @@ export function bindSectionEvents(host, refresh) {
                                 c.text = c.text.split(oldName).join(newName);
                             }
                         }
-                        // \u2461 \u540c\u6b65\u5f53\u524d\u53ec\u56de\u4e8b\u4ef6\u6c60\uff08state.events\uff09\u2713
                         for (const ev of (state.events || [])) {
                             if (ev && trimText(ev.title) === oldName) {
                                 ev.title = newName;
                             }
                         }
-                        // \u2462 \u540c\u6b65\u5386\u53f2\u53ec\u56de\u8bb0\u5f55\uff08state.recallRecords[].events\uff09\u2713
                         for (const rec of (state.recallRecords || [])) {
                             if (!rec || !Array.isArray(rec.events)) continue;
                             rec.events = rec.events.map((ev) => {
@@ -6458,7 +6475,6 @@ export function bindSectionEvents(host, refresh) {
                         const before = loadState().world.clock;
                         const typed = trimText(target.value);
                         updateWorld({ clock: typed }, { manual: true });
-                        // 她手填的钟咱照用（她的字最大），但**要出声**：万一填倒退了呢
                         if (typed && clockWentBackwards(before, typed)) {
                             toast.warn('这个钟比原来的早（' + (before || '未知') + ' → ' + typed + '）——已按你填的存下；如果不想让它倒退，改回来就行');
                         } else {
@@ -6655,7 +6671,6 @@ export function bindSectionEvents(host, refresh) {
                         toast.fail('先写一句"他知道了什么"');
                         break;
                     }
-                    // 来源楼层＝**她现在看着的最后一楼**（手加时就在看那一楼）
                     const chatNow = getChat();
                     const floorNow = (Array.isArray(chatNow) ? chatNow.length : 1) - 1;
                     const got = addKnow(id, { text: txt, source: src, floor: floorNow, manual: true });
@@ -6784,7 +6799,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐ 删编年一条。⛔ 只删这一条，别的一律不碰；删完给回执（她要知道删掉了什么）。
      */
     case 'del-chronicle': {
-        // ⚠️ 分发的元素变量叫 `target`（照旁边几条的写法，⛔ 不是我随手起的名）
         const idx = Number(target.getAttribute('data-index'));
         if (await removeChronicleAt(idx)) {
             toast.ok('删掉一条编年');
@@ -7008,11 +7022,9 @@ export function bindSectionEvents(host, refresh) {
                     listBooksCache = names;
                     lastGoodBooks = names.slice();
                     booksCache.set(names);   /* B7：真取到了才算 hit/empty */
-                    // ⚠️ 从"草稿优先、否则已存"里取（⛔ 重画时别把还没保存的点选冲掉）
                     paintBookPicks(host,
                         toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks)),
                         toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks)));
-                    // 顺手把每本书的"看条目"也摆出来
                     const ent = byId(host, 'wxg-entpick');
                     if (ent && !ent.querySelector('[data-action="list-entries"]')) {
                         for (const n of names) {
@@ -7031,7 +7043,6 @@ export function bindSectionEvents(host, refresh) {
                     if (!name) {
                         break;
                     }
-                    // ⭐ 只改这一段草稿：画面不动、⛔ 不存盘、⛔ 不重画
                     const ex = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
                     const no = toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks));
                     const key = (x) => asText(x);
@@ -7149,7 +7160,6 @@ export function bindSectionEvents(host, refresh) {
                 }
                 case 'list-entries': {
                     const name = id;
-                    // ⭐ 记住"正在看哪本书"，重画之后自动摆回来 （⛔ 不然她点一条之后列表就没了，没法接着点第二条）
                     pickBook = trimText(name);
                     const entries = await getEntries(name);
                     pickEntries = entries;
@@ -7254,7 +7264,6 @@ export function bindSectionEvents(host, refresh) {
                     if (!title) {
                         break;
                     }
-                    // ⭐ 同样只改"待保存"缓冲（她拍的：别点一下就生效、面板别跳）
                     const off = toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
                     const i = off.findIndex((x) => asText(x) === asText(title));
                     if (i >= 0) {
@@ -7264,7 +7273,6 @@ export function bindSectionEvents(host, refresh) {
                         off.push(title);
                         toast.info('「' + title + '」标成"不读"（还没保存）');
                     }
-                    // ⭐ 进这一段的草稿（等段底那颗保存一起存）
                     stage('extract', 'excludeEntries', off.join('、'));
                     renderEntryPick(host, off);
                     refreshSaveBar(host, 'extract');
@@ -7500,7 +7508,6 @@ export function bindSectionEvents(host, refresh) {
                         Object.assign(patch, palettePatch(trimText(target.value)));
                     } else {
                         patch[slot] = trimText(target.value);
-                        // 手改了槽位 ⇒ 色板显示为"自定义"（⛔ 不假装还是预设）
                         patch.palette = 'custom';
                     }
                     patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, patch) });
@@ -7697,7 +7704,6 @@ export function bindSectionEvents(host, refresh) {
                     const inp = host.querySelector('#wxg-api-model');
                     if (inp && name) {
                         inp.value = name;
-                        // 走同一条草稿（⛔ 直接 patch：她还要点段底保存）
                         const which = stageOne('stage-api-model', inp);
                     /*
                      * ⭐ 她 13:xx：「按了模型得保存一下」⇒ 选完模型**当场落盘**（不用她再按保存）✓
@@ -7747,11 +7753,8 @@ export function bindSectionEvents(host, refresh) {
                         toast.fail('先给书签起个名字（例：主站／备用站）');
                         break;
                     }
-                    // ⭐ 存书签时把**这一段草稿里的改动也算上**（地址刚改、还没按保存也能存进书签） ⚠️ 顺序要紧：**先**把 one 和 list 算好、**再** commitSection ——
-                    //    commitSection 会把草稿删掉，反过来写就只能拿到空的（这个坑真踩过）。
                     const live = getSettings().api || {};
                     const draft = stagingOf(stagingMode).api || {};
-                    // ⚠️ 草稿里的 profiles 是**打开面板那一刻的旧值**（甚至空的） ⇒ 合并时不许认它，否则会把刚存的书签冲掉。书签只认设置里那一份。
                     const cur = Object.assign({}, live, draft);
                     delete cur.profiles;
                     const one = {
@@ -7787,7 +7790,6 @@ export function bindSectionEvents(host, refresh) {
                      *    否则"当前用的通道"会被悄悄改掉（她只是想把这一套存起来，未必想现在就用）。
                      *    想让它当当前通道 ⇒ 明确点「切到这套」。
                      */
-                    // ⚠️ 落盘要用**当下**的 api（`live` 是重画前取的快照，profiles 可能还旧）
                     patchSettings({ api: Object.assign({}, getSettings().api || {}, { profiles: list }) });
                     const pendingN = stagedCount('api');
                     toast.ok((idx >= 0 ? '已覆盖书签「' : '已存成书签「') + nick + '」（存的这一套'
@@ -7999,7 +8001,6 @@ export function bindSectionEvents(host, refresh) {
 
                 /* ---- 动作 ---- */
                                 case 'use-hold-one': {
-                    // 「改成 2（推荐）」：只改频率这一个值，⛔ 不碰别的设置
                     /* ⭐ ST4-A（她 10-17 定案：统一走草稿＋段底保存）✓ 旧：patchSettings 立即落盘 ✗ */
                     stage('general', 'updateEvery', 2);
                     refreshSaveBar(host, 'general');
@@ -8024,7 +8025,6 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'toggle-lock': {
-                    // 数据卡的「编辑／收起」：只切「正在编辑」这个状态，⏐ 不动数据
                     const k = trimText(id);
                     if (unlockedCards.has(k)) {
                         unlockedCards.delete(k);
@@ -8220,7 +8220,6 @@ export function bindSectionEvents(host, refresh) {
                     const lim = Number.parseInt(rawN, 10);
                     const useLim = Number.isFinite(lim) && lim > 0 ? lim : 0;
                     const rB = runBackfill(useLim ? { limit: useLim } : {});
-                    // ⭐ 第 6 条：连点被防重吞掉时，把理由说出来（⛔ 不静默）
                     if (rB && typeof rB.then === 'function') {
                         rB.then((res) => {
                             if (res && res.ok === false) {
@@ -8275,7 +8274,6 @@ export function bindSectionEvents(host, refresh) {
 
     host.addEventListener('click', handler);
     host.addEventListener('change', handler);
-    // ⭐ 角色搜索要"边打边筛"：只切显示、⛔ 不重画 （重画会把她正在打的字和滚动位置全弄没）
     host.addEventListener('input', (e) => {
         const t = e && e.target;
         if (!t || typeof t.getAttribute !== 'function') {

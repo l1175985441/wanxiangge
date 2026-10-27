@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.564';
+export const APP_VERSION = '0.3.565';
 
 export const LEDGER_VERSION = 3;
 
@@ -154,8 +154,8 @@ export const ARRIVE_MISS_LIMIT = 3;
 export const CALLS_PER_TURN = 1;
 
 /** 阶段名（冲突型 / 推进型） */
-export const STAGES_CONFLICT = ['萌芽', '发酵', '逼近', '爆发', '消散'];
-export const STAGES_PROGRESS = ['筹备', '执行', '关键', '完成'];
+export const STAGES_CONFLICT = ['萌芽', '发酵', '逼近', '爆发', '余波', '消散', '作废'];
+export const STAGES_PROGRESS = ['筹备', '执行', '关键', '余波', '完成', '作废'];
 
 /** 三层火候：近的快推、远的慢炖 */
 export const TIERS = ['身边即时', '几天内', '长线大势'];

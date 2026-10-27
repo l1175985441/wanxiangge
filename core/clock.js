@@ -444,7 +444,7 @@ export function nextStage(stage, kind) {
 /** 这条线算走完了吗 */
 export function isLineDone(stage) {
     const s = trimText(stage);
-    return s === '消散' || s === '完成';
+    return s === '消散' || s === '完成' || s === '作废';   /* 102：作废算结束；余波仍在扩散⇒不算 */
 }
 
 /**

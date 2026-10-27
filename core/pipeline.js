@@ -50,7 +50,7 @@ import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
 import { timeSpanOf, isUnavailable } from './presence.js';
-import { lifeTickDue, countdownOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
+import { lifeTickDue, countdownOf, shouldRunUpdate } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
@@ -2955,15 +2955,18 @@ export function markFloorSwiped(floor) {
 
 export function shouldUpdateNow(floor) {
     const settings = getSettings();
-    const every = clampNumber(settings.updateEvery, 1, 10, 1);
     const state = loadState();
     const last = Number(state.pipeline && state.pipeline.atFloor);
-    if (!Number.isFinite(last) || last < 0) {
-        return true;
-    }
     const cur = Number(floor);
+    /*
+     * 102：「晚一层」硬需求（她 22:16：生成第 7 层时只更新第 5 层）。
+     *   旧：追着最新一层跑 ⇒ 她刷第 7 层十遍就白算十遍。
+     *   新：目标层＝cur − 1 − lag（lag 来自 settings.updateLag，默认 1）；没到目标层就不跑。
+     */
+    const lag = Math.max(0, Math.floor(Number(settings.updateLag)));
+    const r = shouldRunUpdate({ curFloor: cur, lastUpdatedFloor: last, lag: Number.isFinite(lag) ? lag : 1 });
     if (!Number.isFinite(cur)) {
-        return every <= 1;
+        return false;
     }
     /* ⭐ 链路断路 3：她**真的 Swipe 过**这一楼 ⇒ 放行一次 ✓（其余照旧不重烧 ✓） */
     const swiped = Number(state.pipeline && state.pipeline.swipedFloor);
@@ -2971,10 +2974,7 @@ export function shouldUpdateNow(floor) {
         try { setPipeline({ swipedFloor: -1 }); } catch (eClear) { /* 清不掉也能继续 ✓ */ }
         return every <= 1;
     }
-    if (cur <= last) {
-        return false;   // 这一楼（或更早的楼）已经算过了，重 roll 多少次都不重烧
-    }
-    return (cur - last) >= every;
+    return r.run;
 }
 
 /** 单轮更新最多发几次模型请求（世界状态 1 次 ＋ 角色合并推演 1 次，省额度） */
