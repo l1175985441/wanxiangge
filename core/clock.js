@@ -270,6 +270,35 @@ export function parseClock(text) {
     return out;
 }
 
+/**
+ * 给一句“什么时候”算绝对分钟（供日程落库用）。⛔ 猜：认不出就 null。
+ * @param {string} text 例：“明天晚上”「后天早上」「03:30 PM」
+ * @param {number} nowMinute 当前绝对分钟（同 world.clockMinute）
+ */
+export function dueToAbsoluteMinute(text, nowMinute) {
+    const raw = trimText(text);
+    if (!raw) { return null; }
+    const p = parseClock(raw);
+    if (p.has && p.day !== null) {
+        return p.day * 1440 + (p.minutesOfDay || 0);
+    }
+    const now = Number(nowMinute);
+    if (!Number.isFinite(now)) { return null; }
+    const dayNow = Math.floor(now / 1440);
+    let off = null;
+    if (raw.indexOf('后天') >= 0) { off = 2; }
+    else if (/[明]天|[明]日|[明]晚|[明]早/.test(raw)) { off = 1; }
+    else if (/[今]天|[今]日|[今]晚|[今]早|[今]晨/.test(raw)) { off = 0; }
+    const hit = PERIODS.find((x) => raw.indexOf(x.key) >= 0);
+    if (off !== null && hit) {
+        return (dayNow + off) * 1440 + hit.from * 60;
+    }
+    if (p.has && p.minutesOfDay !== null) {
+        return dayNow * 1440 + (p.minutesOfDay || 0);
+    }
+    return null;
+}
+
 /** 世界钟走了多远（分钟）——同一时间段内视角的"到点"判断用 */
 export function clockDistance(fromText, toText) {
     const a = parseClock(fromText);

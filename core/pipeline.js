@@ -76,7 +76,7 @@ import { stampSource, floorText } from './provenance.js';
 import { render, noteText } from './prompt.js';
 import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下“本来会改成什么” */   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
-import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance } from './clock.js';
+import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance, dueToAbsoluteMinute } from './clock.js';
 import { addElapsed, stripModelDateFields } from './world-events.js';   /* 100：走钟／模型无权写绝对时间 */
 import { markBookDirty } from './book.js';
 import { clockAnchor } from './gametime.js';
@@ -1555,6 +1555,7 @@ function applyCharacter(raw, material, conflicts) {
                 continue;
             }
             if (!c.schedule.some((x) => x.what === what)) {
+                const dueAbs = dueToAbsoluteMinute(trimText(s && s.due), curMin);   /* 864：写入时算一次 */
                 c.schedule.push({
                     what,
                     due: trimText(s && s.due),
@@ -1563,6 +1564,9 @@ function applyCharacter(raw, material, conflicts) {
                     swipe: currentSwipeId(material.floor),   /* ★ A1：日程也要认得是第几版 */
             sinceDay: curDay,
                     sinceMinutes: curMin,
+                    originDueMinute: dueAbs,
+                    dueMinute: dueAbs,
+                    firedPoints: [],
                 });
             }
         }
@@ -1812,12 +1816,15 @@ async function stepCharacters(material, attempt) {
             /* 106：四时点优先，countdownOf 兜底 */
             let cd = { phrase: '' };
             {
-                const pt = pointOf({ dueMinute: c.dueMinute, originDueMinute: c.originDueMinute, firedPoints: c.firedPoints }, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
+                const soon = (Array.isArray(c.schedule) ? c.schedule : []).filter((s2) => s2 && !s2.done && Number.isFinite(Number(s2.dueMinute)));
+            soon.sort((a2, b2) => Number(a2.dueMinute) - Number(b2.dueMinute));
+            const it0 = soon[0] || {};
+            const pt = pointOf(it0, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
                 if (pt === 'due') { cd = { phrase: '已到点·本轮应履约' }; }
                 else if (pt === 'origin') { cd = { phrase: '原定期限已过（被顺延过）' }; }
                 else if (pt === 'late') { cd = { phrase: '快到时间了' }; }
                 else if (pt === 'mid') { cd = { phrase: '进展中' }; }
-                else { cd = countdownOf(c.dueMinute, w0.clockMinute, c.lastSettledMinute); }
+                else { cd = countdownOf(it0.dueMinute, w0.clockMinute); }
             }
             if (cd.phrase) {
                 lines.push('  日子：' + cd.phrase);
@@ -1835,7 +1842,8 @@ async function stepCharacters(material, attempt) {
             if (rollHint) { lines.push(rollHint); }
         }
         if (c.schedule.length) {
-            lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+            lines.push('  日程：' + c.schedule.filter((s) => !s.done).map((s) => { const wNow = (loadState().world || {}).clockMinute;
+                const ph = countdownOf(s.dueMinute, wNow).phrase; return s.what + (s.due ? '（' + s.due + '）' : '') + (ph ? '·' + ph : ''); }).join('；'));
         }
         /* ★ [579]：长期目标／quests 前台后台都不需要 ⇒ 不再喂「现有任务」给模型 ✓
          *   （旧账里的 quests 仍可在面板看／手删；⛔ 不进推演提示词、不进注入） */
@@ -1989,21 +1997,17 @@ async function stepCharacters(material, attempt) {
     if (clockNow && clockNow !== '未知' && !clockWentBackwards(loadState().world.clock, clockNow)) {
         updateWorld({ clock: clockNow }, {});
     }
-
     if (conflicts.length) {
         setPipeline({ conflicts: conflicts.slice(0, 20) });
     }
-
     const summary = '角色状态＋平行事件已更新：写了 ' + String(written) + ' 人'
         + '（现场 ' + String(onStage.length) + ' 人、轮转 ' + String(pickedBench.length) + ' 人）'
         + (newPeople ? '，其中新认 ' + String(newPeople) + ' 人' : '')
         + (questCount ? '，任务 ' + String(questCount) + ' 条' : '')
         + (conflicts.length ? '；有 ' + String(conflicts.length) + ' 处与她手改的版本冲突，已按她的版本保留' : '')
         + (meHits ? '；有 ' + String(meHits) + ' 处写到"我"，请看一眼' : '');
-
     return { ok: true, summary, written, conflicts };
 }
-
 /**
  * 从模型回包里把这个角色的任务挑出来。
  * 两种写法都认：① 跟在角色行里（`chars[i].quests`）；② 顶层 `quests` 数组里按 `name` 归位。
@@ -2029,7 +2033,6 @@ function collectQuests(raw, c) {
     }
     return out.filter((q) => trimText(q && q.title));
 }
-
 /**
  * 退化要出声：模型万一**替"我"**写了东西，记一条说明让她看得见（⛔ 不许静默退化）。
  * 内容不动她的字。
@@ -2061,7 +2064,6 @@ export function checkActingAsMe(rows, floor) {
     if (firstRow && unownedTop.length) {
         firstRow.quests = (Array.isArray(firstRow.quests) ? firstRow.quests : []).concat(unownedTop);
     }
-
     for (const raw of rowsArr) {
         const name = trimText(raw && raw.name);
         const pieces = [];
@@ -2108,11 +2110,9 @@ export function checkActingAsMe(rows, floor) {
                 pieces.push({ f: '任务', text: joined });
             }
         }
-
         for (const piece of pieces) {
             const text = piece.text;
             const reasons = [];
-
             /*
              * ① "我"当主语＋动作
              *
