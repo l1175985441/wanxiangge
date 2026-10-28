@@ -69,7 +69,7 @@ function SHAPE_VERSION_NOW() { return Number(LEDGER_VERSION) || 3; }
 /* ------------------------------ 人物 ------------------------------ */
 
 /** 角色身上支持按格锁定保护的状态字段 */
-const STATUS_MANUAL_KEYS = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds', 'schedule', 'role'];
+const STATUS_MANUAL_KEYS = ['age', 'identity', 'identities', 'faction', 'affinity', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds', 'schedule', 'role'];
 
 /** 人物记录的标准结构（缺键补齐，多余的键保留） */
 /**
