@@ -108,7 +108,6 @@ export async function readWholeBook(bookName) {
     }
     return { ok: true, entries, total: all.length, disabled };
 }
-
 const CLASSIFY_SYSTEM = [
     '你在帮一个角色扮演世界后台做"世界书建档"。',
     '我会给你一本世界书的全部条目（标题＋正文）。你的活是**把它们分门别类**，一条都不要漏。',
@@ -152,24 +151,20 @@ const CLASSIFY_SYSTEM = [
     + '"places":[{"name":"","note":""}],'
     + '"hidden":[{"name":"","stage":"","trigger":"","tier":"","note":""}]}',
 ].join('\n');
-
 /** 把一批条目拼成给模型看的清单 */
 function digestText(items) {
     return items.map((it, i) => '【' + String(i + 1) + '】标题：' + it.title
         + (it.body ? '\n正文：' + it.body : '')).join('\n\n');
 }
-
 /** 空结果 */
 function emptyWiki() {
     return { characters: [], factions: [], situations: [], places: [] };
 }
-
 /** 把模型可能给的乱七八糟形状归一 */
 /** 91：模型有时把「[地点] 皇冠游戏中心」连前缀一起回来 ⇒ 归一时强制剥掉 */
 export function stripKindPrefix(s) {
     return trimText(String(s == null ? '' : s).replace(/^\s*[\[【][^\]】]+[\]】]\s*/, ''));
 }
-
 function normalizeWiki(raw) {
     const out = emptyWiki();
     if (!raw || typeof raw !== 'object') {
@@ -199,7 +194,7 @@ function normalizeWiki(raw) {
             const mAlias = (Array.isArray(c && c.aliases) ? c.aliases : []).map((x) => trimText(x)).filter(Boolean);
             /* 116：模型按人物层口径答数组（identities）也要收到；⛔ 改落库形状（仍拼字符串） */
             const fromArr = (Array.isArray(c && c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
-            const idParts = [trimText(c && c.identity)].concat(fromArr).concat(mAlias).filter(Boolean);
+            const idParts = [trimText(c && c.identity)].concat(fromArr).concat(mAlias).filter(Boolean).filter((x) => !isBlankOrUnknownish(x));
             out.characters.push({
                 name,
                 note: trimText(c && c.note),
@@ -275,12 +270,10 @@ function normalizeWiki(raw) {
     }
     return out;
 }
-
 /** 一条 entry 入 prompt 后大概多少字（标题＋正文＋栖栏） */
 function oneChars(x) {
     return String(x.title || '').length + String(x.body || '').length + 8;
 }
-
 /** 从 from 开始取一块（按字符累计；单条超长就自成一块） */
 export function takeChunk(list, from, maxChar) {
     let to = from;
@@ -295,7 +288,6 @@ export function takeChunk(list, from, maxChar) {
     }
     return { from, to, chars: len, count: to - from };
 }
-
 /** 读爪印：上次读到哪块（⛔ 从头再来） */
 function readCheckpoint() {
     try {
@@ -308,7 +300,6 @@ function readCheckpoint() {
     }
     return { done: [], maxChar: CHUNK_CHAR_START, book: '' };
 }
-
 /** 写爪印（每块读完就留一个） */
 function writeCheckpoint(cp) {
     try {
@@ -319,7 +310,6 @@ function writeCheckpoint(cp) {
         /* 爪印写不了也不能拦着读 */
     }
 }
-
 /**
  * 让模型给条目分类（按字符分片；失败砍半重试；每块留爪印）。
  * @param {Array} entries
@@ -658,11 +648,21 @@ export function applyWiki(wiki, opts) {
             if (trimText(c.age) && !isBlankOrUnknownish(trimText(c.age)) && !trimText(hit.age)) {
                 patch.age = trimText(c.age);
             }
-            if (c.identity && !trimText(hit.identity)) {
-                patch.identity = c.identity;
+            /* 116：占位词不能冒充身份／势力（与 age 同一道闸） */
+            if (trimText(c.identity) && !isBlankOrUnknownish(trimText(c.identity)) && !trimText(hit.identity)) {
+                patch.identity = trimText(c.identity);
             }
-            if (c.faction && !trimText(hit.faction)) {
-                patch.faction = c.faction;
+            if (trimText(c.faction) && !isBlankOrUnknownish(trimText(c.faction)) && !trimText(hit.faction)) {
+                patch.faction = trimText(c.faction);
+            }
+            /* 116：身份数组也要落库（只在卡上本来没有时写） */
+            const cleanIds = (Array.isArray(c.identities) ? c.identities : []).map((x) => trimText(x)).filter((x) => x && !isBlankOrUnknownish(x));
+            if (cleanIds.length
+                && !(Array.isArray(hit.identities) && hit.identities.length)) {
+                patch.identities = cleanIds.slice();
+                if (!trimText(hit.identity)) {
+                    patch.identity = cleanIds[0];
+                }
             }
             /* P2 (material 07): merge aliases in (union, never overwrite). */
             if (Array.isArray(c.aliases) && c.aliases.length) {

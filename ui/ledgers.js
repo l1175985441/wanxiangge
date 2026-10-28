@@ -61,7 +61,7 @@ export function mountLedgers(host) {
         tag: th && th.kind === 'group' ? '群聊' : '私聊',
         sub: th && th.messages && th.messages.length ? ('最近：' + String((th.messages[th.messages.length - 1] || {}).text || '').slice(0, 40)) : '还没有消息',
         at: th && th.lastAt,
-    })), '还没有通讯记录', 'del-thread'));
+    })), '这一本暂时不由引擎产生（例：引擎还没有“谁跟谁说过话”的判定）；以后有了会自己出现', 'del-thread'));
 
     const clues = Array.isArray(st.clues) ? st.clues : [];
     box.appendChild(listCard('线索', '新 → 发展 → 触发 → 余波 → 解决／废弃', clues.map((c) => ({

@@ -137,7 +137,14 @@ export async function runSituationLayer(material) {
             const k = matchKey(s && s.title);
             if (!k) { continue; }
             if (!byTitle.has(k)) {
-                before.push({ title: trimText(s.title), sides: trimText(s.sides), pressure: Number(s.pressure) || 1, source: 'layer' });
+                before.push(Object.assign({}, s, {
+                    title: trimText(s.title),
+                    sides: trimText(s.sides),
+                    pressure: Number(s.pressure) || 1,
+                    source: 'layer',
+                    evidenceLayer: 'situation',
+                    evidenceTiers: Array.isArray(s.evidenceTiers) ? s.evidenceTiers : [],
+                }));
                 byTitle.set(k, true);
             }
         }

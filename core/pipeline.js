@@ -1920,7 +1920,7 @@ async function stepCharacters(material, attempt) {
     const sideResults = [];
     for (const g of splitPlan) {
         const gLines = g.tag === 'all' ? charLines : g.list.map((c2) => lineById.get(c2.id)).filter(Boolean);
-        const gPrompt = buildCharsPrompt(charsHeader.concat(playerHintLines).concat(gLines));
+        const gPrompt = buildCharsPrompt(charsHeader.concat(playerHintLines).concat(gLines).join('\n'));   /* 121-3：数组先 join('换行') ，⛔ 让模板拿数组变逗号 */
         const sysBase = effectivePrompt('jailbreak');
         const gRes = await callModelJson({
             prompt: tryN2 > 0 ? (gPrompt + '\n\n' + RETRY_TIGHTEN) : gPrompt,
