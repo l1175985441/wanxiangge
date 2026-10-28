@@ -121,7 +121,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.574';
+export const APP_VERSION = '0.3.575';
 
 export const LEDGER_VERSION = 3;
 
@@ -397,6 +397,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     chronicleCap: 500,
     /** 102：自动更新晚几层（她填；1＝保留最新一层） */
     updateLag: 1,
+    /** 107-B：人物步拆两次请求（前台／后台），默认开；她要关就改这里 */
+    splitChars: true,
     /** 100：悬挂几轮强制出结果（她填，默认 3） */
     hangingRounds: 3,
     /** 101：舆情显露两档：observe＝仅观察（只存不递）／relevant＝相关时显露 */

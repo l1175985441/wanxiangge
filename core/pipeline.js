@@ -50,6 +50,7 @@ import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
 import { timeSpanOf, isUnavailable, justLeft, hasDrive, classifyPresence } from './presence.js';
+import { splitPicked, planCalls, mergeSides, sideOutcome } from './chars-split.js';
 import { lifeTickDue, countdownOf, shouldRunUpdate, pointOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
@@ -334,9 +335,7 @@ function recentMessages(floor, turns) {
  */
 function stripOffStageSections(text) {
     let s = asText(text);
-    // 1. 剥掉状态块里的 archived: 段落（直到块尾或下一个顶级字段）
     s = s.replace(/\n\s*archived\s*[:：][\s\S]*?(?=\n[a-zA-Z_]+\s*[:：]|\n<\/|\n\[\/|$)/gi, '\n');
-    // 2. 剥掉明确标了“已离场 / 不在场 / 未出场”的整块或整行（连同上一行 ◈ 角色名）
     s = s.replace(/◈\s*[^\n]+\n(?:[├│└][^\n]*\n){0,3}?[├│└][^\n]*?(?:已离场|不在场|未出场)[^\n]*/g, '');
     s = s.replace(/^.*(?:已离场|不在场|镜头外).*$/gm, '');
     return s;
@@ -344,8 +343,6 @@ function stripOffStageSections(text) {
 
 /** 这一楼正文里出现了哪些名册上的人（认全名与别名；决定谁"在现场"） */
 function whoIsOnStage(text, roster) {
-    // ⭐ 走召回那套统一判定（漏了单字名会让前台角色被误当"不在场"去自由推演）
-    // ⭐ 修复 5：**先剥掉“不在现场”的人** ✓（archived 段落、已离场 ✗）
     return mentionedCharacters(stripOffStageSections(text), roster);
 }
 
@@ -466,7 +463,6 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
     for (const inc of Array.isArray(freshList) ? freshList : []) {
         const title = trimText(inc && inc.title);
         if (!title) continue;
-        // 按标题同名或二元组覆盖率 >= 0.45 认出是不是同一场局势演进
         const idx = merged.findIndex((old) => old && (
             matchKey(old.title) === matchKey(title)
             || textAppearsIn(title, old.title)
@@ -831,11 +827,9 @@ async function stepWorld(material, attempt) {
         blastMax: String(clampNumber(settings.blastRadiusMax, 1, 20, 3)),
     });
 
-    // ⭐ 补④：重试时加大输出额度（带帽子）＋ 一并要求精简闭合
     const tryN = Math.max(0, Math.round(Number(attempt) || 0));
     const res = await callModelJson({
         prompt: tryN > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
-        // ⛔ 破限词必须**真的发出去**：留空时要用内置那份（原来只读了原始设置 ⇒ 留空就等于没发）
         /*
          * 依据＝第 7 问 P3（她 [594]「真的得因果关系」）：世界步每个新变化都要说得出「为什么现在发生」。
          * 硬-3 收尾：破限词与尾巴也进同一条记账（⛔ 只记用户提示词）。
@@ -888,7 +882,6 @@ async function stepWorld(material, attempt) {
             saveState();
         }
     }
-    // 世界钟：只接受"往前走"的钟（模型写倒退就保留旧的并记一条）
     const notes = [];
     const newClock = trimText(v.clock);
     if (newClock && newClock !== '未知') {
@@ -941,7 +934,6 @@ async function stepWorld(material, attempt) {
         if (facN) { notes.push('势力厚度更新 ' + String(facN) + ' 条'); }
     }
 
-    // 局势
     const situations = Array.isArray(v.situations) ? v.situations : [];
     if (situations.length) {
         const fresh = situations.map((s) => ({
@@ -1074,11 +1066,9 @@ async function stepWorld(material, attempt) {
         }
     }
 
-    // 暗线：到点才推进（⛔ 不看回合数）
     const hiddenIn = Array.isArray(v.hidden) ? v.hidden : [];
     let advanced = 0;
     let blocked = 0;
-    // ⭐ 她 [18]/[3]：暗线里"发明具体事件／处境、写到未来态"被核闸拦下的条数
     let flagged = 0;
     const currentClock = loadState().world.clock;
     for (const raw of hiddenIn) {
@@ -1171,7 +1161,6 @@ async function stepWorld(material, attempt) {
         }
     }
 
-    // 派生成"世界事件"（召回用）
     const worldNow = loadState().world;
     const events = [];
     for (const s of worldNow.situations || []) {
@@ -1215,6 +1204,77 @@ async function stepWorld(material, attempt) {
 }
 
 /* ------------------------------ 角色那一步 ------------------------------ */
+
+/**
+ * 107-B：处理一批 rows（一次调用的结果）。⛔ 不改调用顺序、⛔ 不改 applyCharacter 语义。
+ * 原样从 stepCharacters 搬出来（行为一字未变），只把外部变量换成 ctx。
+ */
+export function applyCharRows(rows, ctx) {
+    const c = ctx || {};
+    const v = c.v || {};
+    const picked = Array.isArray(c.picked) ? c.picked : [];
+    const onStageIds = c.onStageIds || new Set();
+    const material = c.material || {};
+    const conflicts = Array.isArray(c.conflicts) ? c.conflicts : [];
+    let written = 0;
+    let newPeople = 0;
+    let questCount = 0;
+    let knowCount = 0;
+    for (const raw of rows) {
+        const row = Object.assign({}, raw);
+        /*
+         * ⭐ 修复单 #16：顶层 `v.quests` 之前**没喂给任何一行**——
+         *   `collectQuests` 只读 `raw.allQuests`（全库只有它读、没人写），
+         *   ⇒ 模型按默认格式（quests 在顶层、与 chars 并列）报的任务 **100% 静默丢失**。
+         *   ⇒ 循环里补喂；`checkActingAsMe` 也会顺带读到它（下面那个字段同族加上了）。
+         */
+        row.allQuests = Array.isArray(v.quests) ? v.quests : [];
+        const found = picked.find((c) => c.name === trimText(raw && raw.name));
+        row.onStage = found ? onStageIds.has(found.id) : false;
+        const done = applyCharacter(row, material, conflicts);
+        if (done) {
+            written += 1;
+            if (done.isNew) {
+                newPeople += 1;
+            }
+            if (Array.isArray(done.quests) && done.quests.length) {
+                const who = loadState().characters.find((x) => x.name === done.name);
+                if (who) {
+                    for (const q of done.quests) {
+                        upsertQuest(who.id, q);
+                        questCount += 1;
+                    }
+                }
+            }
+            /*
+             * ⭐ 补③（尾巴）：**引擎自己维护认知账** —— 模型这一轮说他知道了什么，就收进去。
+             *   规矩跟手加**同一套**（都走 `addKnow`）：**只增不编**；**没文字／没来源 ⇒ 不收**
+             *   （她定的"拿不准的不进"）。
+             *   ⚠️ 来源楼层＝**这一轮的楼**（他这会知道它的时刻）。
+             *   ⛔ 模型没给就当"这轮没新增"，照常往下走（不当错误、不报失败）。
+             */
+            if (Array.isArray(done.knows) && done.knows.length) {
+                const who2 = loadState().characters.find((x) => x.name === done.name);
+                if (who2) {
+                    for (const kk of done.knows) {
+                        if (addKnow(who2.id, {
+                            text: trimText(kk && kk.text),
+                            source: trimText(kk && kk.source),
+                            channel: trimText(kk && kk.channel),
+                            floor: Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1,
+                        })) {
+                            knowCount += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    return { written, newPeople, questCount, knowCount };
+}
+
 
 /** 把模型给的字符字段安全地写回（手改过的⛔ 不许冲掉） */
 function applyCharacter(raw, material, conflicts) {
@@ -1267,7 +1327,6 @@ function applyCharacter(raw, material, conflicts) {
         }
     }
     if (!c) {
-        // 新认的人：自动建档（⛔ 不打扰她），但打标记让她一眼看得见
         c = {
             id: 'wxg_' + Math.random().toString(36).slice(2, 9),
             name,
@@ -1300,7 +1359,6 @@ function applyCharacter(raw, material, conflicts) {
         patch.relevance = Math.max(0, Math.min(3, Math.round(Number(raw.relevance))));
     }
 
-    // 按字段粒度判断是否手改过（若直写 c.manual=true 且未经 normalize 初始化 manualFields，则兜底视非空字段为锁定）
     const isFieldLocked = (fieldKey) => {
         if (!c.manual) {
             return false;
@@ -1338,7 +1396,6 @@ function applyCharacter(raw, material, conflicts) {
         patch[f] = incoming;
     }
 
-    // 好感：只"读"，⛔ 不自己加减、不自己编（模型给的只当参考，若她没接数据源就照抄）
     /* ⭐修复 4（材料 02）并按材料 03 定稿修正 ✓
      *   病根：旧条件只排除 `'未知'` ✗ ⇒ 推演模型把“未接入/敌对/本人”这类**文字**
      *         写进好感格也照单全收 ✗（好感格污染 ✗）
@@ -1361,7 +1418,6 @@ function applyCharacter(raw, material, conflicts) {
         delete patch.affinity;
     }
 
-    // 世界钟的连续性：时间地点里若含时间，倒退就记一条异常（不覆盖）
     if (patch.timePlace) {
         const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
         if (back) {
@@ -1373,7 +1429,6 @@ function applyCharacter(raw, material, conflicts) {
     Object.assign(c, patch);
     c.updatedAt = Date.now();
     c.settledRun = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算的时间戳 */
-    // 正在经历：平行线的"这一步"（写进 steps 留档；旧的自然淡化）
     let cur = trimText(raw && raw.current);
     /* 86#3：元描述（推演位／观察位／静止观察）→ 视为没写：不落库、不进编年 */
     if (cur && /推演位|观察位|静止观察|待推演/.test(cur)) {
@@ -1443,10 +1498,6 @@ function applyCharacter(raw, material, conflicts) {
         });
     }
 
-    // 过去经历（第一人称，由近到远）
-    // ⚠️ 模型给的是"由近到远"；而 pushPast 是往**队首**插的
-    //    ⇒ 必须**倒着**推，否则顺序会被反过来（自审修正·条 10）
-    // ⭐ 带上来源楼层：注入时按"楼层裁"过滤（最近 N 楼之内的不端）
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
     /* P22 (material 07): honour the capPast setting (2-20) - it used to be hardcoded to 5,
      *   so whatever the user configured was silently ignored. */
@@ -1459,7 +1510,6 @@ function applyCharacter(raw, material, conflicts) {
         }
     }
 
-    // 日程：约好的事要记下、到点跟上
     /* ⭐修复 7 后半：**记下建日程时的世界钟**（起算日 ✓）
      *   旧：只记 `{what, due, done}` ✗ ⇒ 到点判断无从算起 ✗；而且一到点就 `done = true` ✗
      *        ⇒ 她根本没机会履约 ✗（约定默默消失 ✗）
@@ -1489,7 +1539,6 @@ function applyCharacter(raw, material, conflicts) {
         }
     }
 
-    // 日程到点判断（按世界钟，⛔ 不按回合）
     const clock = loadState().world.clock;
     for (const s of c.schedule) {
         if (s.done) {
@@ -1522,7 +1571,6 @@ function applyCharacter(raw, material, conflicts) {
         }
     }
 
-    // ⭐ 任务（主线／支线）：模型在 chars 里随行给的 quests（按角色名归位；也认顶层 quests）
     const quests = collectQuests(raw, c);
 
     /*
@@ -1559,7 +1607,6 @@ async function stepCharacters(material, attempt) {
         return { ok: true, summary: '名册是空的，角色这一步跳过（先去面板录人）' };
     }
 
-    // ⭐ 判"谁在现场"要看**原文**（清洗可能剥掉状态栏，剥过的文本会冤枉人）
     /*
      * ⭐⭐ 她原话 [5]/[7]：**在场＝"正文里露面"的**（⛔"名字被提到"）。
      *   原话：「正在在线的不准编造。后台不在线的这个是编造的，这个不要紧」
@@ -1610,8 +1657,6 @@ async function stepCharacters(material, attempt) {
     const onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚走了就算后台 */
     const onStageIds = new Set(onStage.map((c) => c.id));
 
-    // 不在场的：按"轮转＋封顶"挑，省额度（⛔ 不一轮全推）
-    // ⭐ 现场保护（protectedBypass）：同楼已算过的不再重推；上一轮刚在现场演过（inScene）的排到轮转队尾，优先推久未露面的人
     const maxParallelSetting = clampNumber(settings.maxParallelChars, 0, 12, 6);
     /* ⭐谷歌复核（四）：重试时**角色数临时减半** ✓（避开中转站的瞬时抽风波峰 ✓）下限 2 ✓ */
     const maxParallel = (Number(attempt) >= 1)
@@ -1672,8 +1717,6 @@ async function stepCharacters(material, attempt) {
     });
     const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
 
-    // "我"（玩家棋子）**不建自己的推演行**——他的存在由**别人**的行侧面承载
-    // （见提示词规矩 2／14：说话、看、递、反应）。这里的过滤是**有意保留**的（N4）。
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
     /* 107：兜底汇总（不另判一次；只用来记“这轮谁算后台、谁静滞”） */
     let presenceInfo = null;
@@ -1717,12 +1760,11 @@ async function stepCharacters(material, attempt) {
             '  ⛔ 不给他建推演行、不替他行动／说话／决定；他的存在只由**别人**的行侧面承载 ✓',
         ];
     })();
-    const charLines = picked.map((c) => {
+    const charLineArr = picked.map((c) => {
         const inScene = onStageIds.has(c.id);
         /* 96：死亡／昏迷／被封印 ⇒ 不算人（两侧都不写） */
         if (isUnavailable(c)) { return ''; }
         const lines = [
-            // c.isPlayer 不会为真（上面已过滤）；留着是为将来放开时也能显示对
             '· ' + c.name + '（' + (inScene ? '现场' : '不在场') + (c.isPlayer ? '／玩家棋子' : '') + '）',
             '  现有：年龄 ' + (trimText(c.age) || '未知')
             + ' ｜ 身份 ' + (trimText(c.identity) || '未知')
@@ -1788,7 +1830,8 @@ async function stepCharacters(material, attempt) {
         /* P19 (material 07): the long in-scene / off-scene warning used to be copied once
          *   per character (N times per prompt); it now lives once in the header. */
         return lines.join('\n');
-    }).join('\n');
+    });
+    const charLines = charLineArr.join('\n');
 
     /*
      * ⭐ 补③ 第二步（第二半）：模板里那块世界内幕是**所有人共用**的——
@@ -1822,99 +1865,76 @@ async function stepCharacters(material, attempt) {
             return false;
         });
     };
-    const prompt = render('chars', effectivePrompt('chars'), {   /* 硬-3：唯一组装入口 */
+    /*
+     * 107-B（方案 B）：真拆两次请求 —— 前台 FRONT_SYSTEM／后台 BACK_SYSTEM。
+     *   空边跳过（planCalls）；前台先跑；合并前台优先（mergeSides）；一侧失败不牵连（sideOutcome）。
+     *   `settings.splitChars === false` 时退化成单路（all），行为与旧版一致。
+     */
+    const buildCharsPrompt = (lines) => render('chars', effectivePrompt('chars'), {
         user: playerNamesForPrompt(),
         clock: trimText(loadState().world.clock) || '未知',
-        /*
-         * ⭐ 修复单 #20：**bigPicture 也要过认知过滤**。
-         *   原来 `situations` 过了（下面那行 filter），而 `bigPicture` **没过** ⇒
-         *   只要"这一批里任何一个人填过清单"，整段世界总览照样漏给所有人 ⇒ 防全知那一支等于白写。
-         *   ⚠️ 总览是一整段话、没法按条筛 ⇒ 用"**这批里有人记过跟它相关的东西吗**"判
-         *     （`knownBySomeone` 是双向 includes：总览里提到某人记过的事 ⇒ 就照给；谁都没记过 ⇒ ⛔ 不给）。
-         */
         world: [
             (trimText(loadState().world.bigPicture) && knownBySomeone(trimText(loadState().world.bigPicture)))
                 ? trimText(loadState().world.bigPicture) : '',
-            ((loadState().world.situations || []).filter((s) => s && trimText(s.title) && knownBySomeone(trimText(s.title), trimText(s.visibility))).map((s) => trimText(s.title)).join('；') || ''),
+            ((loadState().world.situations || []).filter((s) => s && trimText(s.title) && knownBySomeone(trimText(s.title), trimText(s.visibility))).map((s) => '· ' + trimText(s.title)).join('\n')),
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⛔ 给）',
         recent: material.recentText || '（没有可读的正文）',
-        chars: charsHeader.concat(playerHintLines).concat(charLines),
+        chars: lines,
     });
-
-    // ⭐ 补④：同世界步（重试加大额度 + 要求精简闭合）
+    const lineById = new Map(picked.map((c2, i2) => [c2.id, charLineArr[i2]]));
+    const splitPlan = planCalls(splitPicked(picked, onStageIds), {
+        splitOn: settings.splitChars !== false,
+        frontSystem: effectivePrompt('front') || FRONT_SYSTEM,
+        backSystem: effectivePrompt('back') || BACK_SYSTEM,
+    });
     const tryN2 = Math.max(0, Math.round(Number(attempt) || 0));
-    const res = await callModelJson({
-        prompt: tryN2 > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
-        // ⛔ 破限词必须**真的发出去**：留空时用内置那份
-        system: noteText('system-chars', effectivePrompt('jailbreak')),   /* 硬-3：破限词也记账 */
-        maxTokens: retryTokens((settings.api || {}).maxTokens, tryN2),
-    });
-    if (!res.ok) {
-        return { ok: false, reason: res.reason };
+    const sideResults = [];
+    for (const g of splitPlan) {
+        const gLines = g.tag === 'all' ? charLines : g.list.map((c2) => lineById.get(c2.id)).filter(Boolean);
+        const gPrompt = buildCharsPrompt(charsHeader.concat(playerHintLines).concat(gLines));
+        const sysBase = effectivePrompt('jailbreak');
+        const gRes = await callModelJson({
+            prompt: tryN2 > 0 ? (gPrompt + '\n\n' + RETRY_TIGHTEN) : gPrompt,
+            system: noteText('system-chars-' + g.tag, g.sys ? (sysBase + '\n\n' + g.sys) : sysBase),
+            maxTokens: retryTokens((settings.api || {}).maxTokens, tryN2),
+        });
+        if (gRes && gRes.ok) {
+            const gv = gRes.value || {};
+            sideResults.push({
+                tag: g.tag,
+                ok: true,
+                value: gv,
+                rows: Array.isArray(gv.chars) ? gv.chars : (Array.isArray(gv.characters) ? gv.characters : []),
+                quests: Array.isArray(gv.quests) ? gv.quests : [],
+            });
+        } else {
+            sideResults.push({ tag: g.tag, ok: false, reason: (gRes && gRes.reason) || '没回可用 JSON' });
+        }
     }
-
-    const v = res.value || {};
-    const rows = Array.isArray(v.chars) ? v.chars : (Array.isArray(v.characters) ? v.characters : []);
+    const sideState = sideOutcome(sideResults);
+    if (!sideState.ok) {
+        return { ok: false, reason: sideState.fails.join('；') || '角色步没回可用 JSON' };
+    }
+    const okSides = sideResults.filter((x) => x.ok);
+    const merged = mergeSides(okSides.map((x) => ({ rows: x.rows, quests: x.quests })));
+    const rows = merged.rows;
     if (!rows.length) {
         return { ok: false, reason: '模型没按格式给出角色（chars 是空的）' };
     }
-
+    const v = Object.assign({}, ...okSides.map((x) => x.value || {}), { quests: merged.quests });
+    if (sideState.fails.length) {
+        try { setPipeline({ text: '部分人物没算成：' + sideState.fails.join('；') }); } catch (ePF) { /* 不能拦主流程 */ }
+    }
     const conflicts = [];
     let written = 0;
     let newPeople = 0;
     let questCount = 0;
     let knowCount = 0;   // ⭐ 补③：这一轮往认知账里收了几条
-    for (const raw of rows) {
-        const row = Object.assign({}, raw);
-        /*
-         * ⭐ 修复单 #16：顶层 `v.quests` 之前**没喂给任何一行**——
-         *   `collectQuests` 只读 `raw.allQuests`（全库只有它读、没人写），
-         *   ⇒ 模型按默认格式（quests 在顶层、与 chars 并列）报的任务 **100% 静默丢失**。
-         *   ⇒ 循环里补喂；`checkActingAsMe` 也会顺带读到它（下面那个字段同族加上了）。
-         */
-        row.allQuests = Array.isArray(v.quests) ? v.quests : [];
-        const found = picked.find((c) => c.name === trimText(raw && raw.name));
-        row.onStage = found ? onStageIds.has(found.id) : false;
-        const done = applyCharacter(row, material, conflicts);
-        if (done) {
-            written += 1;
-            if (done.isNew) {
-                newPeople += 1;
-            }
-            if (Array.isArray(done.quests) && done.quests.length) {
-                const who = loadState().characters.find((x) => x.name === done.name);
-                if (who) {
-                    for (const q of done.quests) {
-                        upsertQuest(who.id, q);
-                        questCount += 1;
-                    }
-                }
-            }
-            /*
-             * ⭐ 补③（尾巴）：**引擎自己维护认知账** —— 模型这一轮说他知道了什么，就收进去。
-             *   规矩跟手加**同一套**（都走 `addKnow`）：**只增不编**；**没文字／没来源 ⇒ 不收**
-             *   （她定的"拿不准的不进"）。
-             *   ⚠️ 来源楼层＝**这一轮的楼**（他这会知道它的时刻）。
-             *   ⛔ 模型没给就当"这轮没新增"，照常往下走（不当错误、不报失败）。
-             */
-            if (Array.isArray(done.knows) && done.knows.length) {
-                const who2 = loadState().characters.find((x) => x.name === done.name);
-                if (who2) {
-                    for (const kk of done.knows) {
-                        if (addKnow(who2.id, {
-                            text: trimText(kk && kk.text),
-                            source: trimText(kk && kk.source),
-                            channel: trimText(kk && kk.channel),
-                            floor: Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1,
-                        })) {
-                            knowCount += 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    const applied = applyCharRows(rows, { v, picked, onStageIds, material, conflicts });
+    written += applied.written;
+    newPeople += applied.newPeople;
+    questCount += applied.questCount;
+    knowCount += applied.knowCount;
     const meHits = checkActingAsMe(rows, material.floor);
 
     /*
@@ -2688,7 +2708,6 @@ export async function runBackfill(opts) {
     if (!chat.length) {
         return { ok: false, reason: '这个聊天还没有楼' };
     }
-
     /* ⭐修复 1（材料 02）：扫描对象从“只读用户楼”改为“**全部有效正文楼**” ✓
      *   旧：只收 `is_user` 楼 ✗ ⇒ **AI 正文楼全部漏读** ✗（它们才是剧情主体 ✗）
      *   新：收所有非系统且有正文的楼（含 AI 楼、用户楼、**隐藏楼** ✓） */
@@ -2723,7 +2742,6 @@ export async function runBackfill(opts) {
     if (!todo2.length) {
         return { ok: true, text: '没有要补的楼了' };
     }
-
     backfilling = true;
     markLive();
     cancelRequested = false;
@@ -2740,7 +2758,6 @@ export async function runBackfill(opts) {
         cancelRequested: false,
         conflicts: [],
     });
-
     let done = 0;
     let failedAt = '';
     /* ⭐ 谷歌（一）：**滑动字数窗分批** ✓（⛔ 逐楼一整轮 ✗） */
@@ -2759,7 +2776,6 @@ export async function runBackfill(opts) {
         done += batch.length;   /* ⭐ 一批算几楼 ✓（⛔ 按 1 楼加 ✗） */
         await sleep(400);   // 让界面喘口气，⛔ 不挡她聊天
     }
-
     backfilling = false;
     markLive();
     const text = cancelRequested
@@ -2777,14 +2793,11 @@ export async function runBackfill(opts) {
     markBookDirty();
     return { ok: !failedAt, text, done };
 }
-
 /** 补推还在跑吗 */
 export function isBackfilling() {
     return backfilling;
 }
-
 /* ------------------------------ 对账 ------------------------------ */
-
 /**
  * 账与楼对账：楼层被删／重跑时，对不上的账跟着清；⛔ 有软保护（防误清空）。
  */
@@ -2792,11 +2805,9 @@ export function runReconcile() {
     const chat = getChat();
     const state = loadState();
     const notes = [];
-
     if (!Array.isArray(chat) || chat.length === 0) {
         return { removed: 0, note: '拿不到聊天内容，这次不动手（防误清空）' };
     }
-
     const before = state.recallRecords.length;
     const byMesId = new Map();
     const userFloors = [];
@@ -2809,7 +2820,6 @@ export function runReconcile() {
             userFloors.push({ idx, text: trimText(m.mes) });
         }
     });
-
     state.recallRecords = state.recallRecords.filter((r) => {
         if (!r) {
             return false;
@@ -2851,7 +2861,6 @@ export function runReconcile() {
         return !!(m && m.is_user && !m.is_system);
     });
     const removed = before - state.recallRecords.length;
-
     let orphan = 0;
     for (const c of state.chronicle) {
         if (Number.isFinite(c.floor) && c.floor >= 0 && c.floor >= chat.length) {
@@ -2861,7 +2870,6 @@ export function runReconcile() {
             }
         }
     }
-
     /*
      * ⭐ 修复单 #23：**两个锚点都要查**。
      *   原来只查 `pipeline.atFloor`，`lastUpdate.floor` 越界了没人管 ——
@@ -2895,7 +2903,6 @@ export function runReconcile() {
             }
         }
     }
-
     saveState();
     if (removed > 0) {
         notes.push('清了 ' + String(removed) + ' 条对不上的召回账');
@@ -2905,9 +2912,7 @@ export function runReconcile() {
     }
     return { removed, note: notes.join('；') || '账与楼对得上，没动' };
 }
-
 /* ------------------------------ 频率控制 ------------------------------ */
-
 /**
  * 到该更新的时刻了吗（按推进楼层差判；自动更新在 MESSAGE_RECEIVED 时传 floor - 1 留一层缓冲）。
  * ⚠️ 注意：
@@ -2938,18 +2943,15 @@ export function currentSwipeId(floor) {
         return 0;
     }
 }
-
 export function commitKeyOf(floor, swipeId) {
     return String(Number(floor)) + ':' + String(Number(swipeId) || 0);
 }
-
 export function alreadyCommitted(state, floor, swipeId) {
     const lu = (state && state.lastUpdate) || {};
     if (lu.status !== 'ok') { return false; }
     const key = commitKeyOf(floor, swipeId);
     return String(lu.commitKey || '') === key;
 }
-
 export function markFloorSwiped(floor) {
     const f = Number(floor);
     if (!Number.isFinite(f) || f < 0) {
@@ -2966,7 +2968,6 @@ export function markFloorSwiped(floor) {
         }
     } catch (eSw) { /* 记不上也不能把事件处理搞挂 ✓ */ }
 }
-
 export function shouldUpdateNow(floor) {
     const settings = getSettings();
     const state = loadState();
@@ -2990,7 +2991,6 @@ export function shouldUpdateNow(floor) {
     }
     return r.run;
 }
-
 /** 单轮更新最多发几次模型请求（世界状态 1 次 ＋ 角色合并推演 1 次，省额度） */
 export function callBudget() {
     return CALLS_PER_TURN + 1;
