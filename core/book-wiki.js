@@ -18,6 +18,7 @@
  */
 
 import { TIERS } from './config.js';
+import { isBlankOrUnknownish } from './rules.js';   /* 116：占位词闸（与人物层同一份） */
 import { addCharacters, updateWorld, loadState, saveState, updateCharacter, findCharacterByName, upsertHidden, setEvents, upsertFaction, getRoster } from './state.js';
 import { mergeCharacters } from './merge.js';
 import { getSettings } from './settings.js';
@@ -196,11 +197,13 @@ function normalizeWiki(raw) {
         if (name) {
             /* 94：模型给的 aliases（形态）并回 identity；aliases 只她手填 */
             const mAlias = (Array.isArray(c && c.aliases) ? c.aliases : []).map((x) => trimText(x)).filter(Boolean);
-            const idParts = [trimText(c && c.identity)].concat(mAlias).filter(Boolean);
+            /* 116：模型按人物层口径答数组（identities）也要收到；⛔ 改落库形状（仍拼字符串） */
+            const fromArr = (Array.isArray(c && c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+            const idParts = [trimText(c && c.identity)].concat(fromArr).concat(mAlias).filter(Boolean);
             out.characters.push({
                 name,
                 note: trimText(c && c.note),
-                age: trimText(c && c.age),   /* 109：读世界书要年龄 */
+                age: isBlankOrUnknownish(trimText(c && c.age)) ? '' : trimText(c && c.age),   /* 109/116：年龄进来、占位词不进 */
                 identity: idParts.join('；'),
                 /* 116：同时产出数组（三处同一种形状） */
                 identities: idParts.join('；').split(/[；;]/).map((s) => trimText(s)).filter(Boolean),
@@ -438,7 +441,6 @@ export async function classifyBook(entries, opts) {
     }
     return { ok: true, wiki, chunks, failedChunks, maxChar, resumedFrom: startIndex };
 }
-
 /** 去重（名字归一后比） */
 function dedupe(list, keyOf) {
     const seen = new Set();
@@ -453,7 +455,6 @@ function dedupe(list, keyOf) {
     }
     return out;
 }
-
 /**
  * 把分类结果**落到账上**：人物→名册；势力／局势→世界状态（局势）。
  * @returns {{people: number, factions: number, situations: number, places: number, situationsTotal: number}}
@@ -524,7 +525,6 @@ export function applyPeopleExtras(people) {
     }
     return touched;
 }
-
 /** 91：把“源条目标题 → 类别前缀”建成一张图（供机械闸用） */
 export function buildSourceTitleMap(sourceTitles) {
     const map = new Map();
@@ -542,7 +542,6 @@ export function buildSourceTitleMap(sourceTitles) {
     }
     return map;
 }
-
 /**
  * 91#1：这个名字是不是“抄源条目标题”。
  *   命中源标题且**源条目不属于同类** ⇒ 是抄标题（要丢）；
@@ -572,7 +571,6 @@ export function isEchoTitle(rawTitle, srcMap, kindRe) {
     }
     return !kindRe.test(k);
 }
-
 export function applyWiki(wiki, opts) {
     /*
      * 91#1：**标题不许当结果**（最重要的一道，⛔ 只靠提示词）。
@@ -642,7 +640,6 @@ export function applyWiki(wiki, opts) {
         return true;
     });
     const sits = dedupe(w.situations, (s) => s.title);
-
     const people = addCharacters(chars.map((c) => c.name));
     if (chars.length) {
         const state = loadState();
@@ -657,6 +654,10 @@ export function applyWiki(wiki, opts) {
                 continue;
             }
             const patch = {};
+            /* 116：年龄也要进卡（只在卡上本来空时写；占位词不进） */
+            if (trimText(c.age) && !isBlankOrUnknownish(trimText(c.age)) && !trimText(hit.age)) {
+                patch.age = trimText(c.age);
+            }
             if (c.identity && !trimText(hit.identity)) {
                 patch.identity = c.identity;
             }
@@ -687,7 +688,6 @@ export function applyWiki(wiki, opts) {
             saveState();
         }
     }
-
     /* P3 (material 07): conspiracies -> real hidden lines (previously dropped or mixed
      *   into public situations with no stage and no clock trigger). */
     for (const h of (Array.isArray(w.hidden) ? w.hidden : [])) {
@@ -712,7 +712,7 @@ export function applyWiki(wiki, opts) {
         try { upsertFaction({ name: f.name, note: f.note, scale: f.scale }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
     for (const s of sits) {
-        merged.push({ title: s.title, sides: s.sides, tier: s.tier, source: 'book' });
+        merged.push(Object.assign({}, s, { source: 'book' }));   /* 117：归一备齐的字段不在这里砍 */
     }
     const before = (loadState().world && loadState().world.situations) || [];
     let situationsTotal = before.length;
@@ -730,7 +730,6 @@ export function applyWiki(wiki, opts) {
         updateWorld({ situations: before });
         situationsTotal = before.length;
     }
-
     /*
      * ★ 20261022 P0-5（从 expandMultiNameEntries 搬过来）：导入的局势/暗线要同步进召回用的
      *   事件池，否则 state.events 一直空着 ⇒ 发消息时按 events 挑世界事件 ⇒ **0 召回**。
@@ -756,7 +755,6 @@ export function applyWiki(wiki, opts) {
             setEvents(oldEv.concat(addEv));
         }
     } catch (eB7) { /* 同步失败不能影响导入本身 ✓ */ }
-
     return {
         people,
         factions: facs.length,
@@ -790,7 +788,6 @@ export function applyWiki(wiki, opts) {
         dropped: echoDrop,   /* 91：丢了几条“抄标题”的局势／地点 */
     };
 }
-
 /**
  *
  */
@@ -821,7 +818,6 @@ export function expandMultiNameEntries(entries) {
      */
     return out;
 }
-
 export function ruleBasedPeople(entries) {
     const people = [];
     const seen = new Map();
@@ -916,7 +912,9 @@ export function mergeAliasGroups(list) {
         .map((x) => ({
             name: trimText(x.name),
             note: trimText(x.note),
+            age: trimText(x.age),   /* 116：这里重建对象时不能把年龄丢了 */
             identity: trimText(x.identity),
+            identities: Array.isArray(x.identities) ? x.identities.map((a) => trimText(a)).filter(Boolean) : [],
             faction: trimText(x.faction),
             aliases: Array.isArray(x.aliases) ? x.aliases.map((a) => trimText(a)).filter(Boolean) : [],
         }));
@@ -950,7 +948,9 @@ export function mergeAliasGroups(list) {
         merged.push({
             name: host.name,
             note: host.note,
+            age: host.age,
             identity: host.identity,
+            identities: Array.isArray(host.identities) ? host.identities : [],
             faction: host.faction,
             aliases: host.aliases.filter((x) => x && x !== host.name),
         });

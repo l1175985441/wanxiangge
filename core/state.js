@@ -2065,6 +2065,14 @@ export function normalizeSituation(s) {
         evidenceTiers: (Array.isArray(src.evidenceTiers) ? src.evidenceTiers : [])
             .filter((x) => x && trimText(x.who))
             .map((x) => ({ who: trimText(x.who), tier: trimText(x.tier) || 'inferred' })),
+        /* 117：读书带回的字段不能在归一这里被洗掉 */
+        note: trimText(src.note),
+        clock_mode: trimText(src.clock_mode || src.clockMode),
+        due: trimText(src.due || src.due_at),
+        publicity: trimText(src.publicity),
+        public_trace: trimText(src.public_trace || src.publicTrace),
+        caused_by: trimText(src.caused_by || src.causedBy),
+        impact_records: Array.isArray(src.impact_records) ? src.impact_records : (Array.isArray(src.impacts) ? src.impacts : []),
         tier: trimText(src.tier),
         cause: trimText(src.cause),
         effect: trimText(src.effect),

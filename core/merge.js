@@ -46,7 +46,11 @@ export function mergeCharacters(keepId, fromName) {
 
     /* ② 数据互补：谁有谁填，⛔ 一个字段都不丢 */
     const textFields = ['age', 'identity', 'faction', 'affinity', 'timePlace', 'current', 'affinitySource', 'behaviorBounds', 'knowledgeBounds'];   /* 依据＝第 7 问 D4 */
+    /* 118：她手改过的格，合并时也不许填回去（⛔ 只管模型改、不管合并）；
+     *   ⚠️ 不做“整身锁”：合并是她手点的、目的就是补数据，整身锁会让合并几乎没效果。 */
+    const manual = Array.isArray(keep.manualFields) ? keep.manualFields : null;
     for (const f of textFields) {
+        if (manual && manual.indexOf(f) >= 0) { continue; }
         const mine = trimText(keep[f]);
         const theirs = trimText(from[f]);
         if (!mine && theirs) {
