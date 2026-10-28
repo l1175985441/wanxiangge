@@ -66,6 +66,8 @@ import {
     rememberRollCheckpoint,
     getRollCheckpoint,
     capList,
+    getRoster,
+    isPlayerCharacter,
     beginSaveBatch, endSaveBatch, bindChatForRun, unbindChatForRun, factionPassesGate, dueRollup, rollupPast, upsertFaction, upsertWorldFact, upsertPulseDomain, markPulseCoverage, upsertWind, listWindsView, ROLE_WEIGHT } from './state.js';
 import { callModelJson, lastApiAttempts, resetApiAttempts } from './apiclient.js';   /* 4-b #3：记账三格 */
 import { captureOwner, checkOwner } from './owner.js';
@@ -1334,6 +1336,8 @@ function applyCharacter(raw, material, conflicts) {
             past: [],
             schedule: [],
             steps: [],
+            identities: [],
+            isPlayer: isPlayerCharacter({ name }),
             isNew: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -1370,6 +1374,21 @@ function applyCharacter(raw, material, conflicts) {
     };
 
     const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
+    /* 身份可多条（她定的 8 格之一）：数组单独走一遍，⛔ 混进 textFields（那个循环用 trimText，数组会变字符串） */
+    {
+        const incIds = Array.isArray(raw && raw.identities)
+            ? raw.identities.map((x) => trimText(x)).filter(Boolean)
+            : [];
+        if (incIds.length) {
+            if (isFieldLocked('identities')) {
+                notePending(c, 'identities', incIds.join('；'), { floor: material.floor, why: '模型推演', from: 'chars-step' });
+                conflicts.push(c.name + ' 的「身份」她手改过，保留她的版本（模型想改成：' + incIds.join('；').slice(0, 40) + '）');
+            } else {
+                patch.identities = incIds;
+                patch.identity = incIds[0];
+            }
+        }
+    }
     /* ⭐⭐ 材料 07 · P5（第一波·“未知”覆盖 ✗）：**占位词不能当真值写回** ✓
      *   病根：T1（system 破限词）强令“一个字段都不许空着…没有的写'未知'” ✗
      *         ⇒ 模型不敢留空，全填 “未知” ✗ 而这里**只跳空串** ✗
@@ -1394,6 +1413,10 @@ function applyCharacter(raw, material, conflicts) {
             continue;
         }
         patch[f] = incoming;
+        /* 116：单数身份也要让 identities 至少有一条 */
+        if (f === 'identity' && !Array.isArray(patch.identities)) {
+            patch.identities = [incoming];
+        }
     }
 
     /* ⭐修复 4（材料 02）并按材料 03 定稿修正 ✓
@@ -1602,7 +1625,7 @@ function applyCharacter(raw, material, conflicts) {
 async function stepCharacters(material, attempt) {
     const settings = getSettings();
     const state = loadState();
-    const roster = state.characters.filter((c) => !c.ignored);
+    const roster = getRoster().filter((c) => !c.ignored);   /* 107-B：走 getRoster，她才会被标 isPlayer */
     if (!roster.length) {
         return { ok: true, summary: '名册是空的，角色这一步跳过（先去面板录人）' };
     }
@@ -2265,7 +2288,6 @@ async function runUpdateInner(opts) {
     if (!settings.enabled) {
         return { ok: false, reason: '总开关关着' };
     }
-
     running = true;
     markLive();
     /*
@@ -2286,7 +2308,6 @@ async function runUpdateInner(opts) {
         markLive();   /* ★ 20261022：提前返回也要关灯，否则界面按钮永久禁用 */
         return { ok: true, skipped: true, reason: '这一楼的这一版已经算过了（重刷同一版不重复烧额度）' };
     }
-
     resetApiAttempts();   /* 4-b #3：这一轮从零开始数（花了几份） */
     /*
      * 依据＝阿砚 1-c #9（记录要带 chatKey，订阅方据它丢弃过期事件）：
@@ -2305,7 +2326,6 @@ async function runUpdateInner(opts) {
     try {
         gameTimeRawNow = String((loadState().world || {}).clock || '');
     } catch (eClock) { gameTimeRawNow = ''; }
-
     /*
      * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
      *   旧：同楼换 swipe 直接在已落账上叠推 ✗（暗线连跳、局势叠层 ✗）
@@ -2340,7 +2360,6 @@ async function runUpdateInner(opts) {
             }
         }
     }
-
     const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
     /*
      * ⭐ 修复单 #19：开跑前先把两个"锚点"记下来，失败要退回原值——
@@ -2363,7 +2382,6 @@ async function runUpdateInner(opts) {
             return -1;
         }
     })();
-
         const prevRuns = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算用的轮次 */
     setPipeline({
         kind: 'update',
@@ -2380,7 +2398,6 @@ async function runUpdateInner(opts) {
         conflicts: [],
         runs: prevRuns + 1,
     });
-
     /* ⭐ 谷歌（一）：分批时按**这一批楼层**拼材料 ✓；单楼旧行为照旧 ✓ */
     const msgs = (Array.isArray(o.batchFloors) && o.batchFloors.length)
         ? messagesOfFloors(o.batchFloors)
@@ -2404,7 +2421,6 @@ async function runUpdateInner(opts) {
      *   ⇒ 两件事会打架（回滚把编年抹了，可 `lastCheckedFloor` 已经记上、重跑不再核 ⇒ 那笔账永久丢）。
      *   ⇒ **把它挪到"回滚之后"再跑**（见下面收尾段），两个机制各自独立、不再互相踩。
      */
-
     if (!trimText(material.recentText)) {
         /*
          * ⭐ 修复单 #19 附注①：空跑**不该占一个快照位**（快照是有上限 SNAPSHOT_KEEP 的，
@@ -2421,14 +2437,12 @@ async function runUpdateInner(opts) {
         return { ok: false, reason: '这一楼附近没有可读的正文' };
     }
     setPipeline({ step: '读世界状态', text: '正在算世界状态（' + floorLabel(floor) + '）' });
-
     const budget = callBudget();
     let stepsUsed = 0;
     let lastError = '';
     let worldRes = { ok: false, reason: '没跑' };
     let charRes = { ok: false, reason: '没跑' };
     let lastLayers = null;   /* 98：三层跑完的回执（供回执／自测看） */
-
     /*
      * ⭐⭐ R4（材料 05）：**让 worldAtFloor 真正被读** ✓
      *   旧：只写不读 ✗ ⇒ 世界步成功（暗线萌芽⇒发酵）、紧接着角色步失败时 ✗
@@ -2448,7 +2462,6 @@ async function runUpdateInner(opts) {
     if (worldStepDone) {
         worldRes = { ok: true, reason: '这一楼的世界步上一轮已经成功过 ⇒ 跳过，直接接着跑角色步 ✓' };
     }
-
     if (!worldStepDone && stepsUsed < budget) {
         stepsUsed += 1;
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt += 1) {
@@ -2467,7 +2480,6 @@ async function runUpdateInner(opts) {
             const layerOut = await runLayers(material);
             if (layerOut && layerOut.layers) { lastLayers = layerOut.layers; }
         } catch (eLayers) { console.warn('[万象阁] 三层提示词没跑成：', eLayers); }
-
                 /* ⭐谷歌复核（二）：世界状态成功 ⇒ **立刻落盘** ✓ + 记下 worldAtFloor ✓
                  *   ⇒ 之后角色步挂了，**绝不回滚它** ✓（下次从这批的角色步接着跑 ✓） */
                 try {
@@ -2492,7 +2504,6 @@ async function runUpdateInner(opts) {
             }
         }
     }
-
     if (!cancelRequested && worldRes.ok && stepsUsed < budget) {
         stepsUsed += 1;
         setPipeline({ step: '读角色状态与平行事件', text: '正在算角色状态与平行事件' });
@@ -2534,11 +2545,9 @@ async function runUpdateInner(opts) {
             }
         }
     }
-
     const state = loadState();
     state.stat.updates = Number(state.stat.updates || 0) + 1;
     saveState();
-
     const failed = cancelRequested ? false : !(worldRes.ok && charRes.ok);
     const parts = [];
     if (worldRes.ok) {
@@ -2554,7 +2563,6 @@ async function runUpdateInner(opts) {
             : ''))
         : '更新完成'))
         + (parts.length ? '：' + parts.join('；') : (lastError ? '：' + lastError : ''));
-
     if (Array.isArray(charRes.conflicts) && charRes.conflicts.length) {
         const list = state.recallRecords;
         let target = null;
@@ -2569,7 +2577,6 @@ async function runUpdateInner(opts) {
             target.conflicts = charRes.conflicts.slice(0, 20);
         }
     }
-
     /*
      * ⭐ 修复单 #19：**失败＝账保持原样**。
      *   原来失败也照写 `atFloor` 与 `lastUpdate.floor`，后果三连：
@@ -2589,7 +2596,6 @@ async function runUpdateInner(opts) {
             console.warn('[万象阁] 失败回滚没做成：', e);
         }
     }
-
     /*
      * ⭐ 补②（修复单 #17 已改口径）：对着新正文核上一轮注入的条目。
      *   放在**回滚之后**：它写的编年不会被失败回滚抹掉，两个机制不再互相踩。
@@ -2600,7 +2606,6 @@ async function runUpdateInner(opts) {
     } catch (e) {
         console.warn('[万象阁] 送达回执没算成：', e);
     }
-
     refreshViewsSoon();   /* 86#5/#6：跑完先排一次界面刷新 */
     setPipeline({
         status: cancelRequested ? 'cancelled' : (failed ? 'failed' : 'ok'),
@@ -2674,7 +2679,6 @@ async function runUpdateInner(opts) {
     }
     saveState();
     markBookDirty();
-
     running = false;
     markLive();
     return {
@@ -2685,15 +2689,11 @@ async function runUpdateInner(opts) {
         chars: charRes,
     };
 }
-
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 /* ------------------------------ 补推历史 ------------------------------ */
-
 let backfilling = false;
-
 /**
  * 把已有聊天从头补推到现在（分批、可取消、⛔ 不卡界面）。
  * ⚠️ 识别隐藏楼层：隐藏只影响显示，照读。

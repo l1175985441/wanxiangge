@@ -202,6 +202,8 @@ function normalizeWiki(raw) {
                 note: trimText(c && c.note),
                 age: trimText(c && c.age),   /* 109：读世界书要年龄 */
                 identity: idParts.join('；'),
+                /* 116：同时产出数组（三处同一种形状） */
+                identities: idParts.join('；').split(/[；;]/).map((s) => trimText(s)).filter(Boolean),
                 faction: trimText(c && c.faction),
                 /* P2 (material 07): carry the aliases through (the model is told to put
                  *   transformation-form names here) - previously they were dropped. */
@@ -878,7 +880,6 @@ export function ruleBasedPeople(entries) {
     }
     return { people, skipped };
 }
-
 /**
  */
 export function ruleBasedWorld(entries) {
@@ -907,7 +908,6 @@ export function ruleBasedWorld(entries) {
     }
     return { factions, situations, places };
 }
-
 /**
  */
 export function mergeAliasGroups(list) {
@@ -957,7 +957,6 @@ export function mergeAliasGroups(list) {
     }
     return merged;
 }
-
 /**
  */
 export function knowledgeKeysFromEntries(entries, name, aliases) {
