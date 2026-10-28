@@ -56,10 +56,12 @@ export const WORLD_SYSTEM = [
     '{"analysis":"本批推理",',
     ' "world_facts_upsert":[{"key":"","subject_type":"person|event|world|location|item|organization|other",',
     '   "subject":"","field":"","value":"","validity":"current|upcoming|historical|persistent",',
-    '   "visibility":"hidden|trace|known|direct","source":"","cause":"","caused_by":""}],',
+    '   "visibility":"hidden|trace|known|direct","source":"","cause":"","caused_by":"",',
+    '   "evidenceTiers":[{"who":"","tier":"fact|confirmed|inferred|conservative"}]}],',
     ' "world_facts_invalidate":[{"key":"","reason":""}],',
     ' "world_pulse_upsert":[{"label":"","kind":"environment|government|economy|organization|infrastructure|security|culture|media|community|other",',
-    '   "state":"","pressure":1,"trend":"stable|rising|falling|volatile","evidence":"","visibility":"hidden|trace|known"}],',
+    '   "state":"","pressure":1,"trend":"stable|rising|falling|volatile","evidence":"","visibility":"hidden|trace|known",',
+    '   "evidenceTiers":[{"who":"","tier":"fact|confirmed|inferred|conservative"}]}],',
     ' "clues_upsert":[{"title":"","status":"developing|triggered|echoed","note":""}],',
     ' "clues_resolve":[{"id":"","status":"resolved|discarded","reason":""}]}',
 ].join('\n');
@@ -157,7 +159,8 @@ export const HIDDEN_SYSTEM = [
     ' "hidden_upsert":[{"id":"（已有填、新建留空）","owner":"","goal":"","stage":"",',
     '   "progress":0,"max_steps":4,"memory_append":"这一步实际发生了什么（一句）",',
     '   "consequence":"","source":{"type":"plot|ripple|state","ref":""},',
-    '   "visibility":"concealed|trace|known","delivery_queued":false}],',
+    '   "visibility":"concealed|trace|known","delivery_queued":false,',
+    '   "evidenceTiers":[{"who":"","tier":"fact|confirmed|inferred|conservative"}]}],',
     ' "hidden_resolve":[{"id":"","status":"resolved|cancelled|missed","result":"具体结果"}]}',
 ].join('\n');
 

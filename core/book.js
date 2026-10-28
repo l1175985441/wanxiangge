@@ -349,7 +349,8 @@ export function buildWorldSummarySlot(stateIn) {
                 + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : '')
                 + (trimText(s.tier) ? ' · ' + trimText(s.tier) : '')
                 + (Number.isFinite(Number(s.pressure)) ? ' · 压' + String(Number(s.pressure)) + '/5' : '')
-                + (trimText(s.visibility) ? ' · ' + trimText(s.visibility) : ''));
+                + (trimText(s.visibility) ? ' · ' + trimText(s.visibility) : '')
+            + (trimText(s.basis) === '未证实' ? '（低档未采信：' + (trimText(s.lowEvidence) || 'inferred') + '）' : ''));
         });
     } else {
         lines.push('局势：（还没有）');

@@ -417,7 +417,7 @@ function topTierOf(list) {
     }
     return { rank: best, tier };
 }
-export function mergeSituationFields(old, inc, clockDeltaMin) {
+export function mergeSituationFields(old, inc, clockDeltaMin, layer) {
     /* 108：低档不覆盖高档（同档比先落账）；低档那条留成 basis:未证实 */
     {
         const oldTop = topTierOf(old && old.evidenceTiers);
@@ -427,7 +427,12 @@ export function mergeSituationFields(old, inc, clockDeltaMin) {
         }
         /* 同档：先落账的赢 ⇒ 不覆盖（不要一直刷新同一条） */
         if (oldTop.rank >= 0 && incTop.rank === oldTop.rank) {
-            return Object.assign({}, old);
+            /* 114：同档分两种——A 同层同档：**新的赢**；B 跨层同档：**先落账的赢**（⛔ 按哪层重要） */
+            const oldLayer = String((old && old.evidenceLayer) || '');
+            const incLayer = String(layer || '');
+            if (oldLayer && incLayer && oldLayer !== incLayer) {
+                return Object.assign({}, old);
+            }
         }
     }
     const nextP = dampenSituationPressure(old && old.pressure, inc && inc.pressure, clockDeltaMin);
@@ -453,13 +458,14 @@ export function mergeSituationFields(old, inc, clockDeltaMin) {
         visibility: trimText(inc.visibility) || old.visibility,
         evidence: trimText(inc.evidence) || old.evidence,
         evidenceTiers: (Array.isArray(inc.evidenceTiers) && inc.evidenceTiers.length) ? inc.evidenceTiers : (Array.isArray(old.evidenceTiers) ? old.evidenceTiers : []),
+        evidenceLayer: String(layer || (old && old.evidenceLayer) || 'situation'),
         at: Date.now(),
         floor: Number.isFinite(Number(inc.floor)) ? Number(inc.floor) : old.floor,
         source: trimText(inc.source) || old.source,
     });
 }
 
-function mergeSituations(oldList, freshList, clockDeltaMin) {
+function mergeSituations(oldList, freshList, clockDeltaMin, layer) {
     const merged = (Array.isArray(oldList) ? oldList : []).map((s) => Object.assign({}, s));
     const delta = Number.isFinite(Number(clockDeltaMin)) ? Number(clockDeltaMin) : null;
     for (const inc of Array.isArray(freshList) ? freshList : []) {
@@ -484,7 +490,7 @@ function mergeSituations(oldList, freshList, clockDeltaMin) {
                 text: trimText(merged[idx].title) + '（' + trimText(title) + '）',
             });
         } catch (eCh1) { /* 记不上也不能把世界步搞挂 ✓ */ }
-            merged[idx] = mergeSituationFields(merged[idx], Object.assign({}, inc, { title }), delta);
+            merged[idx] = mergeSituationFields(merged[idx], Object.assign({}, inc, { title }), delta, layer);
         } else {
             /*
              * ⭐⭐ R12（材料 05）：**合不上时先找最像的那条并进去** ✓
@@ -967,7 +973,7 @@ async function stepWorld(material, attempt) {
             /* ⭐谷歌复核（三）：增量归并（⛔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
             /* ★ [579]：用本步世界钟走了几分钟，压住局势压力乱涨 ✓（world.clock＝步前旧钟） */
             const clockDeltaMin = clockDistance(trimText(world.clock), trimText(loadState().world.clock));
-            const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin);
+            const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin, 'world');
             /*
      * 依据＝阿砚第三批 硬-2：局势带上“来自第几楼 ＋ 那楼原文指纹”。
      *   用之前（recall）会重算指纹：对不上 = stale，⛔ 当事实用。
@@ -2182,7 +2188,6 @@ export function checkActingAsMe(rows, floor) {
             if (passive) {
                 reasons.push('改了"我"的处境（' + passive[0] + '）');
             }
-
             if (reasons.length) {
                 hits.push(name + ' 的「' + piece.f + '」里' + reasons.join('、') + '：' + text.slice(0, 40));
             }
@@ -2197,9 +2202,7 @@ export function checkActingAsMe(rows, floor) {
     }
     return hits.length;
 }
-
 /* ------------------------------ 主流程 ------------------------------ */
-
 /** 从"时间・地点"里抠出时间部分（交给 clock 判） */
 function extractClockFromPlace(text) {
     const s = trimText(text);
@@ -2209,7 +2212,6 @@ function extractClockFromPlace(text) {
     const cut = s.split(/[·・|｜,，、]/)[0];
     return trimText(cut) || s;
 }
-
 /**
  * 跑一次更新。
  * @param {object} opts { manual:boolean, floor:number, turns:number }
@@ -2229,7 +2231,6 @@ export function classifyFailure(msg) {
     if (/JSON|\u683c\u5f0f|\u89e3\u6790|parse|\u4e0d\u662f\u5408\u6cd5/i.test(s)) { return '\u683c\u5f0f'; }
     return '\u5176\u5b83';
 }
-
 export async function runUpdate(opts) {
     /*
      * 依据＝阿砚 A 组 H4：**闸要在第一个 await 之前**就抢。
@@ -2280,7 +2281,6 @@ export async function runUpdate(opts) {
         release('update');    /* H4：放闸必须在 finally 里（⛔ 中间报错就把闸卡死） */
     }
 }
-
 async function runUpdateInner(opts) {
     const o = opts || {};
     /* H4：闸已在 runUpdate 入口抢过（这里不再抢、也不再报“还在跑”，⛔ 把自己卡死） */

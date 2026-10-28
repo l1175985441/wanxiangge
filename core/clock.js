@@ -207,10 +207,17 @@ export function parseClock(text) {
             out.minute = 0;
         }
     } else {
-        const hm = raw.match(/(\d{1,2})[:：](\d{1,2})/);
+        /* 115：认英文 AM/PM（她正文里就是 03:30 PM 这种写法）；
+         *   但中文时段（下午\/晚上）已经把钟点定过了 ⇒ ⛔ 再加一次 */
+        const hm = raw.match(/(\d{1,2})[:：](\d{1,2})\s*(AM|PM|a\.m\.|p\.m\.)?/i);
         if (hm) {
             out.hour = Number(hm[1]);
             out.minute = Number(hm[2]);
+            const mer = hm[3] ? hm[3].toUpperCase().replace(/\./g, '') : '';
+            if (mer && !out.period) {
+                if (mer === 'PM' && out.hour < 12) { out.hour += 12; }
+                if (mer === 'AM' && out.hour === 12) { out.hour = 0; }
+            }
         }
     }
 
@@ -270,12 +277,21 @@ export function clockDistance(fromText, toText) {
     if (!a.has || !b.has) {
         return null;
     }
-    const dayA = a.day === null ? 0 : a.day;
-    const dayB = b.day === null ? dayA : b.day;
+    const aKnown = a.day !== null;
+    const bKnown = b.day !== null;
+    const dayA = aKnown ? a.day : 0;
+    const dayB = bKnown ? b.day : dayA;
     const absA = dayA * 1440 + (a.minutesOfDay || 0);
     let absB = dayB * 1440 + (b.minutesOfDay || 0);
+    /*
+     * 115：两种情况不能混：
+     *   ① 钟只给时段、两边都没日期（23:50 → 00:10）⇒ 补 1440（真跨天）
+     *   ② 日期明确倒退（第二天早上 → 第一天晚上）⇒ **返回负数**，⛔ 补一天
+     */
     if (absB < absA) {
-        absB += 1440;   // 跨了一天（钟只给时段没给日期时）
+        if (!aKnown && !bKnown) {
+            absB += 1440;
+        }
     }
     return absB - absA;
 }

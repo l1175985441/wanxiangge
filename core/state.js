@@ -2057,6 +2057,11 @@ export function normalizeSituation(s) {
         title: trimText(src.title || src.text),
         sides: sideText(src.sides),
         /* 108：证据档位单独一个字段（给引擎判降级；字符串 sides 不动） */
+        /* 114：降级标记要活下来（写盘再读不能丢） */
+        basis: trimText(src.basis),
+        lowEvidence: trimText(src.lowEvidence),
+        lowEvidenceAt: Number(src.lowEvidenceAt) || 0,
+        evidenceLayer: trimText(src.evidenceLayer),
         evidenceTiers: (Array.isArray(src.evidenceTiers) ? src.evidenceTiers : [])
             .filter((x) => x && trimText(x.who))
             .map((x) => ({ who: trimText(x.who), tier: trimText(x.tier) || 'inferred' })),

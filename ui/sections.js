@@ -1234,7 +1234,8 @@ function secWorld(host) {
             .forEach((s) => {
                 const p = Number.isFinite(Number(s.pressure)) ? ('压 ' + String(Number(s.pressure)) + ' 成') : '';
                 driveLines.push((p ? p + ' · ' : '') + trimText(s.title)
-                    + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : ''));
+                    + (trimText(s.sides) ? '（' + trimText(s.sides) + '）' : '')
+        + (trimText(s.basis) === '未证实' ? '「低档未采信」' : ''));
             });
         domains.slice()
             .filter((d) => d && trimText(d.label) && Number(d.pressure) >= 2)
