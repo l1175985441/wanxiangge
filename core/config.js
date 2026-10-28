@@ -76,6 +76,7 @@ export function groupOfSection(name) {
  *   ⚠️ 只改**侧栏显示**，⛔ 改段名（段名还被别处引用）。
  */
 export const SIDEBAR_SHORT = {
+    '四个账': '四个账',
     '读取控制（提取／排除四格）': '读取控制（四格）',
     '自定义 API（后台推演走这条通道）': '自定义 API',
     '提示词（可看可改）': '提示词',
@@ -86,6 +87,7 @@ export const SIDEBAR_ICONS = [
     'fa-earth-asia',      // 世界状态
     'fa-scroll',          // 编年
     'fa-address-book',    // 人物名册
+    'fa-inbox',           // 四个账（通讯／线索／回声／舆情）
     'fa-sliders',         // 总控
     'fa-palette',         // 外观
     'fa-filter',          // 召回
@@ -121,7 +123,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.576';
+export const APP_VERSION = '0.3.577';
 
 export const LEDGER_VERSION = 3;
 

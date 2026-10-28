@@ -62,6 +62,7 @@ import { toast } from './toast.js';
 import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 import { takeSnapshot, openHiddenCount, sortRosterList } from '../core/state.js';
+import { mountLedgers, deleteLedgerRow } from './ledgers.js';
 /* ------------------------------ 元素小件 ------------------------------ */
 
 /**
@@ -109,7 +110,7 @@ export function fillText(node, text) {
     FMT_SPLIT.lastIndex = 0;
 }
 
-function el(tag, cls, text) {
+export function el(tag, cls, text) {
     const node = document.createElement(tag);
     if (cls) {
         node.className = cls;
@@ -176,7 +177,7 @@ function heroEmpty(text, btnLabel, btnAction, why) {
  *   ⛔ 不用 WeakMap、不用临时中转对象（那些要么认不出、要么容易出岔子）。
  *   挂载时 `hangUp` 取出壳、把正文层放回壳里、整壳挂到宿主。
  */
-function section(title, hint, opts) {
+export function section(title, hint, opts) {
     const o = opts || {};
     /*
      * ⚠️ 护栏：hint 必须是字符串（或空）。
@@ -250,7 +251,7 @@ function section(title, hint, opts) {
  *   ⚠️ 上一次整块删 `compactCard` 时把它一起删了（实测 `card is not defined`，123 项真红），这里补回来。
  */
 
-function card(title) {
+export function card(title) {
     const box = el('div', 'wxg-card');
     if (trimText(title)) {
         box.appendChild(titleNode(el('div', 'wxg-card-h'), title));   /* 81：造的当下去括号 */
@@ -419,7 +420,7 @@ function textarea(id, value, placeholder, action, rows) {
     return box;
 }
 
-function button(label, action, cls, id) {
+export function button(label, action, cls, id) {
     const b = el('button', 'menu_button ' + (cls || ''), label);
     b.setAttribute('data-action', action);
     if (id) {
@@ -1638,7 +1639,6 @@ function secCharacters(host) {
         tr.appendChild(cell(c, 'identity'));
         tr.appendChild(cell(c, 'faction'));
         const affTd = cell(c, 'affinity');
-        // 好感只能"读"——接入数据源时提示她这是读来的
         affTd.title = trimText(c.affinitySource) ? ('读自：' + trimText(c.affinitySource)) : '没接数据源（引擎不自己编）';
         tr.appendChild(affTd);
         tr.appendChild(cell(c, 'timePlace'));
@@ -1685,13 +1685,11 @@ function secCharacters(host) {
         editBox.appendChild(editGrid);
         const curWrap = el('div', 'wxg-cedit-item is-wide');
         curWrap.appendChild(el('span', 'wxg-cedit-k', '正在经历'));
-        // ⚠️ 别用 `mkEdit(...).lastChild`（假 DOM 的 shim 不保证有 lastChild）——直接建
         const curArea = textarea('wxg-c-current-' + c.id, c.current,
             '本回合正在发生的事（只写这一步、只写他自己）', 'set-char-field', 2);
         curArea.setAttribute('data-id', c.id);
         curArea.setAttribute('data-key', 'current');
         curWrap.appendChild(curArea);
-        // ⚠️ 必须挂进 editGrid（网格）——挂到 editBox 上的话它成了 flex 项， 会并排飘在右边，`grid-column: 1/-1` 根本不生效（真机截图里看出来的）
         editGrid.appendChild(curWrap);
         detail.appendChild(editBox);
         /*
@@ -1743,7 +1741,6 @@ function secCharacters(host) {
                 detail.appendChild(mb);
             }
         }
-        // 过去经历
         const past = el('div', 'wxg-field');
         past.appendChild(el('label', null, '过去经历（由近到远，旧的自然淡化）'));
         const pastBox = el('div', 'wxg-list');
@@ -1774,7 +1771,6 @@ function secCharacters(host) {
         }
         detail.appendChild(past);
 
-        // 日程
         if (c.schedule.length) {
             const sch = el('div', 'wxg-field');
             sch.appendChild(el('label', null, '日程（到点要跟上）'));
@@ -1785,7 +1781,6 @@ function secCharacters(host) {
             sch.appendChild(schBox);
             detail.appendChild(sch);
         }
-        // 任务（主线／支线）：目标层——"他在追什么"，⛔ 不是"下一步做什么" 整理规则（我定的）：进行中的排前面，完成/搁置的收进折叠里（不占地方，但一条不丢）
         if (Array.isArray(c.quests) && c.quests.length) {
             const qBox = el('div', 'wxg-list');
             const open = c.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
@@ -5307,6 +5302,7 @@ export function renderSections(host, opts) {
          */
         secChronicle(stageEl);
         secRoster(stageEl);
+    mountLedgers(stageEl);
         secGeneral(stageEl);
         secAppearance(stageEl);
         secRecall(stageEl);
@@ -7450,7 +7446,11 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
-                case 'export-chat': {
+                case 'del-thread': if (deleteLedgerRow('thread', target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'del-clue': if (deleteLedgerRow('clue', target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'del-echo': if (deleteLedgerRow('echo', target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'del-opinion': if (deleteLedgerRow('opinion', target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'export-chat': {
         /* 110：导出这段聊天原文（只读；⛔ 写回任何东西） */
         try {
             const ctx = (window.SillyTavern && typeof window.SillyTavern.getContext === 'function') ? window.SillyTavern.getContext() : null;
