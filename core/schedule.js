@@ -47,13 +47,15 @@ export function lifeTickDue(c, nowMinute) {
  * @returns {{inWindow: boolean, days:number, phrase:string}}
  */
 export function countdownOf(dueMinute, nowMinute, startedAtMinute) {
-    const due = Number(dueMinute);
+    /* 5：Number(null)===0 会把“解析不出”当成 0 分钟 ⇒ 显示“已过期” */
+    const due = (dueMinute === null || dueMinute === undefined || dueMinute === '') ? NaN : Number(dueMinute);
     const now = Number(nowMinute) || 0;
     if (!Number.isFinite(due)) {
         return { inWindow: false, days: 0, phrase: '' };
     }
     const left = due - now;
-    const days = Math.ceil(left / (24 * 60));
+    /* 5：自然日差（不用 ceil 把 35 小时算成“还有 2 天”） */
+    const days = Math.floor(left / (24 * 60));
     if (left < 0) {
         return { inWindow: false, days, phrase: '已过期' };
     }

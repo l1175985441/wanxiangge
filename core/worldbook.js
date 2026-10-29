@@ -393,6 +393,21 @@ export function affinityFromText(text, roster, sourceTag) {
         }
     }
 
+
+    /* 6：她预设的模板是“角色名称：X”换行“好感指数：N”——开一路跨行配对，⛔ 放宽第③路 */
+    const pairRe = /角色名称\s*[：:]\s*([^\n]{1,20})\s*\n\s*好感指数\s*[：:]?\s*(-?\d+(?:\.\d+)?)/g;
+    let pm = pairRe.exec(hay);
+    while (pm) {
+        const cand = trimText(pm[1]);
+        const val = trimText(pm[2]);
+        for (const c of list) {
+            if (matchesChar(cand, c)) {
+                byName.set(trimText(c.name), val);
+            }
+        }
+        pm = pairRe.exec(hay);
+    }
+
     return Array.from(byName.entries()).map(([name, value]) => ({ name, value }));
 }
 
@@ -580,7 +595,9 @@ export async function refreshAffinity() {
                     if (!value) {
                         continue;
                     }
-                    const from = sourceIsBook ? book : (book + ' · ' + (title || '条目'));
+                    /* 6：世界书里的数字不当好感（她：好感只读正文里的《角色手机》） */
+            if (sourceIsBook) { continue; }
+            const from = book + ' · ' + (title || '条目');
                     if (trimText(c.affinity) !== value || trimText(c.affinitySource) !== from) {
                         c.affinity = value;
                         c.affinitySource = from;

@@ -53,7 +53,8 @@ export function extractAffinityPairs(text) {
         let name = '';
         for (let i = lines.length - 1; i >= 0; i -= 1) {
             const ln = lines[i];
-            if (ln.length > 0 && ln.length <= 24 && !/好感|指数|关系|状态|当前/.test(ln)) {
+            const isHeader = /^[【<\[].*[】>\]]$/.test(ln) || /^(角色手机|status|char\d|SNS)/i.test(ln);
+                if (ln.length > 0 && ln.length <= 24 && !isHeader && !/好感|指数|关系|状态|当前/.test(ln)) {
                 name = ln.replace(/^[\-\*\u00b7\u2022\s]+/, '').replace(/[:：]$/, '');
                 break;
             }

@@ -52,7 +52,8 @@ import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前
 import { timeSpanOf, isUnavailable, justLeft, hasDrive, classifyPresence } from './presence.js';
 import { splitPicked, planCalls, mergeSides, sideOutcome } from './chars-split.js';
 import { lifeTickDue, countdownOf, shouldRunUpdate, pointOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
-import { runLayers } from './layers.js';   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
+import { runLayers } from './layers.js';
+import { screenOnStage } from './screen.js';   /* 13：在场筛选独立一步 */   /* 98：世界／局势／暗流三层独立提示词 */   /* 86#5/#6：跑完刷新界面 */
 import { getSettings, effectivePrompt } from './settings.js';
 import { isBlankOrUnknownish } from './rules.js';   /* 1-c #7：一句判断单独成件 */
 // ⭐ 补② 送达回执用 markArrivals：对着新正文核上一轮注入的条目
@@ -169,6 +170,19 @@ export function looksLikePrediction(text) {
  * ★ [579]：有没有「替我做决定」的写法（正文还在等表态，却写成我已选／已答）。
  *   ⚠️ 只标不可靠；「待我做决定」本身不算违规。
  */
+
+/* 125：只剥“归别人”的直接引语（引号前 ~14 字有别人当主语的转述动词）；
+ * 裸引语（没归属）与“我说：…”一律照判 —— 26 格那个洞就在裸引语。 */
+function stripOtherQuotes(text) {
+    return String(text).replace(/[“「『"]([^”」』"]{0,120})[”」』"]/g, (m, inner, offset, whole) => {
+        const pre = String(whole).slice(Math.max(0, offset - 14), offset);
+        const verbEnd = /(?:说|问|喊|道|答|嘟囕|低声|开口|笑道)\s*[：:]?\s*$/.test(pre);
+        const mine = /我\s*(?:说|问|喊|道|答|嘟囕|低声|开口|笑道)\s*[：:]?\s*$/.test(pre);
+        const other = verbEnd && !mine;
+        return other ? ' ' : m;
+    });
+}
+
 const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替我(?:选|决定)|我选了|我答(?:应|道了)/;
 
 export function looksLikeDecidingForMe(text, opts) {
@@ -187,7 +201,7 @@ export function looksLikeDecidingForMe(text, opts) {
         }
     }
     /* ★ 20261022 ⑦：豁免词不能整句短路（否则「我答应了她，等她回话」整句放过）⇒ 先摘掉豁免片段再判 */
-    const STRIPPED = t.replace(/待我做决定|等她回话|待玩家表态|等你回话|待你决定/g, '');
+    const STRIPPED = stripOtherQuotes(t).replace(/待我做决定|待我决定|等她回话|待玩家表态|等你回话|待你决定/g, '');
     /* ★ ⑥：模型用她真名当主语写动作，也当代控拦下 ✓ */
     if (looksLikeDecidingByName(t)) { return true; }
     return DECIDE_FOR_ME_PAT.test(STRIPPED);
@@ -342,19 +356,14 @@ function stripOffStageSections(text) {
     s = s.replace(/^.*(?:已离场|不在场|镜头外).*$/gm, '');
     return s;
 }
-
 /** 这一楼正文里出现了哪些名册上的人（认全名与别名；决定谁"在现场"） */
 function whoIsOnStage(text, roster) {
     return mentionedCharacters(stripOffStageSections(text), roster);
 }
-
-
 /* 世界步的 system 尾巴（硬-3：它也要进同一条记账，⛔ 只记 prompt） */
 const WORLD_SYS_TAIL = '\n\n⛔ 因果（每条新变化都必须回答）：为什么是**现在**发生？前因／诱因／到点，必须指得出；说不清就保持安静，⛔ 为了有事发生而编一个。'
     + '\n\n⛔ 若上文里出现「摘要／前情提要／剧情梗概」这类段落，一律**当背景参考**，不许把其中的字句当成**本轮正文发生过的事实**；拿不准就只说现在能确认的那部分。';
-
 /* ------------------------------ 世界状态那一步 ------------------------------ */
-
 /*
  * ⭐⭐ 拆小（她的话：「每个都是一下子弄一点点，然后继续下一轮」）
  *   真机取证：她那站对长请求一律掉线（直连 reset、转发 502+ECONNRESET、**连流式也照掉** ✗）；短请求通 ✓
@@ -406,7 +415,6 @@ function dampenSituationPressure(oldP, newP, deltaMin) {
     }
     return np;
 }
-
 const EVIDENCE_RANK = { fact: 3, confirmed: 2, inferred: 1, conservative: 0 };
 function topTierOf(list) {
     let best = -1;
@@ -464,7 +472,6 @@ export function mergeSituationFields(old, inc, clockDeltaMin, layer) {
         source: trimText(inc.source) || old.source,
     });
 }
-
 function mergeSituations(oldList, freshList, clockDeltaMin, layer) {
     const merged = (Array.isArray(oldList) ? oldList : []).map((s) => Object.assign({}, s));
     const delta = Number.isFinite(Number(clockDeltaMin)) ? Number(clockDeltaMin) : null;
@@ -560,7 +567,6 @@ function mergeSituations(oldList, freshList, clockDeltaMin, layer) {
     }
     return merged;
 }
-
 /**
  * ⭐ 材料 11 · 零（P4 补充）：**把「user 是谁」真的喂进提示词** ✓
  *   来源：`personaNames()`（酒馆当前人设名 ✓）＋ 名册里**标了玩家棋子**的名字与别名 ✓
@@ -591,10 +597,8 @@ function playerNamesArr() {
         return [];
     }
 }
-
 /** 她名字后面跟着这些动词 ⇒ 算“替她行动”（只列常见的，⛔ 无限铺） */
 const ME_ACTION_VERBS = ['答应', '答了', '说', '问', '喊', '笑', '点头', '摇头', '转身', '走', '跑', '跨', '坐', '站', '拿', '推', '括', '伸手', '抬起', '决定', '同意', '拒绝', '答应了', '出门', '回屋'];
-
 /** 名字当主语且后面跟动词 ⇒ true（宾语位／所有格不算） */
 function looksLikeDecidingByName(text) {
     const t = asText(text);
@@ -616,7 +620,6 @@ function looksLikeDecidingByName(text) {
     }
     return false;
 }
-
 /**
  * ★ 20261022 ⑧：上一轮被判“不可靠”（似嫌编造／越界）的正在经历，⛔ 当既定事实喂回去。
  *   做法：不屏蔽（屏蔽会让上下文断），但前面挂一行明确警示 ✓
@@ -630,7 +633,6 @@ export function currentPromptLine(c) {
     }
     return cur;
 }
-
 function playerNamesForPrompt() {
     try {
         const out = [];
@@ -661,7 +663,6 @@ function playerNamesForPrompt() {
         return '玩家';
     }
 }
-
 function capWorldMaterial(txt, attempt) {
     /* ⭐⭐ 链路是抽风型的（一会儿 400、一会儿回体 null ✗）
      *   ⇒ **每多试一次，就把喂进去的正文再缩一档** ✓（下限 600 字，⛔ 缩到没东西可看 ✗）
@@ -673,7 +674,6 @@ function capWorldMaterial(txt, attempt) {
     if (s.length <= cap) { return s; }
     return '（前文太长，只带最近 ' + String(cap) + ' 字 ✓）\n' + s.slice(-cap);
 }
-
 /**
  * ★ R32（第二批 1019）：**世界脉动四格要真的喂给主模型**，不能只存在账里。
  *   pressure（压力 0-5）／trend（趋势）／visibility（可见度）／evidence（**原文引用**，不是评语）。
@@ -699,7 +699,6 @@ export function situationLineForPrompt(s) {
     }
     return trimText(src.title) + (bits.length ? '（' + bits.join('；') + '）' : '');
 }
-
 /**
  * ★ 补单 1-⑤：**不额外调一次模型**——就在本来就要跑的那一轮里，顺手要一条 L1 阶段小结。
  *   剪刀规则照世界背面：180–320 字；只留会影响未来理解的事，枝节可以主动放下 ✓
@@ -713,7 +712,6 @@ export function rollupInstructionFor(c) {
     return '  【压缩】这个人已攒了 ' + String(victims.length) + ' 条逐轮摘要，请压成**一条**阶段小结（180–320 字），'
         + '只留会影响未来理解的事，枝节可以主动放下；输出字段 rollup（就这一条）。原句：' + oldest.join('；');
 }
-
 /**
  * ★ 20261022 ⑫（22 单）：**世界钟要在 stepWorld 之前就更新**。
  *   原来从正文抽 time: 是**角色步收尾**写的 ⇒ stepWorld 用的是上一轮旧钟（首轮空钟）
@@ -735,7 +733,6 @@ export function prefillClockFromBody(material) {
         return false;
     }
 }
-
 async function stepWorld(material, attempt) {
     const settings = getSettings();
     const state = loadState();
@@ -764,7 +761,6 @@ async function stepWorld(material, attempt) {
                 + ' ｜ 现在到点了吗：' + (due.due ? '到了（可以推进）' : '没到（⛔ 保持原样）——' + due.why);
         })
         .join('\n') || '（还没有暗线）';
-
     /*
      * ★ P1-1：**已知势力随世界步一起给模型**（它看不见这张名单，但它要用同一个名字）。
      *   只给名字与核心人；⛔ 给它编造势力的机会 ✓
@@ -785,7 +781,6 @@ async function stepWorld(material, attempt) {
             return trimText(f.name) + (bits.length ? '（' + bits.join('；') + '）' : '');
         })
         .filter(Boolean);
-
     const prompt = render('world', effectivePrompt('world'), {   /* 硬-3：唯一组装入口 */
         user: playerNamesForPrompt(),
         world: [
@@ -834,7 +829,6 @@ async function stepWorld(material, attempt) {
         })(),
         blastMax: String(clampNumber(settings.blastRadiusMax, 1, 20, 3)),
     });
-
     const tryN = Math.max(0, Math.round(Number(attempt) || 0));
     const res = await callModelJson({
         prompt: tryN > 0 ? (prompt + '\n\n' + RETRY_TIGHTEN) : prompt,
@@ -845,12 +839,10 @@ async function stepWorld(material, attempt) {
         system: noteText('system-world', effectivePrompt('jailbreak') + WORLD_SYS_TAIL),
         maxTokens: retryTokens((settings.api || {}).maxTokens, tryN),
     });
-
     if (!res.ok) {
         return { ok: false, reason: res.reason };
     }
     const v = res.value || {};
-
     /*
      * ★ [580]／观棋 B2：提示词已写「省键＝白跑」，引擎必须**真拒** ✓
      *   旧：缺 clock／place／bigPicture／situations／hidden 仍照单更新 ✗ ⇒ 世界半截动、额度白烧 ✗
@@ -876,7 +868,6 @@ async function stepWorld(material, attempt) {
             };
         }
     }
-
     /* 100：**走钟**——只累加模型给的 elapsed_minutes（⛔ 模型无权重栰绝对日期） */
     {
         /* 100：模型无权写绝对时间（⛔ clockMinute／clock_anchor） */
@@ -907,7 +898,6 @@ async function stepWorld(material, attempt) {
     if (trimText(v.bigPicture)) {
         updateWorld({ bigPicture: trimText(v.bigPicture) }, {});
     }
-
     /*
      * ★ [580] C1：势力厚度可选回写。
      *   五组必须键不动；没带 factions 键＝这轮没改势力，不算省键白跑。
@@ -941,7 +931,6 @@ async function stepWorld(material, attempt) {
         }
         if (facN) { notes.push('势力厚度更新 ' + String(facN) + ' 条'); }
     }
-
     const situations = Array.isArray(v.situations) ? v.situations : [];
     if (situations.length) {
         const fresh = situations.map((s) => ({
@@ -999,7 +988,6 @@ async function stepWorld(material, attempt) {
             saveState();   /* capList 是原地改，这里保险落盘 ✓ */
         }
     }
-
     /* ★ [580] A3：可选 facts 回写（省掉不算白跑；按 key 去重，容量锁在 upsertWorldFact）✓ */
     if (Array.isArray(v.facts)) {
         const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
@@ -1016,7 +1004,6 @@ async function stepWorld(material, attempt) {
             } catch (eFact) { /* 一条事实写不进不能弄挂整步 ✓ */ }
         }
     }
-
     /* ★ [580] A4：可选脉动／巡查回写（省掉不算白跑；与局势并行，可记镜头外）✓ */
     {
         const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
@@ -1056,7 +1043,6 @@ async function stepWorld(material, attempt) {
             }
         }
     }
-
     /* ★ [580] C3：可选 winds 回写（省掉不算白跑；＝未证实传闻，对齐 A1 trace）✓ */
     if (Array.isArray(v.winds)) {
         const fl = Number.isFinite(Number(material.floor)) ? Number(material.floor) : -1;
@@ -1073,7 +1059,6 @@ async function stepWorld(material, attempt) {
             } catch (eWind) { /* 一条风声写不进不能弄挂整步 ✓ */ }
         }
     }
-
     const hiddenIn = Array.isArray(v.hidden) ? v.hidden : [];
     let advanced = 0;
     let blocked = 0;
@@ -1168,7 +1153,6 @@ async function stepWorld(material, attempt) {
             }
         }
     }
-
     const worldNow = loadState().world;
     const events = [];
     for (const s of worldNow.situations || []) {
@@ -1189,7 +1173,6 @@ async function stepWorld(material, attempt) {
     if (events.length) {
         setEvents(events);
     }
-
     /* ★ [580]／观棋 B4：本轮正文点到的角色／势力 → 记下，下轮喂「必须有下文」 */
     try {
         const bodySpot = material.recentText || material.rawText || '';
@@ -1201,18 +1184,14 @@ async function stepWorld(material, attempt) {
         const spot = Array.from(new Set(named.concat(facHit))).slice(0, 12);
         updateWorld({ spotlight: spot }, {});
     } catch (eSpot) { /* 点名名单记不上也不能拦世界步 ✓ */ }
-
     const summary = '世界状态已更新：局势 ' + String((worldNow.situations || []).length)
         + ' 条、暗线 ' + String((worldNow.hidden || []).length) + ' 条'
         + (advanced ? '（推进 ' + String(advanced) + ' 条）' : '')
         + (blocked ? '（' + String(blocked) + ' 条没到点，摁住了）' : '')
         + (notes.length ? '；' + notes.join('；') : '');
-
     return { ok: true, summary, notes, events: events.length };
 }
-
 /* ------------------------------ 角色那一步 ------------------------------ */
-
 /**
  * 107-B：处理一批 rows（一次调用的结果）。⛔ 不改调用顺序、⛔ 不改 applyCharacter 语义。
  * 原样从 stepCharacters 搬出来（行为一字未变），只把外部变量换成 ctx。
@@ -1278,12 +1257,8 @@ export function applyCharRows(rows, ctx) {
             }
         }
     }
-
-
     return { written, newPeople, questCount, knowCount };
 }
-
-
 /** 把模型给的字符字段安全地写回（手改过的⛔ 不许冲掉） */
 function applyCharacter(raw, material, conflicts) {
     const state = loadState();
@@ -1352,7 +1327,6 @@ function applyCharacter(raw, material, conflicts) {
         state.newPeople = uniqueBy((state.newPeople || []).concat([name]), (x) => x);
         isNew = true;
     }
-
     const onStage = raw.onStage === true;
     const patch = { lastUpdatedAt: Date.now() };
     /* ★ [580] A7：lastSeen＝引擎碰过；presentFloor＝正文在场才写（⛔ 后台推演楼冒充一直在场） */
@@ -1368,7 +1342,6 @@ function applyCharacter(raw, material, conflicts) {
     } else if (Number.isFinite(Number(raw && raw.relevance))) {
         patch.relevance = Math.max(0, Math.min(3, Math.round(Number(raw.relevance))));
     }
-
     const isFieldLocked = (fieldKey) => {
         if (!c.manual) {
             return false;
@@ -1378,7 +1351,6 @@ function applyCharacter(raw, material, conflicts) {
         }
         return true;
     };
-
     const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
     /* 身份可多条（她定的 8 格之一）：数组单独走一遍，⛔ 混进 textFields（那个循环用 trimText，数组会变字符串） */
     {
@@ -1424,7 +1396,6 @@ function applyCharacter(raw, material, conflicts) {
             patch.identities = [incoming];
         }
     }
-
     /* ⭐修复 4（材料 02）并按材料 03 定稿修正 ✓
      *   病根：旧条件只排除 `'未知'` ✗ ⇒ 推演模型把“未接入/敌对/本人”这类**文字**
      *         写进好感格也照单全收 ✗（好感格污染 ✗）
@@ -1446,7 +1417,6 @@ function applyCharacter(raw, material, conflicts) {
         }
         delete patch.affinity;
     }
-
     if (patch.timePlace) {
         const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
         if (back) {
@@ -1454,7 +1424,6 @@ function applyCharacter(raw, material, conflicts) {
             delete patch.timePlace;
         }
     }
-
     Object.assign(c, patch);
     c.updatedAt = Date.now();
     c.settledRun = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算的时间戳 */
@@ -1483,7 +1452,7 @@ function applyCharacter(raw, material, conflicts) {
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
         } else if (looksLikeDecidingForMe(cur, { role: c.role })) {
-            why = '替"我"做了决定（[579]：遇问句应写「待我做决定」，⛔ 不许写成我已选／已答）';
+            why = '替"我"做了决定（[579]：只写他做的那一半，⛔ 替我答／替我选）';
         } else if (onStage && material.fellBack !== true && !textAppearsIn(cur, material.recentText || material.rawText)) {
             /*
              * ⭐ 10-16 真语料教训：**清洗失败时⛔ 下“编造”判词**。
@@ -1526,7 +1495,6 @@ function applyCharacter(raw, material, conflicts) {
             clock: loadState().world.clock,
         });
     }
-
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
     /* P22 (material 07): honour the capPast setting (2-20) - it used to be hardcoded to 5,
      *   so whatever the user configured was silently ignored. */
@@ -1538,7 +1506,6 @@ function applyCharacter(raw, material, conflicts) {
             try { rollupPast(c.id, p.rollup); } catch (eRoll) { }
         }
     }
-
     /* ⭐修复 7 后半：**记下建日程时的世界钟**（起算日 ✓）
      *   旧：只记 `{what, due, done}` ✗ ⇒ 到点判断无从算起 ✗；而且一到点就 `done = true` ✗
      *        ⇒ 她根本没机会履约 ✗（约定默默消失 ✗）
@@ -1571,7 +1538,6 @@ function applyCharacter(raw, material, conflicts) {
             }
         }
     }
-
     const clock = loadState().world.clock;
     for (const s of c.schedule) {
         if (s.done) {
@@ -1603,9 +1569,7 @@ function applyCharacter(raw, material, conflicts) {
             addChronicle({ floor: material.floor, kind: '日程到点', who: c.name, text: s.what + '（' + due.why + '）', clock });
         }
     }
-
     const quests = collectQuests(raw, c);
-
     /*
      * ⭐ 补③（尾巴）：模型在这一行里随行报的「他这一轮新知道了什么」。
      *   ⚠️ 必须**在这里带出去**：`applyCharacter` 是挑字段返回的（只回 name／isNew／quests），
@@ -1620,7 +1584,6 @@ function applyCharacter(raw, material, conflicts) {
             channel: trimText(k && k.channel),
         })).filter((k) => k.text)
         : [];
-
     /* ★ [580] A5：模型若冒出 known_* 壳字段 ⇒ 丢弃（只认 knows→addKnow）✓ */
     if (raw && typeof raw === 'object') {
         delete raw.knownFactKeys;
@@ -1628,18 +1591,15 @@ function applyCharacter(raw, material, conflicts) {
         delete raw.knownClueIds;
         delete raw.knownFactBeliefs;
     }
-
     return { name: c.name, isNew, quests, knows };
 }
-
-async function stepCharacters(material, attempt) {
+async function stepCharacters(material, attempt, screenRes) {
     const settings = getSettings();
     const state = loadState();
     const roster = getRoster().filter((c) => !c.ignored);   /* 107-B：走 getRoster，她才会被标 isPlayer */
     if (!roster.length) {
         return { ok: true, summary: '名册是空的，角色这一步跳过（先去面板录人）' };
     }
-
     /*
      * ⭐⭐ 她原话 [5]/[7]：**在场＝"正文里露面"的**（⛔"名字被提到"）。
      *   原话：「正在在线的不准编造。后台不在线的这个是编造的，这个不要紧」
@@ -1687,9 +1647,25 @@ async function stepCharacters(material, attempt) {
         }
         return stageRaw || material.recentText || material.rawText || '';
     })();
-    const onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚走了就算后台 */
+        /* 13：世界层模型给的名单优先（语义）；没给才回落“名字＋词表”，并标来源 */
+    const modelList = Array.isArray(screenRes && screenRes.onStageList)
+        ? screenRes.onStageList.map((n) => matchKey(n)).filter(Boolean) : null;
+    let onStage;
+    let stageSource;
+    if (modelList && modelList.length) {
+        onStage = roster.filter((c) => c && !c.isPlayer && !isUnavailable(c) && modelList.indexOf(matchKey(c.name)) >= 0);
+        stageSource = 'model';
+    } else {
+        onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚走了就算后台 */
+        stageSource = 'wordlist';
+    }
     const onStageIds = new Set(onStage.map((c) => c.id));
-
+    try { setPipeline({ stageSource }); } catch (eSS) { /* 记不上不影响主流程 */ }
+    if (Array.isArray(screenRes && screenRes.leftList) && screenRes.leftList.length) {
+        try {
+            for (const lf of screenRes.leftList) { setPipeline({ offStageReason: String(trimText(lf.name)) + '：' + String(trimText(lf.reason)) }); }
+        } catch (eLF) { /* 不影响主流程 */ }
+    }
     const maxParallelSetting = clampNumber(settings.maxParallelChars, 0, 12, 6);
     /* ⭐谷歌复核（四）：重试时**角色数临时减半** ✓（避开中转站的瞬时抽风波峰 ✓）下限 2 ✓ */
     const maxParallel = (Number(attempt) >= 1)
@@ -1749,7 +1725,6 @@ async function stepCharacters(material, attempt) {
         return (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0);
     });
     const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
-
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
     /* 107：兜底汇总（不另判一次；只用来记“这轮谁算后台、谁静滞”） */
     let presenceInfo = null;
@@ -1772,7 +1747,6 @@ async function stepCharacters(material, attempt) {
     if (!picked.length) {
         return { ok: true, summary: '这一轮没有要处理的角色（都在省额度轮转里）' };
     }
-
     /* P4 part 2 (material 07): tell the model WHO the player is - see the note below. */
     /* P19 (material 07): say the in-scene / off-scene rules once, not once per character. */
     /* 96：两块独立提示词——前台一块、后台一块（⛔ 合成一份） */
@@ -1780,7 +1754,7 @@ async function stepCharacters(material, attempt) {
     const backBlock = BACK_SYSTEM;
     const charsHeader = [
         '【每个角色都适用的两条硬规矩】',
-        '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写；正文停在问句／等表态 ⇒ 写「待我做决定」，⛔ 替我选。',
+        '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写；⛔ 替他答／替他选／替他点头；写得出具体动作的那句本身就是「待我做决定」，⛔ 只写这四个字。',
         '· **标了“不在场（暗地）”的**：现状只靠推演写、只写“这一步”（正在进行时／刚做完），⛔ 不写下一步；⛔ 这一段里**不许出现“我”**（“我”的动静影响不到他）。',
     ];
     const playerHintLines = (() => {
@@ -1869,7 +1843,6 @@ async function stepCharacters(material, attempt) {
         return lines.join('\n');
     });
     const charLines = charLineArr.join('\n');
-
     /*
      * ⭐ 补③ 第二步（第二半）：模板里那块世界内幕是**所有人共用**的——
      *   那本身就是"全知"的漏点（谁都能看到）。
@@ -1973,7 +1946,6 @@ async function stepCharacters(material, attempt) {
     questCount += applied.questCount;
     knowCount += applied.knowCount;
     const meHits = checkActingAsMe(rows, material.floor);
-
     /*
      * ⭐⭐ Q5（材料 05 · 她原话 [150][151]）：**世界钟要有保底** ✓
      *   旧：完全靠模型从清洗后的 {{recent}} 里找 ✗
@@ -2130,9 +2102,8 @@ export function checkActingAsMe(rows, floor) {
              *   旧：只删了**引号字符** ✗ ⇒ 台词内容还在 ✗
              *     （角色说「**我**不去！」里的“我”照样被当成“扮演玩家” ✗）
              *   现在：先把**直接引语整段**换成空格 ✓，再把含“我”的**固定词**换成空格 ✓ */
-            const s = String(text)
-                .replace(/“[^”]{0,120}”|「[^」]{0,120}」|『[^』]{0,120}』|"[^"]{0,120}"/g, ' ')
-                .replace(/自我|忘我|本我|超我|大我|小我|我方|我行我素|依然故我/g, ' ');
+    const s = stripOtherQuotes(String(text))
+        .replace(/自我|忘我|本我|超我|大我|小我|我方|我行我素|依然故我/g, ' ');
                 /*
                  * ⚠️ 这张表要包含**方向／处所类**介词（到在从往至进出回过）：
                  *    漏了"到"就会把「把煎蛋**放到我**面前的桌垫上」这种合规侧面写法误报
@@ -2438,6 +2409,7 @@ async function runUpdateInner(opts) {
     }
     setPipeline({ step: '读世界状态', text: '正在算世界状态（' + floorLabel(floor) + '）' });
     const budget = callBudget();
+    const runStartTs = Date.now();   /* 864：本轮更新过谁（生活节拍用） */
     let stepsUsed = 0;
     let lastError = '';
     let worldRes = { ok: false, reason: '没跑' };
@@ -2504,6 +2476,21 @@ async function runUpdateInner(opts) {
             }
         }
     }
+    /* 13：角色筛选——独立一步；默认隔 2 层跑（场景有人离场时强制跑） */
+    let screenRes = { ok: false, reason: '没跑' };
+    try {
+        const stP = loadState().pipeline || {};
+        const lastScreen = Number(stP.screenFloor);
+        const needScreen = !Number.isFinite(lastScreen) || (Number(material.floor) - lastScreen >= 2)
+            || /(离开|回家|出了门|走了)/.test(String(material.rawText || '').slice(-400));
+        if (needScreen && !cancelRequested && stepsUsed < budget) {
+            stepsUsed += 1;
+            screenRes = await screenOnStage({ recentText: material.recentText, names: (loadState().characters || []).map((c) => c.name) });
+            if (screenRes.ok) {
+                try { setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [] }); } catch (eSF) { /* 不影响 */ }
+            }   /* 筛选失败不写 lastError：那会把世界／角色步的真错因盖掉 */
+        }
+    } catch (eScreen) { screenRes = { ok: false, reason: String(eScreen && eScreen.message) }; }
     if (!cancelRequested && worldRes.ok && stepsUsed < budget) {
         stepsUsed += 1;
         setPipeline({ step: '读角色状态与平行事件', text: '正在算角色状态与平行事件' });
@@ -2511,7 +2498,7 @@ async function runUpdateInner(opts) {
             if (cancelRequested) {
                 break;
             }
-            charRes = await stepCharacters(material, attempt);
+            charRes = await stepCharacters(material, attempt, screenRes);
             if (charRes.ok) {
                 /* 94：离场的人转后台（保留 current，不清空）；在场的标回前台 */
                 try {
@@ -2546,6 +2533,15 @@ async function runUpdateInner(opts) {
         }
     }
     const state = loadState();
+        /* 6：本轮真被更新过的人，才记“上次生活结算”（⛔ 全名册刷） */
+        if (charRes.ok) {
+            const wMin = Number((state.world || {}).clockMinute);
+            if (Number.isFinite(wMin)) {
+                for (const cc of (state.characters || [])) {
+                    if (cc && Number(cc.lastUpdatedAt) >= runStartTs) { cc.lastSettledMinute = wMin; }
+                }
+            }
+        }
     state.stat.updates = Number(state.stat.updates || 0) + 1;
     saveState();
     const failed = cancelRequested ? false : !(worldRes.ok && charRes.ok);
@@ -2630,7 +2626,7 @@ async function runUpdateInner(opts) {
                     }
                     saveState();
                 }
-                const r = syncFromPhone(loadState(), text, Date.now());
+                const r = syncFromPhone(loadState(), String((material && material.rawText) || ''), Date.now());   /* 6：只读正文，⛔ 拿状态文案当手机 */
                 return { added: r.added, updated: r.updated };
             } catch (eAff) {
                 return { added: 0, updated: 0, error: String(eAff && eAff.message) };
@@ -2987,7 +2983,9 @@ export function shouldUpdateNow(floor) {
     const swiped = Number(state.pipeline && state.pipeline.swipedFloor);
     if (cur === last && Number.isFinite(swiped) && swiped === cur) {
         try { setPipeline({ swipedFloor: -1 }); } catch (eClear) { /* 清不掉也能继续 ✓ */ }
-        return every <= 1;
+        /* 24：原来 every 全树未定义 ⇒ swipe 一次就 ReferenceError；从设置读（默认 2） */
+        const everyN = Math.max(1, Math.floor(Number(settings.updateEvery) || 2));
+        return everyN <= 1;
     }
     return r.run;
 }

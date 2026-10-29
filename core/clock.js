@@ -289,9 +289,24 @@ export function dueToAbsoluteMinute(text, nowMinute) {
     if (raw.indexOf('后天') >= 0) { off = 2; }
     else if (/[明]天|[明]日|[明]晚|[明]早/.test(raw)) { off = 1; }
     else if (/[今]天|[今]日|[今]晚|[今]早|[今]晨/.test(raw)) { off = 0; }
-    const hit = PERIODS.find((x) => raw.indexOf(x.key) >= 0);
-    if (off !== null && hit) {
-        return (dayNow + off) * 1440 + hit.from * 60;
+    let hit = PERIODS.find((x) => raw.indexOf(x.key) >= 0);
+    /* 5：“明早”“今晚”这类缩写：早→早上、晚→晚上 */
+    if (!hit) {
+        if (/早/.test(raw)) { hit = PERIODS.find((x) => x.key === '早上'); }
+        else if (/晚/.test(raw)) { hit = PERIODS.find((x) => x.key === '晚上'); }
+    }
+    if (off !== null) {
+        /* 5：更精确的时刻（如“明天晚上 21:00”）优先于时段起点 */
+        const mod = (p.has && p.minutesOfDay !== null) ? p.minutesOfDay : (hit ? hit.from * 60 : 9 * 60);
+        return (dayNow + off) * 1440 + mod;
+    }
+    /* 5：相对时长：N 天／小时／分钟后 */
+    const rel = /([0-9一两三四五六七八九十]+)\s*(天|小时|分钟)\s*(后|以后|之后)/.exec(raw);
+    if (rel) {
+        const n = cnToNum(rel[1]);
+        if (n === null) { return null; }
+        const mul = rel[2] === '天' ? 1440 : (rel[2] === '小时' ? 60 : 1);
+        return now + n * mul;
     }
     if (p.has && p.minutesOfDay !== null) {
         return dayNow * 1440 + (p.minutesOfDay || 0);
