@@ -170,7 +170,6 @@ export function looksLikePrediction(text) {
  * ★ [579]：有没有「替我做决定」的写法（正文还在等表态，却写成我已选／已答）。
  *   ⚠️ 只标不可靠；「待我做决定」本身不算违规。
  */
-
 /* 125：只剥“归别人”的直接引语（引号前 ~14 字有别人当主语的转述动词）；
  * 裸引语（没归属）与“我说：…”一律照判 —— 26 格那个洞就在裸引语。 */
 function stripOtherQuotes(text) {
@@ -182,9 +181,7 @@ function stripOtherQuotes(text) {
         return other ? ' ' : m;
     });
 }
-
 const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替我(?:选|决定)|我选了|我答(?:应|道了)/;
-
 export function looksLikeDecidingForMe(text, opts) {
     const t = asText(text);
     if (!t) return false;
@@ -206,8 +203,6 @@ export function looksLikeDecidingForMe(text, opts) {
     if (looksLikeDecidingByName(t)) { return true; }
     return DECIDE_FOR_ME_PAT.test(STRIPPED);
 }
-
-
 /**
  * 这段"正在经历"能不能在正文里找到依据（现场角色专用）。
  *
@@ -236,7 +231,6 @@ export function textAppearsIn(text, source) {
     }
     return (hit / grams.length) >= 0.34;
 }
-
 /**
  * ⭐ 她 [5]/[7] 的原话口径（10-16 用她的例子校准出来的）：
  *   「这个正文**写了他的事情**。这就叫不能编造」／「正文**没有描写**的，比如下一步动作……那就叫**污染正文**了」
@@ -267,13 +261,11 @@ export function textCoverage(text, source) {
     }
     return grams.length ? (hit / grams.length) : 0;
 }
-
 function setPipeline(patch) {
     const state = loadState();
     state.pipeline = Object.assign({}, state.pipeline, patch);
     saveState();
 }
-
 /* ------------------------------ 取材料 ------------------------------ */
 /** 最近 N 楼的正文（含隐藏楼：⛔ 不许因为被隐藏就漏掉） */
 /*
@@ -1645,10 +1637,13 @@ async function stepCharacters(material, attempt, screenRes) {
     })();
         /* 13：世界层模型给的名单优先（语义）；没给才回落“名字＋词表”，并标来源 */
     const modelList = Array.isArray(screenRes && screenRes.onStageList)
-        ? screenRes.onStageList.map((n) => matchKey(n)).filter(Boolean) : null;
+        ? screenRes.onStageList.map((x) => matchKey(x && x.name ? x.name : x)).filter(Boolean) : null;
     let onStage;
     let stageSource;
-    if (modelList && modelList.length) {
+    if (screenRes && screenRes.ok && screenRes.empty === true) {
+        onStage = [];   /* 1：空名单是合法结果（她一个人待着） */
+        stageSource = 'model';
+    } else if (modelList && modelList.length) {
         onStage = roster.filter((c) => c && !c.isPlayer && !isUnavailable(c) && modelList.indexOf(matchKey(c.name)) >= 0);
         stageSource = 'model';
     } else {
@@ -2481,15 +2476,20 @@ async function runUpdateInner(opts) {
         const lastLeft = Array.isArray(stP.screenLeft) ? stP.screenLeft.length : 0;   /* ① 上一轮筛选自己说有人离场 */
         const lastPlace = String(stP.screenPlace || '');
         const nowPlace = String((loadState().world || {}).place || '');
-        const needScreen = !Number.isFinite(lastScreen)
-            || (Number(material.floor) - lastScreen >= 2)
-            || lastLeft > 0                                    /* ① 有人离场 ⇒ 下一轮强制跑 */
-            || (lastPlace && nowPlace && lastPlace !== nowPlace);   /* ② 场景变了 ⇒ 强制跑 */
+        const needScreen = !Number.isFinite(lastScreen) || Number(material.floor) > lastScreen || lastLeft > 0
+            || (lastPlace && nowPlace && lastPlace !== nowPlace);   /* 128：每一新楼都跑（不再跳 2 层） */
         if (needScreen && !cancelRequested && stepsUsed < budget) {
             stepsUsed += 1;
-            screenRes = await screenOnStage({ recentText: material.recentText, names: (loadState().characters || []).map((c) => c.name) });
+            const rosterNow = loadState().characters || [];
+            const nowOn = rosterNow.filter((c) => c && !c.isPlayer && !c.offstage).map((c) => c.name);
+            const nowOff = rosterNow.filter((c) => c && !c.isPlayer && c.offstage).map((c) => c.name);
+            screenRes = await screenOnStage({ recentText: material.recentText, onNames: nowOn, offNames: nowOff });
             if (screenRes.ok) {
-                try { setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [], screenPlace: nowPlace }); } catch (eSF) { /* 不影响 */ }
+                try {
+                    setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [], screenPlace: nowPlace });
+                    if (screenRes.empty === true) { setPipeline({ text: '本轮无人在场（筛选步给的）' }); }
+                    if (Array.isArray(screenRes.cutList) && screenRes.cutList.length) { setPipeline({ text: '后台砍了 ' + String(screenRes.cutList.length) + ' 人' }); }
+                } catch (eSF) { /* 不影响 */ }
             }   /* 筛选失败不写 lastError：那会把世界／角色步的真错因盖掉 */
         }
     } catch (eScreen) { screenRes = { ok: false, reason: String(eScreen && eScreen.message) }; }
