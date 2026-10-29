@@ -72,6 +72,17 @@ function hiddenBrief() {
 }
 
 /** 世界层（⛔ 不读 situations／hidden） */
+
+/* 127：每层自己的额度／模型；留空 ⇒ {} ⇒ 全局行为不变 */
+function limOf(key) {
+    const l = ((getSettings().layerLimits || {})[key]) || {};
+    const out = {};
+    const tok = Number(l.maxTokens);
+    if (Number.isFinite(tok) && tok > 0) { out.maxTokens = tok; }
+    if (trimText(l.model)) { out.model = trimText(l.model); }
+    return out;
+}
+
 export async function runWorldLayer(material, opts) {
     const el = Number(opts && opts.elapsedMinutes);
     const res = await callModelJson({
@@ -80,6 +91,7 @@ export async function runWorldLayer(material, opts) {
             + '最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000) + '\n\n'
             + '人物（只读名字｜在哪｜在做什么）：\n' + rosterBrief(),
         cheap: true,
+        ...limOf('world'),
     });
     if (!res || !res.ok) {
         return { ok: false, reason: (res && res.reason) || '世界层没回可用 JSON' };
@@ -121,6 +133,7 @@ export async function runSituationLayer(material) {
         prompt: worldBrief() + '\n\n人物（名字｜在哪｜在做什么）：\n' + rosterBrief()
             + '\n\n最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000),
         cheap: true,
+        ...limOf('situation'),
     });
     if (!res || !res.ok) {
         return { ok: false, reason: (res && res.reason) || '局势层没回可用 JSON' };
@@ -174,6 +187,7 @@ export async function runHiddenLayer(material) {
             + '\n\n人物（名字｜在哪｜在做什么）：\n' + rosterBrief()
             + '\n\n最近正文：\n' + String((material && material.rawText) || '').slice(0, 6000),
         cheap: true,
+        ...limOf('hidden'),
     });
     if (!res || !res.ok) {
         return { ok: false, reason: (res && res.reason) || '暗流层没回可用 JSON' };

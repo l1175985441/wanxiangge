@@ -275,7 +275,6 @@ function setPipeline(patch) {
 }
 
 /* ------------------------------ 取材料 ------------------------------ */
-
 /** 最近 N 楼的正文（含隐藏楼：⛔ 不许因为被隐藏就漏掉） */
 /*
  * ⭐⭐ 谷歌复核（一）：滑动字数窗分批 ✓
@@ -310,7 +309,6 @@ function buildScanBatches(floors, charBudget) {
     if (bucket.length) { out.push(bucket); }
     return out;
 }
-
 /** 按**指定楼层**拼材料（形状与 recentMessages 一致 ✓）；单楼超长时保尾：**前 1000 ＋ 后 2000** ✓ */
 function messagesOfFloors(floors, capChars) {
     const cap = clampNumber(capChars, 500, 20000, 3000);
@@ -327,7 +325,6 @@ function messagesOfFloors(floors, capChars) {
     }
     return out;
 }
-
 function recentMessages(floor, turns) {
     const chat = getChat();
     const n = clampNumber(turns, 1, 40, 6);
@@ -343,7 +340,6 @@ function recentMessages(floor, turns) {
     }
     return out;
 }
-
 /**
  * ⭐⭐ 修复 5（材料 02）并按材料 03 定稿改造 ✓：**剥掉“不在现场”的人** ✓
  *   病根：卡面 <meow_FM> 里的 `archived:`（后台归档角色）与标了 `已离场` 的人没被剥掉 ✗
@@ -390,8 +386,8 @@ function worldMaterialCap() {
 /**
  * ★ 需求清单 [579]：世界钟几乎没走 ⇒ 局势**不轻易成熟**（压力不能每回合乱跳）。
  *   「一看时间过去不到几分钟所以这个事件不会轻易成熟」
- *   · 钟读不出／走了不到 30 分钟 ⇒ 压力只许持平或下降，不许涨
- *   · 走了不到 3 小时 ⇒ 一次最多 +1
+ *   · 钟读不出／过去不到 30 分钟 ⇒ 压力只许持平或下降，不许涨
+ *   · 过去不到 3 小时 ⇒ 一次最多 +1
  *   · 再久才允许模型给的涨幅
  */
 function dampenSituationPressure(oldP, newP, deltaMin) {
@@ -960,7 +956,7 @@ async function stepWorld(material, attempt) {
         })).filter((s) => s.title);
         if (fresh.length) {
             /* ⭐谷歌复核（三）：增量归并（⛔ 用本批几条把旧数组整锅端 ✗），归并后再走容量锁归档 ✓ */
-            /* ★ [579]：用本步世界钟走了几分钟，压住局势压力乱涨 ✓（world.clock＝步前旧钟） */
+            /* ★ [579]：用本步世界钟过了几分钟，压住局势压力乱涨 ✓（world.clock＝步前旧钟） */
             const clockDeltaMin = clockDistance(trimText(world.clock), trimText(loadState().world.clock));
             const mergedSits = mergeSituations((loadState().world || {}).situations, fresh, clockDeltaMin, 'world');
             /*
@@ -1420,7 +1416,7 @@ function applyCharacter(raw, material, conflicts) {
     if (patch.timePlace) {
         const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
         if (back) {
-            conflicts.push(c.name + ' 的时间地点看着往回走了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
+            conflicts.push(c.name + ' 的时间地点看着往回退了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
             delete patch.timePlace;
         }
     }
@@ -1656,7 +1652,7 @@ async function stepCharacters(material, attempt, screenRes) {
         onStage = roster.filter((c) => c && !c.isPlayer && !isUnavailable(c) && modelList.indexOf(matchKey(c.name)) >= 0);
         stageSource = 'model';
     } else {
-        onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚走了就算后台 */
+        onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚离场就算后台 */
         stageSource = 'wordlist';
     }
     const onStageIds = new Set(onStage.map((c) => c.id));
@@ -1906,7 +1902,8 @@ async function stepCharacters(material, attempt, screenRes) {
         const gRes = await callModelJson({
             prompt: tryN2 > 0 ? (gPrompt + '\n\n' + RETRY_TIGHTEN) : gPrompt,
             system: noteText('system-chars-' + g.tag, g.sys ? (sysBase + '\n\n' + g.sys) : sysBase),
-            maxTokens: retryTokens((settings.api || {}).maxTokens, tryN2),
+            maxTokens: (() => { const lm = ((settings.layerLimits || {})[g.tag] || {}).maxTokens; const n2 = Number(lm); return (Number.isFinite(n2) && n2 > 0) ? n2 : retryTokens((settings.api || {}).maxTokens, tryN2); })(),
+            model: trimText((((settings.layerLimits || {})[g.tag] || {}).model)) || undefined,
         });
         if (gRes && gRes.ok) {
             const gv = gRes.value || {};
@@ -2014,7 +2011,7 @@ function collectQuests(raw, c) {
  *   ⛔ 只拦三件明确的事：
  *     ① "我"当主语＋动作（我站起来／我走出门）；
  *     ② 预判"我"（我接下来…）；
- *     ③ 改"我"处境的被动句（被赶出家门的我／被带走了）。
+ *     ③ 改"我"处境的被动句（被赶出家门的我／被带走）。
  *   ⛔ 不做"猜动词"那套（宁可少报，也不冤枉合规的侧面写法）。
  */
 export function checkActingAsMe(rows, floor) {
@@ -2481,13 +2478,18 @@ async function runUpdateInner(opts) {
     try {
         const stP = loadState().pipeline || {};
         const lastScreen = Number(stP.screenFloor);
-        const needScreen = !Number.isFinite(lastScreen) || (Number(material.floor) - lastScreen >= 2)
-            || /(离开|回家|出了门|走了)/.test(String(material.rawText || '').slice(-400));
+        const lastLeft = Array.isArray(stP.screenLeft) ? stP.screenLeft.length : 0;   /* ① 上一轮筛选自己说有人离场 */
+        const lastPlace = String(stP.screenPlace || '');
+        const nowPlace = String((loadState().world || {}).place || '');
+        const needScreen = !Number.isFinite(lastScreen)
+            || (Number(material.floor) - lastScreen >= 2)
+            || lastLeft > 0                                    /* ① 有人离场 ⇒ 下一轮强制跑 */
+            || (lastPlace && nowPlace && lastPlace !== nowPlace);   /* ② 场景变了 ⇒ 强制跑 */
         if (needScreen && !cancelRequested && stepsUsed < budget) {
             stepsUsed += 1;
             screenRes = await screenOnStage({ recentText: material.recentText, names: (loadState().characters || []).map((c) => c.name) });
             if (screenRes.ok) {
-                try { setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [] }); } catch (eSF) { /* 不影响 */ }
+                try { setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [], screenPlace: nowPlace }); } catch (eSF) { /* 不影响 */ }
             }   /* 筛选失败不写 lastError：那会把世界／角色步的真错因盖掉 */
         }
     } catch (eScreen) { screenRes = { ok: false, reason: String(eScreen && eScreen.message) }; }
@@ -2577,7 +2579,7 @@ async function runUpdateInner(opts) {
      * ⭐ 修复单 #19：**失败＝账保持原样**。
      *   原来失败也照写 `atFloor` 与 `lastUpdate.floor`，后果三连：
      *     ① `shouldUpdateNow` 判据是 `cur <= atFloor ⇒ false` ⇒ **失败后自动更新被永久拒掉**（"已算过"）；
-     *     ② 进度显示"走了 100%（已经追平正文）"＝**虚报**；
+     *     ② 进度显示"进度 100%（已经追平正文）"＝**虚报**；
      *     ③ stepWorld 已经写进去的世界钟／编年**留着** ⇒ 半截脏 + 重试时重复推。
      *   ⇒ 失败时把账还原到开跑前那一版快照，锚点也退回原值（下面 setPipeline/lastUpdate 用 prev）。
      */
@@ -2869,8 +2871,8 @@ export function runReconcile() {
     /*
      * ⭐ 修复单 #23：**两个锚点都要查**。
      *   原来只查 `pipeline.atFloor`，`lastUpdate.floor` 越界了没人管 ——
-     *   而进度那侧读的正是 `lastUpdate.floor`（"上次更新停在 #N"＋"走了 X%"）⇒
-     *   删楼之后会出现「总共 2 楼，却显示停在 #9、走了 100%（已经追平正文）」（真机截图实锤）。
+     *   而进度那侧读的正是 `lastUpdate.floor`（"上次更新停在 #N"＋"进度 X%"）⇒
+     *   删楼之后会出现「总共 2 楼，却显示停在 #9、进度 100%（已经追平正文）」（真机截图实锤）。
      *   ⇒ 谁越界都一起对齐到"现存最后一次有效更新的楼号"。
      */
     const atFloor = Number(state.pipeline && state.pipeline.atFloor);

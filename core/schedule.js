@@ -75,6 +75,9 @@ export function countdownOf(dueMinute, nowMinute, startedAtMinute) {
 
 /** 进行中的说法（已开始、未到期） */
 export function isOngoing(startMinute, dueMinute, nowMinute) {
+    /* Number(null)===0 会把“没开始”当成 0 分钟 ⇒ 全显示“进行中” */
+    if (startMinute === null || startMinute === undefined || startMinute === '') { return false; }
+    if (dueMinute === null || dueMinute === undefined || dueMinute === '') { return false; }
     const s = Number(startMinute);
     const d = Number(dueMinute);
     const n = Number(nowMinute) || 0;

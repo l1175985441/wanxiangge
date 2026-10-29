@@ -63,6 +63,7 @@ import { mountMini, closeMini, refreshMini } from './mini.js';
 import { iconSvg } from './icons.js';
 import { takeSnapshot, openHiddenCount, sortRosterList } from '../core/state.js';
 import { mountLedgers, deleteLedgerRow } from './ledgers.js';
+import { mountLayerLimits, saveLayerLimits } from './layer-limits.js';
 /* ------------------------------ 元素小件 ------------------------------ */
 
 /**
@@ -703,6 +704,7 @@ function secGeneral(host) {
     cRun.appendChild(checkbox('wxg-strict', '严格模式：只带本轮点名的人', s.strictMention, 'stage-strict'));
     cRun.appendChild(stateLine({ el: el, on: s.strictMention, onText: '只把本轮点名的人放进注入；没点到的人不会出现。', offText: '没点到的人也可能被带进来（上下文更全，但更占篇幅）。' }));
     box.appendChild(cRun);
+    mountLayerLimits(cRun);
 
     const cUi = card('入口与启动');
     /* 渲染层 #9：悬浮球的三个开关都在这张卡上；这里取生效值（已存＋还没保存的草稿） */
@@ -7448,7 +7450,8 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
-                case 'del-thread': if (deleteLedgerRow('thread', target.getAttribute('data-id') || target.id)) { rerender(); } break;
+                case 'save-layer-limits': { saveLayerLimits(hostEl || document); rerender(); break; }
+    case 'del-thread': if (deleteLedgerRow('thread', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-clue': if (deleteLedgerRow('clue', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-echo': if (deleteLedgerRow('echo', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-opinion': if (deleteLedgerRow('opinion', target.getAttribute('data-id') || target.id)) { rerender(); } break;
@@ -7866,7 +7869,6 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
-
                 /* ---- 提示词 ---- */
                 case 'set-inject-header': if (isChange) { patchSettings({ injectHeader: target.value }); toast.ok('保存了'); } break;
                 case 'apply-preset': {
@@ -8000,7 +8002,6 @@ export function bindSectionEvents(host, refresh) {
                     toast.ok('三套提示词都恢复成内置默认了');
                     rerender();
                     break;
-
                 /* ---- 动作 ---- */
                                 case 'use-hold-one': {
                     /* ⭐ ST4-A（她 10-17 定案：统一走草稿＋段底保存）✓ 旧：patchSettings 立即落盘 ✗ */
@@ -8273,7 +8274,6 @@ export function bindSectionEvents(host, refresh) {
             toast.fail('操作出错：' + (err && err.message ? err.message : String(err)));
         }
     };
-
     host.addEventListener('click', handler);
     host.addEventListener('change', handler);
     host.addEventListener('input', (e) => {

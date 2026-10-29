@@ -480,7 +480,7 @@ export async function callModel(opts) {
     const api = resolveApi();   /* ★ 20261023：书签选了就用那套（⛔ 用基础配置） */
     const url = trimText(api.url);
     const key = trimText(api.key);
-    const model = trimText(o.cheap ? (api.modelCheap || api.model) : api.model);
+    const model = trimText(o.model || (o.cheap ? (api.modelCheap || api.model) : api.model));   /* 127：层级覆盖位 */
     if (!url || !model) {
         /*
          * ⭐ 目标核对 3②：**拆开说清缺哪一个**，并把**面板读到的现值**带出来。
