@@ -641,6 +641,14 @@ function secStatus(host, intoSelf) {
      * ⭐ 只留一样东西：**与她的手改冲突那几句**——那不是"流水"，
      *   那是"你手改的版本被保住了"的提醒，删了才是真丢信息。
      */
+    /* 129-B：在场／后台位置与理由——只在已有进度卡里加一行纯文本 */
+    if (Array.isArray(p.screenOn) && p.screenOn.length) {
+        const onTxt = p.screenOn.map((x) => String(x.name) + '·' + String(x.place || '')).join('／');
+        const offArr = Array.isArray(p.screenOff) ? p.screenOff : [];
+        const offTxt = offArr.map((x) => String(x.name) + '·' + String(x.place || '') + (x.reason ? '·' + String(x.reason) : '')).join('／');
+        box.appendChild(el('div', 'wxg-plain', '在场 ' + String(p.screenOn.length) + ' 人（' + onTxt + '）'
+            + (offArr.length ? '｜后台 ' + String(offArr.length) + ' 人（' + offTxt + '）' : '')));
+    }
     if (Array.isArray(p.conflicts) && p.conflicts.length) {
         const cWarn = el('div', 'wxg-plain');
         const warn = el('div', 'wxg-store', '与你的手改冲突（引擎**按你的版本保留**，内容没被冲掉）：');
@@ -6995,7 +7003,6 @@ export function bindSectionEvents(host, refresh) {
                      * 依据＝阿砚 3-d：偶发红要能在**一次失败**里拿到时序，⛔ 靠跑几十次碰运气。
                      *   默认静默；只有显式开关（环境变量 WXG_DEBUG=1 或 globalThis.__WXG_DEBUG__）才打一行。
                      */
-
                     const name = trimText(target.getAttribute('data-book'));
                     if (!name) {
                         break;
@@ -7384,7 +7391,6 @@ export function bindSectionEvents(host, refresh) {
                     renderDupPicker(host);
                     break;
                 }
-
                 case 'import-data': {
                     /* 她选一个 .json ⇒ 先问一句 ⇒ 留快照 ⇒ 整本导入 ✓ */
                     try {
@@ -7483,7 +7489,6 @@ export function bindSectionEvents(host, refresh) {
         }, null, 2));
                     toast.ok('备份已导出');
                     break;
-
                 /* ---- 召回 ---- */
                 case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
                 case 'use-cap-people-12': {
@@ -7630,10 +7635,8 @@ export function bindSectionEvents(host, refresh) {
                  *   删掉后它会落到 `STAGE_MAP['stage-max-parallel'] = ['recall','maxParallelChars','value']` ✓
                  *   ⇒ 与同页其他格子一样走草稿 ✓（⛔ 再写一遍草稿代码 ✗）
                  */
-
                 /* ---- 四格 ---- */
                 /* ⭐ 先进草稿（等段底那颗「保存」一起存），⛔ 不再改一处存一处 */
-
                 case 'set-extract-tags': if (isChange) { patchSettings({ extractTags: target.value }); toast.ok('提取标签已保存'); } break;
                 case 'set-exclude-tags': if (isChange) { patchSettings({ excludeTags: target.value }); toast.ok('排除标签已保存'); } break;
                 case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
@@ -7641,7 +7644,6 @@ export function bindSectionEvents(host, refresh) {
                 case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
                     break;
                     break;
-
                 /* ---- API ---- */
                 case 'set-api-mode': if (isChange) { patchApi({ mode: target.value }); rerender(); } break;
                 case 'set-api-url': if (isChange) { patchApi({ url: target.value }); toast.ok('接口地址已保存'); } break;
@@ -7725,7 +7727,6 @@ export function bindSectionEvents(host, refresh) {
                     syncApiFromDom(host);
                     /* ⭐ 同上：测连接**不用先保存**，直接用你现在填的地址／密钥／模型 ✓ */
                     commitSection('api');
-
                     toast.info('正在测连接…');
                     const res = await testApi();
                     if (res.ok) {
@@ -7748,7 +7749,6 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
-
                 /* ---- ⭐ API 书签（她点名要的：设好几套通道随时切） ---- */
                 case 'save-profile':
                 case 'overwrite-profile': {

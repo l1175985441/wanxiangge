@@ -101,7 +101,6 @@ let cancelRequested = false;
 export function isRunning() {
     return running;
 }
-
 /** 请求取消（跑完当前这一小步就停） */
 export function cancelUpdate() {
     cancelRequested = true;
@@ -112,7 +111,6 @@ export function cancelUpdate() {
     });
     saveState();
 }
-
 /**
  * 这句话里有没有"下一步动作／预判"的写法（需求书点名的污染源）。
  * ⚠️ 只用于"标记成不可靠"，⛔ 不擅自改她的字、也不静默丢掉。
@@ -124,7 +122,6 @@ export function cancelUpdate() {
  *   ⚠️ 只加"未来进行时"那几个（即将／就要／快要／马上要／正要），⛔ 不把"正在做什么"也当成未来。
  */
 const PREDICT_PAT = /下一步|接下来(?:要|会|去|就)|后续(?:预测|会|将)|准备(?:去|要|着)|即将|就要|快要|马上(?:要|就)|正要|打算(?:去|要)|等下(?:要|去)|待会儿(?:要|去)|然后(?:就)?(?:去|要)|明天(?:要|会|去)|稍后(?:要|会)/;
-
 /** 文案里是否含"下一步／预判" */
 /**
  * ⭐⭐ 她 [18]/[3] ＋ 10-16 实锤：**暗线 note 的核闸**。
@@ -162,7 +159,6 @@ export function looksLikeFabricatedTrouble(text) {
     }
     return '';
 }
-
 export function looksLikePrediction(text) {
     return PREDICT_PAT.test(asText(text));
 }
@@ -2471,13 +2467,9 @@ async function runUpdateInner(opts) {
     /* 13：角色筛选——独立一步；默认隔 2 层跑（场景有人离场时强制跑） */
     let screenRes = { ok: false, reason: '没跑' };
     try {
-        const stP = loadState().pipeline || {};
-        const lastScreen = Number(stP.screenFloor);
-        const lastLeft = Array.isArray(stP.screenLeft) ? stP.screenLeft.length : 0;   /* ① 上一轮筛选自己说有人离场 */
-        const lastPlace = String(stP.screenPlace || '');
         const nowPlace = String((loadState().world || {}).place || '');
-        const needScreen = !Number.isFinite(lastScreen) || Number(material.floor) > lastScreen || lastLeft > 0
-            || (lastPlace && nowPlace && lastPlace !== nowPlace);   /* 128：每一新楼都跑（不再跳 2 层） */
+        /* 129-A：⛔ 不再按楼层／离场／场景挑；有正文就跑 —— 少跑一次＝整楼退回词表（词表实测漏 4/7） */
+        const needScreen = !!String(material.recentText == null ? '' : material.recentText).trim();
         if (needScreen && !cancelRequested && stepsUsed < budget) {
             stepsUsed += 1;
             const rosterNow = loadState().characters || [];
@@ -2486,7 +2478,16 @@ async function runUpdateInner(opts) {
             screenRes = await screenOnStage({ recentText: material.recentText, onNames: nowOn, offNames: nowOff });
             if (screenRes.ok) {
                 try {
-                    setPipeline({ screenFloor: Number(material.floor), screenLeft: screenRes.leftList || [], screenPlace: nowPlace });
+                    setPipeline({
+                        screenFloor: Number(material.floor),
+                        screenLeft: screenRes.leftList || [],
+                        screenPlace: nowPlace,
+                        /* 129-B/C：位置、理由、cutList 进账（诊断对账用） */
+                        screenOn: (screenRes.onStageList || []).map((x) => ({ name: x.name, place: x.place || '' })),
+                        screenOff: (screenRes.leftList || []).map((x) => ({ name: x.name, place: x.place || '', reason: x.reason || '' })),
+                        screenAt: Number(material.floor),
+                        screenCut: (screenRes.cutList || []).map((x) => ({ name: x.name, place: x.place || '', reason: x.reason || '' })),
+                    });
                     if (screenRes.empty === true) { setPipeline({ text: '本轮无人在场（筛选步给的）' }); }
                     if (Array.isArray(screenRes.cutList) && screenRes.cutList.length) { setPipeline({ text: '后台砍了 ' + String(screenRes.cutList.length) + ' 人' }); }
                 } catch (eSF) { /* 不影响 */ }

@@ -30,8 +30,12 @@ export async function screenOnStage(input) {
     const recent = String((input && input.recentText) || '').slice(-2000);
     const onNames = (Array.isArray(input && input.onNames) ? input.onNames : []).map((x) => trimText(x)).filter(Boolean).slice(0, 40);
     const offNames = (Array.isArray(input && input.offNames) ? input.offNames : []).map((x) => trimText(x)).filter(Boolean).slice(0, 40);
-    if (!recent || (!onNames.length && !offNames.length)) {
-        return { ok: false, reason: '没有可筛的正文或名单' };
+    if (!recent) {
+        return { ok: false, reason: '没有可筛的正文' };
+    }
+    if (!onNames.length && !offNames.length) {
+        /* 129-D：名册里没有可筛的人＝无人在场（与笔 1 同一条语义），⛔ 算失败 */
+        return { ok: true, onStageList: [], leftList: [], cutList: [], empty: true };
     }
     const prompt = '【上次在场的（先判这些还在不在）】\n' + (onNames.join('、') || '（无）')
         + '\n\n【上次后台的（除非正文里明确回来了，否则⛔ 列进在场）】\n' + (offNames.join('、') || '（无）')
