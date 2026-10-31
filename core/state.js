@@ -3,7 +3,7 @@
  *
  * 规矩：
  *   · 名册与账本**按聊天各分各的**（新聊天＝新世界，数据不串）；
- *   · 每个角色八格：年龄／身份／过去经历／正在经历／所在势力／好感／时间・地点；
+ *   · 每个角色八格：年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间·地点／日程；
  *   · 一切"会更新"的字段都带 manual 标记：手改过的，引擎⛔ 不许无脑冲掉；
  *   · 拿不到数据就留空或标"未知"，⛔ 绝不用占位值凑数；
  *   · 每次更新前留一版快照，能撤回。
@@ -193,6 +193,9 @@ export function normalizeCharacter(raw) {
             sinceMinutes: Number.isFinite(Number(s && s.sinceMinutes)) ? Number(s.sinceMinutes) : null,
         /* 106：四时点的数据前提（origin 原定期限，firedPoints 已报过哪些点） */
         originDue: trimText(s && s.originDue),
+        /* 129：写入用的是数字键，白名单不收 ⇒ 读档即丢 */
+        dueMinute: Number.isFinite(Number(s && s.dueMinute)) ? Number(s.dueMinute) : null,
+        originDueMinute: Number.isFinite(Number(s && s.originDueMinute)) ? Number(s.originDueMinute) : null,
         firedPoints: Array.isArray(s && s.firedPoints) ? s.firedPoints.map((x) => trimText(x)).filter(Boolean) : [],
             /* A1：日程也要认得是第几版／哪一楼 */
             swipe: Number.isFinite(Number(s && s.swipe)) ? Number(s.swipe) : null,
@@ -286,7 +289,7 @@ export function normalizeCharacter(raw) {
 
 /**
  * 老数据迁移：以前存过"推断（infer）"这一格 —— 按需求书这一格**不该存在**
- * （她定的角色字段只有八格：年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间・地点／日程）。
+ * （她定的角色字段只有八格：年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间·地点／日程）。
  * ⛔ 不静默丢：把它搬进**编年**留档（标注来源），再从角色身上摘掉。
  *
  * ⚠️⚠️ 这里必须走**原始账本**（`readLedger`），⛔ **不能走 `loadState()`**：
@@ -1704,6 +1707,47 @@ export function listWindsView(cap) {
  *   按名字复用已有 id（重复导入不会重号），只填空、不把已有值清掉。
  * ★ [580] C1：补 status／relation／scope／powerPillars 厚度 ✓
  */
+/* 129：删一条在册势力（只摘册子里的那条，⛔ 动角色身上的 faction 字串） */
+export function removeFaction(idOrName) {
+    const st = loadState();
+    const key = String(idOrName || '');
+    if (!key || !st.world || !Array.isArray(st.world.factions)) { return false; }
+    const before = st.world.factions.length;
+    st.world.factions = st.world.factions.filter((f) => String((f && (f.id || f.name)) || '') !== key);
+    if (st.world.factions.length !== before) { saveState(); return true; }
+    return false;
+}
+
+/* 129：手动新增／更新一条局势（manual 标记，⛔ 被下一轮无脑冲掉） */
+export function upsertSituation(line) {
+    const st = loadState();
+    st.world = st.world || {};
+    if (!Array.isArray(st.world.situations)) { st.world.situations = []; }
+    const title = trimText(line && line.title);
+    if (!title) { return null; }
+    const hit = st.world.situations.find((s) => s && trimText(s.title) === title);
+    if (hit) {
+        Object.assign(hit, line, { manual: true });
+        saveState();
+        return hit;
+    }
+    const row = Object.assign({ id: 'wxg_s_' + Math.random().toString(36).slice(2, 9), pressure: 1 }, line, { title, manual: true });
+    st.world.situations.push(row);
+    saveState();
+    return row;
+}
+
+/* 129：删一条局势 */
+export function removeSituation(idOrTitle) {
+    const st = loadState();
+    const key = String(idOrTitle || '');
+    if (!key || !st.world || !Array.isArray(st.world.situations)) { return false; }
+    const before = st.world.situations.length;
+    st.world.situations = st.world.situations.filter((s) => String((s && (s.id || s.title)) || '') !== key);
+    if (st.world.situations.length !== before) { saveState(); return true; }
+    return false;
+}
+
 export function upsertFaction(line) {
     const name = trimText(line && line.name);
     if (!name) {

@@ -41,7 +41,13 @@ export function scanAffinityValues(text) {
  * @returns {Array<{name:string, raw:string}>}
  */
 export function extractAffinityPairs(text) {
-    const s = String(text == null ? '' : text);
+    const raw = String(text == null ? '' : text);
+    /* 129：只读《角色手机》的 <status> 块；没有块 ⇒ 一条都不抄 */
+    const mBlock = /<status>([\s\S]*?)<\/status>/i.exec(raw) || /【角色手机】([\s\S]*?)(?=【|$)/.exec(raw);
+    if (!mBlock) {
+        return [];
+    }
+    const s = mBlock[1];
     const pairs = [];
     const re = /好感(?:指数|值)\s*[:：]\s*([+\-−]?\d+(?:\.\d+)?(?:\s*[%％])?)/g;
     let m = null;

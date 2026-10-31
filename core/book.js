@@ -417,6 +417,12 @@ export function buildWorldSummarySlot(stateIn) {
 }
 
 /** 把当前账本整理成条目清单 */
+/* 129：两条路共用的身份行（身份可多条，⛔ 只写第一个） */
+function identityLine(c) {
+    const ids = (Array.isArray(c && c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
+    return ids.length ? ids.join('／') : (trimText(c && c.identity) || '未知');
+}
+
 function buildEntries() {
     const state = loadState();
     const settings = getSettings();
@@ -471,10 +477,10 @@ function buildEntries() {
         const lines = [
             '八格：',
             '年龄：' + (trimText(c.age) || '未知'),
-            '身份：' + (trimText(c.identity) || '未知'),
+            '身份：' + identityLine(c),
             '所在势力：' + (trimText(c.faction) || '未知'),
             '好感：' + (trimText(c.affinity) || '未建立'),
-            '时间・地点：' + (trimText(c.timePlace) || '未知'),
+            '时间·地点：' + (trimText(c.timePlace) || '未知'),
             '正在经历：' + (trimText(c.current) || '未知'),
         ];
         if (c.past.length) {
@@ -627,7 +633,7 @@ export function characterEntryLines(c) {
         '身份：' + (ids.length ? ids.join('／') : (trimText(c.identity) || '未知')),
         '所在势力：' + (trimText(c.faction) || '未知'),
         '好感：' + (trimText(c.affinity) || '未建立'),
-        '时间・地点：' + (trimText(c.timePlace) || '未知'),
+        '时间·地点：' + (trimText(c.timePlace) || '未知'),
         '正在经历：' + (trimText(c.current) || '未知'),
         '日程：' + (function () {
             const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);

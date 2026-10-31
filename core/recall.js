@@ -341,12 +341,14 @@ function personBlock(item, opts) {
         if (trimText(c.timePlace)) { lines.push('  时间·地点：' + trimText(c.timePlace)); }
         /* ⛔ 前台不端「正在经历」——[579]：正在进行时不召回 */
         const hidFront = new Set(Array.isArray(item && item.hiddenFloors) ? item.hiddenFloors : []);
-        const pastFront = (Array.isArray(c.past) ? c.past : []).filter((p) => {
-            if (!p || !trimText(p.text)) { return false; }
-            const from = Number(p.fromFloor);
-            /* 只认隐藏楼；没楼层号／不在隐藏集 ⇒ 不端（[579]） */
-            return Number.isFinite(from) && hidFront.has(from);
-        });
+        const hiddenPast = (Array.isArray(c.past) ? c.past : []).filter((p) => {
+        if (!p || !trimText(p.text)) { return false; }
+        const from = Number(p.fromFloor);
+        return Number.isFinite(from) && hidFront.has(from);
+    });
+    /* 129：她 [650] 定：只取最老一层（累积摘要，1~N 都在那一条里） */
+    hiddenPast.sort((a, b) => Number(a.fromFloor) - Number(b.fromFloor));
+    const pastFront = hiddenPast.slice(0, 1);
         /* 106：前台薄块也要端日程（她定的 8 格里有日程）；只端未完成的、不超 3 条 */
     {
         const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done)

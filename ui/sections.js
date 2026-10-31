@@ -33,7 +33,7 @@ import {
     updateQuest, removeQuest, addChronicle,
     removeChronicleAt, clearChronicle, clearWorldLedger, ledgerClearPreview,
     addKnow, removeKnow, importState, pushPast, listWindsView, ROLES, setRole, listSnapshots, rollbackToSnapshot,
-    overlayPending, acceptOverlay, dismissOverlay } from '../core/state.js';
+    overlayPending, acceptOverlay, dismissOverlay, removeFaction, upsertSituation, removeSituation, upsertFaction} from '../core/state.js';
 import { createCache, isBroken } from '../core/cache.js';   /* B7：缓存坏了，⛔ 当成“没有” */
 import { listPresets, describePreset, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import { tallyLine } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
@@ -1076,11 +1076,17 @@ function secWorld(host) {
             if (pillars.length) { bits.push('支柱：' + pillars.join('／')); }
             if (bits.length) { main.appendChild(el('div', 'wxg-r-sub', bits.join(' · '))); }   /* 85#9：没数据不印占位句 */
             r.appendChild(main);
+            const fa = el('div', 'wxg-r-act');
+            fa.appendChild(button('删', 'del-faction', 'wxg-btn-xs', String(f.id || f.name)));
+            r.appendChild(fa);
             fl.appendChild(r);
         }
         cFac.appendChild(fl);
     }
     if (!worldCardsEmpty) {
+        const facAdd = el('div', 'wxg-card-actions');
+        facAdd.appendChild(button('＋新增势力', 'add-faction', 'wxg-btn-xs'));
+        cFac.appendChild(facAdd);
         decorateCard({ el: el, box: cFac, summaryText: wFactions0.length ? (String(wFactions0.length) + ' 个在册') : '' });
         wgrid.appendChild(cFac);
     }
@@ -5208,16 +5214,13 @@ function renderHealthCard() {
     const pre = el('pre', 'wxg-health-pre', report.text);
     sec.appendChild(pre);
     pop.appendChild(sec);
-
     const foot = el('div', 'wxg-pc-foot');
     foot.appendChild(button('关闭', 'health-close', 'wxg-pc-nav'));
     foot.appendChild(button('复制这份', 'health-copy', 'wxg-pc-nav'));
     pop.appendChild(foot);
-
     (lastSectionsHost || document.body).appendChild(pop);
     bindPersonCardDrag(pop);
 }
-
 export function renderSections(host, opts) {
     /*
      * ⭐ 复审追加 B2：**台前有窗口时，后台那次画不该抢挂载点**。
@@ -5250,7 +5253,6 @@ export function renderSections(host, opts) {
         const cEntry = card('打开');
         const rowE = el('div', 'wxg-card-actions');
         rowE.appendChild(button('打开工作台', 'open-workspace-btn', 'wxg-primary'));
-
         cEntry.appendChild(rowE);
         entry.appendChild(cEntry);
         host.appendChild(entry);
@@ -5258,7 +5260,6 @@ export function renderSections(host, opts) {
     }
     host.classList.add('wanxiangge');
     host.setAttribute('data-wxg-mode', mode);
-
     /*
      * ⭐ 挂载口径：各节函数返回的是**正文层**（内容都在它里面），
      *    这里把"壳 ＋ 正文"合起来，**整壳**挂进宿主。
@@ -5321,7 +5322,6 @@ export function renderSections(host, opts) {
         secExtract(stageEl);
         secApi(stageEl);
         secPrompts(stageEl);
-
         /*
          * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
          *   ⛔ 写在每个动作里（那样漏一个就没了）。
@@ -5352,7 +5352,6 @@ export function renderSections(host, opts) {
         /* 一：整页只有一个主卡 ⇒ 盖 `data-wxg-onecol`（实现在 ui/onecol.js） */
         try { markOneCol({ stageEl: stageEl, asArray: asArray }); } catch (eOnecol) { console.warn('[万象阁] 标单卡页出错：', eOnecol); }
     try { tidyHeadings(stageEl); }   /* 77：必须扫 stageEl（此时内容还在 stageEl 里，⛔ host） */ catch (eTidy) { console.warn('[万象阁] 标题去括号出错：', eTidy); }   /* 75 */
-
         hangUp(host, stageEl);
         const added = asArray(host.children || []).length - before;
         if (!added) {
@@ -5387,7 +5386,6 @@ export function renderSections(host, opts) {
         stagingMode = prevStagingMode;
     }
 }
-
 /**
  * 画世界书小块（只改这几颗按钮，⛔ 不重画面板 —— 点一下面板就跳会很难连着点）。
  * @param {object} host 面板正文层
@@ -5418,9 +5416,7 @@ function paintModelChips(boxEl) {
     }
     boxEl.appendChild(rowEl);
 }
-
 const lastPaintSig = new WeakMap();   /* host ⇒ 上次画的签名（同签名就不重建） */
-
 export function paintBookPicks(host, ex, no) {
     /*
      * 依据＝阿砚任务 3-d（连跑不稳要盯住）＋本轮实测 5/20 仍红：
@@ -5442,7 +5438,6 @@ export function paintBookPicks(host, ex, no) {
     const noSet = new Set((no || []).map((x) => asText(x)));
     const want = (Array.isArray(listBooksCache) ? listBooksCache : []).map((x) => asText(x));
     const wantSet = new Set(want);
-
     /* 先删掉不该在的（只在书单真的变少时才动，避免无谓重建） */
     for (const child of asArray(wrap.querySelectorAll ? wrap.querySelectorAll('[data-action="pick-book"]') : [])) {
         const book = String(child.getAttribute && child.getAttribute('data-book') || '');
@@ -5485,14 +5480,12 @@ export function paintBookPicks(host, ex, no) {
         }
     }
 }
-
 /**
  * 把"正在看的那本书"的条目小块摆回面板（点一条之后重画，接着还能点）。
  * 数据来自 list-entries 抓到的 `pickEntries`，⛔ 不再重复读世界书。
  */
 /** ⭐ 3③：条目列表的筛选词（她输什么就只显示带它的） */
 let entFilter = '';
-
 export function renderEntryPick(host, offList) {
     if (!pickBook || !pickEntries.length) {
         return;
@@ -5535,7 +5528,6 @@ export function renderEntryPick(host, offList) {
     fInp.setAttribute('data-action', 'filter-entries');
     bar.appendChild(fInp);
     wrap.appendChild(bar);
-
     const shown = pickEntries.filter((e) => {
         if (!entFilter) {
             return true;
@@ -5563,7 +5555,6 @@ export function renderEntryPick(host, offList) {
         wrap.appendChild(b);
     }
 }
-
 /**
  * 顶部"快速跳转"（只在**独立面板**里画）。
  *
@@ -5604,7 +5595,6 @@ function buildJumpNav(host) {
     bindNavScrollSpy(host, nav);
     markActiveNav(host, nav);
 }
-
 /**
  * 滚动时把"当前所在那一段"高亮出来。
  * ⚠️ 监听挂在**宿主**（面板正文层）上，每次重画前先解绑，⛔ 免得叠一堆监听器。
@@ -5634,7 +5624,6 @@ function bindNavScrollSpy(host, nav) {
     host.__wxgSpy = spy;
     host.addEventListener('scroll', spy);
 }
-
 /** 哪一段离顶端最近，就把哪一颗点亮 */
 function markActiveNav(host, nav) {
     if (!host || !nav) {
@@ -5663,7 +5652,6 @@ function markActiveNav(host, nav) {
         }
     });
 }
-
 /** 跳转条上的点击：滚到那一段，并顺手把它展开（不然滚到了还是收着的） */
 export function jumpToSection(host, index) {
     if (!host) {
@@ -5691,7 +5679,6 @@ export function jumpToSection(host, index) {
         }
     }
 }
-
 /**
  * 把中转站里的正文层合回抽屉壳，整壳挂进宿主；非原生层的东西原样搬 */
 function hangUp(host, staging) {
@@ -5707,7 +5694,6 @@ function hangUp(host, staging) {
         }
     }
 }
-
 /**
  * 兜底：万一哪一段画不出来，⛔ 绝不让面板变成一块白板——把原因写在面板上。
  * （实图里出现过"面板全空"，没有这句话就只能靠猜。）
@@ -5725,7 +5711,6 @@ function drawFailure(host, err) {
     } catch (e) {
     }
 }
-
 /**
  * 在"这个宿主里"查一个 id（⛔ 不用 document.getElementById）。
  *
@@ -5742,18 +5727,15 @@ function byId(host, id) {
     }
     return host.querySelector('#' + id) || null;
 }
-
 /** 读一个输入框的值（⛔ 只读**当前这个面板**里的那个，别串到另一个面板去） */
 function textOf(host, id) {
     const node = byId(host, id);
     return node ? asText(node.value) : '';
 }
-
 function patchApi(patch) {
     const s = getSettings();
     patchSettings({ api: Object.assign({}, s.api || {}, patch) });
 }
-
 /**
  * ⭐「从世界书读人」v2：**全读进来 → 模型自己分 → 各归各位**
  *
@@ -5788,7 +5770,6 @@ async function readFromBook(book) {
         return null;
     }
 }
-
 async function testApi() {
     try {
         const { callModel } = await import('../core/apiclient.js');
@@ -5805,7 +5786,6 @@ async function testApi() {
         return { ok: false, note: e && e.message ? e.message : String(e) };
     }
 }
-
 function copyToClipboard(text, btn) {
     const done = () => {
         if (btn) {
@@ -5823,7 +5803,6 @@ function copyToClipboard(text, btn) {
     }
     fallbackCopy(text, done);
 }
-
 function fallbackCopy(text, done) {
     try {
         const ta = document.createElement('textarea');
@@ -5837,7 +5816,6 @@ function fallbackCopy(text, done) {
         toast.fail('复制失败，可以手动选中复制');
     }
 }
-
 function downloadText(filename, text) {
     try {
         const blob = new Blob([text], { type: 'application/json' });
@@ -5853,7 +5831,6 @@ function downloadText(filename, text) {
         toast.fail('导出失败：' + (e && e.message ? e.message : String(e)));
     }
 }
-
 /** 把事件委托绑到宿主上（只绑一次） */
 /**
  * ⭐⭐ R5（材料 05）：**改完一格别当场重画** ✓
@@ -5889,7 +5866,6 @@ function scheduleCardRerender() {
         }, 260);
     } catch (e3) { /* 定时器都起不来就只剩状态写入 ✓ */ }
 }
-
 export function bindSectionEvents(host, refresh) {
     /*
      * ⭐ U17（材料 12·交互与边缘）：**「新增」输入框按回车＝点它旁边那颗按钮** ✓
@@ -5925,7 +5901,6 @@ export function bindSectionEvents(host, refresh) {
         return;
     }
     host.__wxgBound = true;
-
     /* 三：重画会把元素换掉 ⇒ 焦点会丢；记下/还回的实现在 ui/focus-keep.js（主文件行数硬线） */
     const rerender = () => {
         const focusSnap = rememberFocus(document);
@@ -5942,7 +5917,6 @@ export function bindSectionEvents(host, refresh) {
         }
         restoreFocus(focusSnap, document);
     };
-
     const handler = async (e) => {
         /*
          * ⭐ 修复单 #33（前半）：**handler 入口把挂载点对齐到"这次点击所在的 host"**。
@@ -5971,7 +5945,6 @@ export function bindSectionEvents(host, refresh) {
         const key = target.getAttribute('data-key') || '';
         const isChange = e.type === 'change';
         stagingMode = (host && typeof host.getAttribute === 'function' && host.getAttribute('data-wxg-mode')) || 'settings';
-
         try {
             if (action.indexOf('stage-') === 0) {
                 if (!isChange) { return; }
@@ -6275,7 +6248,6 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     }
                     break;
-
                 /* ---- 世界状态 ---- */
                 case 'set-situation': {
                     if (!isChange) {
@@ -6285,7 +6257,6 @@ export function bindSectionEvents(host, refresh) {
                     const wkey = target.getAttribute('data-key') || '';
                     const newVal = trimText(target.value);
                     const state = loadState();
-
                     /*
                      * \u2b50\u2b50 \u6750\u6599 04\uff1a\u6539\u540d\u7684**\u4e09\u5904\u8fde\u9501\u5f15\u7528**\u4e00\u6b21\u540c\u6b65\u5230\u4f4d \u2713
                      *   \u4e3a\u4ec0\u4e48\u5fc5\u987b\u663e\u5f0f\u540c\u6b65\uff1a`recallRecords` \u662f**\u5386\u53f2\u65e5\u5fd7**\uff0c\u53ea\u4f1a\u8ffd\u52a0\u3001\u4e0d\u4f1a\u91cd\u7b97\u65e7\u8f6e\u6b21 \u2717
@@ -6345,7 +6316,6 @@ export function bindSectionEvents(host, refresh) {
                             });
                         }
                     };
-
                     if (target.getAttribute('data-hidden') === '1') {
                         const hlist = (state.world.hidden || []).slice();
                         if (Number.isFinite(idx) && hlist[idx]) {
@@ -6514,7 +6484,6 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
-
                 /* ---- 角色 ---- */
                 case 'set-char-field':
                     if (isChange) {
@@ -6882,7 +6851,6 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
-
                 /* ---- 名册 ---- */
                 case 'add-char': {
                     const name = trimText(textOf(host, 'wxg-new-name'));
@@ -7457,6 +7425,10 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 }
                 case 'save-layer-limits': { saveLayerLimits(hostEl || document); rerender(); break; }
+    case 'del-faction': if (removeFaction(target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'add-faction': { const nm = window.prompt('新增势力：名字'); if (nm && trimText(nm)) { upsertFaction({ name: trimText(nm), manual: true }); rerender(); } break; }
+    case 'del-situation': if (removeSituation(target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'add-situation': { const nm2 = window.prompt('新增局势：标题'); if (nm2 && trimText(nm2)) { upsertSituation({ title: trimText(nm2), sides: '', pressure: 1 }); rerender(); } break; }
     case 'del-thread': if (deleteLedgerRow('thread', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-clue': if (deleteLedgerRow('clue', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-echo': if (deleteLedgerRow('echo', target.getAttribute('data-id') || target.id)) { rerender(); } break;

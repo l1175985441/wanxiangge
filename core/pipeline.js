@@ -1483,8 +1483,13 @@ function applyCharacter(raw, material, conflicts) {
     /* P22 (material 07): honour the capPast setting (2-20) - it used to be hardcoded to 5,
      *   so whatever the user configured was silently ignored. */
     const capPastNow = clampNumber(Number(getSettings().capPast) || 5, 2, 20, 5);
+    let pastChain = (Array.isArray(c.past) && c.past[0] && trimText(c.past[0].text)) || '';
     for (const p of past.slice(0, capPastNow).reverse()) {
-        pushPast(c.id, p, capPastNow, material.floor);
+        /* 129：每层那条＝到这一层为止的累积摘要（她 [650]：取最老一层就够） */
+        const body = trimText(p && (p.text || p));
+        const cum = pastChain ? (pastChain + '；' + body) : body;
+        pushPast(c.id, cum, capPastNow, material.floor);
+        pastChain = cum;
         /* ★ 补单 1-⑤：模型交了 rollup 就地压成一条 L1 ✓ */
         if (p && trimText(p.rollup)) {
             try { rollupPast(c.id, p.rollup); } catch (eRoll) { }
@@ -1737,8 +1742,6 @@ async function stepCharacters(material, attempt, screenRes) {
     /* P4 part 2 (material 07): tell the model WHO the player is - see the note below. */
     /* P19 (material 07): say the in-scene / off-scene rules once, not once per character. */
     /* 96：两块独立提示词——前台一块、后台一块（⛔ 合成一份） */
-    const frontBlock = FRONT_SYSTEM;
-    const backBlock = BACK_SYSTEM;
     const charsHeader = [
         '【每个角色都适用的两条硬规矩】',
         '· **标了“现场”的**：只许总结正文里已经写了的他的事，⛔ 正文没写的（尤其下一步动作）一律不许写；✅ 可以照正文那样**侧面带“我”**（对“我”说／看向“我”／把东西放到“我”面前／对“我”的反应），⛔ 但“我”自己的动作、台词、神态、位置一个字都不许写；⛔ 替他答／替他选／替他点头；写得出具体动作的那句本身就是「待我做决定」，⛔ 只写这四个字。',
@@ -2162,7 +2165,7 @@ export function checkActingAsMe(rows, floor) {
     return hits.length;
 }
 /* ------------------------------ 主流程 ------------------------------ */
-/** 从"时间・地点"里抠出时间部分（交给 clock 判） */
+/** 从"时间·地点"里抠出时间部分（交给 clock 判） */
 function extractClockFromPlace(text) {
     const s = trimText(text);
     if (!s) {
@@ -2930,7 +2933,6 @@ export function runReconcile() {
 /**
  * ★ P1-5（修复单 20261019）：**重 roll 解耦** —— 每笔提交都记下「哪一楼的第几版」。
  *   为什么：同一楼同一版重算一次 = 白烧一轮额度；而她真切了 swipe 又必须重算。
- *   所以把「楼号:版本号」当成一次提交的身份：已经成功算过的同一个身份 ⇒ 跳过；换了版本 ⇒ 重算 ✓
  */
 export function currentSwipeId(floor) {
     try {
@@ -2973,9 +2975,6 @@ export function shouldUpdateNow(floor) {
     const last = Number(state.pipeline && state.pipeline.atFloor);
     const cur = Number(floor);
     /*
-     * 102：「晚一层」硬需求（她 22:16：生成第 7 层时只更新第 5 层）。
-     *   旧：追着最新一层跑 ⇒ 她刷第 7 层十遍就白算十遍。
-     *   新：目标层＝cur − 1 − lag（lag 来自 settings.updateLag，默认 1）；没到目标层就不跑。
      */
     const lag = Math.max(0, Math.floor(Number(settings.updateLag)));
     const r = shouldRunUpdate({ curFloor: cur, lastUpdatedFloor: last, lag: Number.isFinite(lag) ? lag : 1 });

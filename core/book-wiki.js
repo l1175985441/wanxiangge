@@ -200,6 +200,8 @@ function normalizeWiki(raw) {
                 note: trimText(c && c.note),
                 age: isBlankOrUnknownish(trimText(c && c.age)) ? '' : trimText(c && c.age),   /* 109/116：年龄进来、占位词不进 */
                 identity: idParts.join('；'),
+            /* 129：书里自带的地点（有就收，没有就空）——⛔ 改 schema，只在落库补一个兜底 */
+            place: trimText(c && (c.place || c.timePlace)),
                 /* 116：同时产出数组（三处同一种形状） */
                 identities: idParts.join('；').split(/[；;]/).map((s) => trimText(s)).filter(Boolean),
                 faction: trimText(c && c.faction),
@@ -600,7 +602,6 @@ export function applyWiki(wiki, opts) {
         /*
          * S5 补一道护栏：材料给的 `/^.{1,3}家$/` 本身也会误杀 ✗
          *   （「老管家」「某书家」都是 3 字、也以家结尾 ✗）
-         *   ⇒ 只要尾巴是**职业／身份词**（管家／书家／作家… ✓）就**照收** ✓
          */
         const looksProfession = /(?:管家|书家|作家|专家|行家|店家|东家|亲家|冤家|仇家|出家|在家|农家|法家|医家|画家|音乐家)$/.test(clean);
         return Boolean(clean) && !(looksProfession !== true && /^.{1,3}家(?:一家|一族)?$/.test(clean));
@@ -634,8 +635,6 @@ export function applyWiki(wiki, opts) {
     if (chars.length) {
         const state = loadState();
         /*
-         * ⭐ 修复单 #12：这里改的是**内存里那份**角色的身份／势力，原来**没 saveState**
-         *   ⇒ 从世界书读到的人设「当场有、刷新就没」（补的身份／势力永不落盘）。
          */
         let patched = 0;
         for (const c of chars) {
@@ -649,6 +648,9 @@ export function applyWiki(wiki, opts) {
                 patch.age = trimText(c.age);
             }
             /* 116：占位词不能冒充身份／势力（与 age 同一道闸） */
+            if (trimText(c.place) && !trimText(hit.timePlace)) {
+                patch.timePlace = trimText(c.place);
+            }
             if (trimText(c.identity) && !isBlankOrUnknownish(trimText(c.identity)) && !trimText(hit.identity)) {
                 patch.identity = trimText(c.identity);
             }
@@ -731,9 +733,6 @@ export function applyWiki(wiki, opts) {
         situationsTotal = before.length;
     }
     /*
-     * ★ 20261022 P0-5（从 expandMultiNameEntries 搬过来）：导入的局势/暗线要同步进召回用的
-     *   事件池，否则 state.events 一直空着 ⇒ 发消息时按 events 挑世界事件 ⇒ **0 召回**。
-     *   按标题去重、⛔ 冲掉她原有的；同步失败不影响导入本身。
      */
     try {
         const oldEv = Array.isArray(loadState().events) ? loadState().events.slice() : [];
@@ -789,7 +788,6 @@ export function applyWiki(wiki, opts) {
     };
 }
 /**
- *
  */
 /**
  */
@@ -913,6 +911,7 @@ export function mergeAliasGroups(list) {
             name: trimText(x.name),
             note: trimText(x.note),
             age: trimText(x.age),   /* 116：这里重建对象时不能把年龄丢了 */
+            place: trimText(x.place),   /* 129：地点也不能在这里丢 */
             identity: trimText(x.identity),
             identities: Array.isArray(x.identities) ? x.identities.map((a) => trimText(a)).filter(Boolean) : [],
             faction: trimText(x.faction),
@@ -949,6 +948,7 @@ export function mergeAliasGroups(list) {
             name: host.name,
             note: host.note,
             age: host.age,
+            place: host.place,
             identity: host.identity,
             identities: Array.isArray(host.identities) ? host.identities : [],
             faction: host.faction,

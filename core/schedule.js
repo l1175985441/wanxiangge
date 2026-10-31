@@ -120,7 +120,8 @@ export function pointOf(item, ctx) {
     const now = Number(c.nowMinute) || 0;
     const it = item || {};
     const due = Number(it.dueMinute);
-    const origin = Number(it.originDueMinute);
+    /* 129：新账用 originDueMinute；老账只有 originDue（字符串）⇒ 回退读它 */
+    const origin = Number.isFinite(Number(it.originDueMinute)) ? Number(it.originDueMinute) : Number(it.originDue);
     const fired = Array.isArray(it.firedPoints) ? it.firedPoints.map(String) : [];
     /* due：已到期 */
     if (Number.isFinite(due) && now >= due && !fired.includes('due')) {
