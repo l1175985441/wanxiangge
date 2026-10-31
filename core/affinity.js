@@ -42,31 +42,42 @@ export function scanAffinityValues(text) {
  */
 export function extractAffinityPairs(text) {
     const raw = String(text == null ? '' : text);
-    /* 129：只读《角色手机》的 <status> 块；没有块 ⇒ 一条都不抄 */
-    const mBlock = /<status>([\s\S]*?)<\/status>/i.exec(raw) || /【角色手机】([\s\S]*?)(?=【|$)/.exec(raw);
-    if (!mBlock) {
-        return [];
+    /* 129：只读《角色手机》的 <status> 块；没有块 ⇒ 一条都不抄（多个块全收） */
+    const blocks = [];
+    const reS = /<status>([\s\S]*?)<\/status>/gi;
+    let mb = null;
+    while ((mb = reS.exec(raw))) {
+        blocks.push(mb[1]);
     }
-    const s = mBlock[1];
+    if (!blocks.length) {
+        const mPh = /【角色手机】([\s\S]*?)(?=【|$)/.exec(raw);
+        if (!mPh) {
+            return [];
+        }
+        blocks.push(mPh[1]);
+    }
     const pairs = [];
     const re = /好感(?:指数|值)\s*[:：]\s*([+\-−]?\d+(?:\.\d+)?(?:\s*[%％])?)/g;
-    let m = null;
-    while ((m = re.exec(s))) {
-        const before = s.slice(0, m.index);
-        const cut = Math.max(before.lastIndexOf('\n\n'), before.lastIndexOf('\uff1b'), before.lastIndexOf(';'));
-        const block = before.slice(cut + 1);
-        const lines = block.split('\n').map((x) => x.trim()).filter(Boolean);
-        let name = '';
-        for (let i = lines.length - 1; i >= 0; i -= 1) {
-            const ln = lines[i];
-            const isHeader = /^[【<\[].*[】>\]]$/.test(ln) || /^(角色手机|status|char\d|SNS)/i.test(ln);
+    for (const s of blocks) {
+        re.lastIndex = 0;
+        let m = null;
+        while ((m = re.exec(s))) {
+            const before = s.slice(0, m.index);
+            const cut = Math.max(before.lastIndexOf('\n\n'), before.lastIndexOf('；'), before.lastIndexOf(';'));
+            const block = before.slice(cut + 1);
+            const lines = block.split('\n').map((x) => x.trim()).filter(Boolean);
+            let name = '';
+            for (let i = lines.length - 1; i >= 0; i -= 1) {
+                const ln = lines[i];
+                const isHeader = /^[【<\[].*[】>\]]$/.test(ln) || /^(角色手机|status|char\d|SNS)/i.test(ln);
                 if (ln.length > 0 && ln.length <= 24 && !isHeader && !/好感|指数|关系|状态|当前/.test(ln)) {
-                name = ln.replace(/^[\-\*\u00b7\u2022\s]+/, '').replace(/[:：]$/, '');
-                break;
+                    name = ln.replace(/^[\-\*·•\s]+/, '').replace(/[:：]$/, '').replace(/^(角色名称|角色名|角色|姓名|名字)\s*[:：]\s*/, '');
+                    break;
+                }
             }
-        }
-        if (name) {
-            pairs.push({ name, raw: m[1].trim() });
+            if (name) {
+                pairs.push({ name, raw: m[1].trim() });
+            }
         }
     }
     return pairs;

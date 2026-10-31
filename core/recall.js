@@ -347,7 +347,7 @@ function personBlock(item, opts) {
         return Number.isFinite(from) && hidFront.has(from);
     });
     /* 129：她 [650] 定：只取最老一层（累积摘要，1~N 都在那一条里） */
-    hiddenPast.sort((a, b) => Number(a.fromFloor) - Number(b.fromFloor));
+    hiddenPast.sort((a, b) => Number(b.fromFloor) - Number(a.fromFloor));   /* 129：降序＝取覆盖最广那条 */
     const pastFront = hiddenPast.slice(0, 1);
         /* 106：前台薄块也要端日程（她定的 8 格里有日程）；只端未完成的、不超 3 条 */
     {
