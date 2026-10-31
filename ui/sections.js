@@ -1499,7 +1499,7 @@ function secWorld(host) {
  * 她原话："不是应该七列？几个小标题然后名字各就各位然后每一列各自填各自的？而且最上面还要加上搜索，
  * 否则人物一多就哈哈哈。"
  *
- * 排布：名字（＋徽章＋明细开关）｜年龄｜身份｜所在势力｜好感｜时间・地点｜正在经历
+ * 排布：名字（＋徽章＋明细开关）｜年龄｜身份｜所在势力｜好感｜时间·地点｜正在经历
  *   点「明细」展开那一行：过去经历／日程／任务／合并与收下按钮（⛔ 不占表宽）。
  */
 function secCharacters(host) {
@@ -1553,7 +1553,7 @@ function secCharacters(host) {
     table.className = 'wxg-ctable';
     const thead = document.createElement('thead');
     const htr = document.createElement('tr');
-    for (const h of ['名字', '年龄', '身份', '所在势力', '好感', '时间・地点', '正在经历']) {
+    for (const h of ['名字', '年龄', '身份', '所在势力', '好感', '时间·地点', '正在经历']) {
         const th = document.createElement('th');
         th.textContent = h;
         htr.appendChild(th);
@@ -1685,7 +1685,7 @@ function secCharacters(host) {
         const editGrid = el('div', 'wxg-cedit');
         const mkEdit = (key, placeholder, isArea) => {
             const wrap = el('div', 'wxg-cedit-item');
-            wrap.appendChild(el('span', 'wxg-cedit-k', key === 'timePlace' ? '时间・地点' : ({
+            wrap.appendChild(el('span', 'wxg-cedit-k', key === 'timePlace' ? '时间·地点' : ({
                 age: '年龄', identity: '身份', faction: '所在势力', current: '正在经历',
             }[key] || key)));
             const inp = isArea
@@ -1890,7 +1890,7 @@ function secCharacters(host) {
     twrap.appendChild(table);
     box.appendChild(twrap);
     box.appendChild(el('div', 'wxg-note',
-        '一行一个人：名字／年龄／身份／所在势力／好感／时间・地点／正在经历，点行展开明细即可修改；'
+        '一行一个人：名字／年龄／身份／所在势力／好感／时间·地点／正在经历，点行展开明细即可修改；'
         + '改过的会显示「已手动修改」，下一轮更新不许冲掉。'
         + '搜索只筛显示，不动数据。'));
     host.appendChild(box);

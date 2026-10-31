@@ -649,7 +649,7 @@ export function applyWiki(wiki, opts) {
                 patch.age = trimText(c.age);
             }
             /* 116：占位词不能冒充身份／势力（与 age 同一道闸） */
-            if (trimText(c.place) && !trimText(hit.timePlace)) {
+            if (trimText(c.place) && !isBlankOrUnknownish(trimText(c.place)) && !trimText(hit.timePlace)) {
                 patch.timePlace = trimText(c.place);
             }
             if (trimText(c.identity) && !isBlankOrUnknownish(trimText(c.identity)) && !trimText(hit.identity)) {
