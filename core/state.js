@@ -380,7 +380,7 @@ function emptyState() {
         chronicle: [],           // 编年：给她看（可翻、可改）
     memories: [],            // 99：往事（从编年里挑出来喂模型）——两本账分开存
     milestones: { 正史: [], 特异点: [], 母题: [] },   // 99：归类三层（只往上提）
-    clues: [],               // 101：线索四态机（上限 480）
+    clues: [],               // 101：线索六态机（上限 480）
         lastUpdate: { at: 0, status: 'idle', note: '', floor: -1 },
         pipeline: {              // 更新流水（失败可见＋重试上限）
             kind: '',

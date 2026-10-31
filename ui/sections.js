@@ -1181,7 +1181,7 @@ function secWorld(host) {
     }
 
     /* ★ [580] C3：风声＝未证实公开传闻（对齐 A1 trace；账＋局势／事件派生，去重） */
-    const cWinds = card('风声与新闻');
+    const cWinds = card('风声与已公开');
     {
         /* 102：已公开组（publicity=public）；⛔ 不展开论坛 */
     const pubNews = (w.situations || []).filter((s2) => s2 && s2.publicity === 'public').slice(0, 6);
@@ -1191,7 +1191,7 @@ function secWorld(host) {
             const rr = el('div', 'wxg-r');
             const mm = el('div', 'wxg-r-main');
             const tt2 = el('div', 'wxg-r-title');
-            tt2.appendChild(el('span', 'wxg-r-who', trimText(n2.publicHeadline || n2.public_headline || n2.title) || '（未记题）'));
+            tt2.appendChild(el('span', 'wxg-r-who', trimText(n2.title) || '（未记题）'));
             tt2.appendChild(el('span', 'wxg-badge is-info', '已公开'));
             mm.appendChild(tt2);
             mm.appendChild(el('div', 'wxg-r-sub', (trimText(n2.publicTrace || n2.public_trace) || '公共传播') + ' ｜ 热度 ' + String(Math.max(1, Math.min(3, Number(n2.pressure) || 1)))));

@@ -79,7 +79,6 @@ function hiddenBrief() {
 
 /** 世界层（⛔ 不读 situations／hidden） */
 
-/* TODO（未实现）：线索缺一档 echoed（触发后影响还在延续），现四态。 */
 
 /* 127：每层自己的额度／模型；留空 ⇒ {} ⇒ 全局行为不变 */
 function limOf(key) {

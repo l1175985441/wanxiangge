@@ -1,8 +1,8 @@
 /**
- * 万象阁 · 四本小账（101 号 · 需求清单 3／4／6／5 的落码）
+ * 万象阁 · 线索账（101 号；125 号删了三样，四本只剩这一本）
  *
  *    能不能发要过接触链（state.characters[].knows 里的 channel）；⛔ 没接触链不能凭空收到消息。
- * 4 线索 clues：四态机 新(new)→发展(developing)→触发(triggered)→解决(resolved)／废弃(discarded)，上限 480。
+ * 线索 clues：六态机 新(new)→发展(developing)→触发(triggered)→余波(echoed)→解决(resolved)／废弃(discarded)，上限 480。
  *
  * 四本账都挂在聊天级 state 上，⛔ 不挂楼层。
  */
@@ -38,7 +38,7 @@ function ensureArr(st, key) {
     return st[key];
 }
 
-/* ───────── 4 线索四态机 ───────── */
+/* ───────── 4 线索六态机 ───────── */
 
 /** 建线索（state 只许 new） */
 export function upsertClue(state, clue) {
@@ -66,7 +66,7 @@ export function upsertClue(state, clue) {
     return item;
 }
 
-/** 推进一步（只能按四态机走，⛔ 不许跳级、⛔ 不许复活） */
+/** 推进一步（只能按六态机走，⛔ 不许跳级、⛔ 不许复活） */
 export function advanceClue(state, title, next, at) {
     const st = state || {};
     const list = ensureArr(st, 'clues');
@@ -79,7 +79,7 @@ export function advanceClue(state, title, next, at) {
         return { ok: false, reason: '不认识的线索状态：' + target };
     }
     if (!(NEXT_STATE[item.state] || []).includes(target)) {
-        return { ok: false, reason: '四态机不许「' + item.state + ' → ' + target + '」' };
+        return { ok: false, reason: '六态机不许「' + item.state + ' → ' + target + '」' };
     }
     item.state = target;
     if (target === 'resolved' || target === 'discarded') {

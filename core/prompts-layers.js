@@ -49,7 +49,6 @@ export const WORLD_SYSTEM = [
     '【两条轴】visibility（对正文）：hidden|trace|known|direct；publicity（对社会）：private|trace|public。',
     '⇒ 卧室私事可 visibility=direct 且 publicity=private。',
     '⇒ publicity=trace 只能形成“传闻在流传”，⛔ 绝不能升级成已证实事实。',
-    '⇒ 只有 publicity=public 才允许写 public_headline／public_summary。',
     '',
     '【证据链四级】正文明确事实 ＞ 已确认世界状态 ＞ 直接推论 ＞ 保守推断；同档冲突：谁先落账谁赢；低档降级为「未证实」（⛔ 删，那是账）。',
     '【输出】严格 JSON 一个对象，不要 markdown 围栏、不要前后废话：',
