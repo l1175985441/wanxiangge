@@ -15,7 +15,6 @@ import {
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';
 import { WORLD_SYSTEM, SITUATION_SYSTEM, HIDDEN_SYSTEM } from './prompts-layers.js';
 import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';
-import { OPINION_SYSTEM } from './prompts-opinion.js';
 import { chatOverrides, resolveOne, resolveAll, sourceLine } from './scope.js';   /* 1-c #1：三层作用域 */
 import { getExtensionSettings, persistSettings, getCtx } from './adapter.js';   /* 1-c #1：读聊天级覆盖要拿上下文 */
 import { clampNumber, toList, trimText, asText } from './utils.js';
@@ -369,7 +368,6 @@ const PROMPT_KEYS = {
     situation: ['promptSituation', SITUATION_SYSTEM],
     hiddenLayer: ['promptHiddenLayer', HIDDEN_SYSTEM],
     chronicle: ['promptChronicle', CHRONICLE_SYSTEM],
-    opinion: ['promptOpinion', OPINION_SYSTEM],
 };
 
 /** 提示词的三态判定：{ value, state: 'inherited'|'empty'|'custom' } */

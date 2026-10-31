@@ -1,4 +1,11 @@
 /**
+ * 125 号（她 2026-11-01 02:04–02:20 连拍四次）：舆情／回声／通讯三样已整块删除，五层变四层。
+ * 判据：她玩的是「宝可梦同人」——原作世界观已定、人物关系已有 ⇒ 世界不需要自己长，
+ * 重点是「角色演得像不像／记忆准不准」；沙盘（娱乐圈大世界）才需要新闻／论坛／舆情／通讯。
+ * 硬判据：抄任何功能前先问「它是给『世界自己长』用的，还是给『角色演得像』用的？」
+ *          是前者 ⇒ 默认不抄，除非她明说要。五样里只留线索（它管「这件事办到第几步」）。
+ */
+/**
  * 万象阁 · 三层执行器（98 号）
  *
  * 五份提示词里的中间三份，各自**独立调用**、各自独立输出 schema、各自硬闸：
@@ -19,8 +26,7 @@ import {
 import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';
 import { splitPicked, planCalls, mergeSides, sideOutcome } from './chars-split.js';   /* 107-B：人物步拆分的纯函数 */   /* 99：第六份提示词 */
 import { syncMemories, ensureMilestones } from './chronicle-brief.js';
-import { upsertClue, advanceClue, addEcho, upsertOpinion } from './extra-ledgers.js';
-import { OPINION_SYSTEM, publicCandidates, gateOpinion } from './prompts-opinion.js';   /* 101：第七份（舆情，只读） */
+import { upsertClue, advanceClue } from './extra-ledgers.js';
 import { getSettings, effectivePrompt } from './settings.js';
 import { trimText, matchKey } from './utils.js';
 
@@ -72,6 +78,8 @@ function hiddenBrief() {
 }
 
 /** 世界层（⛔ 不读 situations／hidden） */
+
+/* TODO（未实现）：线索缺一档 echoed（触发后影响还在延续），现四态。 */
 
 /* 127：每层自己的额度／模型；留空 ⇒ {} ⇒ 全局行为不变 */
 function limOf(key) {
@@ -164,15 +172,6 @@ export async function runSituationLayer(material) {
         updateWorld({ situations: before });
         for (const r of (g.value.situations_resolve || [])) {
             const org = before.find((x) => x && (String(x.id) === String(r && r.id) || x.title === String(r && r.title)));
-            if (org && (r.status === 'resolved' || r.status === 'missed' || r.status === 'cancelled')) {
-                addEcho(loadState(), { eventId: String(org.id || org.title), text: String(r.result || org.title || ''), resolved: true, fromFloor: Number(org.floor) || 0 });
-            }
-        }
-        /* 舆情：只收 publicity=public 的局势 */
-        for (const s of before) {
-            if (s && String(s.publicity) === 'public') {
-                upsertOpinion(loadState(), { topic: String(s.title || ''), publicity: 'public', heat: Number(s.pressure) || 1, fromFloor: Number(s.floor) || 0 });
-            }
         }
         saveState();
     } catch (eS) { /* 同上 */ }
@@ -180,6 +179,7 @@ export async function runSituationLayer(material) {
 }
 
 /** 暗流层（读世界＋局势 ✅，⛔ 不写 situations） */
+/* TODO（未实现）：暗流还缺一层“正文承接确认”（世界背面用 deliveriesConfirmed 反手确认 delivered）。 */
 export async function runHiddenLayer(material) {
     const res = await callModelJson({
         system: effectivePrompt('hiddenLayer') || HIDDEN_SYSTEM,
@@ -215,20 +215,19 @@ export async function runHiddenLayer(material) {
 }
 
 /**
- * 三层顺序跑（单向）：世界 → 局势 → 暗流。
+ * 四层顺序跑（单向）：世界 → 局势 → 暗流 → 编年。
  * 开关：settings.layerPrompts === true 才跑（默认关，避免无声多烧 API）。
  */
 export async function runLayers(material) {
     const on = getSettings().layerPrompts === true;
     if (!on) {
-        return { ok: true, skipped: true, reason: '三层提示词开关未开（settings.layerPrompts）' };
+        return { ok: true, skipped: true, reason: '四层提示词开关未开（settings.layerPrompts）' };
     }
     const out = {};
     try { out.world = await runWorldLayer(material, {}); } catch (e1) { out.world = { ok: false, reason: String(e1) }; }
     try { out.situation = await runSituationLayer(material); } catch (e2) { out.situation = { ok: false, reason: String(e2) }; }
     try { out.hidden = await runHiddenLayer(material); } catch (e3) { out.hidden = { ok: false, reason: String(e3) }; }
     try { out.chronicle = await runChronicleLayer(material); } catch (e4) { out.chronicle = { ok: false, reason: String(e4) }; }
-    try { out.opinion = await runOpinionLayer(material); } catch (e5) { out.opinion = { ok: false, reason: String(e5) }; }
     return { ok: true, layers: out };
 }
 
@@ -266,32 +265,6 @@ export async function runChronicleLayer(material) {
     return { ok: true, appended: (v.chronicle_append || []).length, memories: sync.added };
 }
 
-/** 舆情层（第 7 份）：只读快照；⛔ 不改 situations／characters／hidden／clock／chronicle */
-export async function runOpinionLayer(material, opts) {
-    const st = loadState();
-    const cands = publicCandidates((st.world && st.world.situations) || [], 24);
-    if (!cands.length) {
-        /* 闸 7：候选全空 ⇒ 空快照，不报错、不重试 */
-        st.opinionSnapshot = { news: [], forums: [], at: Date.now() };
-        saveState();
-        return { ok: true, empty: true, reason: '没有可公开的事件 → 空快照' };
-    }
-    const res = await callModelJson({
-        system: effectivePrompt('opinion') || OPINION_SYSTEM,
-        prompt: 'public_event_candidates：\n' + JSON.stringify(cands, null, 1)
-            + '\n\nprevious_snapshot：\n' + JSON.stringify((st.opinionSnapshot || { news: [], forums: [] }), null, 1)
-            + '\n\nelapsed_news_world_minutes：' + String(Number(opts && opts.newsMinutes) || 0)
-            + '\nelapsed_forum_world_minutes：' + String(Number(opts && opts.forumMinutes) || 0),
-        cheap: true,
-    });
-    if (!res || !res.ok) {
-        return { ok: false, reason: (res && res.reason) || '舆情层没回可用 JSON' };
-    }
-    const g = gateOpinion(res.value || {}, cands, { previous: (st.opinionSnapshot && st.opinionSnapshot.news) || [] });
-    st.opinionSnapshot = { news: g.news, forums: g.forums, at: Date.now() };
-    saveState();
-    return { ok: true, news: g.news.length, forums: g.forums.length, dropped: g.dropped };
-}
 
 /**
  * 107-B：人物步拆两次请求的**计划层**（纯函数包一层，供单测）。

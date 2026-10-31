@@ -1421,10 +1421,6 @@ function secWorld(host) {
             if (h.manual) {
                 title.appendChild(el('span', 'wxg-badge is-warn', '已手动修改'));
             }
-            /* 102：回声台账里有这条 ⇒ 行尾一个「已承接」（⛔ 单开卡） */
-            if ((loadState().echoes || []).some((e2) => e2 && (String(e2.eventId) === String(h.id) || String(e2.title || '').indexOf(trimText(h.name)) >= 0))) {
-                title.appendChild(el('span', 'wxg-badge is-ok', '已承接'));
-            }
             main.appendChild(title);
             // 第二行：到点条件 ／ 现在到哪一步（空值写"暂无"，⛔ 不隐身）
             const bits = [];
@@ -1737,27 +1733,6 @@ function secCharacters(host) {
                 + '　⇒ 已标出来、但没擅自改它，你看着办（下一步该由你回话决定）');
             warn.setAttribute('data-tone', 'bad');
             detail.appendChild(warn);
-        }
-        /* 102：最近和谁通过消息（≤5 条；没有就不显示这块） */
-        {
-            const myThreads = (loadState().threads || []).filter((th) => th && (th.members || []).includes(trimText(c.name)));
-            const msgs = [];
-            for (const th of myThreads) {
-                for (const m of (th.messages || [])) {
-                    if (m && (m.from === trimText(c.name) || (th.members || []).includes(m.from))) { msgs.push(m); }
-                }
-            }
-            msgs.sort((a2, b2) => (Number(b2.at) || 0) - (Number(a2.at) || 0));
-            if (msgs.length) {
-                const mb = el('div', 'wxg-field');
-                mb.appendChild(el('label', null, '最近和谁通过消息'));
-                for (const m of msgs.slice(0, 5)) {
-                    const th = myThreads.find((x) => (x.messages || []).includes(m)) || {};
-                    const other = (th.members || []).find((x) => x !== trimText(c.name)) || '';
-                    mb.appendChild(el('div', 'wxg-fact', '· ' + (other || m.from) + '　「' + trimText(m.text).slice(0, 40) + '」'));
-                }
-                detail.appendChild(mb);
-            }
         }
         const past = el('div', 'wxg-field');
         past.appendChild(el('label', null, '过去经历（由近到远，旧的自然淡化）'));
@@ -3709,8 +3684,6 @@ box.appendChild(cHead);
         '背后攒劲：谁在办、办到第几步。留空＝用内置。');
     addFoldedPrompt('编年层提示词', s.promptChronicle, 'chronicle', 'wxg-prompt-chronicle', 8,
         '往回看：之前发生过什么。留空＝用内置。');
-    addFoldedPrompt('舆情层提示词', s.promptOpinion, 'opinion', 'wxg-prompt-opinion', 8,
-        '外面在怎么说（新闻／论坛，只读）。留空＝用内置。');
     addFoldedPrompt('破限词', s.jailbreak, 'jailbreak', 'wxg-jailbreak', 6,
         '模型有时候"不填东西"——这一段是逼它老实填字段用的。');
     const resetRow = el('div', 'wxg-card-actions');
@@ -7429,10 +7402,7 @@ export function bindSectionEvents(host, refresh) {
     case 'add-faction': { const nm = window.prompt('新增势力：名字'); if (nm && trimText(nm)) { upsertFaction({ name: trimText(nm), manual: true }); rerender(); } break; }
     case 'del-situation': if (removeSituation(target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'add-situation': { const nm2 = window.prompt('新增局势：标题'); if (nm2 && trimText(nm2)) { upsertSituation({ title: trimText(nm2), sides: '', pressure: 1 }); rerender(); } break; }
-    case 'del-thread': if (deleteLedgerRow('thread', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'del-clue': if (deleteLedgerRow('clue', target.getAttribute('data-id') || target.id)) { rerender(); } break;
-    case 'del-echo': if (deleteLedgerRow('echo', target.getAttribute('data-id') || target.id)) { rerender(); } break;
-    case 'del-opinion': if (deleteLedgerRow('opinion', target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'export-chat': {
         /* 110：导出这段聊天原文（只读；⛔ 写回任何东西） */
         try {
