@@ -1503,7 +1503,7 @@ function applyCharacter(raw, material, conflicts) {
     /* 127-2：past_append（字符串）也收；去重交给 pushPast */
     {
         const one = trimText(raw && raw.past_append);
-        if (one) {
+        if (one && !(pastChain && pastChain.indexOf(one) >= 0)) {
             const cum = pastChain ? (pastChain + '；' + one) : one;
             pushPast(c.id, cum, capPastNow, material.floor);
             pastChain = cum;
@@ -1555,10 +1555,10 @@ function applyCharacter(raw, material, conflicts) {
         if (!trimText(s.due)) {
             continue;
         }
-        if (!Number.isFinite(Number(s.sinceDay)) && Number.isFinite(curDay)) {
+        if ((s.sinceDay === null || s.sinceDay === undefined || s.sinceDay === '') && Number.isFinite(curDay)) {
             s.sinceDay = curDay;
         }
-        if (!Number.isFinite(Number(s.sinceMinutes)) && Number.isFinite(curMin)) {
+        if ((s.sinceMinutes === null || s.sinceMinutes === undefined || s.sinceMinutes === '') && Number.isFinite(curMin)) {
             s.sinceMinutes = curMin;
         }
         /* 127-3：先用 dueMinute 兜“建的时候就已过期／正好到点” */
@@ -1799,7 +1799,7 @@ async function stepCharacters(material, attempt, screenRes) {
             /* 106：四时点优先，countdownOf 兜底 */
             let cd = { phrase: '' };
             {
-                const soon = (Array.isArray(c.schedule) ? c.schedule : []).filter((s2) => s2 && !s2.done && Number.isFinite(Number(s2.dueMinute)));
+                const soon = (Array.isArray(c.schedule) ? c.schedule : []).filter((s2) => s2 && !s2.done && Number.isFinite(s2.dueMinute));
             soon.sort((a2, b2) => Number(a2.dueMinute) - Number(b2.dueMinute));
             const it0 = soon[0] || {};
             const pt = pointOf(it0, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
@@ -2541,7 +2541,7 @@ async function runUpdateInner(opts) {
                             delete c4.offstageSince;
                         } else if (Number.isFinite(pf) && pf >= 0) {
                             c4.offstage = true;
-                            if (!Number.isFinite(Number(c4.offstageSince))) { c4.offstageSince = Number(material.floor); }
+                            if ((c4.offstageSince === null || c4.offstageSince === undefined || c4.offstageSince === '')) { c4.offstageSince = Number(material.floor); }
                         }
                     }
                 } catch (eOff) { /* 标不了也不能拦着主流程 */ }

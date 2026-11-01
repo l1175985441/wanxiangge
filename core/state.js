@@ -126,6 +126,9 @@ export function setRole(id, role) {
     return true;
 }
 
+/* 128-8：Number(null)→0，“算不出”⛔ 当成 0 */
+const numOrNull = (v) => ((v === null || v === undefined || v === '') ? null : (Number.isFinite(Number(v)) ? Number(v) : null));
+
 export function normalizeCharacter(raw) {
     const c = raw && typeof raw === 'object' ? raw : {};
     /* 依据＝阿砚 M 表 M17：改名表要真的在“读”的时候生效（上一版只有表和函数、没人调） */
@@ -189,13 +192,13 @@ export function normalizeCharacter(raw) {
             done: (s && s.done) === true,
             /* ★ 20261022 ⑩（22 单）：读档时把这三格洗掉了 ⇒ “几天后”永远算不出来、到点也不记得 ✗ */
             dueReached: (s && s.dueReached) === true,
-            sinceDay: Number.isFinite(Number(s && s.sinceDay)) ? Number(s.sinceDay) : null,
-            sinceMinutes: Number.isFinite(Number(s && s.sinceMinutes)) ? Number(s.sinceMinutes) : null,
+            sinceDay: numOrNull(s && s.sinceDay),
+            sinceMinutes: numOrNull(s && s.sinceMinutes),
         /* 106：四时点的数据前提（origin 原定期限，firedPoints 已报过哪些点） */
         originDue: trimText(s && s.originDue),
         /* 129：写入用的是数字键，白名单不收 ⇒ 读档即丢 */
-        dueMinute: Number.isFinite(Number(s && s.dueMinute)) ? Number(s.dueMinute) : null,
-        originDueMinute: Number.isFinite(Number(s && s.originDueMinute)) ? Number(s.originDueMinute) : null,
+        dueMinute: numOrNull(s && s.dueMinute),
+        originDueMinute: numOrNull(s && s.originDueMinute),
         firedPoints: Array.isArray(s && s.firedPoints) ? s.firedPoints.map((x) => trimText(x)).filter(Boolean) : [],
             /* A1：日程也要认得是第几版／哪一楼 */
             swipe: Number.isFinite(Number(s && s.swipe)) ? Number(s.swipe) : null,
@@ -1853,10 +1856,10 @@ export function upsertHidden(line) {
             updatedAt: now(),
         });
         // 补齐起算点（老数据没有的话补上，⛔ 已有的不覆盖——覆盖等于把时间表往后推）
-        if (!Number.isFinite(Number(existing.sinceDay)) && Number.isFinite(sinceDayNow)) {
+        if ((existing.sinceDay === null || existing.sinceDay === undefined || existing.sinceDay === '') && Number.isFinite(sinceDayNow)) {
             existing.sinceDay = sinceDayNow;
         }
-        if (!Number.isFinite(Number(existing.sinceMinutes)) && Number.isFinite(sinceMinutesNow)) {
+        if ((existing.sinceMinutes === null || existing.sinceMinutes === undefined || existing.sinceMinutes === '') && Number.isFinite(sinceMinutesNow)) {
             existing.sinceMinutes = sinceMinutesNow;
         }
         if (before !== existing.stage) {

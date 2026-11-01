@@ -354,9 +354,10 @@ function personBlock(item, opts) {
         const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done)
             .sort((a2, b2) => {
             /* 127-4：前台也按 dueMinute 排；算不出的排最后 */
-            const da = Number(a2.dueMinute);
-            const db = Number(b2.dueMinute);
-            return (Number.isFinite(da) ? da : Infinity) - (Number.isFinite(db) ? db : Infinity);
+            /* 128-8：直接判值本身，⛔ Number(null)→0 */
+            const okA = Number.isFinite(a2.dueMinute);
+            const okB = Number.isFinite(b2.dueMinute);
+            return (okA ? a2.dueMinute : Infinity) - (okB ? b2.dueMinute : Infinity);
         })
             .slice(0, 3);
         if (todo.length) {
