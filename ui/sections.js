@@ -1650,7 +1650,10 @@ function secCharacters(host) {
         tr.appendChild(nameTd);
 
         tr.appendChild(cell(c, 'age'));
-        tr.appendChild(cell(c, 'identity'));
+        /* 127-7：身份可多条，表格里也要看得到全部 */
+    tr.appendChild(cell(Object.assign({}, c, {
+        identity: (Array.isArray(c.identities) && c.identities.length) ? c.identities.join('；') : c.identity,
+    }), 'identity'));
         tr.appendChild(cell(c, 'faction'));
         const affTd = cell(c, 'affinity');
         affTd.title = trimText(c.affinitySource) ? ('读自：' + trimText(c.affinitySource)) : '没接数据源（引擎不自己编）';

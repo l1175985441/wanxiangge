@@ -352,7 +352,12 @@ function personBlock(item, opts) {
         /* 106：前台薄块也要端日程（她定的 8 格里有日程）；只端未完成的、不超 3 条 */
     {
         const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done)
-            .sort((a2, b2) => String(a2.due || '').localeCompare(String(b2.due || '')))
+            .sort((a2, b2) => {
+            /* 127-4：前台也按 dueMinute 排；算不出的排最后 */
+            const da = Number(a2.dueMinute);
+            const db = Number(b2.dueMinute);
+            return (Number.isFinite(da) ? da : Infinity) - (Number.isFinite(db) ? db : Infinity);
+        })
             .slice(0, 3);
         if (todo.length) {
             lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；'));

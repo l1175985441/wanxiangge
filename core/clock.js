@@ -278,6 +278,16 @@ export function parseClock(text) {
 export function dueToAbsoluteMinute(text, nowMinute) {
     const raw = trimText(text);
     if (!raw) { return null; }
+    /* 127-1：含月日的绝对日期，parseClock 只给孤立天号 ⇒ ⛔ 当绝对天数，认不出就 null */
+    if (/月/.test(raw) && /\d/.test(raw)) {
+        return null;
+    }
+    /* 127-1：「第 N 天」是相对日，必须从 now 推 */
+    if (/第\s*[一二三四五六七八九十 0-9]+\s*(?:天|日)/.test(raw)) {
+        const nowN = Number(nowMinute);
+        if (!Number.isFinite(nowN)) { return null; }
+        return nowN + 1440;
+    }
     const p = parseClock(raw);
     if (p.has && p.day !== null) {
         return p.day * 1440 + (p.minutesOfDay || 0);

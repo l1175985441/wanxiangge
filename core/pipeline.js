@@ -1500,6 +1500,15 @@ function applyCharacter(raw, material, conflicts) {
      *        ⇒ 她根本没机会履约 ✗（约定默默消失 ✗）
      *   新：当时的世界钟存 `sinceDay` / `sinceMinutes` ✓；到点分两步：
      *        **本轮刚到点** ⇒ `dueReached = true`（留着注入给模型让角色履约 ✓）；**下一轮**才归档 done ✓ */
+    /* 127-2：past_append（字符串）也收；去重交给 pushPast */
+    {
+        const one = trimText(raw && raw.past_append);
+        if (one) {
+            const cum = pastChain ? (pastChain + '；' + one) : one;
+            pushPast(c.id, cum, capPastNow, material.floor);
+            pastChain = cum;
+        }
+    }
     const parsedClock = parseClock(loadState().world.clock);
     const curDay = parsedClock.has ? (parsedClock.day === null ? 1 : parsedClock.day) : null;
     const curMin = parsedClock.has ? ((curDay || 1) * 1440 + (parsedClock.minutesOfDay || 0)) : null;
@@ -1552,6 +1561,15 @@ function applyCharacter(raw, material, conflicts) {
         if (!Number.isFinite(Number(s.sinceMinutes)) && Number.isFinite(curMin)) {
             s.sinceMinutes = curMin;
         }
+        /* 127-3：先用 dueMinute 兜“建的时候就已过期／正好到点” */
+        const dm = Number(s.dueMinute);
+        if (Number.isFinite(dm) && Number.isFinite(Number(curMin)) && Number(curMin) >= dm) {
+            if (!s.dueReached) {
+                s.dueReached = true;
+                addChronicle({ floor: material.floor, kind: '日程到点', who: c.name, text: s.what + '（到点）', clock });
+            }
+            continue;
+        }
         const due = isLineDue({ trigger: s.due, tier: '几天内', sinceDay: s.sinceDay, sinceMinutes: s.sinceMinutes }, clock);
         if (due.due) {
             s.dueReached = true;
@@ -1580,6 +1598,7 @@ function applyCharacter(raw, material, conflicts) {
         delete raw.knownClueIds;
         delete raw.knownFactBeliefs;
     }
+    if (material && trimText(material.clockBefore)) { c.lastClock = trimText(material.clockBefore); }   /* 127-6 */
     return { name: c.name, isNew, quests, knows };
 }
 async function stepCharacters(material, attempt, screenRes) {
@@ -1784,6 +1803,10 @@ async function stepCharacters(material, attempt, screenRes) {
             soon.sort((a2, b2) => Number(a2.dueMinute) - Number(b2.dueMinute));
             const it0 = soon[0] || {};
             const pt = pointOf(it0, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
+        if (pt) {
+            it0.firedPoints = Array.isArray(it0.firedPoints) ? it0.firedPoints : [];
+            if (!it0.firedPoints.includes(pt)) { it0.firedPoints.push(pt); }
+        }
                 if (pt === 'due') { cd = { phrase: '已到点·本轮应履约' }; }
                 else if (pt === 'origin') { cd = { phrase: '原定期限已过（被顺延过）' }; }
                 else if (pt === 'late') { cd = { phrase: '快到时间了' }; }
@@ -1905,7 +1928,7 @@ async function stepCharacters(material, attempt, screenRes) {
                 tag: g.tag,
                 ok: true,
                 value: gv,
-                rows: Array.isArray(gv.chars) ? gv.chars : (Array.isArray(gv.characters) ? gv.characters : []),
+                rows: Array.isArray(gv.chars) ? gv.chars : (Array.isArray(gv.characters) ? gv.characters : (Array.isArray(gv.people_upsert) ? gv.people_upsert : [])),
                 quests: Array.isArray(gv.quests) ? gv.quests : [],
             });
         } else {
@@ -2376,6 +2399,7 @@ async function runUpdateInner(opts) {
         rawText: msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n'),
         messages: msgs,
         fellBack: cleaned.fellBack,
+    clockBefore: loadState().world.clock,
     };
     /*
      * ⭐ 补②：对着新正文核上一轮注入的条目（到底接没接）。
@@ -2711,7 +2735,6 @@ export async function runBackfill(opts) {
         return { ok: false, reason: '这个聊天还没有楼' };
     }
     /* ⭐修复 1（材料 02）：扫描对象从“只读用户楼”改为“**全部有效正文楼**” ✓
-     *   旧：只收 `is_user` 楼 ✗ ⇒ **AI 正文楼全部漏读** ✗（它们才是剧情主体 ✗）
      *   新：收所有非系统且有正文的楼（含 AI 楼、用户楼、**隐藏楼** ✓） */
     const validFloors = [];
     for (let i = 0; i < chat.length; i += 1) {
@@ -2735,9 +2758,6 @@ export async function runBackfill(opts) {
     }
     const todo = validFloors.filter((f) => f >= startFrom);
     /*
-     * ⭐ 首夜实测单第 3 条（她原话：「这旁边也没有自己设定的，我可以自己设定要补齐多少楼层」）：
-     *   `opts.from` 早就有（从第 X 楼起补），缺的是**"就补最近 N 楼"** ⇒ 这里从**队尾往前数**取 N 个。
-     *   ⚠️ 默认（不传 limit）＝照旧**全部补**（向后兼容，⛔ 不改老行为）。
      */
     const lim = Number.isFinite(o.limit) ? Math.floor(o.limit) : 0;
     const todo2 = lim > 0 ? todo.slice(Math.max(0, todo.length - lim)) : todo;
@@ -2755,7 +2775,6 @@ export async function runBackfill(opts) {
         text: '准备补推 ' + String(todo2.length) + ' 个楼层',
         cursor: 0,
         /* ⭐修复 1：**去掉 `atFloor: -1`** ✓
-         *   旧：每次补推开头把水位抹成 -1 ✗ ⇒ 上次停在哪楼就丢了 ✗（断点续跑失效 ✗）
          *   新：不碰它 ⇒ 下次点「补推历史」能从停下的楼接着走 ✓ */
         cancelRequested: false,
         conflicts: [],
@@ -2801,7 +2820,6 @@ export function isBackfilling() {
 }
 /* ------------------------------ 对账 ------------------------------ */
 /**
- * 账与楼对账：楼层被删／重跑时，对不上的账跟着清；⛔ 有软保护（防误清空）。
  */
 export function runReconcile() {
     const chat = getChat();
@@ -2873,11 +2891,6 @@ export function runReconcile() {
         }
     }
     /*
-     * ⭐ 修复单 #23：**两个锚点都要查**。
-     *   原来只查 `pipeline.atFloor`，`lastUpdate.floor` 越界了没人管 ——
-     *   而进度那侧读的正是 `lastUpdate.floor`（"上次更新停在 #N"＋"进度 X%"）⇒
-     *   删楼之后会出现「总共 2 楼，却显示停在 #9、进度 100%（已经追平正文）」（真机截图实锤）。
-     *   ⇒ 谁越界都一起对齐到"现存最后一次有效更新的楼号"。
      */
     const atFloor = Number(state.pipeline && state.pipeline.atFloor);
     const luFloor = Number(state.lastUpdate && state.lastUpdate.floor);
@@ -2916,23 +2929,10 @@ export function runReconcile() {
 }
 /* ------------------------------ 频率控制 ------------------------------ */
 /**
- * 到该更新的时刻了吗（按推进楼层差判；自动更新在 MESSAGE_RECEIVED 时传 floor - 1 留一层缓冲）。
- * ⚠️ 注意：
- *   ① 同一楼号（或更早楼号）绝不重复跑——重 roll／swipe 多少次都拦住，防白烧额度；
- *   ② 1 回合＝2 层楼（你一楼＋AI 一楼），every=1 或 2 均为每推进一轮更新一次（停在上一层已落定的楼），
- *      every>2 则隔相应楼层步长才触发；
- *   ③ 频率只影响"多久更新一次"，⛔ 不影响暗线推进（那个只看世界钟）。
  */
 /**
- * ⭐⭐ 材料 06【5】链路断路 3：**换一个回复（Swipe）后这一楼要能重跑** ✓
- *   旧：`cur <= atFloor` 一律拒绝 ✗（注释写着“重 roll 多少次都不重烧” ✓ = 省额度的故意设计 ✓）
- *     ⇒ 但你**真的换了一个回复**时，旧推演结果留在账本里、新回复反而永远不更新 ✗
- *   现在：只在**真的 Swipe 过的那一楼**放行一次 ✓
- *     ⛔ 改“没 Swipe 就不重烧”的原设计 ✗（它照旧生效 ✓）
  */
 /**
- * ★ P1-5（修复单 20261019）：**重 roll 解耦** —— 每笔提交都记下「哪一楼的第几版」。
- *   为什么：同一楼同一版重算一次 = 白烧一轮额度；而她真切了 swipe 又必须重算。
  */
 export function currentSwipeId(floor) {
     try {
