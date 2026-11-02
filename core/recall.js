@@ -865,7 +865,18 @@ export function assembleInjectText(items, events, headerText, opts) {
             keptChars += countChars(b);
             keptEvents += 1;
         }
-        const droppedP = blocks.length - keptPeople;
+        /* 138-笔二：重组分支也要把好感表带回去（放不下就带截断版） */
+    if (affBlock) {
+        const roomA = cap - keptChars - countChars(header) - 2;
+        let addA = affBlock;
+        if (countChars(addA) > roomA) {
+            const lsA = affBlock.split('\n').filter(Boolean);
+            const totalA = Math.max(0, (Array.isArray(state.affinityTable) ? state.affinityTable : []).filter((r) => !inCharBlock.has(String((r && r.name) || '').trim())).length);
+            addA = lsA[0] + (lsA[1] ? '\n' + lsA[1] : '') + '\n· …（还有 ' + String(Math.max(0, totalA - 1)) + ' 人未列出，篇幅所限）';
+        }
+        if (addA) { kept += '\n' + addA; keptChars += countChars(addA) + 1; }
+    }
+    const droppedP = blocks.length - keptPeople;
         const droppedE = evBlocks.length - keptEvents;
         if (!keptPeople && !keptEvents && !worldBlock) {
             return '';

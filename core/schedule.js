@@ -97,8 +97,8 @@ export function shouldRunUpdate(a) {
     if (!Number.isFinite(cur) || cur < 0) {
         return { run: false, targetFloor: -1 };
     }
-    /* 最新那一层（AI 刚生成、还在刷）不更新 ⇒ 目标 = cur - 1 - lag */
-    const target = cur - 1 - l;
+    /* 138-笔一：最新那层不更新已在 index.js 的 floor - 2 扣过；这里只剥 lag */
+    const target = cur - l;
     if (target < 0) {
         return { run: false, targetFloor: -1 };
     }
