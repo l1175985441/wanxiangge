@@ -123,7 +123,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.608';
+export const APP_VERSION = '0.3.609';
 
 export const LEDGER_VERSION = 3;
 
@@ -389,7 +389,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     /*
      * ⭐ 默认 **2＝每推进一轮（2 层楼）自动更新一次，且留一层缓冲停在上一轮已落定的楼**。
      *    为什么：新楼刚生成时你还能改、能重 roll、能撤回；自动更新在 MESSAGE_RECEIVED 时
-     *    只算到 `floor - 1`（上一层已落定的楼），且 `shouldUpdateNow` 要求楼层推进 `>= updateEvery`
+     *    只算到 `floor - 2`（上一层已落定的楼），且 `shouldUpdateNow` 要求楼层推进 `>= updateEvery`
      *    才触发（同楼重 roll 绝不重复跑）。想当场算刚生成的最新楼，点「立刻更新」即可。
      */
     updateEvery: 2,

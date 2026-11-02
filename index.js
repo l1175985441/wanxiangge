@@ -37,7 +37,7 @@ import { markBookDirty, flushBook } from './core/book.js';
 import { resetChannelCache } from './core/wb-channel.js';
 import { migrateExcludeToPerBook } from './core/worldbook.js';
 
-const VERSION = '0.3.608';
+const VERSION = '0.3.609';
 
 /* ---------- 生成前拦截（名字与 manifest.json 里的 generate_interceptor 一致） ---------- */
 globalThis.wanxianggeGenerateInterceptor = async function (chat, contextSize, abort, type) {
@@ -148,7 +148,7 @@ function bindEvents(ctx) {
     });
 
     // 正文生成完：卡片、面板、（按频率）后台更新世界与角色
-    // ⭐ 故意传 floor - 1（停在上一层已落定的楼）：刚生成的 AI 楼可能还要重 roll／改字，
+    // ⭐ 故意传 floor - 2（停在上一层已落定的楼）：刚生成的 AI 楼可能还要重 roll／改字，
     //    留一层缓冲等下一轮推进再进账（想当场算最新这楼可点面板/悬浮球上的「立刻更新」）。
     on(types.MESSAGE_RECEIVED, (index) => {
         const chat = (getCtx() && getCtx().chat) || [];

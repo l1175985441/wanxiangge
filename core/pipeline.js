@@ -177,7 +177,7 @@ function stripOtherQuotes(text) {
         return other ? ' ' : m;
     });
 }
-const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替[我他她](?:选|决定|答|回)|我选了|我答(?:应|道了)/;
+const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替[我他她](?:选|决定|答|回|点)|我选了|我答(?:应|道了)/;
 export function looksLikeDecidingForMe(text, opts) {
     const t = asText(text);
     if (!t) return false;
@@ -1299,6 +1299,8 @@ function applyCharacter(raw, material, conflicts) {
                     c.aliases = al;
                 }
             } catch (eAlias) { /* 记不上别名也不能把这一步搞挂 ✓ */ }
+        /* 139-笔五：别名找回来的人也要过玩家闸 */
+        if (isPlayerCharacter(c)) { return null; }
         }
     }
     if (!c) {
@@ -1416,6 +1418,8 @@ function applyCharacter(raw, material, conflicts) {
             delete patch.timePlace;
         }
     }
+    const prevCurrent = trimText(c.current);
+    c.currentDropped = false;
     Object.assign(c, patch);
     c.updatedAt = Date.now();
     c.settledRun = Number((loadState().pipeline || {}).runs || 0);   /* 94：保底结算的时间戳 */
@@ -1440,6 +1444,18 @@ function applyCharacter(raw, material, conflicts) {
          * ⭐ 现场角色再加一道（她逐字口径："正在在线的不准编造，只准写正文的"）：
          *    正文里**找不到**他这段"正在经历" ⇒ 判定为编造，一样标记不可靠。
          */
+    const bodyCur = material.recentText || material.rawText;
+    const plainCur = trimText(cur).replace(/[\u3002\uff01\uff1f!?\uff0c,\u3001\s]/g, '');
+    const predCur = looksLikePrediction(cur);
+    const decCur = looksLikeDecidingForMe(cur, { role: c.role });
+    let dropCur = false;
+    if (plainCur === '\u5f85\u6211\u505a\u51b3\u5b9a' || plainCur === '\u5f85\u6211\u51b3\u5b9a') {
+        dropCur = true; c.currentDropped = true; c.current = prevCurrent;
+    } else if ((predCur || decCur) && !textAppearsIn(cur, bodyCur)) {
+        dropCur = true; c.currentDropped = true; c.current = prevCurrent;
+        addChronicle({ floor: material.floor, kind: predCur ? '\u5df2\u4e22\u5f03\u00b7\u9884\u5224' : '\u5df2\u4e22\u5f03\u00b7\u66ff\u4f60\u51b3\u5b9a', who: c.name, text: cur, clock: loadState().world.clock });
+    }
+    if (!dropCur) {
         let why = '';
         if (looksLikePrediction(cur)) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
@@ -1486,6 +1502,7 @@ function applyCharacter(raw, material, conflicts) {
             text: cur,
             clock: loadState().world.clock,
         });
+    }
     }
     const past = Array.isArray(raw && raw.past) ? raw.past : [];
     /* P22 (material 07): honour the capPast setting (2-20) - it used to be hardcoded to 5,
@@ -2311,7 +2328,6 @@ async function runUpdateInner(opts) {
     /*
      * ⭐ L3（防御性）：**补批调进来时⛔ 重置取消标记**。
      *   她按取消后，补批循环会在**每楼开跑前**检查一次（当前路径靠那个检查兜住，所以现在不可达）；
-     *   但只要将来有人在入口前面加一个 await，这里就会**把那次取消吞掉**。
      */
     if (o.keepCancel !== true) {
         cancelRequested = false;
@@ -2328,35 +2344,19 @@ async function runUpdateInner(opts) {
     }
     resetApiAttempts();   /* 4-b #3：这一轮从零开始数（花了几份） */
     /*
-     * 依据＝阿砚 1-c #9（记录要带 chatKey，订阅方据它丢弃过期事件）：
-     *   我们不自建 emit（全库 0 处），但每一轮的记账里必须能看出“这是哪个聊天”——
-     *   切聊天后旧轮次的迟到结果即使写错也能被认出来。
      */
     const chatKeyNow = currentChatKey();
     /*
-     * 依据＝阿砚 1-c #3（游戏时间调度）里最便宜、也最要紧的一条：
-     *   **⛔ 只存 ms**——编码升级后毫秒会与新区错位；要存“当时的游戏时间原文”＋“哪个聊天”。
-     *   这一笔只做**记账**（调度判别联合 TimeSource 尚未做），但把两把锚先立住：
-     *     `lastRunChatKey`＝这一轮算的是哪个聊天；
-     *     `lastRunGameTimeRaw`＝这一轮看到的**世界钟原文**（原样，⛔ 不转 ms）。
      */
     let gameTimeRawNow = '';
     try {
         gameTimeRawNow = String((loadState().world || {}).clock || '');
     } catch (eClock) { gameTimeRawNow = ''; }
     /*
-     * ★ [580]／世界记忆引擎 C2：**换版本／强制重算 ⇒ 先回这一楼的存档点** ✓
-     *   旧：同楼换 swipe 直接在已落账上叠推 ✗（暗线连跳、局势叠层 ✗）
-     *   现：有 rollCheckpoint 且楼号对得上 ⇒ restore 再算；没有 ⇒ **拒绝**（对照 C：redo 无 cp 拒）✓
-     *   同楼同版已在上面 alreadyCommitted 跳过；force 同版也走回档（替换重算，不是叠算）✓
      */
     {
         const lu0 = loadState().lastUpdate || {};
         /*
-         * 依据＝阿砚任务 1-a 的连体修正：
-         *   `lastUpdate.floor` 现在写的是**本轮楼**（为了显示对），
-         *   但“这一楼是不是已经算过”要看**增量水位** `pipeline.atFloor`（与 shouldUpdateNow 同一个水位）；
-         *   否则一轮刚落账就会被当成“同楼重算但没存档点” ⇒ 直接拒跑（实测：整条链路不发请求）。
          */
         const anchorFloor0 = Number((loadState().pipeline || {}).atFloor);
         const priorOkSameFloor = lu0.status === 'ok'

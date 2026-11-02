@@ -85,7 +85,7 @@ export function isOngoing(startMinute, dueMinute, nowMinute) {
 }
 
 /**
- * 自动更新「晚一层」：生成第 N 层时只更新到 N-1-lag 层（最新那层先留着）
+ * 自动更新「晚一层」：生成第 N 层时只更新到 cur-lag 层（最新那层先留着）
  * @param {{curFloor:number, lastUpdatedFloor:number, lag?:number}} a
  * @returns {{run:boolean, targetFloor:number}}
  */
