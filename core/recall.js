@@ -767,7 +767,9 @@ export function assembleInjectText(items, events, headerText, opts) {
         text += '\n【人物】\n' + blocks.join('\n');
     }
     /* 95：好感表**每层都进**（不分前后台） */
-    const affBlock = affinityTableBlock(state);
+    /* 137-笔一：人物块里已有的人（e.text 非空）不在整表里重复列 */
+    const inCharBlock = new Set(entries.filter((e) => trimText(e && e.text)).map((e) => String((e.item && e.item.character && e.item.character.name) || '').trim()).filter(Boolean));
+    const affBlock = affinityTableBlock(state, inCharBlock);
     if (affBlock) {
         text += '\n' + affBlock;
     }

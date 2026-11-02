@@ -181,8 +181,11 @@ export function affinityLine(state) {
  * @param {object} state
  * @returns {string} 空字符串＝表里一个人都没有
  */
-export function affinityTableBlock(state) {
-    const rows = Array.isArray(state && state.affinityTable) ? state.affinityTable : [];
+export function affinityTableBlock(state, skipNames) {
+    const rawRows = Array.isArray(state && state.affinityTable) ? state.affinityTable : [];
+    const skip = (skipNames instanceof Set) ? skipNames : new Set(Array.isArray(skipNames) ? skipNames : []);
+    /* 137-笔一：已进人物块的人不在整表里重复列 */
+    const rows = rawRows.filter((r) => !(r && skip.has(String(r.name || '').trim())));
     if (!rows.length) {
         return '';
     }

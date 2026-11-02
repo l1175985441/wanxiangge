@@ -177,7 +177,7 @@ function stripOtherQuotes(text) {
         return other ? ' ' : m;
     });
 }
-const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替我(?:选|决定)|我选了|我答(?:应|道了)/;
+const DECIDE_FOR_ME_PAT = /我(?:已经)?(?:答应|同意|决定|选择|选定|点头|拒绝)(?:了|过)?|让我(?:选|决定|答应)|替[我他她](?:选|决定|答|回)|我选了|我答(?:应|道了)/;
 export function looksLikeDecidingForMe(text, opts) {
     const t = asText(text);
     if (!t) return false;
@@ -1256,6 +1256,10 @@ function applyCharacter(raw, material, conflicts) {
     }
     let c = state.characters.find((x) => x.name === name)
         || state.characters.find((x) => (x.aliases || []).includes(name));
+    /* 137-笔二：玩家不被模型的 people_upsert 改写（一处闸管 written/quests/knows） */
+    if (isPlayerCharacter(c) || isPlayerCharacter({ name: name })) {
+        return null;
+    }
     let isNew = false;
     /*
      * ⭐⭐ R11（材料 05）：**别因为模型多写个括号就造新角色** ✓
@@ -2376,9 +2380,6 @@ async function runUpdateInner(opts) {
     }
     const preSnap = takeSnapshot('更新前（' + floorLabel(floor) + '）');
     /*
-     * ⭐ 修复单 #19：开跑前先把两个"锚点"记下来，失败要退回原值——
-     *   · `prevAtFloor`：`shouldUpdateNow` 的判据（推进了 ⇒ 自动更新被拒）
-     *   · `prevLuFloor`：进度条读的那个（"上次更新停在 #N"）
      */
     const prevAtFloor = (() => {
         try {
@@ -2419,7 +2420,6 @@ async function runUpdateInner(opts) {
     const cleaned = cleanMessages(msgs);
     const material = {
         /* ⭐ S2（材料 05 自查）：**这一回是整批补推吗** ✓
-         *   补推时 material.messages 就是**该批全部楼层** ✓
          *   ⇒ 在场判定必须看**整批**，⛔ 只看最后 2 楼 ✗ */
         batch: Array.isArray(o.batchFloors) && o.batchFloors.length > 0,
         floor,
