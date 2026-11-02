@@ -49,7 +49,7 @@ function retryTokens(base, attempt) {
 import { getChat, personaNames, currentChatKey } from './adapter.js';
 import { refreshViewsSoon } from './viewhook.js';
 import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';   /* 96：前后台两套提示词（各自独立） */
-import { timeSpanOf, isUnavailable, justLeft, hasDrive, classifyPresence } from './presence.js';
+import { timeSpanOf, isUnavailable, justLeft, hasDrive } from './presence.js';
 import { splitPicked, planCalls, mergeSides, sideOutcome } from './chars-split.js';
 import { lifeTickDue, countdownOf, shouldRunUpdate, pointOf } from './schedule.js';   /* 102：日程四根里的生活节拍／提前量 */   /* 96：前后台判定／时间跨度 */
 import { runLayers } from './layers.js';
@@ -1741,9 +1741,6 @@ async function stepCharacters(material, attempt, screenRes) {
     });
     const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
-    /* 107：兜底汇总（不另判一次；只用来记“这轮谁算后台、谁静滞”） */
-    let presenceInfo = null;
-    try { presenceInfo = classifyPresence({ roster, bodyText: bodyForStage, playerName: '', settings, quests: loadState().characters.flatMap((c) => c.quests || []), situations: (loadState().world && loadState().world.situations) || [] }); } catch (ePres) { presenceInfo = null; }
     /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次 */
     {
         const runSeq = Number((loadState().pipeline || {}).runs || 1);

@@ -11,6 +11,15 @@
  *   · 驱动力校验 A（命定羁绊）／B（剧情关联）／C（局势关联）⇒ 都没有＝静滞，不推演
  *   · 后台人数上限由配置 `backstageNpcBudget` 控制（⛔ 不写死）
  */
+/*
+ * 【待接回：在场判定判据清单】原实现见 0.3.599，删于 133 单号 1。
+ *   1) 玩家排除（isPlayer／playerName）⇒ 两侧都不进；
+ *   2) 不可用（死亡／昏迷）⇒ excluded；
+ *   3) 在场：正文里有名字 且 !justLeft ⇒ front；
+ *   4) 无驱动力（hasDrive A／B／C）⇒ stagnant；
+ *   5) 否则 ⇒ back（记 _drive），按 lastUpdatedAt 降序截到
+ *      settings.backstageNpcBudget（默认 6），多出的进 stalledByCap。
+ */
 
 const DEAD_WORDS = /死亡|已死|尸体|亡故|殒命/;
 const COMA_WORDS = /昏迷|不省人事|濒死|重伤昏迷/;
@@ -79,44 +88,3 @@ export function hasDrive(c, ctx) {
     return '';
 }
 
-/**
- * 一次算清：谁前台、谁后台、谁静滞、谁不算人。
- * @returns {{front: Array, back: Array, stagnant: Array, excluded: Array}}
- */
-export function classifyPresence(args) {
-    const a = args || {};
-    const roster = Array.isArray(a.roster) ? a.roster : [];
-    const body = t(a.bodyText);
-    const player = t(a.playerName);
-    const cap = Math.max(0, Number((a.settings && a.settings.backstageNpcBudget)) || 6);
-    const front = [];
-    const back = [];
-    const stagnant = [];
-    const excluded = [];
-    for (const c of roster) {
-        if (!c || c.isPlayer || (player && t(c.name) === player)) {
-            continue;   /* ⛔ <user> 永远不进任何一侧名单 */
-        }
-        if (isUnavailable(c)) {
-            excluded.push(c);
-            continue;
-        }
-        const onStage = t(c.name) && body.indexOf(t(c.name)) >= 0 && !justLeft(body, c.name);
-        if (onStage) {
-            front.push(c);
-            continue;
-        }
-        const drive = hasDrive(c, { quests: a.quests, situations: a.situations });
-        if (!drive) {
-            stagnant.push(c);
-            continue;
-        }
-        back.push(c);
-        c._drive = drive;
-    }
-    /* 后台人数上限（配置项，⛔ 写死）：按最近更新排序后截 */
-    back.sort((x, y) => (Number(y && y.lastUpdatedAt) || 0) - (Number(x && x.lastUpdatedAt) || 0));
-    const keptBack = back.slice(0, cap);
-    const over = back.slice(cap);
-    return { front, back: keptBack, stalledByCap: over, stagnant, excluded };
-}
