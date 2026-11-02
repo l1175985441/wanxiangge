@@ -1671,8 +1671,15 @@ async function stepCharacters(material, attempt, screenRes) {
         onStage = roster.filter((c) => c && !c.isPlayer && !isUnavailable(c) && modelList.indexOf(matchKey(c.name)) >= 0);
         stageSource = 'model';
     } else {
-        onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚离场就算后台 */
-        stageSource = 'wordlist';
+        /* 134-1：筛选失败 ⇒ 先用上一轮结算出的 offstage；一个人都没有才落词表 */
+        const byOffstage = roster.filter((c) => c && !c.isPlayer && !isUnavailable(c) && c.offstage === false);   /* 134-1：只认上一轮明确结算为在场的（false）；undefined＝未结算 ⇒ 落词表 */
+        if (byOffstage.length) {
+            onStage = byOffstage;
+            stageSource = 'offstage';
+        } else {
+            onStage = whoIsOnStage(bodyForStage, roster).filter((c) => !justLeft(bodyForStage, c.name));   /* 107：刚离场就算后台 */
+            stageSource = 'wordlist';
+        }
     }
     const onStageIds = new Set(onStage.map((c) => c.id));
     try { setPipeline({ stageSource }); } catch (eSS) { /* 记不上不影响主流程 */ }
@@ -2626,7 +2633,6 @@ async function runUpdateInner(opts) {
     /*
      * ⭐ 补②（修复单 #17 已改口径）：对着新正文核上一轮注入的条目。
      *   放在**回滚之后**：它写的编年不会被失败回滚抹掉，两个机制不再互相踩。
-     *   ⚠️ 只读与标记，不改推演结果；出错也不影响主流程。
      */
     try {
         markArrivals(material.rawText || material.recentText, floor, material.messages);
@@ -2674,8 +2680,6 @@ async function runUpdateInner(opts) {
         conflicts: Array.isArray(charRes.conflicts) ? charRes.conflicts.slice(0, 20) : [],
     });
     /*
-     * ⭐ 补⑤：失败**按类归档**（只记类别与时间，⛔ 不记任何内容）。
-     *   为什么单开一本：`pipeline.error` 只留"最近一次"，她要看的是"最近失败都是哪一类"。
      */
     if (failed) {
         try {
