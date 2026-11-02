@@ -4359,7 +4359,12 @@ function renderPersonCard() {
         kv.appendChild(el('div', 'wxg-pc-k', k1));
         kv.appendChild(fieldBox(cid, f1, one[f1], ph1));
         kv.appendChild(el('div', 'wxg-pc-k', k2));
-        kv.appendChild(fieldBox(cid, f2, one[f2], ph2));
+        const shown = f2 === 'identity'
+            ? ((Array.isArray(one.identities) && one.identities.length) ? one.identities.join('；') : one[f2])
+            : (f2 === 'affinity'
+                ? (function () { const r = ((loadState().affinityTable) || []).filter((x) => x && x.name === one.name)[0]; return (r && trimText(r.affinity)) || one[f2]; })()
+                : one[f2]);
+        kv.appendChild(fieldBox(cid, f2, shown, ph2));
     };
     /*
      * ⚠️ 一律用 **state 那份**的 id（`one.id`）去挂 data-id：

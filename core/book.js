@@ -423,6 +423,13 @@ function identityLine(c) {
     return ids.length ? ids.join('／') : (trimText(c && c.identity) || '未知');
 }
 
+/* 130-6：好感真正的表在 state.affinityTable；c.affinity 只是旧值兜底 */
+function affinityOfBook(c) {
+    const row = ((loadState().affinityTable) || []).filter((x) => x && x.name === c.name)[0];
+    const v = row ? trimText(row.affinity) : '';
+    return v || trimText(c.affinity) || '未建立';
+}
+
 function buildEntries() {
     const state = loadState();
     const settings = getSettings();
@@ -479,9 +486,15 @@ function buildEntries() {
             '年龄：' + (trimText(c.age) || '未知'),
             '身份：' + identityLine(c),
             '所在势力：' + (trimText(c.faction) || '未知'),
-            '好感：' + (trimText(c.affinity) || '未建立'),
+            '好感：' + affinityOfBook(c),
             '时间·地点：' + (trimText(c.timePlace) || '未知'),
             '正在经历：' + (trimText(c.current) || '未知'),
+            /* 130-4：八格里的日程也要落书（最多 3 条，带已到点） */
+            '日程：' + (function () {
+                const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);
+                if (!todo.length) { return '（暂无）'; }
+                return todo.slice(0, 3).map((s) => (s.dueReached ? '【已到点】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
+            })(),
         ];
         if (c.past.length) {
             lines.push('过去经历（由近到远）：');
@@ -626,13 +639,12 @@ export async function flushBook() {
  * @returns {string[]}
  */
 export function characterEntryLines(c) {
-    const ids = (Array.isArray(c && c.identities) ? c.identities : []).map((x) => trimText(x)).filter(Boolean);
     const lines = [
         '八格：',
         '年龄：' + (trimText(c.age) || '未知'),
-        '身份：' + (ids.length ? ids.join('／') : (trimText(c.identity) || '未知')),
+        '身份：' + identityLine(c),
         '所在势力：' + (trimText(c.faction) || '未知'),
-        '好感：' + (trimText(c.affinity) || '未建立'),
+        '好感：' + affinityOfBook(c),
         '时间·地点：' + (trimText(c.timePlace) || '未知'),
         '正在经历：' + (trimText(c.current) || '未知'),
         '日程：' + (function () {
