@@ -3268,6 +3268,9 @@ box.appendChild(cHead);
     fold.title = (purposeOf(kind).replace(/^ · /, '') + ' · 展开看这套（' + String(effectivePrompt(kind).length) + ' 字）').trim();
         const body = el('div', 'wxg-report-body');
         body.appendChild(el('div', 'wxg-note', hint));
+    if (['worldLayer', 'situation', 'hiddenLayer', 'chronicle'].includes(kind) && s.layerPrompts !== true) {
+        body.appendChild(el('div', 'wxg-note', '⚠️ 这一层现在是关的，改了不生效（要开在上面的总开关）'));
+    }
         body.appendChild(el('pre', 'wxg-prompt-cur', effectivePrompt(kind)));
         const edit = foldable('改这套（留空＝用内置）', false);
         edit.appendChild(textarea(id, keyVal, '（留空＝用内置那份）', 'stage-' + id.replace('wxg-', ''), rows));
@@ -3286,6 +3289,17 @@ box.appendChild(cHead);
     }
     cMore.appendChild(cVars);
 
+    {
+        const layRow = el('div', 'wxg-row');
+        const layCb = document.createElement('input');
+        layCb.type = 'checkbox';
+        layCb.id = 'wxg-layer-prompts';
+        layCb.setAttribute('data-action', 'toggle-layer-prompts');
+        layCb.checked = s.layerPrompts === true;
+        layRow.appendChild(layCb);
+        layRow.appendChild(el('span', 'wxg-note', '四层提示词（世界／局势／暗流／编年）—— 当前：' + (s.layerPrompts === true ? '开' : '关')));
+        cMore.appendChild(layRow);
+    }
     addFoldedPrompt('世界推演提示词', s.promptWorld, 'world', 'wxg-prompt-world', 8,
         '让模型推"世界现在什么样"时用的那套规矩。');
     addFoldedPrompt('角色状态／平行事件提示词', s.promptChars, 'chars', 'wxg-prompt-chars', 8,
@@ -7578,7 +7592,12 @@ export function bindSectionEvents(host, refresh) {
                     }
                     break;
                 }
-                case 'reset-prompts':
+                case 'toggle-layer-prompts': {
+        patchSettings({ layerPrompts: target.checked === true });
+        rerender();
+        break;
+    }
+    case 'reset-prompts':
                     setAllPromptsDefault();
                     /*
                      * ⭐ ST9（材料 11·设置层）：**恢复内置默认后要连草稿一起清** ✓

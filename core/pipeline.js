@@ -1596,11 +1596,24 @@ function applyCharacter(raw, material, conflicts) {
         })).filter((k) => k.text)
         : [];
     /* ★ [580] A5：模型若冒出 known_* 壳字段 ⇒ 丢弃（只认 knows→addKnow）✓ */
+    /* 136-笔二：knownFactBeliefs 带闸收（key 必须是已知条目） */
+    {
+        const knownKeys = new Set((Array.isArray(c.knownFactKeys) ? c.knownFactKeys : []).map((x) => matchKey(trimText(x))));
+        const knownTexts = (Array.isArray(c.knows) ? c.knows : []).map((k2) => matchKey(trimText(k2 && k2.text))).filter(Boolean);
+        const kept = []; const seen = new Set();
+        for (const b2 of (Array.isArray(raw && raw.knownFactBeliefs) ? raw.knownFactBeliefs : [])) {
+            const key = trimText(b2 && b2.key); const belief = trimText(b2 && b2.belief); const nk = matchKey(key);
+            if (!key || !belief || !nk || seen.has(nk)) { continue; }
+            if (!(knownKeys.has(nk) || knownTexts.some((tx) => tx === nk || tx.indexOf(nk) >= 0 || nk.indexOf(tx) >= 0))) { continue; }
+            kept.push({ key: key, belief: belief }); seen.add(nk);
+            if (kept.length >= 20) { break; }
+        }
+        if (kept.length) { c.knownFactBeliefs = kept; }
+    }
     if (raw && typeof raw === 'object') {
         delete raw.knownFactKeys;
         delete raw.knownEventIds;
         delete raw.knownClueIds;
-        delete raw.knownFactBeliefs;
     }
     if (material && trimText(material.clockBefore)) { c.lastClock = trimText(material.clockBefore); }   /* 127-6 */
     return { name: c.name, isNew, quests, knows };
@@ -1915,7 +1928,10 @@ async function stepCharacters(material, attempt, screenRes) {
         });
         /* 135-2：后台没有“我”这个对象 ⇒ 剪掉“侧面写我”描写规则；前台一个字不动 */
         if (!forBack) { return built; }
-        return built.split('\n').filter((ln) => !/(侧面写我|别人对"我"做的事|看"我"|递给"我"|对"我"的反应)/.test(ln)).join('\n');
+        let out = built.split('\n').filter((ln) => !/(侧面写我|别人对['"]我['"]做的事|看"我"|递给|对"我"的反应|标了\*?\*?"现场"\*?\*?)/.test(ln)).join('\n');
+        /* 保留守护栏的前半，只剪后半句“在场角色只准从侧面…” */
+        out = out.replace(/；\*\*在场角色只准从侧面\*\*[^\n]*/g, '');
+        return out;
     };
     const lineById = new Map(picked.map((c2, i2) => [c2.id, charLineArr[i2]]));
     const splitPlan = planCalls(splitPicked(picked, onStageIds), {
@@ -2404,7 +2420,6 @@ async function runUpdateInner(opts) {
     const material = {
         /* ⭐ S2（材料 05 自查）：**这一回是整批补推吗** ✓
          *   补推时 material.messages 就是**该批全部楼层** ✓
-         *   （她一批可能 #0～#5 共 6 层 ✓）
          *   ⇒ 在场判定必须看**整批**，⛔ 只看最后 2 楼 ✗ */
         batch: Array.isArray(o.batchFloors) && o.batchFloors.length > 0,
         floor,
@@ -2415,15 +2430,9 @@ async function runUpdateInner(opts) {
     clockBefore: loadState().world.clock,
     };
     /*
-     * ⭐ 补②：对着新正文核上一轮注入的条目（到底接没接）。
-     * ⚠️ 修复单 #19 联动的坑：它**会写编年**（"候补转编年"），而失败回滚**会还原编年**
-     *   ⇒ 两件事会打架（回滚把编年抹了，可 `lastCheckedFloor` 已经记上、重跑不再核 ⇒ 那笔账永久丢）。
-     *   ⇒ **把它挪到"回滚之后"再跑**（见下面收尾段），两个机制各自独立、不再互相踩。
      */
     if (!trimText(material.recentText)) {
         /*
-         * ⭐ 修复单 #19 附注①：空跑**不该占一个快照位**（快照是有上限 SNAPSHOT_KEEP 的，
-         *   占一个就挤掉一版真能用来自救的快照）。⇒ 把刚压的那版撤掉。
          */
         try {
             dropSnapshot(preSnap);
@@ -2444,12 +2453,6 @@ async function runUpdateInner(opts) {
     let charRes = { ok: false, reason: '没跑' };
     let lastLayers = null;   /* 98：三层跑完的回执（供回执／自测看） */
     /*
-     * ⭐⭐ R4（材料 05）：**让 worldAtFloor 真正被读** ✓
-     *   旧：只写不读 ✗ ⇒ 世界步成功（暗线萌芽⇒发酵）、紧接着角色步失败时 ✗
-     *     重试同一楼会**对着已经到“发酵”的暗线再跑一遍世界步** ✗
-     *     ⇒ 同一楼里暗线**连跳两级** ✗（萌芽⇒逼近 ✗）
-     *   现在：上一轮世界步已经成功过**而整楼还没跑完**（atFloor < floor ✓）⇒ **跳过世界步、直接接角色步** ✓
-     *   （她若事后手动重刷同一楼，atFloor 已等于 floor ⇒ 不跳、照常重跑 ✓）
      */
     const worldStepDone = (() => {
         try {
@@ -2617,9 +2620,6 @@ async function runUpdateInner(opts) {
         }
     }
     /*
-     * ⭐ 修复单 #19：**失败＝账保持原样**。
-     *   原来失败也照写 `atFloor` 与 `lastUpdate.floor`，后果三连：
-     *     ① `shouldUpdateNow` 判据是 `cur <= atFloor ⇒ false` ⇒ **失败后自动更新被永久拒掉**（"已算过"）；
      */
     if (failed) {
         try {

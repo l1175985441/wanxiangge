@@ -123,7 +123,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.604';
+export const APP_VERSION = '0.3.605';
 
 export const LEDGER_VERSION = 3;
 
@@ -361,7 +361,7 @@ export const DEFAULT_PROMPT_CHARS = [
     /* ★ [579]：下一步行动／长期目标（quests）前台后台都不需要 ⇒ 模板不再要 quests 键 ✓ */
     '⛔ **不要输出 quests／长期目标／下一步行动**（她总括：前台后台都不需要）✓；日程 schedule 仍可写约好的事 ✓。',
     /* ★ [580]／世界背面 A5：知识面壳字段禁止直写 ✓ */
-    '⛔ **不要输出 knownFactKeys／knownEventIds／knownClueIds／knownFactBeliefs**（知识面只由世界书／引擎校验写入）；这一轮新知道的事**只走 knows**（必须带来源：亲眼／被告知／公开）✓。',
+    '⛔ **不要输出 knownFactKeys／knownEventIds／knownClueIds**（这三样只由世界书／引擎校验写入）；这一轮新知道的事**只走 knows**。`knownFactBeliefs` **可以写，但必须带闸**：只能写“他已经知道的那件事，他理解错了”——`key` 必须是他 `knownFactKeys` 或 `knows` 里已有的条目，⛔ 不许编新知识。',
     /* ★ [580]／世界背面 A2：知情接触链 ✓ */
     '⛔ **公开≠全员知情**：source=公开 时必须填 channel（physical＝在场听见／information＝被告知／causal＝势力或后果牵连）；引擎推不出接触链 ⇒ **不收这条** ✓。',
 ].join('\n');
@@ -394,6 +394,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
      */
     updateEvery: 2,
     /* ④ 每层自己的额度／模型（null＝沿用全局，行为与现在完全一致） */
+    layerPrompts: false,   /* 136-笔三：四层总开关默认关 */
     layerLimits: {
         world: { maxTokens: null, model: '' },
         situation: { maxTokens: null, model: '' },

@@ -16,7 +16,7 @@
  *   1) 玩家排除（isPlayer／playerName）⇒ 两侧都不进；
  *   2) 不可用（死亡／昏迷）⇒ excluded；
  *   3) 在场：正文里有名字 且 !justLeft ⇒ front；
- *   4) 无驱动力（hasDrive A／B／C）⇒ stagnant；
+ *   4) 无驱动力（hasDrive A／B／C）⇒ 静滞（原字段（st**...）于 136 笔一删除：无读者）；
  *   5) 否则 ⇒ back（记 _drive），按 lastUpdatedAt 降序截到
  *      settings.backstageNpcBudget（默认 6），多出的进 stalledByCap。
  */
