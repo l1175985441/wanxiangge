@@ -2660,7 +2660,9 @@ async function runUpdateInner(opts) {
                     }
                     saveState();
                 }
-                const r = syncFromPhone(loadState(), String((material && material.rawText) || ''), Date.now());   /* 6：只读正文，⛔ 拿状态文案当手机 */
+                const msgsForAff = (material && Array.isArray(material.messages)) ? material.messages : [];
+        const lastMes = msgsForAff.length ? trimText(msgsForAff[msgsForAff.length - 1] && msgsForAff[msgsForAff.length - 1].mes) : '';
+        const r = syncFromPhone(loadState(), lastMes || String((material && material.rawText) || ''), Date.now());   /* 130-12：只喂最新一层 */   /* 6：只读正文，⛔ 拿状态文案当手机 */
                 return { added: r.added, updated: r.updated };
             } catch (eAff) {
                 return { added: 0, updated: 0, error: String(eAff && eAff.message) };
@@ -2677,7 +2679,6 @@ async function runUpdateInner(opts) {
     /*
      * ⭐ 补⑤：失败**按类归档**（只记类别与时间，⛔ 不记任何内容）。
      *   为什么单开一本：`pipeline.error` 只留"最近一次"，她要看的是"最近失败都是哪一类"。
-     *   ⛔ 绝不把 error 原文写进来（里面可能带正文或地址/钥匙片段）。
      */
     if (failed) {
         try {
@@ -2697,7 +2698,6 @@ async function runUpdateInner(opts) {
         swipeId: failed ? null : swipeId,
         commitKey: failed ? '' : commitKey,
         /*
-         * ⭐ 修复单 #19：失败时**停在原来那楼**（⛔ 不许推进）——
          */
         floor: failed ? prevLuFloor : (Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1),
     };

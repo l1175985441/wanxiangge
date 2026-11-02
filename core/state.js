@@ -135,9 +135,13 @@ export function normalizeCharacter(raw) {
     applyFieldRenames(c);
     /* C6：读进来就把退休字段拒收（不认识但没退休的仍然保留 —— 硬-1 要求） */
     applyRetired(c);
-    const manualFields = Array.isArray(c.manualFields)
+    let manualFields = Array.isArray(c.manualFields)
         ? c.manualFields.map(trimText).filter((k) => STATUS_MANUAL_KEYS.includes(k))
         : (c.manual === true ? STATUS_MANUAL_KEYS.filter((k) => Boolean(trimText(c[k]))) : []);
+    /* 130-9：manual=true 且有多条身份 ⇒ 至少把 identities 收进锁里 */
+    if (c.manual === true && Array.isArray(c.identities) && c.identities.length && manualFields.indexOf('identities') < 0) {
+        manualFields = manualFields.concat(['identities']);
+    }
     return Object.assign({}, c, {
         id: trimText(c.id) || makeId('wxg'),
         name: trimText(c.name),

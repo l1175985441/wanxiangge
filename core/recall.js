@@ -488,7 +488,12 @@ function personBlock(item, opts) {
     const PAST_HEAD = '  <Historical_Occurrences>';
     const PAST_DECL = '  【注意】所有回忆为过去式，请勿将回忆中的任何状态理解为当前状态，仅作剧情参考。';
     const PAST_TAIL = '  </Historical_Occurrences>';
-    const freshByFloor = fresh.filter(keepByFloor);
+    /* 130-15：隐藏段只端一条（幅盖最广），⛔ 每条都端 */
+    const hiddenOnly = hidSet.size
+        ? fresh.filter((p) => Number.isFinite(Number(p.fromFloor)) && hidSet.has(Number(p.fromFloor)))
+            .sort((a2, b2) => Number(b2.fromFloor) - Number(a2.fromFloor)).slice(0, 1)
+        : [];
+    const freshByFloor = hiddenOnly.length ? hiddenOnly : fresh.filter(keepByFloor);
     if (freshByFloor.length) {
         lines.push(PAST_HEAD, PAST_DECL);
         lines.push('  过去经历（由近到远）：' + freshByFloor.map((p) => p.text).join('；'));
@@ -519,7 +524,7 @@ function personBlock(item, opts) {
      *   旧：后台厚块用 questBlock 带任务当"还活着的证据" ✗ ⇒ 与她总括冲突 ✗
      *   日程（约好的事）≠长期目标，照旧可带 ✓ */
     if (c.schedule && c.schedule.length) {
-        const todo = c.schedule.filter((s) => !s.done);
+        const todo = c.schedule.filter((s) => !s.done).sort((a2, b2) => { const okA = Number.isFinite(a2.dueMinute); const okB = Number.isFinite(b2.dueMinute); return (okA ? a2.dueMinute : Infinity) - (okB ? b2.dueMinute : Infinity); }).slice(0, 3);   /* 130-11 */
         if (todo.length) {
             lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }

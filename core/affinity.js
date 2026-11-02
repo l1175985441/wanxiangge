@@ -122,7 +122,9 @@ export function syncFromPhone(state, phoneText, now) {
             added += 1;
             continue;
         }
-        /* 手机里提到他 ⇒ 原封不动抄；⛔ 自己算、⛔ 自己夹范围 */
+        /* 130-13：她手改过的行不被手机覆盖 */
+    if (hit && hit.source === '手改') { continue; }
+    /* 手机里提到他 ⇒ 原封不动抄；⛔ 自己算、⛔ 自己夹范围 */
         hit.affinity = pair.raw;
         hit.updatedAt = stamp;
         hit.source = '手机';
@@ -210,6 +212,7 @@ export function affinityTableBlock(state) {
         return '';
     }
     const lines = ['【好感表（只读：数值只能从手机抄，本表不算）】'];
+    let used = lines[0].length;
     for (const r of rows) {
         const name = String((r && r.name) || '').trim();
         if (!name) {
@@ -219,7 +222,10 @@ export function affinityTableBlock(state) {
         const at = Number(r && r.updatedAt);
         const when = Number.isFinite(at) && at > 0 ? ('最后更新 ' + new Date(at).toLocaleString('zh-CN', { hour12: false })) : '最后更新 ——';
         const src = String((r && r.source) || '').trim() || '从未出场';
-        lines.push('· ' + name + ' ｜ 好感 ' + val + ' ｜ ' + when + ' ｜ ' + src);
+        const line = '· ' + name + ' ｜ 好感 ' + val + ' ｜ ' + when + ' ｜ ' + src;
+        if (used + line.length + 1 > 1500) { lines.push('· …（还有 ' + String(rows.length - (lines.length - 1)) + ' 人未列出，篇幅所限）'); break; }
+        lines.push(line);
+        used += line.length + 1;
     }
     return lines.length > 1 ? (lines.join('\n') + '\n') : '';
 }

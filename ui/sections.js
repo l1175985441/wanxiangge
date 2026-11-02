@@ -1784,7 +1784,7 @@ function secCharacters(host) {
             const stat = questStats(c.quests);
             qBox.appendChild(el('div', 'wxg-report-h',
                 '任务（在追的目标 · ⛔ 不是"下一步做什么"）'
-                + '　主线 ' + String(stat.main) + ' · 支线 ' + String(stat.side)
+                + '　共 ' + String(Number(stat.main) + Number(stat.side)) + ' 个'
                 + (over.length ? '（已结束 ' + String(over.length) + '）' : '')));
 
             const makeQuestRow = (q) => {
@@ -4583,6 +4583,14 @@ function renderPersonCard() {
             }
             sSec.appendChild(sr);
         }
+        /* 130-7：添一条日程（仅编辑态） */
+        if (personCardEditing) {
+            const addRow = el('div', 'wxg-row');
+            addRow.appendChild(textInput('wxg-new-sched-what-' + String(cid), '', '约好的事', 'noop', 'wxg-short'));
+            addRow.appendChild(textInput('wxg-new-sched-due-' + String(cid), '', '什么时候到点', 'noop', 'wxg-short'));
+            addRow.appendChild(button('加一条', 'add-sched', 'wxg-btn-xs', String(cid)));
+            sSec.appendChild(addRow);
+        }
         pop.appendChild(sSec);
     }
 
@@ -4596,8 +4604,8 @@ function renderPersonCard() {
         const qOpen = one.quests.filter((q) => !['完成', '搁置'].includes(trimText(q.status)));
         const qOver = one.quests.filter((q) => ['完成', '搁置'].includes(trimText(q.status)));
         const qStat = questStats(one.quests);
-        qSec.appendChild(el('div', 'wxg-pc-sech', '任务（在追的目标）　主线 '
-            + String(qStat.main) + ' · 支线 ' + String(qStat.side)
+        qSec.appendChild(el('div', 'wxg-pc-sech', '任务（在追的目标）　共 '
+            + String(Number(qStat.main) + Number(qStat.side)) + ' 个'
             + (qOver.length ? '（已结束 ' + String(qOver.length) + '）' : '')));
         const mkQ = (q) => {
             const qr = el('div', 'wxg-rowitem');
@@ -6493,7 +6501,20 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     }
                     break;
-                case 'sched-done': {
+                case 'add-sched': {
+        const whatN = trimText((document.getElementById('wxg-new-sched-what-' + String(id)) || {}).value);
+        const dueN = trimText((document.getElementById('wxg-new-sched-due-' + String(id)) || {}).value);
+        if (!whatN) { toast.ok('先写约好的事'); break; }
+        const cN = findCharacter(id);
+        if (cN) {
+            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: null, originDueMinute: null, firedPoints: [] }]);
+            updateCharacter(id, { schedule: nextN });
+            toast.ok('加了一条日程');
+            rerender();
+        }
+        break;
+    }
+    case 'sched-done': {
                     /* ⭐ 新增件 1：**把这条日程标成已了结** ✓ */
                     const whatA = trimText(target.getAttribute('data-what'));
                     const cA = findCharacter(id);
