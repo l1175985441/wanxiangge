@@ -16,7 +16,7 @@ import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道�
 import { getSettings, effectivePrompt , effectiveSetting } from './settings.js';
 import { entityKey, noteAmbiguity } from './identity.js';
 import { sourceOk, floorText, digestOf } from './provenance.js';
-import { affinityPromptBlock, affinityTableBlock, AFFINITY_UNSET } from './affinity.js';
+import { affinityTableBlock, AFFINITY_UNSET } from './affinity.js';
 import { memoryBlock } from './chronicle-brief.js';   /* 99：编年→往事（喂模型） */   /* 新活：好感表每层都发 */   /* 4-b #6：注入指纹要用内容摘要 */
 import { noteText } from './prompt.js';
 /* 4-b #6：上一次注入的指纹（诊断/自测用，⛔ 影响注入内容） */
@@ -1059,15 +1059,3 @@ export function lastInjectInfo() {
     return lastInject ? Object.assign({}, lastInject) : null;
 }
 
-/**
- * 依据＝她 14:28：好感那几行**每层都进 prompt**（不管出没出场）。
- *   需要自己取一段时候调它；没表就返空串（⛔ 塞一个空壳发出去）。
- * @param {number} maxChars 上限，默认 1500
- */
-export function affinityInjectText(maxChars) {
-    try {
-        return affinityPromptBlock(loadState(), maxChars || 1500);
-    } catch (e) {
-        return '';
-    }
-}

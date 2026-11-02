@@ -4560,6 +4560,9 @@ function renderPersonCard() {
             sh.appendChild(el('span', 'wxg-name', trimText(s && (s.what || s.text)) || '（没记名）'));
             if (trimText(s && s.due)) {
                 sh.appendChild(el('span', 'wxg-badge wxg-badge-soft', trimText(s.due)));
+                if (trimText(s && s.due) && !Number.isFinite(s && s.dueMinute)) {
+                    sh.appendChild(el('span', 'wxg-badge is-soft', '没定时间'));
+                }
             }
             if (s && s.done === true) {
                 sh.appendChild(el('span', 'wxg-badge is-off', '已完成'));
@@ -6507,7 +6510,8 @@ export function bindSectionEvents(host, refresh) {
         if (!whatN) { toast.ok('先写约好的事'); break; }
         const cN = findCharacter(id);
         if (cN) {
-            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: null, originDueMinute: null, firedPoints: [] }]);
+            const dueAbsN = dueN ? dueToAbsoluteMinute(dueN, Number((loadState().world || {}).clockMinute)) : null;
+            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: dueAbsN, originDueMinute: dueAbsN, firedPoints: [] }]);
             updateCharacter(id, { schedule: nextN });
             toast.ok('加了一条日程');
             rerender();

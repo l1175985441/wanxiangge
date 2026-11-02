@@ -166,31 +166,6 @@ export function rowLine(row) {
         r.relation || '—', stamp, r.source || SOURCE_NEVER].join('｜');
 }
 
-/**
- * 进提示词用的表（**每层都发**，不管出没出场）。
- * @param {object} state
- * @param {number} maxChars 上限（默认 1500，验收要求 20 人 ≤ 1,500 字）
- */
-export function affinityPromptBlock(state, maxChars) {
-    const rows = affinityTable(state);
-    if (!rows.length) {
-        return '';
-    }
-    const cap = Number(maxChars) > 0 ? Number(maxChars) : 1500;
-    const head = '【人物状态·好感】（只读，数值与你手机里的一致；没有数的写「' + AFFINITY_UNSET + '」）';
-    const lines = [head];
-    let used = head.length;
-    for (const row of rows) {
-        const line = '· ' + rowLine(row);
-        if (used + line.length + 1 > cap) {
-            lines.push('· …（还有 ' + String(rows.length - (lines.length - 1)) + ' 人未列出，篇幅所限）');
-            break;
-        }
-        lines.push(line);
-        used += line.length + 1;
-    }
-    return lines.join('\n');
-}
 
 /** 一行人话（诊断用） */
 export function affinityLine(state) {
@@ -223,7 +198,7 @@ export function affinityTableBlock(state) {
         const when = Number.isFinite(at) && at > 0 ? ('最后更新 ' + new Date(at).toLocaleString('zh-CN', { hour12: false })) : '最后更新 ——';
         const src = String((r && r.source) || '').trim() || '从未出场';
         const line = '· ' + name + ' ｜ 好感 ' + val + ' ｜ ' + when + ' ｜ ' + src;
-        if (used + line.length + 1 > 1500) { lines.push('· …（还有 ' + String(rows.length - (lines.length - 1)) + ' 人未列出，篇幅所限）'); break; }
+        if (used + line.length + 1 > 1480) {   /* 130-14：留出截断行余量，整块 ≤1500 */ lines.push('· …（还有 ' + String(rows.length - (lines.length - 1)) + ' 人未列出，篇幅所限）'); break; }
         lines.push(line);
         used += line.length + 1;
     }
