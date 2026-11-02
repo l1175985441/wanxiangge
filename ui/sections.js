@@ -53,7 +53,7 @@ import { listWorldbookNames, getEntries, excludeTextFor } from '../core/worldboo
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
 import { importBookWiki } from '../core/book-wiki.js';
 import { channelReport } from '../core/wb-channel.js';
-import { clockWentBackwards } from '../core/clock.js';
+import { clockWentBackwards, dueToAbsoluteMinute } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates, undoLastMerge, hasMergeSnapshot } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
@@ -4551,9 +4551,10 @@ function renderPersonCard() {
      *   ⇒ 约好的事（出差几天后回来等）在卡上**看不到也改不了** ✗
      *   现在：把日程块搬回来 ✓（只读展示；改动走后台推演，⛔ 让她手改算账 ✗）
      */
-    if (Array.isArray(one.schedule) && one.schedule.length) {
-        const sSec = el('div', 'wxg-pc-sec');
-        sSec.appendChild(el('div', 'wxg-pc-sech', '日程（约好的事）'));
+    {
+    const sSec = el('div', 'wxg-pc-sec');
+    sSec.appendChild(el('div', 'wxg-pc-sech', '日程（约好的事）'));
+        if (Array.isArray(one.schedule) && one.schedule.length) {
         for (const s of one.schedule) {
             const sr = el('div', 'wxg-rowitem');
             const sh = el('div', 'wxg-rowname');
@@ -4585,6 +4586,9 @@ function renderPersonCard() {
                 sr.appendChild(acts2);
             }
             sSec.appendChild(sr);
+        }
+        } else {
+            sSec.appendChild(el('div', 'wxg-fact', '还没有约好的事'));
         }
         /* 130-7：添一条日程（仅编辑态） */
         if (personCardEditing) {
@@ -6511,7 +6515,7 @@ export function bindSectionEvents(host, refresh) {
         const cN = findCharacter(id);
         if (cN) {
             const dueAbsN = dueN ? dueToAbsoluteMinute(dueN, Number((loadState().world || {}).clockMinute)) : null;
-            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: dueAbsN, originDueMinute: dueAbsN, firedPoints: [] }]);
+            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: dueAbsN, originDueMinute: dueAbsN, sinceMinutes: Number((loadState().world || {}).clockMinute), firedPoints: [] }]);
             updateCharacter(id, { schedule: nextN });
             toast.ok('加了一条日程');
             rerender();
