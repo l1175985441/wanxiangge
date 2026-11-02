@@ -19,6 +19,9 @@ import { trimText } from './utils.js';
 import {
     DEFAULT_PROMPT_WORLD, DEFAULT_PROMPT_CHARS, DEFAULT_JAILBREAK, DEFAULT_INJECT_HEADER,
 } from './config.js';
+import { FRONT_SYSTEM, BACK_SYSTEM } from './prompts-presence.js';
+import { WORLD_SYSTEM, SITUATION_SYSTEM, HIDDEN_SYSTEM } from './prompts-layers.js';
+import { CHRONICLE_SYSTEM } from './prompts-chronicle.js';
 
 /** 导出件的形状（与 bundle.js 同一套习惯：kind ＋ version） */
 export const PRESET_KIND = 'wanxiangge-prompt-presets';
@@ -30,6 +33,13 @@ export const PROMPT_BLOCKS = [
     { key: 'promptChars', kind: 'chars', label: '角色状态／平行事件', builtin: DEFAULT_PROMPT_CHARS },
     { key: 'jailbreak', kind: 'jailbreak', label: '破限词', builtin: DEFAULT_JAILBREAK },
     { key: 'injectHeader', kind: 'header', label: '注入块开头', builtin: DEFAULT_INJECT_HEADER },
+    /* 135-5：界面现在能改的六份层提示词也要能存进预设库／导出 */
+    { key: 'promptFront', kind: 'front', label: '前台人物层', builtin: FRONT_SYSTEM },
+    { key: 'promptBack', kind: 'back', label: '后台人物层', builtin: BACK_SYSTEM },
+    { key: 'promptWorldLayer', kind: 'worldLayer', label: '世界层', builtin: WORLD_SYSTEM },
+    { key: 'promptSituation', kind: 'situation', label: '局势层', builtin: SITUATION_SYSTEM },
+    { key: 'promptHiddenLayer', kind: 'hiddenLayer', label: '暗流层', builtin: HIDDEN_SYSTEM },
+    { key: 'promptChronicle', kind: 'chronicle', label: '编年层', builtin: CHRONICLE_SYSTEM },
 ];
 
 const BLOCK_BY_KIND = new Map(PROMPT_BLOCKS.map((b) => [b.kind, b]));
