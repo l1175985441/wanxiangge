@@ -853,10 +853,14 @@ async function stepWorld(material, attempt) {
         }
     }
     /* 100：**走钟**——只累加模型给的 elapsed_minutes（⛔ 模型无权重栰绝对日期） */
+    const newClockProbe = trimText(v.clock);
     {
         /* 100：模型无权写绝对时间（⛔ clockMinute／clock_anchor） */
         const clean = stripModelDateFields(v);
-        const el = Number(clean.elapsed_minutes);
+        /* 130-10：模型从不写 elapsed_minutes ⇒ 从两个 clock 字符串自己算差值 */
+        const byClock = (newClockProbe && newClockProbe !== '未知' && !clockWentBackwards(world.clock, newClockProbe))
+            ? clockDistance(world.clock, newClockProbe) : null;
+        const el = (Number.isFinite(Number(byClock)) && Number(byClock) > 0) ? Number(byClock) : Number(clean.elapsed_minutes);
         if (Number.isFinite(el) && el > 0) {
             const r = addElapsed(loadState(), el, material.rawText || '');
             if (r.reason) {
@@ -866,7 +870,7 @@ async function stepWorld(material, attempt) {
         }
     }
     const notes = [];
-    const newClock = trimText(v.clock);
+    const newClock = newClockProbe;
     if (newClock && newClock !== '未知') {
         if (clockWentBackwards(world.clock, newClock)) {
             notes.push('模型给的世界钟比原来早（' + asText(world.clock) + ' → ' + newClock + '），已保留原来的，没让它倒退');
@@ -1802,7 +1806,7 @@ async function stepCharacters(material, attempt, screenRes) {
                 const soon = (Array.isArray(c.schedule) ? c.schedule : []).filter((s2) => s2 && !s2.done && Number.isFinite(s2.dueMinute));
             soon.sort((a2, b2) => Number(a2.dueMinute) - Number(b2.dueMinute));
             const it0 = soon[0] || {};
-            const pt = pointOf(it0, { nowMinute: w0.clockMinute, createdAtMinute: c.lastSettledMinute });
+            const pt = pointOf(it0, { nowMinute: w0.clockMinute, createdAtMinute: it0.sinceMinutes });   /* 130-11：用建日程的钟，⛔ 生活结算钩 */
         if (pt) {
             it0.firedPoints = Array.isArray(it0.firedPoints) ? it0.firedPoints : [];
             if (!it0.firedPoints.includes(pt)) { it0.firedPoints.push(pt); }
@@ -2694,8 +2698,6 @@ async function runUpdateInner(opts) {
         commitKey: failed ? '' : commitKey,
         /*
          * ⭐ 修复单 #19：失败时**停在原来那楼**（⛔ 不许推进）——
-         *   推进了会让进度条显示"已经追平正文"，而实际上账被回滚了、这一楼根本没算。
-         *   失败的"事实"仍然留着（status/note/failLog 都在），只是不冒充进度。
          */
         floor: failed ? prevLuFloor : (Number.isFinite(Number(floor)) && Number(floor) >= 0 ? Number(floor) : -1),
     };
@@ -2721,8 +2723,6 @@ function sleep(ms) {
 /* ------------------------------ 补推历史 ------------------------------ */
 let backfilling = false;
 /**
- * 把已有聊天从头补推到现在（分批、可取消、⛔ 不卡界面）。
- * ⚠️ 识别隐藏楼层：隐藏只影响显示，照读。
  */
 export async function runBackfill(opts) {
     const o = opts || {};
