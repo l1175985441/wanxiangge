@@ -1901,7 +1901,8 @@ async function stepCharacters(material, attempt, screenRes) {
      *   空边跳过（planCalls）；前台先跑；合并前台优先（mergeSides）；一侧失败不牵连（sideOutcome）。
      *   `settings.splitChars === false` 时退化成单路（all），行为与旧版一致。
      */
-    const buildCharsPrompt = (lines) => render('chars', effectivePrompt('chars'), {
+    const buildCharsPrompt = (lines, forBack) => {
+        const built = render('chars', effectivePrompt('chars'), {
         user: playerNamesForPrompt(),
         clock: trimText(loadState().world.clock) || '未知',
         world: [
@@ -1911,7 +1912,11 @@ async function stepCharacters(material, attempt, screenRes) {
         ].filter(Boolean).join('\n') || '（这一批里没人有渠道知道世界内幕，⛔ 给）',
         recent: material.recentText || '（没有可读的正文）',
         chars: lines,
-    });
+        });
+        /* 135-2：后台没有“我”这个对象 ⇒ 剪掉“侧面写我”描写规则；前台一个字不动 */
+        if (!forBack) { return built; }
+        return built.split('\n').filter((ln) => !/(侧面写我|别人对"我"做的事|看"我"|递给"我"|对"我"的反应)/.test(ln)).join('\n');
+    };
     const lineById = new Map(picked.map((c2, i2) => [c2.id, charLineArr[i2]]));
     const splitPlan = planCalls(splitPicked(picked, onStageIds), {
         splitOn: settings.splitChars !== false,
@@ -1922,7 +1927,7 @@ async function stepCharacters(material, attempt, screenRes) {
     const sideResults = [];
     for (const g of splitPlan) {
         const gLines = g.tag === 'all' ? charLines : g.list.map((c2) => lineById.get(c2.id)).filter(Boolean);
-        const gPrompt = buildCharsPrompt(charsHeader.concat(playerHintLines).concat(gLines).join('\n'));   /* 121-3：数组先 join('换行') ，⛔ 让模板拿数组变逗号 */
+        const gPrompt = buildCharsPrompt(charsHeader.concat(playerHintLines).concat(gLines).join('\n'), g.tag === 'back');   /* 121-3：数组先 join('换行') ，⛔ 让模板拿数组变逗号 */
         const sysBase = effectivePrompt('jailbreak');
         const gRes = await callModelJson({
             prompt: tryN2 > 0 ? (gPrompt + '\n\n' + RETRY_TIGHTEN) : gPrompt,
@@ -2615,9 +2620,6 @@ async function runUpdateInner(opts) {
      * ⭐ 修复单 #19：**失败＝账保持原样**。
      *   原来失败也照写 `atFloor` 与 `lastUpdate.floor`，后果三连：
      *     ① `shouldUpdateNow` 判据是 `cur <= atFloor ⇒ false` ⇒ **失败后自动更新被永久拒掉**（"已算过"）；
-     *     ② 进度显示"进度 100%（已经追平正文）"＝**虚报**；
-     *     ③ stepWorld 已经写进去的世界钟／编年**留着** ⇒ 半截脏 + 重试时重复推。
-     *   ⇒ 失败时把账还原到开跑前那一版快照，锚点也退回原值（下面 setPipeline/lastUpdate 用 prev）。
      */
     if (failed) {
         try {
@@ -2631,8 +2633,6 @@ async function runUpdateInner(opts) {
         }
     }
     /*
-     * ⭐ 补②（修复单 #17 已改口径）：对着新正文核上一轮注入的条目。
-     *   放在**回滚之后**：它写的编年不会被失败回滚抹掉，两个机制不再互相踩。
      */
     try {
         markArrivals(material.rawText || material.recentText, floor, material.messages);
