@@ -35,7 +35,7 @@ export const FRONT_SYSTEM = [
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
     ' "people_upsert":[{"id":"","name":"","age":"","identities":["身份可多条"],"faction":"","timePlace":"",',
-'   "power":"","behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
+'   "behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
 '   "current":"这一层他做了什么（一句话，带时间跨度）",',
     '   "past_append":"只在这层有重大影响时填；否则空串","timePlace":""}]}',
 ].join('\n');
@@ -67,7 +67,7 @@ export const BACK_SYSTEM = [
     '【输出】严格 JSON：',
     '{"analysis":"推理",',
     ' "people_upsert":[{"id":"","name":"","age":"","identities":["身份可多条"],"faction":"","timePlace":"",',
-'   "power":"","behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
+'   "behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
 '   "current":"他现在在哪、在做什么（自然推进）",',
     '   "past_append":"标“推演”的一条；无则空串","stagnant":false}]}',
 ].join('\n');

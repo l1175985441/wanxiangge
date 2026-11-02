@@ -1339,7 +1339,7 @@ function applyCharacter(raw, material, conflicts) {
         }
         return true;
     };
-    const textFields = ['age', 'identity', 'faction', 'timePlace', 'current'];
+    const textFields = ['age', 'identity', 'faction', 'timePlace', 'current', 'behaviorBounds', 'knowledgeBounds'];
     /* 身份可多条（她定的 8 格之一）：数组单独走一遍，⛔ 混进 textFields（那个循环用 trimText，数组会变字符串） */
     {
         const incIds = Array.isArray(raw && raw.identities)
