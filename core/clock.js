@@ -295,8 +295,13 @@ export function parseClock(text) {
 export function dueToAbsoluteMinute(text, nowMinute) {
     const raw = trimText(text);
     if (!raw) { return null; }
-    /* 127-1：含月日的绝对日期，parseClock 只给孤立天号 ⇒ ⛔ 当绝对天数，认不出就 null */
+    /* 127-1：含月日的绝对日期（含 ISO 写法，见下一条），parseClock 只给孤立天号 ⇒ ⛔ 当绝对天数，认不出就 null */
     if (/月/.test(raw) && /\d/.test(raw)) {
+        return null;
+    }
+    /* 148：绝对日期的第二种写法（ISO：2026-11-10 / 2026/11/10）跟「X月X日」同一个下场 —— 交白卷。
+     *   正则跟 parseClock 里那颗 ymd 同一形，⛔ 另造。 */
+    if (/\d{4}\s*[-/.\u5e74]\s*\d{1,2}\s*[-/.\u6708]\s*\d{1,2}/.test(raw)) {
         return null;
     }
     /* 127-1：「第 N 天」是相对日，必须从 now 推 */
