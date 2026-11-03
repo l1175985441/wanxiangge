@@ -25,6 +25,7 @@ import { humanStamp } from '../core/timefmt.js';   /* A7／A9：时间人话只�
 import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
+import { shiftWorldClock } from '../core/world-events.js';
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     findCharacter,
@@ -1012,6 +1013,10 @@ function secWorld(host) {
     /* 口径（与 core/config.js 一致）：**世界钟／地点允许写“未知”，其它格不许**；⛔ 在 UI 上教她写“未知”。 */
     line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20', 'set-world-clock', 'wxg-short'));
     line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
+const wShift = el('div', 'wxg-row');
+wShift.appendChild(button('−1 天', 'shift-world-clock', 'wxg-btn-sm', '-1'));
+wShift.appendChild(button('+1 天', 'shift-world-clock', 'wxg-btn-sm', '1'));
+cWorld.appendChild(wShift);
     line(cWorld, '这个世界现在什么样',
         textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
     /*
@@ -7595,6 +7600,11 @@ export function bindSectionEvents(host, refresh) {
                 case 'toggle-layer-prompts': {
         patchSettings({ layerPrompts: target.checked === true });
         rerender();
+        break;
+    }
+    case 'shift-world-clock': {
+        const sd = Number(target.id);
+        if (shiftWorldClock(sd)) { toast.ok('世界钟拨了 ' + (sd > 0 ? '+' : '') + String(sd) + ' 天'); rerender(); }
         break;
     }
     case 'reset-prompts':

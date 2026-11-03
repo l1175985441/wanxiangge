@@ -24,6 +24,7 @@ import { captureOwner, checkOwner } from './owner.js';
 import { trimText } from './utils.js';
 import { getSettings } from './settings.js';
 
+import { scheduleBadge } from './schedule.js';
 /** 条目名 */
 const ENTRY = {
     /* ★ [580]／工作流 D2：常驻摘要槽（产品形态；内容结构化） */
@@ -493,7 +494,7 @@ function buildEntries() {
             '日程：' + (function () {
                 const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);
                 if (!todo.length) { return '（暂无）'; }
-                return todo.slice(0, 3).map((s) => (s.dueReached ? '【已到点】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
+                return todo.slice(0, 3).map((s) => scheduleBadge(s, Number((loadState().world || {}).clockMinute)) + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
             })(),
         ];
         if (c.past.length) {
@@ -650,7 +651,7 @@ export function characterEntryLines(c) {
         '日程：' + (function () {
             const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);
             if (!todo.length) { return '（暂无）'; }
-            return todo.slice(0, 3).map((s) => (s.dueReached ? '【已到点】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
+            return todo.slice(0, 3).map((s) => scheduleBadge(s, Number((loadState().world || {}).clockMinute)) + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；');
         })(),
     ];
     if (Array.isArray(c.past)) {

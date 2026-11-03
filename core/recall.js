@@ -11,6 +11,7 @@
 
 import { clampNumber, countChars, matchKey, trimText, uniqueBy, eventTitle } from './utils.js';
 import { isHiddenMessage } from './extract.js';
+import { scheduleBadge } from './schedule.js';
 import { getRoster, loadState } from './state.js';
 import { getChat } from './adapter.js';   /* ★ A3-③：分支情形要知道当前楼数 */
 import { getSettings, effectivePrompt , effectiveSetting } from './settings.js';
@@ -361,7 +362,7 @@ function personBlock(item, opts) {
         })
             .slice(0, 3);
         if (todo.length) {
-            lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；'));
+            lines.push('  日程：' + todo.map((s) => scheduleBadge(s, Number((loadState().world || {}).clockMinute)) + trimText(s.what) + (trimText(s.due) ? '（' + trimText(s.due) + '）' : '')).join('；'));
         }
     }
     if (pastFront.length) {
@@ -526,7 +527,7 @@ function personBlock(item, opts) {
     if (c.schedule && c.schedule.length) {
         const todo = c.schedule.filter((s) => !s.done).sort((a2, b2) => { const okA = Number.isFinite(a2.dueMinute); const okB = Number.isFinite(b2.dueMinute); return (okA ? a2.dueMinute : Infinity) - (okB ? b2.dueMinute : Infinity); }).slice(0, 3);   /* 130-11 */
         if (todo.length) {
-            lines.push('  日程：' + todo.map((s) => (s.dueReached ? '【⚠️已到点·本轮应履约】' : '') + s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
+            lines.push('  日程：' + todo.map((s) => scheduleBadge(s, Number((loadState().world || {}).clockMinute)) + s.what + (s.due ? '（' + s.due + '）' : '')).join('；'));
         }
     }
     /*

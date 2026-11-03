@@ -48,6 +48,23 @@ function cnToNum(text) {
     if (/^[一二三四五六七八九]十$/.test(s)) {
         return CN_NUM[s[0]] * 10;
     }
+    /* 141-笔四：百／千位数天数（“第一百天”“一千天”） */
+    const hundred = s.match(/^([一两三四五六七八九])百(.*)$/);
+    if (hundred) {
+        const base = CN_NUM[hundred[1]] * 100;
+        const rest = hundred[2];
+        if (!rest || rest === '零') { return base; }
+        const tail = cnToNum(rest.replace(/^零/, ''));
+        return tail === null ? null : base + tail;
+    }
+    const thousand = s.match(/^([一两三四五六七八九])千(.*)$/);
+    if (thousand) {
+        const base = CN_NUM[thousand[1]] * 1000;
+        const rest = thousand[2];
+        if (!rest || rest === '零') { return base; }
+        const tail = cnToNum(rest.replace(/^零/, ''));
+        return tail === null ? null : base + tail;
+    }
     // "两十"这类怪写法不认（认了反而容易误判），交给上面几条
     if (/^[两]?[零一二三四五六七八九]{2,}$/.test(s)) {
         // 例："二一"（口语里偶见）＝21；仅在两位且都认识时才拼
@@ -144,7 +161,7 @@ export function parseClock(text) {
      *   新：先认**年-月-日**（三种分隔符✓），再认**月日**（无年份时按 2000 年算天数 ✓），最后才回到“第N天” ✓ */
     const ymd = raw.match(/(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?/);
     const md = !ymd && raw.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/);
-    const dayMatch = raw.match(/第\s*([0-9]+|[零一二两三四五六七八九十]+)\s*[天日]/);
+    const dayMatch = raw.match(/第\s*([0-9]+|[零一二两三四五六七八九十百千]+)\s*[天日]/);
     if (ymd) {
         const utc = Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
         if (Number.isFinite(utc)) {
@@ -409,7 +426,7 @@ export function isLineDue(line, clockText) {
     const sinceDayU6 = Number(line && line.sinceDay);
 
     const dateLock = (() => {
-        const mDays = t.match(/(?:第)?([0-9]+|[零一二两三四五六七八九十]+)\s*[天日](?:后|之后|以后)?/);
+        const mDays = t.match(/(?:第)?([0-9]+|[零一二两三四五六七八九十百千]+)\s*[天日](?:后|之后|以后)?/);
         if (mDays && !/(放学|下课|天亮)/.test(t)) {
             if (!Number.isFinite(sinceDayU6)) {
                 return { known: true, ok: false, why: '这条线没记下"从哪天起算"，⛔ 不猜（重建一次就会记上）' };

@@ -1,3 +1,5 @@
+import { loadState, saveState } from './state.js';
+
 /**
  * 万象阁 · 世界钟「走钟」＋ 事件五键（100 号）
  *
@@ -38,6 +40,23 @@ export function parseWorldClock(text) {
 }
 
 /** 分钟 → 文本（第 N 日 HH:MM） */
+/**
+ * 141-笔三：手动拨钟——clock 与 clockMinute 一起拨
+ * @param {number} days
+ */
+export function shiftWorldClock(days) {
+    const d = Number(days);
+    if (!Number.isFinite(d) || d === 0) { return null; }
+    const st = loadState();
+    const cur = Number(st && st.world && st.world.clockMinute);
+    if (!Number.isFinite(cur)) { return null; }
+    const next = Math.max(0, cur + Math.round(d) * 1440);
+    st.world.clockMinute = next;
+    st.world.clock = formatWorldClock(next);
+    saveState();
+    return { clock: st.world.clock, clockMinute: next };
+}
+
 export function formatWorldClock(minute) {
     const n = Number(minute);
     if (!Number.isFinite(n) || n < 0) {

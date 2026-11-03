@@ -11,6 +11,27 @@
  * 本文件补 ② 与 ④，并把「晚一层」的触发判据做成纯函数（⛔ 不写死楼层差）。
  */
 
+/**
+ * 141：日程徽号（到点会过期／失效约定）——提示词与世界书共用
+ * ⛔ 改 s 的字段（只读）
+ */
+export function scheduleBadge(s, nowMinute) {
+    const now = Number(nowMinute);
+    if (!s) { return ''; }
+    if (s.dueReached !== true) {
+        const since = Number(s.sinceMinutes);
+        if (!Number.isFinite(s.dueMinute) && Number.isFinite(now) && Number.isFinite(since) && now - since > 14 * 1440) {
+            return '【⛔ 约定已失效·挂了 ' + String(Math.floor((now - since) / 1440)) + ' 天没到点】';
+        }
+        return '';
+    }
+    if (!Number.isFinite(s.dueMinute) || !Number.isFinite(now)) { return '【⚠️已到点·本轮应履约】'; }
+    const x = now - Number(s.dueMinute);
+    if (x <= 1440) { return '【⚠️已到点·本轮应履约】'; }
+    if (x <= 3 * 1440) { return '【⚠️已到点 ' + String(Math.floor(x / 1440)) + ' 天·还没了结】'; }
+    return '【⛔ 已过期 ' + String(Math.floor(x / 1440)) + ' 天·仍没做】';
+}
+
 export const WEEK_MINUTES = 7 * 24 * 60;
 
 /** 生活节拍档位（世界背面四档：按相关度 12／24／48／72 小时） */

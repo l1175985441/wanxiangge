@@ -702,6 +702,15 @@ export function rollupInstructionFor(c) {
  *   ⇒ `clockDeltaMin` 恒为 0 ⇒ 局势压力永远算不出时间差、暗线到点也推不动。
  *   这里把它提前跑一次（只读 rawText，⛔ 请模型）。
  */
+/* 140/142：世界钟两道闸抽一颗（文本与 clockMinute 共用） */
+function clockEvidenceOk(oldClock, newClock, material) {
+    const body = String((material && (material.recentText || material.rawText)) || '');
+    if (!textAppearsIn(newClock, body)) { return { ok: false, why: '找不到依据' }; }
+    const d = clockDistance(oldClock, newClock);
+    if (Number.isFinite(d) && d > 2880) { return { ok: false, why: '跳了 ' + String(Math.round(d / 1440)) + ' 天' }; }
+    return { ok: true, why: '' };
+}
+
 export function prefillClockFromBody(material) {
     try {
         const rawNow = String(material && material.rawText ? material.rawText : '');
@@ -711,6 +720,8 @@ export function prefillClockFromBody(material) {
         if (!got) { return false; }
         const oldClock = loadState().world.clock;
         if (clockWentBackwards(oldClock, got)) { return false; }
+    const evGot = clockEvidenceOk(oldClock, got, material);
+    if (!evGot.ok) { return false; }
         updateWorld({ clock: got }, {});
         return true;
     } catch (e) {
@@ -858,8 +869,9 @@ async function stepWorld(material, attempt) {
         /* 100：模型无权写绝对时间（⛔ clockMinute／clock_anchor） */
         const clean = stripModelDateFields(v);
         /* 130-10：模型从不写 elapsed_minutes ⇒ 从两个 clock 字符串自己算差值 */
-        const byClock = (newClockProbe && newClockProbe !== '未知' && !clockWentBackwards(world.clock, newClockProbe))
-            ? clockDistance(world.clock, newClockProbe) : null;
+    const evClock = (newClockProbe && newClockProbe !== '未知' && !clockWentBackwards(world.clock, newClockProbe))
+        ? clockEvidenceOk(world.clock, newClockProbe, material) : { ok: false, why: '' };
+    const byClock = evClock.ok ? clockDistance(world.clock, newClockProbe) : null;   /* 142-笔四：拦文本时分钟数也不动 */
         const el = (Number.isFinite(Number(byClock)) && Number(byClock) > 0) ? Number(byClock) : Number(clean.elapsed_minutes);
         if (Number.isFinite(el) && el > 0) {
             const r = addElapsed(loadState(), el, material.rawText || '');
@@ -875,13 +887,20 @@ async function stepWorld(material, attempt) {
         if (clockWentBackwards(world.clock, newClock)) {
             notes.push('模型给的世界钟比原来早（' + asText(world.clock) + ' → ' + newClock + '），已保留原来的，没让它倒退');
         } else {
-            updateWorld({ clock: newClock }, {});
+    const evNew = clockEvidenceOk(world.clock, newClock, material);
+    if (!evNew.ok) {
+        notes.push(evNew.why === '找不到依据'
+            ? '模型给的世界钟在正文里找不到依据（' + newClock + '），已保留原来的（' + asText(world.clock) + '）'
+            : '模型给的世界钟' + evNew.why + '（超上限 2 天），已保留原来的');
+    } else { updateWorld({ clock: newClock }, {}); }
         }
     } else {
         notes.push('这次没读出世界钟，保持不变（' + (trimText(world.clock) || '未知') + '）');
     }
     if (trimText(v.place)) {
-        updateWorld({ place: trimText(v.place) }, {});
+    if (textAppearsIn(trimText(v.place), material.recentText || material.rawText)) { updateWorld({ place: trimText(v.place) }, {}); } else {
+        notes.push('模型给的地点在正文里找不到依据（' + trimText(v.place) + '），已保留原来的（' + (trimText(world.place) || '未知') + '）');
+    }
     }
     if (trimText(v.bigPicture)) {
         updateWorld({ bigPicture: trimText(v.bigPicture) }, {});
@@ -1413,11 +1432,23 @@ function applyCharacter(raw, material, conflicts) {
     }
     if (patch.timePlace) {
         const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
+        const halvesNew = String(patch.timePlace).split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
+        const halvesOld = String(c.timePlace || '').split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
+        const bodyTP = material.recentText || material.rawText;
+        const noBasis = halvesNew.some((h2) => !textAppearsIn(h2, bodyTP));
+        const jump = clockDistance(halvesOld[0] || '', halvesNew[0] || '');
         if (back) {
             conflicts.push(c.name + ' 的时间地点看着往回退了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
             delete patch.timePlace;
+        } else if (noBasis) {
+            conflicts.push(c.name + ' 的时间地点在正文里找不到依据（' + patch.timePlace + '），已保留原文');
+            delete patch.timePlace;
+        } else if (Number.isFinite(jump) && jump > 2880) {
+            conflicts.push(c.name + ' 的时间跳了 ' + String(Math.round(jump / 1440)) + ' 天（超上限 2 天），已保留原文');
+            delete patch.timePlace;
         }
     }
+
     const prevCurrent = trimText(c.current);
     c.currentDropped = false;
     Object.assign(c, patch);
@@ -2175,10 +2206,6 @@ export function checkActingAsMe(rows, floor) {
                  */
                 const BEFORE = /[对给向跟和与朝冲让被叫看望等问帮替自我到在从往至进出回过由于挨靠临]/;
                 /*
-                 * ★ 20261023 依据＝阿砚 20 号 §①：主语判定**不能只认三个自称字**。
-                 *   旧：字面表只有三个字 ⇒ 模型把主角写成真名时**整条链一次都不进** ✗
-                 *   新：自称字 ＋ 她的真名与别名（personaNames／玩家棋子）一起当候选；长名优先；
-                 *        命中后仍走原来两道豁免（后面跟「的」／前面是介词）✓
                  */
                 const ME_NAMES = ['我', '咱', '俺'].concat(playerNamesArr()).filter(Boolean)
                     .sort((a, b) => b.length - a.length);
@@ -2207,12 +2234,6 @@ export function checkActingAsMe(rows, floor) {
                 reasons.push('预判"我"接下来会怎样');
             }
             /*
-             * ②b 任务里写"下一步动作／后续预测"（⛔ 跟"只写这一步"同一个禁区）
-             *
-             * ⚠️ 提示词里**明写着**「"明天去码头等船"这种点名不许」，
-             *    可这条正则原来不认"明天＋动词" ⇒ **提示词说了、代码不拦**（逐条核验 5.11 抓到）。
-             *    补上时间词＋意志动词那一路；⛔ 只认"时间词紧跟动词"，
-             *    免得把「明天的舞会」这种名词短语误判。
              */
             if (/下一步|接下来(去|要|会)|后续预测|准备(去|要)|即将(去|要|前)去?/.test(text)
                 || /(明天|后天|次日|下次|回头|待会儿|等会儿|过几天)\s*(去|要|会|准备|打算|再|得)/.test(text)) {
@@ -2248,15 +2269,8 @@ function extractClockFromPlace(text) {
     return trimText(cut) || s;
 }
 /**
- * 跑一次更新。
- * @param {object} opts { manual:boolean, floor:number, turns:number }
  */
 /**
- * ⭐ 补⑤：把失败原因归成几类 —— **只留类别，⛔ 不把原文带出去**。
- *
- * 为什么要在源头就分类：体检报告要"她截图就能说清"，而 error 原文里
- * 可能夹着正文片段、地址、钥匙 ⇒ ⛔ 一律不进报告、不进账。
- * 分类口径（跟体检报告的表格一一对应）：网络／超时／截断／格式／其它。
  */
 export function classifyFailure(msg) {
     const s = String(msg || '');
@@ -2268,10 +2282,6 @@ export function classifyFailure(msg) {
 }
 export async function runUpdate(opts) {
     /*
-     * 依据＝阿砚 A 组 H4：**闸要在第一个 await 之前**就抢。
-     *   旧：抢闸写在 runUpdateInner 里 ⇒ 前面已经 await 了 worldbook 动态 import 与 refreshAffinity ✗
-     *     ⇒ 连点两下时，第二下能从那两个 await 里滑进去，两份一起跑 ✗
-     *   闸不依赖 DOM（按钮灰不灰是另一回事，挡不住键盘/悬浮球/魔法棒各点一次）。
      */
     if (!claim('update')) {
         return { ok: false, reason: '上一轮还在跑（同一份不跑第二遍；要停就点取消）' };
@@ -2279,16 +2289,8 @@ export async function runUpdate(opts) {
     /* 依据＝阿砚 A 组 H2：**第一个 await 之前**先抓归属（下面 `await import('./worldbook.js')` 就是一个 await） */
     const runOwner = captureOwner();
     /* ⭐ R1（材料 05）：**这一轮里的几十次写盘合并成一批** ✓
-     *   批内只记账 ⇒ 批收尾写一次 ✓（⛔ 改变批外行为 ✗）
      *   try/finally 保证：即使中间抛错，批也一定收尾、该落的盘照落 ✓ */
     /*
-     * ⭐⭐ 材料 06【5】链路断路 2：**“立刻更新”与“补推历史”也要读好感** ✓
-     *   旧：`refreshAffinity()` **只在她发消息触发 planRecall 时调用一次** ✗
-     *     ⇒ 拿已有的十几层聊天记录去点“补推历史”时 ✗
-     *     ⇒ 整个推演过程**根本不去读 <meow_FM> 或手机世界书里的好感** ✗
-     *     ⇒ 跑完一看，名册里全部人的好感还是空的（“未接入”）✗✗
-     *   现在：每次跑更新（含补推）前先读一次 ✓（读不到就算了 ✓ ⛔ 拦主流程 ✗）
-     *   （用动态 import ✓ ⛔ 在模块顶部引入 worldbook，避开环依赖 ✗）
      */
     try {
         const _wbMod = await import('./worldbook.js');
@@ -2326,8 +2328,6 @@ async function runUpdateInner(opts) {
     running = true;
     markLive();
     /*
-     * ⭐ L3（防御性）：**补批调进来时⛔ 重置取消标记**。
-     *   她按取消后，补批循环会在**每楼开跑前**检查一次（当前路径靠那个检查兜住，所以现在不可达）；
      */
     if (o.keepCancel !== true) {
         cancelRequested = false;
