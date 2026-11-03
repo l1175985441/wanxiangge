@@ -54,7 +54,7 @@ export const SIDEBAR_GROUPS = [
         key: 'tune',
         label: '调设置',
         hint: '设一次就不动',
-        match: ['总控', '外观', '召回', '读取控制', 'API', '提示词'],
+        match: ['总控', '外观', '召回', '读取控制', '设置', 'API', '提示词'],
     },
 ];
 
@@ -83,17 +83,14 @@ export const SIDEBAR_SHORT = {
 };
 
 export const SIDEBAR_ICONS = {
+    '人物名册': 'fa-address-book',
     '状态': 'fa-book',
     '世界局势': 'fa-earth-asia',
     '暗线': 'fa-mask',
     '时局简报': 'fa-newspaper',
     '编年': 'fa-scroll',
-    '人物名册': 'fa-address-book',
     '线索账': 'fa-inbox',
-    '总控': 'fa-sliders',
-    '外观（工作台配色）': 'fa-palette',
-    '召回': 'fa-filter',
-    '读取控制（提取／排除四格）': 'fa-scissors',
+    '设置': 'fa-sliders',
     '自定义 API（后台推演走这条通道）': 'fa-plug',
     '提示词（可看可改）': 'fa-pen-nib',
 };
@@ -125,7 +122,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.621';
+export const APP_VERSION = '0.3.622';
 
 export const LEDGER_VERSION = 3;
 

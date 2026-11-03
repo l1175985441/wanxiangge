@@ -682,10 +682,11 @@ function secStatus(host, intoSelf) {
  *    想停就在酒馆的扩展列表里关它。
  * 卡片那两个开关搬到「召回」段（那是卡片自己的事），这里只留"更新"有关的。
  */
-function secGeneral(host) {
+function secGeneral(host, intoBox) {
     const SECID = 'general';
     const s = getSettings();
-    const box = section('总控', '整台怎么跑：自动更新、频率、启动行为。'
+    const box = intoBox || section(
+        '总控', '整台怎么跑：自动更新、频率、启动行为。'
         + '（要停用整个插件 ⇒ 去酒馆的扩展列表里关它，这里不再放第二个总闸）',
         { open: true });
 
@@ -983,7 +984,7 @@ const snaps = listSnapshots();
     box.appendChild(cOps);
 
     box.appendChild(saveBar('general'));
-    host.appendChild(box);
+    if (!intoBox) { host.appendChild(box); }
 }
 
 /**
@@ -2517,11 +2518,12 @@ function secRoster(host) {
  * ⭐ 外观：我们自己的配色（工作台是自己的地盘，不必迁就酒馆主题）
  * 预设色板 + 四个槽位可单独改；文字色留空＝按底面亮度自动算。
  */
-function secAppearance(host) {
+function secAppearance(host, intoBox) {
     const SECID = 'appearance';
     const s = getSettings();
     const app = resolveAppearance(s.appearance || {});
-    const box = section('外观（工作台配色）',
+    const box = intoBox || section(
+        '外观（工作台配色）',
         '工作台是**我们自己的整页窗口**，配色自己定，不用迁就酒馆主题；'
         + '设置抽屉那边仍跟随酒馆主题。文字色留空＝按底面亮度自动算（浅底深字／深底浅字）。',
         { open: false, summary: PALETTE_NAMES[app.palette] || '', five: true });
@@ -2605,13 +2607,14 @@ function secAppearance(host) {
     box.appendChild(cMode);
 
     box.appendChild(saveBar('appearance'));
-    host.appendChild(box);
+    if (!intoBox) { host.appendChild(box); }
 }
 
-function secRecall(host) {
+function secRecall(host, intoBox) {
     const SECID = 'recall';
     const s = getSettings();
-    const box = section('召回',
+    const box = intoBox || section(
+        '召回',
         '她发消息时当场算一次"这轮该带什么"：好感必带；世界与平行事件按她最新发言的相关度筛，相关的进、其余排后台。',
         { open: false, five: true });
     box.appendChild(expandPair({ el: el, button: button }));   /* 六：全部展开／全部收起 */
@@ -2705,13 +2708,14 @@ function secRecall(host) {
     cCard.appendChild(checkbox('wxg-show-empty', '没有召回时也显示空态卡片', s.showEmptyCard, 'stage-show-empty'));
     box.appendChild(cCard);
     box.appendChild(saveBar('recall'));
-    host.appendChild(box);
+    if (!intoBox) { host.appendChild(box); }
 }
 
-function secExtract(host) {
+function secExtract(host, intoBox) {
     const SECID = 'extract';
     const s = getSettings();
-    const box = section('读取控制（提取／排除四格）',
+    const box = intoBox || section(
+        '读取控制（提取／排除四格）',
         '文本名单与点选的世界书／条目改完按段底那颗「保存」一起存（三个规则开关拨动即生效）。'
         + '世界书这一块不用手打书名：点下面的书名就进名单（再点＝排除、再点＝拿掉），'
         + '点「看条目」能一条条挑。标签那一块默认按结构剥掉成对的机器块与 HTML 注释——'
@@ -2794,6 +2798,23 @@ function secExtract(host) {
         el('span', 'wxg-note', '留空＝还没有数（表里写「未建立」）'));
     box.appendChild(cBook);
     box.appendChild(saveBar(SECID));
+    if (!intoBox) { host.appendChild(box); }
+}
+
+function secSettings(host) {
+    const box = section('设置', '总控、外观、召回、读取控制都在这一页。', { open: false });
+    const seg = (head) => {
+        const g = el('div', 'wxg-seg');
+        g.appendChild(el('div', 'wxg-note wxg-sec-head', head));
+        box.appendChild(g);
+        return g;
+    };
+    secGeneral(host, seg('① 跑起来'));
+    secAppearance(host, seg('② 长什么样'));
+    secRecall(host, seg('③ 每轮怎么挑'));
+    const s4 = seg('④ 读什么');
+    secExtract(host, s4);
+    s4.appendChild(el('div', 'wxg-note', '/* 三个备份键下一单归到这一段末 */'));
     host.appendChild(box);
 }
 
@@ -4770,48 +4791,16 @@ export function renderSections(host, opts) {
          *    （复核方："这三个是不是应该坐到一个地方？"）
          *    ⏐ secSteps／secReport 不再各自开页，改成往状态页里摆（见 secStatus）。
          */
-        secStatus(stageEl);
-        secWorld(stageEl);
+secRoster(stageEl);
+secStatus(stageEl);
+secWorld(stageEl);
 secHidden(stageEl);
 secBrief(stageEl);
-        /*
-         * ⚠️⚠️ 「角色状态」这一页**暂时留着**（2026-10-15 第 11 轮退回）。
-         *
-         * 她确实说过「跟名册重复了删掉吧？一模一样」，但她同时两度亲定边界：
-         *   **只删目录入口，页面内容与引用 0 动**。
-         * 而我试着只从目录里撕掉它之后，**真机上这些东西就真摸不到了**（页面不渲染＝内容没了），
-         * 实测有 **16 条用例变红**，它们点名的是：
-         *   · `run-tests-chartable`：七列表格／搜索框／点开改字（整套）
-         *   · `run-tests-inject`：任务（主线／支线）显示、改状态、删任务
-         *   · `run-tests-future`：「不可靠」提醒
-         *   · `run-tests-dualpanel`：面板里改角色字段
-         * ⇒ 这些**名册与浮层里都还没有**。先把它们搬过去，才能撕这一页；
-         *   ⛔ 为了"看着像做完了"而提前撕（她的话：别真的不行还打钩）。
-         */
-        /*
-         * ⭐⭐ 「角色状态」**撕了**（她 2026-10-15：「角色名册/人物名册不就是角色状态」
-         *   「这两个有啥区别？」「我刚刚就说两个都是一模一样来着」）。
-         *   → 它的职分（呈现人物状态、可改）**全归名册**：名册即角色状态。
-         *
-         * ⛔ 先撕后接——撕之前已逐样搬完（这一步是硬前提）：
-         *   · **八格**（年龄/身份/势力/时间地点/正在经历/好感/别名）⇒ 名册的**浮层人物卡**（默认只读，点 ⋮ 可改）
-         *   · **任务（主线／支线）**（可改状态、可删）⇒ 浮层里的「任务」块（v0.2.80）
-         *   · **「不可靠」提醒** ⇒ 浮层里的警告行（v0.2.80）
-         *   · **一键合并（merge-into）** ⇒ 浮层底栏（早已在）
-         *
-         * ⚠️ 边界（她 02:01／02:05 两度亲定）：**只撕目录入口**；
-         *   ⛔ 凡别处“引用人物”的显示（如世界状态里出现的人名）＝引用名册，**不动**。
-         * `secCharacters` 已于 133 单号 3 删除（零调用；七列表随之删；人物卡仍能看能改）
-         */
-        secChronicle(stageEl);
-        secRoster(stageEl);
-    mountLedgers(stageEl);
-        secGeneral(stageEl);
-        secAppearance(stageEl);
-        secRecall(stageEl);
-        secExtract(stageEl);
-        secApi(stageEl);
-        secPrompts(stageEl);
+secChronicle(stageEl);
+mountLedgers(stageEl);
+secSettings(stageEl);
+secApi(stageEl);
+secPrompts(stageEl);
         /*
          * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
          *   ⛔ 写在每个动作里（那样漏一个就没了）。
