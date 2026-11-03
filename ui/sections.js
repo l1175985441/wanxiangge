@@ -26,6 +26,7 @@ import { storageReport, formatStamp, getChat, currentChatKey, adoptLedgerForImpo
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
+import { scheduleBadge } from '../core/schedule.js';
 import {
     getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName,
     findCharacter,
@@ -4201,9 +4202,14 @@ function renderPersonCard() {
             }
             if (s && s.done === true) {
                 sh.appendChild(el('span', 'wxg-badge is-off', '已完成'));
-            } else if (s && s.dueReached === true) {
-                sh.appendChild(el('span', 'wxg-badge is-warn', '已到点·本轮应履约'));
+            } else {
+                /* 146：日程徽章跟注入同一颗判据（scheduleBadge） */
+                const badge = trimText(scheduleBadge(s, Number((loadState().world || {}).clockMinute)));
+                if (badge) {
+                    sh.appendChild(el('span', 'wxg-badge is-warn', badge.replace(/^【/, '').replace(/】$/, '').replace(/^(?:⚠️|⛔)\s*/, '')));
+                }
             }
+
             sr.appendChild(sh);
             /* ⭐ 新增件 1（材料 13）：**日程也能她自己了结或删掉** ✓（仅编辑态出现 ✓） */
             if (personCardEditing) {
