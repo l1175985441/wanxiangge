@@ -463,6 +463,20 @@ export async function mountPanel(version) {
         + ' 秒也没等到扩展设置区的容器，那一块没挂上（不影响聊天与注入）');
 }
 
+/**
+ * 取本扩展在 third-party 下的真实目录名。
+ * 144：⛔ 不许再写死「万象阁」——安装目录叫 wanxiangge（11-03 实测 200）。
+ */
+export function ownExtDir(url) {
+    try {
+        const u = String(url || (import.meta && import.meta.url) || '');
+        const m = u.match(/\/third-party\/([^/]+)\//);
+        return m ? decodeURIComponent(m[1]) : '';
+    } catch (e) {
+        return '';
+    }
+}
+
 /** 试一次；挂上了返回 true，容器还没出现返回 false */
 async function tryMountPanel(version) {
     const ctx = getCtx();
@@ -472,10 +486,10 @@ async function tryMountPanel(version) {
     }
 
     let html = '';
+    const dir = ownExtDir();
     try {
-        if (ctx && typeof ctx.renderExtensionTemplateAsync === 'function') {
-            // ⚠️ 模板 id 要带子目录（官方函数是直接拼路径）
-            html = await ctx.renderExtensionTemplateAsync('third-party/万象阁', 'ui/template', {
+        if (ctx && typeof ctx.renderExtensionTemplateAsync === 'function' && dir) {
+            html = await ctx.renderExtensionTemplateAsync('third-party/' + dir, 'ui/template', {
                 rootId: ROOT_ID,
                 version: 'v' + asText(version),
             });
@@ -487,8 +501,13 @@ async function tryMountPanel(version) {
     if (!trimText(html)) {
         html = '<div id="' + ROOT_ID + '" class="wanxiangge"><div class="inline-drawer">'
             + '<div class="inline-drawer-toggle inline-drawer-header"><b>万象阁</b>'
+            + '<span class="wxg-ver">v' + asText(version) + '</span>'
+            + '<span class="wxg-hint">世界在后台自己活着 · 正文一个字都不多</span>'
             + '<div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>'
-            + '<div class="inline-drawer-content"></div></div></div>';
+            + '<div class="inline-drawer-content">'
+            + '<div class="wxg-note">界面在「工作台」里（点下面那颗按钮，或点输入框旁的魔法棒）。</div>'
+            + '<div class="wxg-settings-host"></div>'
+            + '</div></div></div>';
     }
 
     container.insertAdjacentHTML('beforeend', html);

@@ -1435,13 +1435,20 @@ function applyCharacter(raw, material, conflicts) {
         const halvesNew = String(patch.timePlace).split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
         const halvesOld = String(c.timePlace || '').split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
         const bodyTP = material.recentText || material.rawText;
-        const noBasis = halvesNew.some((h2) => !textAppearsIn(h2, bodyTP));
+        /* 144：时间半不许靠二元组覆盖蒙过去 —— 时段词／日号必须字面命中正文 */
+        const PERIOD_WORDS = ['凌晨', '清晨', '早晨', '早上', '上午', '中午', '下午', '傍晚', '晚上', '夜里', '深夜', '半夜'];
+        const tpTime = String(halvesNew[0] || '');
+        const needLiteral = [];
+        PERIOD_WORDS.forEach((w) => { if (tpTime.includes(w)) { needLiteral.push(w); } });
+        (tpTime.match(/第[0-9零一二两三四五六七八九十百千]+[天日]/g) || []).forEach((w) => needLiteral.push(w));
+        const missLiteral = needLiteral.filter((w) => !String(bodyTP).includes(w));
+        const noBasis = missLiteral.length > 0 || halvesNew.some((h2) => !textAppearsIn(h2, bodyTP));
         const jump = clockDistance(halvesOld[0] || '', halvesNew[0] || '');
         if (back) {
             conflicts.push(c.name + ' 的时间地点看着往回退了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
             delete patch.timePlace;
         } else if (noBasis) {
-            conflicts.push(c.name + ' 的时间地点在正文里找不到依据（' + patch.timePlace + '），已保留原文');
+            conflicts.push(c.name + ' 的时间地点在正文里找不到依据（' + patch.timePlace + '）' + (missLiteral.length ? '；正文里没有：' + missLiteral.join('／') : '') + '，已保留原文');
             delete patch.timePlace;
         } else if (Number.isFinite(jump) && jump > 2880) {
             conflicts.push(c.name + ' 的时间跳了 ' + String(Math.round(jump / 1440)) + ' 天（超上限 2 天），已保留原文');
@@ -2189,20 +2196,13 @@ export function checkActingAsMe(rows, floor) {
              * ⇒ 改成**按结构判**：只要"我"不是宾语／所有格，就算它当了主语（＝越界）。
              *    需求允许的只有**侧面豁免**（别人对我做／说／看），那两种在结构上有特征：
              *      · 前面几字里有介词或及物动词把它变成对象：
-             *        对／给／向／跟／和／与／朝／冲／让／被／叫／看／望／等／问／帮／替
-             *      · 后面紧跟"的"（"我的处境""我的反应"）
              */
             const meSubject = (() => {
                 /* ⭐⭐ 修复 6（材料 02）：**先剥掉角色台词，再判“我”** ✓
-             *   旧：只删了**引号字符** ✗ ⇒ 台词内容还在 ✗
-             *     （角色说「**我**不去！」里的“我”照样被当成“扮演玩家” ✗）
              *   现在：先把**直接引语整段**换成空格 ✓，再把含“我”的**固定词**换成空格 ✓ */
     const s = stripOtherQuotes(String(text))
         .replace(/自我|忘我|本我|超我|大我|小我|我方|我行我素|依然故我/g, ' ');
                 /*
-                 * ⚠️ 这张表要包含**方向／处所类**介词（到在从往至进出回过）：
-                 *    漏了"到"就会把「把煎蛋**放到我**面前的桌垫上」这种合规侧面写法误报
-                 *    （真踩过：加完结构判之后 run-tests-p2 的"侧面放过"当场变红）。
                  */
                 const BEFORE = /[对给向跟和与朝冲让被叫看望等问帮替自我到在从往至进出回过由于挨靠临]/;
                 /*
