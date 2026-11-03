@@ -710,7 +710,7 @@ export function clockEvidenceOk(oldClock, newClock, material) {
     if (!want.has || want.day === null) { return { ok: false, why: '找不到依据', miss: [] }; }
     const d = clockDistance(oldClock, newClock);
     /* 跨度按天差算：天差超 2 才报跳（判据 6：2 天内仍放） */
-    if (Number.isFinite(d) && Math.floor(d / 1440) > 2) { return { ok: false, why: '跳了 ' + String(Math.floor(d / 1440)) + ' 天' }; }
+    if (Number.isFinite(d) && d > 2880) { return { ok: false, why: '跳了 ' + String(Math.round(d / 1440)) + ' 天' }; }
     const coords = [];
     const push = (seg) => { const q = parseClock(seg); if (q.has && q.day !== null) { coords.push(q); } };
     String(body).split(/[。！？\n；;]/).forEach((seg) => {
