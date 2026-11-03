@@ -77,7 +77,7 @@ import { stampSource, floorText } from './provenance.js';
 import { render, noteText } from './prompt.js';
 import { notePending } from './overlay.js';   /* 硬-6：锁住的格要记下“本来会改成什么” */   /* 硬-3：prompt 的唯一可审计出口 */   /* 硬-2：每条派生数据带上“从哪来” */
 import { cleanMessages, isHiddenMessage } from './extract.js';
-import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance, dueToAbsoluteMinute } from './clock.js';
+import { isLineDue, nextStage, isLineDone, clockWentBackwards, parseClock, clockDistance, dueToAbsoluteMinute, clockToMinute } from './clock.js';
 import { addElapsed, stripModelDateFields } from './world-events.js';   /* 100：走钟／模型无权写绝对时间 */
 import { markBookDirty } from './book.js';
 import { clockAnchor } from './gametime.js';
@@ -704,20 +704,30 @@ export function rollupInstructionFor(c) {
  */
 /* 140/142：世界钟两道闸抽一颗（文本与 clockMinute 共用） */
 export function clockEvidenceOk(oldClock, newClock, material) {
+    /* 149：判据从「认词」换成「认坐标」 —— 正文按句切 → parseClock → 比坐标 */
     const body = String((material && (material.recentText || material.rawText)) || '');
-    if (!textAppearsIn(newClock, body)) { return { ok: false, why: '找不到依据' }; }
-    /* 145：时间半不许靠二元组覆盖蒙过去 —— 时段词／日号必须字面命中正文 */
-    const PERIOD_WORDS_TP = ['凌晨', '清晨', '早晨', '早上', '上午', '中午', '下午', '傍晚', '晚上', '夜里', '深夜', '半夜'];
-    const needLiteral = [];
-    PERIOD_WORDS_TP.forEach((w) => { if (newClock.includes(w)) { needLiteral.push(w); } });
-    (newClock.match(/第[0-9零一二两三四五六七八九十百千]+[天日]/g) || []).forEach((w) => needLiteral.push(w));
-    const missTP = needLiteral.filter((w) => !String(body).includes(w));
-    if (missTP.length) { return { ok: false, why: '找不到依据', miss: missTP }; }
+    const want = parseClock(newClock);
+    if (!want.has || want.day === null) { return { ok: false, why: '找不到依据', miss: [] }; }
     const d = clockDistance(oldClock, newClock);
-    if (Number.isFinite(d) && d > 2880) { return { ok: false, why: '跳了 ' + String(Math.round(d / 1440)) + ' 天' }; }
-    return { ok: true, why: '' };
+    /* 跨度按天差算：天差超 2 才报跳（判据 6：2 天内仍放） */
+    if (Number.isFinite(d) && Math.floor(d / 1440) > 2) { return { ok: false, why: '跳了 ' + String(Math.floor(d / 1440)) + ' 天' }; }
+    const coords = [];
+    const push = (seg) => { const q = parseClock(seg); if (q.has && q.day !== null) { coords.push(q); } };
+    String(body).split(/[。！？\n；;]/).forEach((seg) => {
+        if (!seg || !seg.trim()) { return; }
+        push(seg);
+        String(seg).split(/[，,、]/).forEach((part) => { if (part && part.trim()) { push(part); } });
+    });
+    const sameDay = coords.filter((c2) => c2.day === want.day);
+    if (!sameDay.length) { return { ok: false, why: '找不到依据', miss: ['第' + String(want.day) + '天'] }; }
+    if (want.minutesOfDay === null) { return { ok: true, why: '', coords: sameDay }; }
+    const withMin = sameDay.filter((c2) => c2.minutesOfDay !== null);
+    if (!withMin.length) { return { ok: true, why: '', coords: sameDay }; }
+    /* 容差 60 分 */
+    const hit = withMin.some((c2) => Math.abs(c2.minutesOfDay - want.minutesOfDay) <= 60);
+    if (!hit) { return { ok: false, why: '找不到依据', miss: [String(want.minutesOfDay) + '分那个时段'], coords: withMin.map((c2) => c2.minutesOfDay) }; }
+    return { ok: true, why: '', coords: sameDay };
 }
-
 export function prefillClockFromBody(material) {
     try {
         const rawNow = String(material && material.rawText ? material.rawText : '');
@@ -729,7 +739,9 @@ export function prefillClockFromBody(material) {
         if (clockWentBackwards(oldClock, got)) { return false; }
     const evGot = clockEvidenceOk(oldClock, got, material);
     if (!evGot.ok) { return false; }
-        updateWorld({ clock: got }, {});
+        const mGot = clockToMinute(got);
+    if (mGot === null) { return false; }
+    updateWorld({ clockMinute: mGot, clock: got }, {});
         return true;
     } catch (e) {
         return false;
@@ -899,7 +911,10 @@ async function stepWorld(material, attempt) {
         notes.push(evNew.why === '找不到依据'
             ? '模型给的世界钟在正文里找不到依据（' + newClock + '）' + (evNew.miss && evNew.miss.length ? '；正文里没有：' + evNew.miss.join('／') : '') + '，已保留原来的（' + asText(world.clock) + '）'
             : '模型给的世界钟' + evNew.why + '（超上限 2 天），已保留原来的');
-    } else { updateWorld({ clock: newClock }, {}); }
+    } else {
+        const mNew = clockToMinute(newClock);
+        if (mNew !== null) { updateWorld({ clockMinute: mNew, clock: newClock }, {}); }
+    }
         }
     } else {
         notes.push('这次没读出世界钟，保持不变（' + (trimText(world.clock) || '未知') + '）');
@@ -2084,7 +2099,8 @@ async function stepCharacters(material, attempt, screenRes) {
             if (!evNow.ok) {
                 conflicts.push('模型给的世界钟' + (evNow.why === '找不到依据' ? '在正文里找不到依据（' + clockNow + '）' : evNow.why + '（超上限 2 天）') + (evNow.miss && evNow.miss.length ? '；正文里没有：' + evNow.miss.join('／') : '') + '，已保留原来的（' + asText(oldClock4) + '）');
             } else {
-                updateWorld({ clock: clockNow }, {});
+                const mNow = clockToMinute(clockNow);
+            if (mNow !== null) { updateWorld({ clockMinute: mNow, clock: clockNow }, {}); }
             }
         }
     }
@@ -2101,17 +2117,12 @@ async function stepCharacters(material, attempt, screenRes) {
 }
 /**
  * 从模型回包里把这个角色的任务挑出来。
- * 两种写法都认：① 跟在角色行里（`chars[i].quests`）；② 顶层 `quests` 数组里按 `name` 归位。
- * ⛔ 没料就返回空数组（不留空壳）。
  */
 function collectQuests(raw, c) {
     const mine = Array.isArray(raw && raw.quests) ? raw.quests.filter(Boolean) : [];
     const top = Array.isArray(raw && raw.allQuests) ? raw.allQuests.filter(Boolean) : [];
     const out = mine.slice();
     /*
-     * ⭐ 修复单 #16 附：顶层任务的 `name` 按**名字或别名**归位——
-     *   原来只比 `who === c.name`，模型写个别名/昵称就把任务丢了。
-     *   matchKey 就是全库的"名字归一"口径（去空白/小写/全角归一），跟名册检索同一把尺。
      */
     const names = [trimText(c && c.name)]
         .concat((Array.isArray(c && c.aliases) ? c.aliases : []).map((a) => trimText(a)))
@@ -2125,21 +2136,10 @@ function collectQuests(raw, c) {
     return out.filter((q) => trimText(q && q.title));
 }
 /**
- * 退化要出声：模型万一**替"我"**写了东西，记一条说明让她看得见（⛔ 不许静默退化）。
- * 内容不动她的字。
- *
- * ⭐ 口径（条 19 她当场裁定 · 侧面式）：**"别人对'我'做的事"是允许的**——
- *    说／问／喊、看／注视／审视、递／放／推给、狐疑／担心／等着回应……现场人物这么写是对的。
- *   ⛔ 只拦三件明确的事：
- *     ① "我"当主语＋动作（我站起来／我走出门）；
- *     ② 预判"我"（我接下来…）；
- *     ③ 改"我"处境的被动句（被赶出家门的我／被带走）。
- *   ⛔ 不做"猜动词"那套（宁可少报，也不冤枉合规的侧面写法）。
  */
 export function checkActingAsMe(rows, floor) {
     const hits = [];
     /*
-     * ⭐ 复审追加 B3：无主的顶层任务（没写名字）**只报一次**，⛔ 每行都报一遍。
      */
     const rowsArr = Array.isArray(rows) ? rows : [];
     const unownedTop = [];

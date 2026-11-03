@@ -9,6 +9,7 @@
  *   · 每次更新前留一版快照，能撤回。
  */
 
+import { clockToMinute } from './clock.js';
 import {
     LEDGER_VERSION, RECALL_LOG_LIMIT, CHRONICLE_LIMIT, SNAPSHOT_KEEP, STAGES_CONFLICT, STAGES_PROGRESS,
     ARRIVE_MISS_LIMIT } from './config.js';
@@ -1405,6 +1406,23 @@ export function updateWorld(patch, options) {
      *   模型（stepWorld）不传 ✗ ⇒ 她手改过的那几格**不被覆盖** ✓（其余格照常更新 ✓）
      */
     const _patch = Object.assign({}, patch || {});
+    /* 149：clockMinute 是权威；clock 字符串只是显示。双给时保留原文、只校一致性 */
+    if (Number.isFinite(_patch.clockMinute)) {
+        const mAuth = Number(_patch.clockMinute);
+        if (_patch.clock) {
+            const mTxt = clockToMinute(_patch.clock);
+            if (mTxt !== null && Math.abs(mTxt - mAuth) > 1440) {
+                try {
+                    loadState().pipeline = Object.assign({}, loadState().pipeline, { conflicts: [].concat((loadState().pipeline || {}).conflicts || [], ['钟字符串与坐标不一致（' + String(_patch.clock) + ' / ' + String(mAuth) + '分），以坐标为准']).slice(-20) });
+                } catch (eC) { /* 记不上不影响主流程 */ }
+            }
+        } else {
+            const dd = Math.floor(mAuth / 1440) + 1;
+            const hh = String(Math.floor((mAuth % 1440) / 60)).padStart(2, '0');
+            const mi = String(Math.floor(mAuth % 60)).padStart(2, '0');
+            _patch.clock = '第' + String(dd) + '日 ' + hh + ':' + mi;
+        }
+    }
     if (opts.manual !== true && w.manualFields && typeof w.manualFields === 'object') {
         for (const mk of Object.keys(_patch)) {
             if (w.manualFields[mk] === true) {

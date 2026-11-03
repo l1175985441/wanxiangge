@@ -292,6 +292,13 @@ export function parseClock(text) {
  * @param {string} text 例：“明天晚上”「后天早上」「03:30 PM」
  * @param {number} nowMinute 当前绝对分钟（同 world.clockMinute）
  */
+/* 149：字符串 → 坐标（反向已有 formatWorldClock） */
+export function clockToMinute(text) {
+    const p = parseClock(text);
+    if (!p.has || p.day === null) { return null; }
+    return (p.day - 1) * 1440 + (Number.isFinite(p.minutesOfDay) ? p.minutesOfDay : 0);
+}
+
 export function dueToAbsoluteMinute(text, nowMinute) {
     const raw = trimText(text);
     if (!raw) { return null; }
