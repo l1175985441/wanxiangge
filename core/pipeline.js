@@ -703,9 +703,16 @@ export function rollupInstructionFor(c) {
  *   这里把它提前跑一次（只读 rawText，⛔ 请模型）。
  */
 /* 140/142：世界钟两道闸抽一颗（文本与 clockMinute 共用） */
-function clockEvidenceOk(oldClock, newClock, material) {
+export function clockEvidenceOk(oldClock, newClock, material) {
     const body = String((material && (material.recentText || material.rawText)) || '');
     if (!textAppearsIn(newClock, body)) { return { ok: false, why: '找不到依据' }; }
+    /* 145：时间半不许靠二元组覆盖蒙过去 —— 时段词／日号必须字面命中正文 */
+    const PERIOD_WORDS_TP = ['凌晨', '清晨', '早晨', '早上', '上午', '中午', '下午', '傍晚', '晚上', '夜里', '深夜', '半夜'];
+    const needLiteral = [];
+    PERIOD_WORDS_TP.forEach((w) => { if (newClock.includes(w)) { needLiteral.push(w); } });
+    (newClock.match(/第[0-9零一二两三四五六七八九十百千]+[天日]/g) || []).forEach((w) => needLiteral.push(w));
+    const missTP = needLiteral.filter((w) => !String(body).includes(w));
+    if (missTP.length) { return { ok: false, why: '找不到依据', miss: missTP }; }
     const d = clockDistance(oldClock, newClock);
     if (Number.isFinite(d) && d > 2880) { return { ok: false, why: '跳了 ' + String(Math.round(d / 1440)) + ' 天' }; }
     return { ok: true, why: '' };
@@ -890,7 +897,7 @@ async function stepWorld(material, attempt) {
     const evNew = clockEvidenceOk(world.clock, newClock, material);
     if (!evNew.ok) {
         notes.push(evNew.why === '找不到依据'
-            ? '模型给的世界钟在正文里找不到依据（' + newClock + '），已保留原来的（' + asText(world.clock) + '）'
+            ? '模型给的世界钟在正文里找不到依据（' + newClock + '）' + (evNew.miss && evNew.miss.length ? '；正文里没有：' + evNew.miss.join('／') : '') + '，已保留原来的（' + asText(world.clock) + '）'
             : '模型给的世界钟' + evNew.why + '（超上限 2 天），已保留原来的');
     } else { updateWorld({ clock: newClock }, {}); }
         }
@@ -2068,8 +2075,18 @@ async function stepCharacters(material, attempt, screenRes) {
             }
         } catch (eClk) { /* 抓不到就算了 ✓ */ }
     }
-    if (clockNow && clockNow !== '未知' && !clockWentBackwards(loadState().world.clock, clockNow)) {
-        updateWorld({ clock: clockNow }, {});
+    if (clockNow && clockNow !== '未知') {
+        const oldClock4 = loadState().world.clock;
+        if (clockWentBackwards(oldClock4, clockNow)) {
+            conflicts.push('模型给的世界钟比原来早（' + asText(oldClock4) + ' → ' + clockNow + '），已保留原来的，没让它倒退');
+        } else {
+            const evNow = clockEvidenceOk(oldClock4, clockNow, material);
+            if (!evNow.ok) {
+                conflicts.push('模型给的世界钟' + (evNow.why === '找不到依据' ? '在正文里找不到依据（' + clockNow + '）' : evNow.why + '（超上限 2 天）') + (evNow.miss && evNow.miss.length ? '；正文里没有：' + evNow.miss.join('／') : '') + '，已保留原来的（' + asText(oldClock4) + '）');
+            } else {
+                updateWorld({ clock: clockNow }, {});
+            }
+        }
     }
     if (conflicts.length) {
         setPipeline({ conflicts: conflicts.slice(0, 20) });
@@ -2123,7 +2140,6 @@ export function checkActingAsMe(rows, floor) {
     const hits = [];
     /*
      * ⭐ 复审追加 B3：无主的顶层任务（没写名字）**只报一次**，⛔ 每行都报一遍。
-     *   用法：把它们归到"第一行"身上（归属口径统一）。
      */
     const rowsArr = Array.isArray(rows) ? rows : [];
     const unownedTop = [];
@@ -2148,9 +2164,6 @@ export function checkActingAsMe(rows, floor) {
             }
         }
         /*
-         * ⭐⭐ 修复 6（材料 02）：**`past` 不纳入抓捕** ✓
-         *   提示词里**明确要求 past（过去经历）按角色第一人称视角记事** ✓（如“我那天去了…”）
-         *   ⇒ 拿它去判“扮演玩家”**必然误报** ✗ ⇒ 不再塞进 pieces ✓（其余字段照旧 ✓）
          */
         if (Array.isArray(raw && raw.schedule)) {
             const joined = raw.schedule
@@ -2162,11 +2175,6 @@ export function checkActingAsMe(rows, floor) {
         }
         if (Array.isArray(raw && raw.quests) || Array.isArray(raw && raw.allQuests)) {
             /*
-             * ⭐ 复审追加 B3：**顶层任务只取"属于本行的"**。
-             *   上一轮我把 `allQuests`（**全员的**顶层任务）原样拼进每一行
-             *   ⇒ 一处越界会被**放大成 N 处**（每个角色行各报一条），
-             *   而且 `hits.push(name + ...)` 里的 name 是**当前行角色名** ⇒ **张冠李戴**；编年里还重复落 N 遍。
-             *   ⚠️ 无主的（没写名字）不在这里报——统一到**循环外只报一次**（见下面）。
              */
             const myName = trimText(raw && raw.name);
             const mineTop = (Array.isArray(raw.allQuests) ? raw.allQuests : []).filter((q) => {
@@ -2188,14 +2196,6 @@ export function checkActingAsMe(rows, floor) {
             const text = piece.text;
             const reasons = [];
             /*
-             * ① "我"当主语＋动作
-             *
-             * ⚠️ 原来是一张**动词表**（会|要|打算|走向|走进|拿起|转身|站起|…）——
-             *    表永远列不全。逐条核验时实测：17 种常见写法**只拦得住 6 种**，
-             *    「我推开门」「我冲了进去」「我笑了一下」「我把书放回架子上」全漏。
-             * ⇒ 改成**按结构判**：只要"我"不是宾语／所有格，就算它当了主语（＝越界）。
-             *    需求允许的只有**侧面豁免**（别人对我做／说／看），那两种在结构上有特征：
-             *      · 前面几字里有介词或及物动词把它变成对象：
              */
             const meSubject = (() => {
                 /* ⭐⭐ 修复 6（材料 02）：**先剥掉角色台词，再判“我”** ✓
