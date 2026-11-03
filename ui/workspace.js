@@ -332,7 +332,7 @@ function buildSidebar() {
          * ⭐ 图标走本地内联单色线条 SVG（ui/icons.js，零外网依赖）：
          *    保留原类名兼容自测，由 CSS 屏蔽字体伪元素，统一 1.75px 圆角描边跟主色/灰度走。
          */
-        const iconKey = SIDEBAR_ICONS[i] || 'fa-circle';
+        const iconKey = SIDEBAR_ICONS[name] || 'fa-circle';
         ico.className = 'wxg-ws-side-ico fa-solid ' + iconKey;
         ico.setAttribute('aria-hidden', 'true');
     /* 依据＝阿砚 B2-4：左侧十项全是细线小图标、识别度低 ⇒ 把图标名带到项上，CSS 按名分色、放大、加粗描边 */

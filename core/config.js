@@ -48,7 +48,7 @@ export const SIDEBAR_GROUPS = [
          *    这里没跟着加 '状态' ⇒ 它掉进了最后一组（真机上"状态"跑到"调设置"底下了）。
          *    ⛔ 以后改段名，记得回来看这张表。
          */
-        match: ['状态', '进度', '账本', '过程报告', '编年', '名册', '线索'],
+        match: ['状态', '进度', '账本', '过程报告', '编年', '名册', '线索', '局势', '暗线', '简报'],
     },
     {
         key: 'tune',
@@ -82,19 +82,21 @@ export const SIDEBAR_SHORT = {
     '提示词（可看可改）': '提示词',
 };
 
-export const SIDEBAR_ICONS = [
-    'fa-book',            // 状态（账本／进度／每轮记录）
-    'fa-earth-asia',      // 世界状态
-    'fa-scroll',          // 编年
-    'fa-address-book',    // 人物名册
-    'fa-inbox',           // 线索账（四个账只留这一个）
-    'fa-sliders',         // 总控
-    'fa-palette',         // 外观
-    'fa-filter',          // 召回
-    'fa-scissors',        // 读取控制
-    'fa-plug',            // 自定义 API
-    'fa-pen-nib',         // 提示词
-];
+export const SIDEBAR_ICONS = {
+    '状态': 'fa-book',
+    '世界局势': 'fa-earth-asia',
+    '暗线': 'fa-mask',
+    '时局简报': 'fa-newspaper',
+    '编年': 'fa-scroll',
+    '人物名册': 'fa-address-book',
+    '线索账': 'fa-inbox',
+    '总控': 'fa-sliders',
+    '外观（工作台配色）': 'fa-palette',
+    '召回': 'fa-filter',
+    '读取控制（提取／排除四格）': 'fa-scissors',
+    '自定义 API（后台推演走这条通道）': 'fa-plug',
+    '提示词（可看可改）': 'fa-pen-nib',
+};
 
 /** 卡片挂载用的消息标记属性 */
 export const CARD_ATTR = 'data-wxg-card';
@@ -123,7 +125,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.620';
+export const APP_VERSION = '0.3.621';
 
 export const LEDGER_VERSION = 3;
 
