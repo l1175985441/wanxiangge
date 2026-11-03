@@ -300,10 +300,15 @@ export function dueToAbsoluteMinute(text, nowMinute) {
         return null;
     }
     /* 127-1：「第 N 天」是相对日，必须从 now 推 */
-    if (/第\s*[一二三四五六七八九十 0-9]+\s*(?:天|日)/.test(raw)) {
+    /* 147：N 不许写死成 1 —— 127-1 当时只验了「第二天」（N=2）恰好过，
+     *   于是把 N 当成常量 ⇒ 第三/第十/第三十天全算成“明天”（11-03 23:3x 真跑）。 */
+    const mDay = raw.match(/第\s*([一二三四五六七八九十 0-9]+)\s*(?:天|日)/);
+    if (mDay) {
         const nowN = Number(nowMinute);
         if (!Number.isFinite(nowN)) { return null; }
-        return nowN + 1440;
+        const nDay = cnToNum(mDay[1]);
+        if (nDay === null || !Number.isFinite(nDay)) { return null; }
+        return nowN + (Math.max(1, nDay) - 1) * 1440;
     }
     const p = parseClock(raw);
     if (p.has && p.day !== null) {
