@@ -84,7 +84,6 @@ import { clockAnchor } from './gametime.js';
 import { syncFromPhone, ensureRow } from './affinity.js';   /* 新活：手机里有数就原样抄进表 */   /* 决定①：世界钟先解析、能解才当锚 */
 import { trimText, asText, clampNumber, uniqueBy, floorLabel, matchKey } from './utils.js';
 import { lastInjectInfo, mentionedCharacters } from './recall.js';
-
 let running = false;
 /*
  * ⭐⭐ 真机抓到：那个持久化的 step 会**卡死**（一轮中途死了没清标记 ✗）
@@ -96,7 +95,6 @@ function markLive() {
     try { if (typeof window !== 'undefined') { window.__wxgLiveRun = Boolean(running || backfilling); } } catch (e) { /* ⛔ 影响主流程 */ }
 }
 let cancelRequested = false;
-
 /** 正在跑吗 */
 export function isRunning() {
     return running;
@@ -1477,7 +1475,6 @@ function applyCharacter(raw, material, conflicts) {
             delete patch.timePlace;
         }
     }
-
     const prevCurrent = trimText(c.current);
     c.currentDropped = false;
     Object.assign(c, patch);
@@ -1697,8 +1694,65 @@ function applyCharacter(raw, material, conflicts) {
         delete raw.knownClueIds;
     }
     if (material && trimText(material.clockBefore)) { c.lastClock = trimText(material.clockBefore); }   /* 127-6 */
+    if (raw && raw.onStage !== true) { const tickNow = Number(loadState().world.clockMinute); if (Number.isFinite(tickNow)) { c.lastLifeTickAt = tickNow; } }
     return { name: c.name, isNew, quests, knows };
 }
+/** 168\uff1a\u540e\u53f0\u540d\u5355\u9009\u62e9\uff08\u4f9b stepCharacters \u4e0e\u9a8c\u6536\u76f4\u63a5\u8c03\uff09\u3002
+ *   \u4e94\u9053\u4e4b 1/2/4\uff1a\u4e0d\u51fa\u73b0\u3001\u8282\u62cd\u3001\u603b\u540d\u989d\uff08\u6838\u5fc3\u8d85\u989d\u7167\u8fdb\uff09\u3002
+ */
+export function pickBenchFor(roster, opts) {
+    const o = opts || {};
+    const onStageIds = o.onStageIds || new Set();
+    const maxParallel = Math.max(0, Number(o.maxParallel) || 0);
+    const spotKeys = o.spotKeys || new Set();
+    const settings = o.settings || {};
+    const floor = Number(o.floor);
+    const nowMinute = Number(o.nowMinute);
+    const bench = (Array.isArray(roster) ? roster : []).filter((c) => {
+        if (!c || onStageIds.has(c.id) || c.isPlayer) { return false; }
+        if (c.noBench === true) { return false; }
+        if (trimText(c.role) === '不出现') { return false; }
+        if (settings.protectedBypass && Number.isFinite(floor) && floor >= 0 && c.lastSeenFloor === floor && trimText(c.current)) { return false; }
+        return true;
+    });
+    /* 驱动力筛选：只对「普通」；核心/重要⛔ 因没驱动力被删 */
+    try {
+        const stD = loadState();
+        const driveCtx = { quests: (stD.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])), situations: (stD.world && stD.world.situations) || [] };
+        if (bench.length > Math.max(0, Number(o.maxParallel) || 6) * 2) {
+            for (let bi = bench.length - 1; bi >= 0; bi -= 1) { if (trimText(bench[bi].role) === '普通' && !hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); } }
+        }
+    } catch (eDrive) { /* 筛不了就不筛 */ }
+    const withinTier = (a, b) => {
+        const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;
+        const bSpot = spotKeys.has(matchKey(b.name)) ? 1 : 0;
+        if (aSpot !== bSpot) { return bSpot - aSpot; }
+        const aRel = Number.isFinite(Number(a.relevance)) ? Number(a.relevance) : 1;
+        const bRel = Number.isFinite(Number(b.relevance)) ? Number(b.relevance) : 1;
+        if (aRel !== bRel) { return bRel - aRel; }
+        return (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0);
+    };
+    const rankOf = (x) => (trimText(x.role) === '核心' ? 0 : (trimText(x.role) === '重要' ? 1 : 2));
+    const oldest = (x) => (Number.isFinite(Number(x.lastLifeTickAt)) ? Number(x.lastLifeTickAt) : -Infinity);
+    const byTier = (a, b) => (oldest(a) - oldest(b)) || withinTier(a, b);
+    const cores = bench.filter((x) => rankOf(x) === 0);
+    const important = bench.filter((x) => rankOf(x) === 1).sort(byTier);
+    const normal = bench.filter((x) => rankOf(x) === 2).sort(byTier);
+    const slots = Math.max(0, maxParallel - cores.length);
+    const impPicked = important.slice(0, slots);
+    return cores.concat(impPicked, normal.slice(0, Math.max(0, slots - impPicked.length)));
+}
+/** 168\uff1a\u4fdd\u5e95\u635e\u4eba\uff08\u4e94\u9053\u4e4b 3\uff09\uff1a\u4e0d\u51fa\u73b0\u6c38\u4e0d\u635e\u3002 */
+export function pickStarvingFor(roster, picked, runSeq) {
+    const pickedIds = new Set((Array.isArray(picked) ? picked : []).map((c) => c.id));
+    return (Array.isArray(roster) ? roster : []).filter((c) => c && !c.isPlayer
+        && c.ignored !== true && c.noBench !== true && trimText(c.role) !== '\u4e0d\u51fa\u73b0'
+        && !pickedIds.has(c.id)
+        && (Number(runSeq) - Number(c.settledRun || 0)) >= 3
+        && (trimText(c.current) || (Array.isArray(c.past) && c.past.length)));
+}
+
+
 async function stepCharacters(material, attempt, screenRes) {
     const settings = getSettings();
     const state = loadState();
@@ -1787,69 +1841,15 @@ async function stepCharacters(material, attempt, screenRes) {
     const maxParallel = (Number(attempt) >= 1)
         ? Math.max(2, Math.floor(maxParallelSetting / 2))
         : maxParallelSetting;
-    const bench = roster.filter((c) => {
-        if (onStageIds.has(c.id) || c.isPlayer) {
-            return false;
-        }
-        /*
-         * ⭐ 补①：她关掉「参与后台推演」的人**不进轮转名单**（不占名额）。
-         *   ⚠️ 只挡**轮转**这一条路：他若在这一楼正文里出场，走的是上面的 `onStage`，
-         *     照旧只做"正文里已经写了的"总结 —— 现场逻辑一点没动。
-         *   ⛔ 这里只是"不挑他"，不删他任何数据。
-         */
-        if (c.noBench === true) {
-            return false;
-        }
-        if (settings.protectedBypass && Number.isFinite(material.floor) && material.floor >= 0 && c.lastSeenFloor === material.floor && trimText(c.current)) {
-            return false;
-        }
-        return true;
-    });
-    /* ★ [580]／观棋 B4：上轮点名的人优先进轮转（提示词说了解锁，门控也要放行） */
-    const spotKeys = new Set(
-        (Array.isArray(loadState().world.spotlight) ? loadState().world.spotlight : [])
-            .map((n) => matchKey(n)).filter(Boolean),
-    );
-    /* 107：驱动力校验（A 契约／B 剧情／C 局势）：只在名额不够时才筛，不够就全推 */
-    try {
-        const stD = loadState();
-        const driveCtx = {
-            quests: (stD.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])),
-            situations: (stD.world && stD.world.situations) || [],
-        };
-        if (bench.length > Math.max(0, Number(maxParallelSetting) || 6) * 2) {
-            for (let bi = bench.length - 1; bi >= 0; bi -= 1) {
-                if (!hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); }
-            }
-        }
-    } catch (eDrive) { /* 筛不了就不筛，⛔ 把人搞没 */ }
-    const rotated = bench.slice().sort((a, b) => {
-        const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;
-        const bSpot = spotKeys.has(matchKey(b.name)) ? 1 : 0;
-        if (aSpot !== bSpot) {
-            return bSpot - aSpot;
-        }
-        /* ★ [580] A7：相关度高的优先进轮转（点名／在场抬过的人别被冷落太久） */
-        const aRel = Number.isFinite(Number(a.relevance)) ? Number(a.relevance) : 1;
-        const bRel = Number.isFinite(Number(b.relevance)) ? Number(b.relevance) : 1;
-        if (aRel !== bRel) {
-            return bRel - aRel;
-        }
-        if (settings.protectedBypass && (a.inScene === true) !== (b.inScene === true)) {
-            return a.inScene === true ? 1 : -1;
-        }
-        return (a.lastUpdatedAt || 0) - (b.lastUpdatedAt || 0);
-    });
-    const pickedBench = rotated.slice(0, Math.max(0, maxParallel));
+    const spotKeys = new Set((Array.isArray(loadState().world.spotlight) ? loadState().world.spotlight : []).map((n) => matchKey(n)).filter(Boolean));
+    const pickedBench = pickBenchFor(roster, { onStageIds, maxParallel, spotKeys, settings, floor: material.floor, nowMinute: Number(loadState().world.clockMinute) });
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
     /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次 */
     {
         const runSeq = Number((loadState().pipeline || {}).runs || 1);
         const pickedIds = new Set(picked.map((c) => c.id));
-        const starving = roster.filter((c) => c && !c.isPlayer && c.ignored !== true && c.noBench !== true
-            && !pickedIds.has(c.id) && (runSeq - Number(c.settledRun || 0)) >= 3
-            && (trimText(c.current) || (Array.isArray(c.past) && c.past.length)));
-        for (const c of starving) {
+    const starving = pickStarvingFor(roster, picked, runSeq);
+    for (const c of starving) {
             picked.push(c);
             pickedIds.add(c.id);
             try {
