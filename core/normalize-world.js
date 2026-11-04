@@ -220,6 +220,16 @@ export function normalizeFaction(f) {
         relation,
         scope: trimText(src.scope),
         powerPillars: normalizeFactionPillars(src.powerPillars),
+        /* 181：成员（名册内带 id，名册外只存 name） */
+        members: (Array.isArray(src.members) ? src.members : []).map((m) => {
+            const name = trimText(m && m.name);
+            if (!name) { return null; }
+            const id = trimText(m && m.id);
+            return id ? { id, name } : { name };
+        }).filter(Boolean),
+        /* 181：字段级手改保护 */
+        manualFields: (Array.isArray(src.manualFields) ? src.manualFields : []).map(trimText).filter(Boolean),
+        bookSays: (src.bookSays && typeof src.bookSays === 'object' && !Array.isArray(src.bookSays)) ? Object.assign({}, src.bookSays) : {},
         at: Number(src.at) || 0,
         floor: Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1,
     };

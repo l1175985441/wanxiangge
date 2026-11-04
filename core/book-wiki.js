@@ -142,12 +142,12 @@ const CLASSIFY_SYSTEM = [
     /* ⭐⭐ 修复 9：旧规矩「分类拿不准的**宁可放进 characters**」✗
      *   ⇒ 正是「作息与时间锚被读成人」的推手 ✗（规则／作息表／时间锚本来就不是人 ✗） */
     '5. ⛔ **规则、作息表、时间锚、游戏机制、写作规范、状态栏格式、人物关系合集（如“关系：X与Y”）绝不算人**，直接跳过忽略，不放进任何分类！',
-    '6. 其余分类拿不准的**宁可放进 characters**，⛔ 不要丢。',
+    '6. 其余分类拿不准的**宁可放进 characters**，⛔ 不要丢。势力的 core_person／status／relation／scope／powerPillars 书里没写就留空（空串／空数组），⛔ 编。',
     '6b. `place`＝这个人在故事开始时**身在何处**（书里明说的才填，没写就空串；⛔ 别猜）。',
     '',
     '只回 JSON，⛔ 不要解释、不要 markdown 代码块：',
     '{"characters":[{"name":"","note":"","age":"","place":"","identity":"","faction":"","aliases":[]}],'
-    + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型；⛔ 不是实力）"}],'
+    + '"factions":[{"name":"","note":"","scale":"规模（如大型/中型/小型；⛔ 不是实力）","core_person":"","status":"","relation":"","scope":"","powerPillars":[]}],'
     + '"situations":[{"title":"","sides":"","tier":"","note":""}],'
     + '"places":[{"name":"","note":""}],'
     + '"hidden":[{"name":"","stage":"","trigger":"","tier":"","note":""}]}',
@@ -712,7 +712,7 @@ export function applyWiki(wiki, opts) {
     const merged = [];
     /* ★ P1-1：势力进独立实体（带 id），⛔ 再摊成一条“局势”冒充它 ✓ */
     for (const f of facs) {
-        try { upsertFaction({ name: f.name, note: f.note, scale: f.scale }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
+        try { upsertFaction({ name: f.name, note: f.note, scale: f.scale, core_person: f.core_person, status: f.status, relation: f.relation, scope: f.scope, powerPillars: f.powerPillars }, { source: 'book' }); } catch (eFac) { /* 一条势力写不进不能弄挂整次导入 ✓ */ }
     }
     for (const s of sits) {
         merged.push(Object.assign({}, s, { source: 'book' }));   /* 117：归一备齐的字段不在这里砍 */

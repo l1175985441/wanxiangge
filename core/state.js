@@ -1783,54 +1783,65 @@ export function removeSituation(idOrTitle) {
     return false;
 }
 
-export function upsertFaction(line) {
-    const name = trimText(line && line.name);
+export function upsertFaction(line, opts) {
+    const o = opts || {};
+    const src = Object.assign({}, line || {});
+    const state = loadState();
+    const box = state.world.factions = Array.isArray(state.world.factions) ? state.world.factions : [];
+    let hit = null;
+    if (trimText(src.id)) { hit = box.find((f) => f && f.id === trimText(src.id)) || null; }
+    /* 181：带 id 的手改可以不带名字（用原名） */
+    if (!trimText(src.name) && hit) { src.name = hit.name; }
+    const name = trimText(src.name);
     if (!name) {
         return null;
     }
-    const state = loadState();
-    const box = state.world.factions = Array.isArray(state.world.factions) ? state.world.factions : [];
-    const key = matchKey(name);
-    const hit = box.find((f) => f && matchKey(f.name) === key);
-    const patch = normalizeFaction(Object.assign({}, line || {}, { name }));
+    if (!hit) { hit = box.find((f) => f && matchKey(f.name) === matchKey(name)) || null; }
+    const patch = normalizeFaction(Object.assign({}, src, { name }));
+    const EMPTY = (v) => (Array.isArray(v) ? v.length === 0 : !trimText(v));
     if (hit) {
-        hit.core_person = patch.core_person || hit.core_person;
-        hit.note = patch.note || hit.note;
-        hit.scale = patch.scale || hit.scale;
-        if (trimText(line && line.status) && FACTION_STATUSES.includes(trimText(line.status))) {
-            hit.status = patch.status;
-        } else if (!trimText(hit.status)) {
-            /*
-             * 依据＝阿砚第三批 质感 A12（空值落账＝造假）：
-             *   旧：没给状态就写死“稳固”——她没说过的话被当成了事实。
-             *   现在：**留空**（界面自己显示“—”），不替她下判断。
-             */
-            hit.status = '';
+        /* 5-C\uff1aUI \u6539\u540d\uff08\u5e26 id\uff09\u624d\u6539\uff1b\u4e66\u91cc\u540c\u540d\u547d\u4e2d\u4e0d\u6539\u540d */
+        if (trimText(src.id) && patch.name) { hit.name = patch.name; }
+        const manual = o.manual === true;
+        const touched = manual && Array.isArray(o.manualFields) ? o.manualFields : [];
+        const mf = new Set(Array.isArray(hit.manualFields) ? hit.manualFields : []);
+        const says = Object.assign({}, (hit.bookSays && typeof hit.bookSays === 'object') ? hit.bookSays : {});
+        const FIELDS = ['core_person', 'note', 'scale', 'status', 'relation', 'scope', 'powerPillars', 'members'];
+        for (const f of FIELDS) {
+            const given = Object.prototype.hasOwnProperty.call(src, f);
+            if (f === 'status' && given && !FACTION_STATUSES.includes(trimText(src.status))) {
+                /* A12\uff1a\u4e0d\u5408\u6cd5\u7684\u72b6\u6001\u5f53\u6ca1\u7ed9\uff0c\u26d4 \u628a\u65e7\u503c\u6e05\u6389 */
+                continue;
+            }
+            if (manual) {
+                if (touched.indexOf(f) < 0) { continue; }
+                hit[f] = patch[f];
+                if (EMPTY(patch[f])) { mf.delete(f); } else { mf.add(f); }
+                delete says[f];
+            } else if (given) {
+                if (mf.has(f)) {
+                    says[f] = Array.isArray(patch[f]) ? patch[f].slice() : patch[f];
+                } else {
+                    hit[f] = patch[f];
+                    delete says[f];
+                }
+            }
         }
-        const relIn = trimText(line && line.relation);
-        /* 180：relation 是原文一句话：给了（含超 20 字）就写给它的值（超长已归空）；没给就不动 */
-        if (relIn) {
-            hit.relation = patch.relation;
-        } else if (!trimText(hit.relation)) {
-            hit.relation = '';
-        }
-        if (trimText(line && line.scope)) { hit.scope = patch.scope; }
-        if ((Array.isArray(line && line.powerPillars) && line.powerPillars.length) || trimText(line && line.powerPillars)) {
-            hit.powerPillars = patch.powerPillars;
-        } else if (!Array.isArray(hit.powerPillars)) {
-            hit.powerPillars = [];
-        }
+        hit.manualFields = Array.from(mf);
+        hit.bookSays = says;
         saveState();
         return hit;
     }
     const used = new Set(box.map((f) => trimText(f && f.id)).filter(Boolean));
-    let id = trimText(line && line.id);
+    let id = trimText(src.id);
     if (!id || used.has(id)) {
         do { id = makeId('faction'); } while (used.has(id));
     }
     patch.id = id;
     patch.at = Date.now();
-    patch.floor = Number.isFinite(Number(line && line.floor)) ? Number(line.floor) : -1;
+    patch.floor = Number.isFinite(Number(src.floor)) ? Number(src.floor) : -1;
+    patch.manualFields = (o.manual === true && Array.isArray(o.manualFields)) ? o.manualFields.slice() : [];
+    patch.bookSays = {};
     box.push(patch);
     saveState();
     return patch;
@@ -3076,10 +3087,8 @@ export function pastCount(characterId) {
 export function textSize(text) {
     return countChars(text);
 }
-
 /** 账本里最多留多少轮召回记录（面板／自测看得到） */
 export const recallLogLimit = RECALL_LOG_LIMIT;
-
 /** 上一次读档在形状上修了什么（没有就 null） */
 export function lastSchemaInfo() {
     return lastSchemaReport ? Object.assign({}, lastSchemaReport) : null;
