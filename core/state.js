@@ -22,7 +22,7 @@ import { acceptPending, dropPending, pendingOf, tierOf, canLock } from './overla
 import { applyRetired } from './contract.js';
 import { parseLedgerInPlace, applyRenamesInPlace, schemaLine } from './schema.js';   /* 1-c #2：就地补缺，⛔ 重建 */
 /* 1-c #2 前置：这两个已搬到 normalize-world.js，**本文件内部也要用** ⇒ 导入，不只是 re-export */
-import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS, normalizeAgendaOrigin } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
+import { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, normalizeAgendaOrigin } from './normalize-world.js';   /* C6：退休字段要显式拒收，⛔ 静默带着走 */   /* 硬-6：覆盖层分层＋待定通道 */   /* 硬-1：旧形永远合法＋幂等收口 */   /* I4：来路枚举只有一张表 */
 
 /* ------------------------------ 字段改名迁移表 ------------------------------ */
 /*
@@ -1808,10 +1808,10 @@ export function upsertFaction(line) {
             hit.status = '';
         }
         const relIn = trimText(line && line.relation);
-        if (relIn && FACTION_RELATIONS.includes(relIn)) {
+        /* 180：relation 是原文一句话：给了（含超 20 字）就写给它的值（超长已归空）；没给就不动 */
+        if (relIn) {
             hit.relation = patch.relation;
         } else if (!trimText(hit.relation)) {
-            /* A12 同理：关系也不替她默认成“中立” */
             hit.relation = '';
         }
         if (trimText(line && line.scope)) { hit.scope = patch.scope; }
@@ -1838,7 +1838,7 @@ export function upsertFaction(line) {
 
 /** ★ [580]／观棋 B6：暗线出生来源三型 event｜parent｜state */
 /* 1-c #2 前置：这两个已搬到 core/normalize-world.js，这里只 re-export（对外 API 不变） */
-export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, FACTION_RELATIONS, normalizeAgendaOrigin } from './normalize-world.js';
+export { normalizeFactionPillars, normalizeWind, normalizeWorldFact, worldFactKey, pulseDomainKey, normalizePulseDomain, normalizePulseCoverageEntry, normalizeWorldPulse, resolveVisibility, normalizeFaction, FACTION_STATUSES, normalizeAgendaOrigin } from './normalize-world.js';
 
 
 export function upsertHidden(line) {

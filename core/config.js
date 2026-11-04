@@ -122,7 +122,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.624';
+export const APP_VERSION = '0.3.625';
 
 export const LEDGER_VERSION = 3;
 
@@ -208,7 +208,7 @@ export const DEFAULT_PROMPT_WORLD = [
     '{{factions}}',
     /* ★ [580] C1：厚度可回写，但不进五组必须键（没变化就整组省掉） */
     /* ★ [580] B5：势力／角色两套字段——势力 scale，角色 power；⛔ 别给势力填「实力」 */
-    '⛔ **势力有变化才回写**：规模用 **scale**（大型／中型／小型…）；运势 status 只能是 鼎盛|稳固|倾轧|困顿|衰落|瓦解；对玩家 relation 只能是 血盟|盟友|友好|中立|冷淡|敌对|世仇；范围 scope 一句话；支柱 powerPillars 最多 3 个、每个不超过 4 字。⛔ **不许给势力填「实力」／power**（那是角色格）；没变化就**整组省掉**（省掉不算白跑）✓。',
+    '⛔ **势力有变化才回写**：规模用 **scale**（大型／中型／小型…）；运势 status 只能是 鼎盛|稳固|倾轧|困顿|衰落|瓦解；对玩家 relation 写**原文那句话**（≤20 字），没写就留空；范围 scope 一句话；支柱 powerPillars 最多 3 个、每个不超过 4 字。⛔ **不许给势力填「实力」／power**（那是角色格）；没变化就**整组省掉**（省掉不算白跑）✓。',
     '',
     '【已知世界事实】（键值：谁｜哪一格＝什么；对齐用，⛔ 不要扩写成叙述）',
     '{{worldFacts}}',

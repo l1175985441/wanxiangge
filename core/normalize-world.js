@@ -199,7 +199,8 @@ export function normalizeFaction(f) {
     let status = trimText(src.status);
     if (status && !FACTION_STATUSES.includes(status)) { status = ''; }
     let relation = trimText(src.relation);
-    if (relation && !FACTION_RELATIONS.includes(relation)) { relation = ''; }
+    /* 180：relation＝原文一句话（≤20 字）；⛔ 不再拿七档白名单筛值 */
+    if (Array.from(relation).length > 20) { relation = ''; }
     /*
      * ★ [580] B5：势力只认 scale（规模）；⛔ 不存 power／「实力」。
      *   模型若误把规模写进 power，且长得像规模词 ⇒ 挪进 scale；否则丢掉。
