@@ -1807,7 +1807,7 @@ export function upsertFaction(line) {
              */
             hit.status = '';
         }
-        const relIn = trimText(line && line.relation) === '紧张' ? '冷淡' : trimText(line && line.relation);
+        const relIn = trimText(line && line.relation);
         if (relIn && FACTION_RELATIONS.includes(relIn)) {
             hit.relation = patch.relation;
         } else if (!trimText(hit.relation)) {
