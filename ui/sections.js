@@ -4207,6 +4207,8 @@ function renderPersonCard() {
     const hkv = el('div', 'wxg-pc-headkv');
     const addPair = (host, a, b) => { host.appendChild(a); if (b) { host.appendChild(b); } };
     if (kvBox) {
+        /* ⚠️ 技术债：靠 label 文字匹配搬家，改标签名会让该项落进兜底（此刻页）并 warn。
+         *    以后重构成"渲染时直接按页构造"，⛔ 再靠文字匹配。 */
         const kids = Array.from(kvBox.children);
         for (let i = 0; i < kids.length; i += 1) {
             const k = kids[i];
@@ -4224,6 +4226,11 @@ function renderPersonCard() {
             if (label.indexOf('\u8ba4\u77e5\u8d26') === 0 || label.indexOf('\u77e5\u8bc6\u9762') === 0) { addPair(pEdge, k, v); i += 1; continue; }
             if (label === '\u6b63\u5728\u7ecf\u5386') { addPair(pNow, k, v); i += 1; continue; }
             if (label === '' && (isPlayerBox || isBenchBox)) { if (v) { pFile.appendChild(v); } i += 1; continue; }
+            /* 兜底：没被任何分支接住的格子 ⇒ 此刻页，⛔ 静默丢 */
+            pNow.appendChild(k);
+            if (v) { pNow.appendChild(v); }
+            i += 1;
+            try { console.warn('[万象阁] 浮层分页未匹配项：' + (label || '（空标签）')); } catch (eW) { /* warn 不能拦着渲染 */ }
         }
     }
     if (sec1Box) { sec1Box.remove(); }
