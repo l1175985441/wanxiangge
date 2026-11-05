@@ -3765,6 +3765,7 @@ function openFuncMenu(anchorEl, items) {
  * （她的原话：不点是只读改不了免得弄错；目标包：⋮点开＝编辑这一位）
  */
 let personCardEditing = false;
+let personCardTab = 'now';
 
 /**
  * ⭐ 「每轮记录」点开的是第几条（-1＝都没开）。
@@ -3799,6 +3800,7 @@ export function unbindPersonCardEsc() {
 export function openPersonCard(id) {
     personCardId = id || null;
     personCardEditing = false;   // 开卡／换人：一律先回到**只读**态
+    personCardTab = 'now';
     bindPersonCardEsc();
     renderPersonCard();
 }
@@ -3894,7 +3896,7 @@ function renderPersonCard() {
     row2('所在势力', 'faction', '—', '好感', 'affinity', '—');   /* 六-3：内部状态词不印给她 */
     /* ★ B1（六档名册）：档位可看可改，改了记手改锁 ✓ */
     {
-        kv.appendChild(el('div', 'wxg-pc-k', '档位（六档）'));
+        kv.appendChild(el('div', 'wxg-pc-k', '档位'));
         const roleNow = trimText(one.role);
         const roleSel = select('wxg-pc-role-' + cid, ROLES.map((r) => ({ value: r, label: r })), roleNow, 'set-role', cid);
         roleSel.setAttribute('data-id', cid);
@@ -4192,6 +4194,67 @@ function renderPersonCard() {
         }
         pop.appendChild(qSec);
     }
+    /* 191/192：把已有内容按三页分装；字段生成逻辑一行没改，只搬家 */
+    const kvBox = pop.querySelector('.wxg-pc-kv');
+    const sec1Box = kvBox ? kvBox.closest('.wxg-pc-sec') : null;
+    const whoAlias = pop.querySelector('.wxg-pc-alias');
+    if (whoAlias) { whoAlias.remove(); }
+    const pages = el('div', 'wxg-pc-pages');
+    const pageEl = (key) => { const d = el('div', 'wxg-pc-page'); d.setAttribute('data-page', key); d.style.display = (personCardTab === key ? '' : 'none'); pages.appendChild(d); return d; };
+    const pNow = pageEl('now');
+    const pFile = pageEl('file');
+    const pEdge = pageEl('edge');
+    const hkv = el('div', 'wxg-pc-headkv');
+    const addPair = (host, a, b) => { host.appendChild(a); if (b) { host.appendChild(b); } };
+    if (kvBox) {
+        const kids = Array.from(kvBox.children);
+        for (let i = 0; i < kids.length; i += 1) {
+            const k = kids[i];
+            if (!k || !k.classList || !k.classList.contains('wxg-pc-k')) { continue; }
+            const v = kids[i + 1];
+            const label = trimText(k.textContent);
+            const isPlayerBox = v && v.querySelector && v.querySelector('[data-action="set-player"]');
+            const isBenchBox = v && v.querySelector && v.querySelector('[data-action="set-bench"]');
+            if (label === '\u59d3\u540d') { addPair(hkv, k, v); i += 1; continue; }
+            if (label === '\u5f53\u524d\u5730\u70b9' || label === '\u522b\u540d') { addPair(hkv, k, v); i += 1; continue; }
+            if (label === '\u5e74\u9f84' || label === '\u8eab\u4efd' || label === '\u6240\u5728\u52bf\u529b' || label === '\u597d\u611f') {
+                addPair(label === '\u597d\u611f' ? pNow : pFile, k, v); i += 1; continue;
+            }
+            if (label.indexOf('\u6863\u4f4d') === 0) { k.textContent = '\u6863\u4f4d'; addPair(pFile, k, v); i += 1; continue; }
+            if (label.indexOf('\u8ba4\u77e5\u8d26') === 0 || label.indexOf('\u77e5\u8bc6\u9762') === 0) { addPair(pEdge, k, v); i += 1; continue; }
+            if (label === '\u6b63\u5728\u7ecf\u5386') { addPair(pNow, k, v); i += 1; continue; }
+            if (label === '' && (isPlayerBox || isBenchBox)) { if (v) { pFile.appendChild(v); } i += 1; continue; }
+        }
+    }
+    if (sec1Box) { sec1Box.remove(); }
+    const secs = Array.from(pop.querySelectorAll(':scope > .wxg-pc-sec'));
+    let taskSec = null;
+    for (const sec of secs) {
+        const h = sec.querySelector('.wxg-pc-sech');
+        const ht = trimText(h && h.textContent);
+        if (ht.indexOf('\u4efb\u52a1') === 0) { taskSec = sec; continue; }
+        if (ht.indexOf('\u8fc7\u53bb\u7ecf\u5386') === 0) { pNow.appendChild(el('div', 'wxg-pc-k', '\u8fc7\u53bb\u7ecf\u5386')); pNow.appendChild(sec); continue; }
+        if (ht.indexOf('\u65e5\u7a0b') === 0) { pNow.appendChild(el('div', 'wxg-pc-k', '\u65e5\u7a0b')); pNow.appendChild(sec); continue; }
+        if (ht.indexOf('\u4ed6\u77e5\u9053\u4ec0\u4e48') === 0) { pEdge.appendChild(sec); continue; }
+        if (!h && String(sec.textContent).indexOf('\u4e0d\u53ef\u9760') >= 0) { pNow.appendChild(sec); continue; }
+    }
+    /* 卡头：姓名／当前地点／别名 三个字段标签 */
+    const nameK = el('div', 'wxg-pc-k', '\u59d3\u540d');
+    hkv.insertBefore(nameK, hkv.firstChild);
+    hkv.insertBefore(el('span', 'wxg-pc-hv', String(c.name || '\uff08\u6ca1\u540d\u5b57\uff09')), nameK.nextSibling);
+    head.appendChild(hkv);
+    head.style.position = 'sticky';
+    head.style.top = '0';
+    head.style.zIndex = '6';
+    const tabs = el('div', 'wxg-pc-tabs');
+    for (const [key, label] of [['now', '\u6b64\u523b'], ['file', '\u6863\u6848'], ['edge', '\u8fb9\u754c']]) {
+        const b = button(label, 'pc-tab', 'wxg-pc-tab' + (personCardTab === key ? ' is-on' : ''));
+        b.setAttribute('data-page', key);
+        tabs.appendChild(b);
+    }
+    head.parentNode.insertBefore(tabs, head.nextSibling);
+    tabs.parentNode.insertBefore(pages, tabs.nextSibling);
+    if (taskSec) { pop.appendChild(taskSec); }
     const foot = el('div', 'wxg-pc-foot');
     const prev = button('← 上一位', 'card-prev', 'wxg-pc-nav');
     prev.disabled = at <= 0;
@@ -5637,6 +5700,11 @@ export function bindSectionEvents(host, refresh) {
                 case 'open-person-card':
                     openPersonCard(id);
                     break;
+                case 'pc-tab': {
+                    personCardTab = target.getAttribute('data-page') || 'now';
+                    renderPersonCard();
+                    break;
+                }
                 case 'card-close':
                     closePersonCard();
                     break;
