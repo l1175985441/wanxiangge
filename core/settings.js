@@ -96,6 +96,8 @@ function loadSettings() {
         : {};
 
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved);
+    /* 200：旧默认 1 → 0；她自己调过的 0/2/3/4/5 一律不动 */
+    if (saved.updateLag === 1) { merged.updateLag = 0; }
 
     /*
      * ⭐ 换皮迁移（2026-10-15）：全站改成**白底黑字**（照目标包）。

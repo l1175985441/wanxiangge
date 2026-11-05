@@ -2952,7 +2952,7 @@ export function shouldUpdateNow(floor) {
     /*
      */
     const lag = Math.max(0, Math.floor(Number(settings.updateLag)));
-    const r = shouldRunUpdate({ curFloor: cur, lastUpdatedFloor: last, lag: Number.isFinite(lag) ? lag : 1 });
+    const r = shouldRunUpdate({ curFloor: cur, lastUpdatedFloor: last, lag: Number.isFinite(lag) ? lag : 0 });
     if (!Number.isFinite(cur)) {
         return false;
     }

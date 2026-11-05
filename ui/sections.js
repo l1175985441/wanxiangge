@@ -695,7 +695,7 @@ function secGeneral(host, intoBox) {
     cRun.appendChild(stateLine({ el: el, on: s.autoUpdate, onText: '每产生新楼就会自动推一轮，你会看到状态自己变。', offText: '发消息不会自动推；要推请按「立刻更新」或工作台顶部的更新键。' }));
     row(cRun,
         field('更新频率', numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every')),
-        field('晚几层再更新', numberInput('wxg-update-lag', Number.isFinite(Number(s.updateLag)) ? Number(s.updateLag) : 1, 0, 5, 'stage-update-lag')),
+        field('晚几层再更新', numberInput('wxg-update-lag', Number.isFinite(Number(s.updateLag)) ? Number(s.updateLag) : 0, 0, 5, 'stage-update-lag')),
         el('span', 'wxg-note', '她的话：0＝每层都更；1＝生成第 N 层时更新第 N-2 层（最新那层还在被刷，先不动）；频率＝楼推进一次（1回合＝2楼）'));
     /*
      * ⭐ 自动 + 频率 1 ⇒ 明确提示"建议停在上一轮"（复核方问的就是这个）。

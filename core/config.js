@@ -122,7 +122,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.634';
+export const APP_VERSION = '0.3.635';
 
 export const LEDGER_VERSION = 3;
 
@@ -410,8 +410,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     memoriesPerRound: 40,
     /** 99：编年条数上限（她填，⛔ 写死） */
     chronicleCap: 500,
-    /** 102：自动更新晚几层（她填；1＝保留最新一层） */
-    updateLag: 1,
+    /** 102：自动更新晚几层（她填；0＝只按 floor-2 落点，不额外剥；N＝再往前退 N 层） */
+    updateLag: 0,
     /** 107-B：人物步拆两次请求（前台／后台），默认开；她要关就改这里 */
     splitChars: true,
     /** 100：悬挂几轮强制出结果（她填，默认 3） */

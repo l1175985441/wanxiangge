@@ -106,7 +106,7 @@ export function isOngoing(startMinute, dueMinute, nowMinute) {
 }
 
 /**
- * 自动更新「晚一层」：生成第 N 层时只更新到 cur-lag 层（最新那层先留着）
+ * 自动更新「晚 N 层」：index.js 已先扣 2 层缓冲，这里再退 N 层（0＝不额外退）
  * @param {{curFloor:number, lastUpdatedFloor:number, lag?:number}} a
  * @returns {{run:boolean, targetFloor:number}}
  */
@@ -118,7 +118,7 @@ export function shouldRunUpdate(a) {
     if (!Number.isFinite(cur) || cur < 0) {
         return { run: false, targetFloor: -1 };
     }
-    /* 138-笔一：最新那层不更新已在 index.js 的 floor - 2 扣过；这里只剥 lag */
+    /* 200：0＝不额外剥；N＝在 floor-2 之上再退 N 层 */
     const target = cur - l;
     if (target < 0) {
         return { run: false, targetFloor: -1 };
