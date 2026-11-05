@@ -2246,19 +2246,6 @@ export function checkActingAsMe(rows, floor) {
     return hits.length;
 }
 /* ------------------------------ 主流程 ------------------------------ */
-/** 从"时间·地点"里抠出时间部分（交给 clock 判） */
-function extractClockFromPlace(text) {
-    const s = trimText(text);
-    if (!s) {
-        return '';
-    }
-    const cut = s.split(/[·・|｜,，、]/)[0];
-    return trimText(cut) || s;
-}
-/**
- */
-/**
- */
 export function classifyFailure(msg) {
     const s = String(msg || '');
     if (/\u622a\u65ad|\u672a\u95ed\u5408|unterminated|truncat/i.test(s)) { return '\u622a\u65ad'; }

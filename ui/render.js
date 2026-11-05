@@ -178,7 +178,7 @@ function buildCard(rec) {
                 }
             }
             if (trimText(c.timePlace)) {
-                row.appendChild(el('div', 'wxg-fact', '时间·地点：' + trimText(c.timePlace)));
+                row.appendChild(el('div', 'wxg-fact', '当前地点：' + trimText(c.timePlace)));
             }
             colPeople.appendChild(row);
         }
