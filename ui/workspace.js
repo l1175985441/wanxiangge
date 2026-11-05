@@ -18,7 +18,7 @@ import { renderSections, bindSectionEvents, fillText, hasUnsavedDraft } from './
 import { toast } from './toast.js';
 import { applyAppearance } from './theme.js';
 import { iconSvg } from './icons.js';
-import { loadState, snapshotCount } from '../core/state.js';   /* 渲染层 #3：可撤回数并进顶栏第五格 */
+import { loadState } from '../core/state.js';   /* 渲染层 #3：可撤回数并进顶栏第五格 */
 import { trimText, asArray } from '../core/utils.js';
 
 let wsEl = null;
@@ -370,15 +370,8 @@ function renderChips() {
     }
     const state = loadState();
     const w = state.world || {};
-    const hidden = Array.isArray(w.hidden) ? w.hidden.length : 0;
-    const sit = Array.isArray(w.situations) ? w.situations.length : 0;
     const items = [
         ['世界钟', trimText(w.clock) || '未知'],
-        ['局面', String(sit)],
-        ['暗线', String(hidden)],
-        ['编年', String(Array.isArray(state.chronicle) ? state.chronicle.length : 0)],
-        /* 依据＝渲染层 #3：原「世界四值」卡里的“可撤回 N 版”并到这里（第五格） */
-        ['可撤回', String(snapshotCount())],
     ];
     // 失败要看得见（⛔ 不许静默降级）：更新失败就在顶栏亮一条
     const p = state.pipeline || {};
