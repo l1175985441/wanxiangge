@@ -1,5 +1,5 @@
 /**
- * 万象阁 · 日程四根 ＋ 自动更新「晚一层」（102 号 · 2026-10-27 术语表落码）
+ * 万象阁 · 日程四根 ＋ 自动更新「晚 N 层」（102 号 · 2026-10-27 术语表落码）
  *
  * 术语表第一节：**自动更新＝整本账每回合跑一次**，不是好感；「保留一层」＝最新那层先不动，
  *   生成第 7 层时更新第 5 层（她 22:16 的层号举例）。
@@ -8,7 +8,7 @@
  *   ② 人物生活节拍（世界背面 12／24／48／72 小时四档；没大事也要更新）
  *   ③ 到点边界（已有：到点≠履约，只写时间到／结果）
  *   ④ 提前量（构画：七天窗口＋还有 N 天／就是今天／进行中）
- * 本文件补 ② 与 ④，并把「晚一层」的触发判据做成纯函数（⛔ 不写死楼层差）。
+ * 本文件补 ② 与 ④，并把「晚 N 层」的触发判据做成纯函数（⛔ 不写死楼层差）。
  */
 
 /**
@@ -114,7 +114,7 @@ export function shouldRunUpdate(a) {
     const cur = Number(a && a.curFloor);
     const last = Number(a && a.lastUpdatedFloor);
     const lag = Math.max(0, Math.floor(Number(a && a.lag)));
-    const l = Number.isFinite(lag) ? lag : 1;
+    const l = Number.isFinite(lag) ? lag : 0;
     if (!Number.isFinite(cur) || cur < 0) {
         return { run: false, targetFloor: -1 };
     }

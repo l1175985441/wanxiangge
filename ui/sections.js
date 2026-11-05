@@ -696,7 +696,7 @@ function secGeneral(host, intoBox) {
     row(cRun,
         field('更新频率', numberInput('wxg-update-every', s.updateEvery, 1, 10, 'stage-update-every')),
         field('晚几层再更新', numberInput('wxg-update-lag', Number.isFinite(Number(s.updateLag)) ? Number(s.updateLag) : 0, 0, 5, 'stage-update-lag')),
-        el('span', 'wxg-note', '她的话：0＝每层都更；1＝生成第 N 层时更新第 N-2 层（最新那层还在被刷，先不动）；频率＝楼推进一次（1回合＝2楼）'));
+        el('span', 'wxg-note', '她的话：0（默认）＝生成第 N 层时更新第 N-2 层（最新那层还在被刷，先不动）；填 1＝在这之上再往前退一层（第 N-3 层）；频率＝楼推进一次（1回合＝2楼）'));
     /*
      * ⭐ 自动 + 频率 1 ⇒ 明确提示"建议停在上一轮"（复核方问的就是这个）。
      *    为什么建议：新楼一出现就算它，可那时你还能改／能重 roll／能撤回，
