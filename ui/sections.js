@@ -3954,7 +3954,7 @@ function renderPersonCard() {
     bwrap.classList.add('wxg-pc-full');
     bwrap.appendChild(bbox);
     kv.appendChild(bwrap);
-    kv.appendChild(el('div', 'wxg-pc-k', '时间·地点'));
+    kv.appendChild(el('div', 'wxg-pc-k', '当前地点'));
     const tp = fieldBox(cid, 'timePlace', one.timePlace, '未知');
     tp.classList.add('wxg-pc-full');
     kv.appendChild(tp);

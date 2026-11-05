@@ -339,7 +339,7 @@ function personBlock(item, opts) {
         if (idText) { lines.push('  身份：' + idText); }
     }
         if (trimText(c.faction)) { lines.push('  所在势力：' + trimText(c.faction)); }
-        if (trimText(c.timePlace)) { lines.push('  时间·地点：' + trimText(c.timePlace)); }
+        if (trimText(c.timePlace)) { lines.push('  当前地点：' + trimText(c.timePlace)); }
         /* ⛔ 前台不端「正在经历」——[579]：正在进行时不召回 */
         const hidFront = new Set(Array.isArray(item && item.hiddenFloors) ? item.hiddenFloors : []);
         const hiddenPast = (Array.isArray(c.past) ? c.past : []).filter((p) => {
@@ -397,7 +397,7 @@ function personBlock(item, opts) {
         lines.push('  所在势力：' + trimText(c.faction));
     }
     if (trimText(c.timePlace)) {
-        lines.push('  时间·地点：' + trimText(c.timePlace));
+        lines.push('  当前地点：' + trimText(c.timePlace));
     }
 
     /*
@@ -518,7 +518,7 @@ function personBlock(item, opts) {
     }
 
     // ⛔ 这里原来会把"推断"喂回模型 —— 按需求书去掉了：
-    //    她定的角色字段只有八格（年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／时间・地点／日程），
+    //    她定的角色字段只有八格（年龄／身份（可多条）／过去经历／正在经历／所在势力／好感值／当前地点／日程），
     //    推断不是一格；防"推断被当成已发生"靠的是提示词硬规矩（⛔ 不写下步动作／不写预判），
     //    ⛔ 不是靠"多存一格推断再喂回去"——那反而给了模型一份"可能发生"的素材。
     /* ★ [579]：下一步行动／长期目标（quests）前台后台都不注入 ✓

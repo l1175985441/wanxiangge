@@ -1451,27 +1451,14 @@ function applyCharacter(raw, material, conflicts) {
         delete patch.affinity;
     }
     if (patch.timePlace) {
-        const back = clockWentBackwards(extractClockFromPlace(c.timePlace), extractClockFromPlace(patch.timePlace));
-        const halvesNew = String(patch.timePlace).split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
-        const halvesOld = String(c.timePlace || '').split(/[\u00b7\uff0f\u30fb]/).map((x) => trimText(x)).filter(Boolean);
+        /*
+         * 184：这一格只剩「当前地点」——时间归世界钟；
+         *   ⛔ 再判时间倒退 ⛔ 再判跳天数 ⛔ 再认时段词。
+         *   只留一道：这个地点在正文里找不找得到依据。
+         */
         const bodyTP = material.recentText || material.rawText;
-        /* 144：时间半不许靠二元组覆盖蒙过去 —— 时段词／日号必须字面命中正文 */
-        const PERIOD_WORDS = ['凌晨', '清晨', '早晨', '早上', '上午', '中午', '下午', '傍晚', '晚上', '夜里', '深夜', '半夜'];
-        const tpTime = String(halvesNew[0] || '');
-        const needLiteral = [];
-        PERIOD_WORDS.forEach((w) => { if (tpTime.includes(w)) { needLiteral.push(w); } });
-        (tpTime.match(/第[0-9零一二两三四五六七八九十百千]+[天日]/g) || []).forEach((w) => needLiteral.push(w));
-        const missLiteral = needLiteral.filter((w) => !String(bodyTP).includes(w));
-        const noBasis = missLiteral.length > 0 || halvesNew.some((h2) => !textAppearsIn(h2, bodyTP));
-        const jump = clockDistance(halvesOld[0] || '', halvesNew[0] || '');
-        if (back) {
-            conflicts.push(c.name + ' 的时间地点看着往回退了（' + c.timePlace + ' → ' + patch.timePlace + '），已保留原文，请你看一眼');
-            delete patch.timePlace;
-        } else if (noBasis) {
-            conflicts.push(c.name + ' 的时间地点在正文里找不到依据（' + patch.timePlace + '）' + (missLiteral.length ? '；正文里没有：' + missLiteral.join('／') : '') + '，已保留原文');
-            delete patch.timePlace;
-        } else if (Number.isFinite(jump) && jump > 2880) {
-            conflicts.push(c.name + ' 的时间跳了 ' + String(Math.round(jump / 1440)) + ' 天（超上限 2 天），已保留原文');
+        if (!textAppearsIn(patch.timePlace, bodyTP)) {
+            conflicts.push(c.name + ' 的当前地点在正文里找不到依据（' + patch.timePlace + '），已保留原文');
             delete patch.timePlace;
         }
     }

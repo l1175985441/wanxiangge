@@ -122,7 +122,7 @@ export const SETTINGS_VERSION = 3;
  *   ⚠️ 升版本时**两处一起改**：`index.js` 的 `const VERSION`
  *     与这里的 `APP_VERSION`（不同步的话体检报告会报一个假版本）。
  */
-export const APP_VERSION = '0.3.628';
+export const APP_VERSION = '0.3.629';
 
 export const LEDGER_VERSION = 3;
 
@@ -321,7 +321,7 @@ export const DEFAULT_PROMPT_CHARS = [
     + '但**仍然是进行时**（此刻正在做什么／刚做完什么），⛔ 同样不许写他的下一步、不许替他安排以后。',
     '5. ⛔ 一格只写他自己：别人的事不写（别人对"我"做的事除外，见规矩 2）。',
     '6. **防全知**：每个角色只知道他自己该知道的（只写这个角色自己知道的）：⛔ 不许全知，不许无端知道别处的事、别人的私事、世界的暗线。',
-    '7. 时间与地点要接得上（配 timePlace 格）：⛔ 不许时空跳变（上一楼在学校，这一楼还是上学时间却在家睡觉）。',
+    '7. **当前地点**要跟上一楼接得上（⛔ 时空跳变）；⛔ 写时间——时间归世界钟。',
     '⛔ **不在场角色必须锚在世界钟上**：世界钟只走了十几分钟，⛔ 不许让他跑完几小时的事（⛔ 半小时跨城办完一天 ✗）；上学／上班时间⛔ 不许在家睡觉（作息要接得上 ✓）。',
     '8. **现场角色**：只允许记**正文里已经写了的**他的事（同一件事换个说法可以，⛔ 添油加醋不行）——'
     + '写正文没写的＝编造＝污染正文。',
@@ -341,7 +341,7 @@ export const DEFAULT_PROMPT_CHARS = [
      *   Her words: affinity is READ-ONLY from her phone / body-text tags.
      *   Root cause: the template said "copy it verbatim" => the model copied the
      *   placeholder into JSON => the code stored it as a real affinity value. */
-    ' "faction":"或空","timePlace":"他在什么时间、什么地点",',
+    ' "faction":"或空","timePlace":"他现在在哪个地点（⛔ 写时间）",',
     /* ★ P1-2／[580] B5：角色抽「实力」；势力抽「规模」——两套字段，⛔ 别串 */
     ' "past":["本轮**刚变成过去**的 0～1 条（第一人称；⛔ 不要把旧经历重抄一遍 ⛔）"],',
     ' "current":"【现场】只总结正文里已经写了的他此刻在做的事（⛔ 正文没写的别写；⛔ 替他答／替他选；写得出动作的那句本身就是「待我做决定」，⛔ 只写这四个字）；'

@@ -488,7 +488,7 @@ function buildEntries() {
             '身份：' + identityLine(c),
             '所在势力：' + (trimText(c.faction) || '未知'),
             '好感：' + affinityOfBook(c),
-            '时间·地点：' + (trimText(c.timePlace) || '未知'),
+            '当前地点：' + (trimText(c.timePlace) || '未知'),
             '正在经历：' + (trimText(c.current) || '未知'),
             /* 130-4：八格里的日程也要落书（最多 3 条，带已到点） */
             '日程：' + (function () {
@@ -646,7 +646,7 @@ export function characterEntryLines(c) {
         '身份：' + identityLine(c),
         '所在势力：' + (trimText(c.faction) || '未知'),
         '好感：' + affinityOfBook(c),
-        '时间·地点：' + (trimText(c.timePlace) || '未知'),
+        '当前地点：' + (trimText(c.timePlace) || '未知'),
         '正在经历：' + (trimText(c.current) || '未知'),
         '日程：' + (function () {
             const todo = (Array.isArray(c.schedule) ? c.schedule : []).filter((s) => s && !s.done);
