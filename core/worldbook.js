@@ -428,11 +428,9 @@ export async function refreshAffinity(floor) {
     try {
         const ctx0 = getCtx();
         /*
-         * 好感块（手机／relation）**不一定每轮都写**：只扫最近八楼时，
-         * 隔了十几轮没写块就会整段读不到，名册上的好感静静停在旧值。
-         * 解析是“后出现覆盖先出现”（取最新），所以放宽窗口不会让旧值盖掉新值 ✓
+         * 182：只读「当前更新楼层」那一层的手机块；⛔ 往前翻 60 楼、⛔ 取"最近一个"。
+         *     她 13:46／13:54：要更新的层数由「手动更新」决定，⛔ 好感自己往前找。
          */
-    /* 182：只读「当前更新楼层」那一层的手机块；⛔ 往前翻 60 楼 */
         const chatArr = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat : [];
         const idx = (Number.isFinite(Number(floor)) && Number(floor) >= 0) ? Math.min(Number(floor), chatArr.length - 1) : (chatArr.length - 1);
         const text = idx >= 0 ? trimText(chatArr[idx] && chatArr[idx].mes) : '';

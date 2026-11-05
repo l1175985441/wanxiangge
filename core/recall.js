@@ -302,7 +302,7 @@ function affinityLineOf(c) {
     const row = affinityRowOf(c && c.name);
     const rowVal = row ? trimText(row.affinity) : '';
     if (AFFINITY_NUM.test(rowVal)) {
-        return '  好感：' + rowVal + '（读自好感表）';
+        return '  好感：' + rowVal + '（读自<角色手机>）';
     }
     /*
      * 95 号：表里没数 ⇒ 写「未建立」（她的词），⛔ 再写「未接入数据源」这种开发话术。
