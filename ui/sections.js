@@ -2274,10 +2274,7 @@ function secRoster(host) {
                     }
                     return b;
                 })(),
-                button('导出备份（JSON）', 'export-data'),
-        button('导出聊天原文', 'export-chat'),
-                /* ⭐ 材料 06【4】#1：**导入／恢复备份** ✓（她只能导出、不能导回 ✗） */
-                button('导入备份（JSON）', 'import-data'));
+                );
     box.appendChild(cIn);
 
     /*
@@ -2823,7 +2820,10 @@ function secSettings(host) {
     secRecall(host, seg('③ 每轮怎么挑'));
     const s4 = seg('④ 读什么');
     secExtract(host, s4);
-    s4.appendChild(el('div', 'wxg-note', '/* 三个备份键下一单归到这一段末 */'));
+    s4.appendChild(el('div', 'wxg-note', '备份'));
+    row(s4, button('导出备份（JSON）', 'export-data'),
+        button('导出聊天原文', 'export-chat'),
+        button('导入备份（JSON）', 'import-data'));
     host.appendChild(box);
 }
 
@@ -5586,8 +5586,6 @@ export function bindSectionEvents(host, refresh) {
                     openFuncMenu(target, [
                         { label: '查重（找出被拆成两条的）', action: 'detect-dupes' },
                         { label: '一键合并重复组', action: 'merge-all-dupes' },
-                        { label: '导出备份（JSON）', action: 'export-data' },
-                        { label: '导入备份（JSON）', action: 'import-data' },
                     ]);
                     break;
                 }
