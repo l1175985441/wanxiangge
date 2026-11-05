@@ -411,7 +411,7 @@ export function affinityFromText(text, roster, sourceTag) {
     return Array.from(byName.entries()).map(([name, value]) => ({ name, value }));
 }
 
-export async function refreshAffinity() {
+export async function refreshAffinity(floor) {
     const settings = getSettings();
     const source = trimText(settings.affinitySource);
     const state = loadState();
@@ -432,9 +432,10 @@ export async function refreshAffinity() {
          * 隔了十几轮没写块就会整段读不到，名册上的好感静静停在旧值。
          * 解析是“后出现覆盖先出现”（取最新），所以放宽窗口不会让旧值盖掉新值 ✓
          */
-        const AFFINITY_SCAN_FLOORS = 60;
-        const msgs = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat.slice(-AFFINITY_SCAN_FLOORS) : [];
-        const text = msgs.map((m) => trimText(m && m.mes)).filter(Boolean).join('\n');
+    /* 182：只读「当前更新楼层」那一层的手机块；⛔ 往前翻 60 楼 */
+        const chatArr = (ctx0 && Array.isArray(ctx0.chat)) ? ctx0.chat : [];
+        const idx = (Number.isFinite(Number(floor)) && Number(floor) >= 0) ? Math.min(Number(floor), chatArr.length - 1) : (chatArr.length - 1);
+        const text = idx >= 0 ? trimText(chatArr[idx] && chatArr[idx].mes) : '';
         const hit = affinityFromText(text, roster, source);
         if (hit.length) {
             let wrote = 0;

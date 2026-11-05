@@ -2295,7 +2295,7 @@ export async function runUpdate(opts) {
     try {
         const _wbMod = await import('./worldbook.js');
         if (_wbMod && typeof _wbMod.refreshAffinity === 'function') {
-            await _wbMod.refreshAffinity();
+            await _wbMod.refreshAffinity(o.floor);
         }
     } catch (eAff) { /* 好感读不到 ⛔ 能拦着不更新 ✓ */ }
     bindChatForRun();   /* R3：记下开跑时的聊天档 ✓ */

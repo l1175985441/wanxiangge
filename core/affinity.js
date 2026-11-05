@@ -116,8 +116,7 @@ export function syncFromPhone(state, phoneText, now) {
             st.affinityTable.push({
                 name: pair.name,
                 affinity: pair.raw,
-                relation: '',
-                updatedAt: stamp,
+                        updatedAt: stamp,
                 source: '手机',
             });
             added += 1;
@@ -150,7 +149,6 @@ export function ensureRow(state, name, now) {
     const row = {
         name: String(name).trim(),
         affinity: AFFINITY_UNSET,
-        relation: '',
         updatedAt: Number(now) || Date.now(),
         source: SOURCE_NEVER,
     };
@@ -158,13 +156,13 @@ export function ensureRow(state, name, now) {
     return row;
 }
 
-/** 一行：名字｜好感｜关系｜最后更新｜来源 */
+/** 一行：名字｜好感｜最后更新｜来源 */
 export function rowLine(row) {
     const r = row || {};
     const t = Number(r.updatedAt);
     const stamp = t ? new Date(t).toISOString().slice(0, 10) : '—';
     return [r.name || '—', r.affinity == null || r.affinity === '' ? AFFINITY_UNSET : r.affinity,
-        r.relation || '—', stamp, r.source || SOURCE_NEVER].join('｜');
+        stamp, r.source || SOURCE_NEVER].join('｜');
 }
 
 
@@ -190,7 +188,7 @@ export function affinityTableBlock(state, skipNames) {
     if (!rows.length) {
         return '';
     }
-    const lines = ['【好感表（只读：数值只能从手机抄，本表不算）】'];
+    const lines = ['【这是<角色手机> 的好感指数存档】'];
     let used = lines[0].length;
     for (const r of rows) {
         const name = String((r && r.name) || '').trim();
