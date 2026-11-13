@@ -1126,7 +1126,7 @@ export function bindSectionEvents(host, refresh) {
                 return;
             }
             if (IO_ACTION_SET.has(action)) {
-                handleIoAction(action, target, id, host, isChange, rerender);
+                await handleIoAction(action, target, id, host, isChange, rerender);
                 return;
             }
             switch (action) {

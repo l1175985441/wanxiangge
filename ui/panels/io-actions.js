@@ -11,7 +11,7 @@ import { deleteLedgerRow } from '../ledgers.js';
 export const IO_ACTION_SET = new Set(['import-data', 'save-layer-limits', 'del-clue', 'export-chat', 'export-data']);
 
 
-export function handleIoAction(action, target, id, host, isChange, rerender) {
+export async function handleIoAction(action, target, id, host, isChange, rerender) {
     switch (action) {
                 case 'import-data': {
                     /* 她选一个 .json ⇒ 先问一句 ⇒ 留快照 ⇒ 整本导入 ✓ */
@@ -108,6 +108,66 @@ export function handleIoAction(action, target, id, host, isChange, rerender) {
         }, null, 2));
                     toast.ok('备份已导出');
                     break;
+                case 'export-bundle': {
+                    /* 导出：自带摘要与验签（依据＝阿砚 A 组 E4） */
+                    const rB = buildBundle(loadState());
+                    if (!rB.ok) { toast.bad(rB.reason); break; }
+                    try {
+                        const blob = new Blob([rB.text], { type: 'application/json' });
+                        const aEl = document.createElement('a');
+                        aEl.href = URL.createObjectURL(blob);
+                        aEl.download = '万象阁-账本-' + String(rB.digest || '') + '.json';
+                        document.body.appendChild(aEl);
+                        aEl.click();
+                        setTimeout(() => { try { URL.revokeObjectURL(aEl.href); aEl.remove(); } catch (eR) { } }, 0);
+                        toast.ok('导出好了：' + String(rB.summary.chars) + ' 人物／' + String(rB.summary.chronicle) + ' 编年（包里带摘要）');
+                    } catch (eExp) {
+                        toast.bad('导出失败：' + (eExp && eExp.message ? eExp.message : String(eExp)));
+                    }
+                    break;
+                }
+
+                case 'import-bundle': {
+                    /* 导入：先验签（六道拒因）→ 再看归属（⛔ 静默覆盖）→ 写完回读 */
+                    const inp = document.createElement('input');
+                    inp.type = 'file';
+                    inp.accept = '.json,application/json';
+                    inp.onchange = async () => {
+                        const f = inp.files && inp.files[0];
+                        if (!f) { return; }
+                        let text = '';
+                        try {
+                            text = await f.text();
+                        } catch (eRead) {
+                            toast.bad('读不了这个文件');
+                            return;
+                        }
+                        const v = verifyBundle(text);
+                        if (!v.ok) { toast.bad('这份文件不能导入：' + v.reason); return; }
+                        const gate = importGate(v.ledger, currentChatKey(), loadState());
+                        if (!gate.ok) { toast.bad(gate.reason); return; }
+                        if (gate.warn) {
+                            const yes = (typeof window !== 'undefined' && window.confirm) ? window.confirm(gate.warn + '\n\n确定导入？') : false;
+                            if (!yes) { return; }
+                        }
+                        const wB = await adoptLedgerForImport(currentChatKey(), v.ledger);
+                        if (!wB.ok) { toast.bad('导入没写进去：' + wB.reason); return; }
+                        toast.ok('导入完成：' + String(v.summary.chars) + ' 人物／' + String(v.summary.chronicle) + ' 编年');
+                        rerender();
+                    };
+                    inp.click();
+                    break;
+                }
+
+                case 'publish-book': {
+                    const res = await publishToBook({ force: true });
+                    if (res && res.ok) {
+                        toast.ok('已写进世界书《' + res.book + '》：' + String(res.entries) + ' 条');
+                    } else {
+                        toast.fail('世界书没写成：' + ((res && res.reason) || '未知原因'));
+                    }
+                    break;
+                }
     }
 }
 
