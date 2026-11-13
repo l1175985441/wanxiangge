@@ -71,6 +71,8 @@ import { secPrompts } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG, stagingByMode, stagedCount } from './panels/shared.js';
+import { apiKeyShown, CLEAR_WORD, openSituation, rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setClearWorldOpen, setApiKeyShown, setOpenSituation, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
+
 
 export { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 
@@ -642,47 +644,6 @@ export function applyCharSearch(root, query) {
  * 编年的筛选（那一排小胶囊）。放在模块级：点一下只重画，不落设置。
  * （"筛选带计数"是跟参照学的**做法**；文案是我们自己的——⛔ 别照抄别家的字。）
  */
-export let chronFilter = 'all';
-export function setChronFilter(v) { chronFilter = v; }
-/*
- * 依据＝阿砚第三批 质感 A4（编年没有搜索）：编年越攒越多，只能靠翻页找。
- *   加一个搜索词（搜正文／类型／人）；⛔ 落设置，只是“看的姿势”。
- */
-export let chronSearch = '';
-/**
- * ⭐「清空这个世界」的确认盒开着没有。
- * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
- */
-export let clearWorldOpen = false;
-/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（模块级！⛔ 放进函数里 handler 看不见 ✗） */
-export let apiKeyShown = false;
-/** 要她手打的那四个字（打错就点不动） */
-export const CLEAR_WORD = '确认清空';
-/** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
-let openSituation = -1;
-
-/** 过程报告的筛选（那一排小胶囊）：全部／已注入／未注入／失败 */
-export let reportFilter = 'all';
-
-/** 现在的进度的筛选：全部／已做／还没做 */
-export let stepFilter = 'all';
-export let stepPage = 1;
-export function setStepPage(v) { stepPage = v; }
-
-/** 名册的筛选：全部／玩家棋子／新认的／我改过的 */
-export let rosterFilter = 'all';
-
-    /** 名册的搜索词（搜“名字或别名”；⛔ 落设置，只是看的姿势） */
-    export let rosterSearch = '';
-
-/** 名册里哪一个人正展开着编辑（''＝都没展开） */
-export let openChar = '';
-
-/** 名册/编年的翻页（第几页从 1 数；⛔ 不落设置，只是看的姿势） */
-export let rosterPage = 1;
-export function setRosterPage(v) { rosterPage = v; }
-export let chronPage = 1;
-export function setChronPage(v) { chronPage = v; }
 
 /** 每页几条（名册 20＝差不多一屏；编年 30＝够看一段） */
 
@@ -921,7 +882,6 @@ let personCardTab = 'now';
  * ⭐ 「每轮记录」点开的是第几条（-1＝都没开）。
  *   照目标包：点行弹浮层，**跟名册那件同一套手法**（⛔ 行内展开）。
  */
-export let openRecordAt = -1;
 
 /**
  * ★ 20261022 §五 5（真）：**浮层按 Esc 要能关**。
@@ -2695,24 +2655,24 @@ export function bindSectionEvents(host, refresh) {
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
                 case 'chron-filter': {
-                    chronFilter = trimText(id) || 'all';
-                    chronPage = 1; // ⚠️ 换了筛选要回第一页（不然可能停在一个空页上）
+                    setChronFilter(trimText(id) || 'all');
+                    setChronPage(1); // ⚠️ 换了筛选要回第一页（不然可能停在一个空页上）
                     rerender();
                     break;
                 }
                 case 'report-filter': {
-                    reportFilter = trimText(id) || 'all';
+                    setReportFilter(trimText(id) || 'all');
                     rerender();
                     break;
                 }
                 case 'step-filter': {
-                    stepFilter = trimText(id) || 'all';
-                    stepPage = 1;
+                    setStepFilter(trimText(id) || 'all');
+                    setStepPage(1);
                     rerender();
                     break;
                 }
                 case 'step-page': {
-                    stepPage = Math.max(1, Math.round(Number(id) || 1));
+                    setStepPage(Math.max(1, Math.round(Number(id) || 1)));
                     rerender();
                     break;
                 }
@@ -2720,27 +2680,27 @@ export function bindSectionEvents(host, refresh) {
                     /* ★ R62：点已选中的创建/修改时间 ⇒ 切正反序 ✓ */
                     const wantR = trimText(id) || 'all';
                     if (wantR === rosterFilter && (wantR === 'created' || wantR === 'changed' || wantR === 'name')) {
-                        rosterSortDir = rosterSortDir === 'desc' ? 'asc' : 'desc';
+                        setRosterSortDir(rosterSortDir === 'desc' ? 'asc' : 'desc');
                     } else {
-                        rosterFilter = wantR;
-                        rosterSortDir = wantR === 'name' ? 'asc' : 'desc';
+                        setRosterFilter(wantR);
+                        setRosterSortDir(wantR === 'name' ? 'asc' : 'desc');
                     }
-                    rosterPage = 1; // 同上
+                    setRosterPage(1); // 同上
                     rerender();
                     break;
                 }
                 case 'open-record':
-                    openRecordAt = Math.max(0, Math.round(Number(id) || 0));
+                    setOpenRecordAt(Math.max(0, Math.round(Number(id) || 0)));
                     rerender();
                     break;
                 case 'record-close':
-                    openRecordAt = -1;
+                    setOpenRecordAt(-1);
                     rerender();
                     break;
                 case 'record-prev':
                 case 'record-next':
                     if (openRecordAt >= 0) {
-                        openRecordAt = action === 'record-next' ? openRecordAt + 1 : openRecordAt - 1;
+                        setOpenRecordAt(action === 'record-next' ? openRecordAt + 1 : openRecordAt - 1);
                         if (openRecordAt < 0) { openRecordAt = 0; }
                     }
                     rerender();
@@ -2827,25 +2787,25 @@ export function bindSectionEvents(host, refresh) {
             case 'chron-search':
                 /* A4：编年搜索（change 才重画） */
                 if (isChange) {
-                    chronSearch = trimText(target.value);
-                    chronPage = 1;
+                    setChronSearch(trimText(target.value));
+                    setChronPage(1);
                     rerender();
                 }
                 break;
             case 'roster-search':
                     if (isChange) {
-                        rosterSearch = trimText(target.value);
-                        rosterPage = 1;
+                        setRosterSearch(trimText(target.value));
+                        setRosterPage(1);
                         rerender();
                     }
                     break;
                 case 'roster-page': {
-                    rosterPage = Math.max(1, Math.round(Number(id) || 1));
+                    setRosterPage(Math.max(1, Math.round(Number(id) || 1)));
                     rerender();
                     break;
                 }
                 case 'chron-page': {
-                    chronPage = Math.max(1, Math.round(Number(id) || 1));
+                    setChronPage(Math.max(1, Math.round(Number(id) || 1)));
                     rerender();
                     break;
                 }
@@ -2943,13 +2903,13 @@ export function bindSectionEvents(host, refresh) {
                     toast.ok('已收起编辑（改哪格存哪格，引擎不会冲掉）');
                     break;
                 case 'edit-char': {
-                    openChar = String(openChar) === String(id) ? '' : String(id);
+                    setOpenChar(String(openChar) === String(id) ? '' : String(id));
                     rerender();
                     break;
                 }
                 case 'edit-situation': {
                     const idx = Number(target.getAttribute('data-index'));
-                    openSituation = String(openSituation) === String(idx) ? -1 : idx;
+                    setOpenSituation(String(openSituation) === String(idx) ? -1 : idx);
                     rerender();
                     break;
                 }
@@ -3423,11 +3383,11 @@ export function bindSectionEvents(host, refresh) {
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
     case 'clear-world-open':
-        clearWorldOpen = true;
+        setClearWorldOpen(true);
         rerender();
         break;
     case 'clear-world-cancel':
-        clearWorldOpen = false;
+        setClearWorldOpen(false);
         toast.info('没清，原样都在');
         rerender();
         break;
@@ -3448,7 +3408,7 @@ export function bindSectionEvents(host, refresh) {
             break;
         }
         const counts = await clearWorldLedger();
-        clearWorldOpen = false;
+        setClearWorldOpen(false);
         const parts = Object.keys(counts).map((k) => k + ' ' + String(counts[k]) + ' 条');
         toast.ok('这个聊天的世界已清空：' + parts.join('、') + '（世界书没动）');
         rerender();
@@ -4349,7 +4309,7 @@ export function bindSectionEvents(host, refresh) {
                     /*
                      * ⭐ 她 13:xx：「密钥那里不能自动隐藏」⇒ 默认遮住，点一下才显形（⛔ 不改她的值）
                      */
-                    apiKeyShown = !apiKeyShown;
+                    setApiKeyShown(!apiKeyShown);
                     const kEl = document.getElementById('wxg-api-key');
                     if (kEl) {
                         kEl.type = apiKeyShown ? 'text' : 'password';

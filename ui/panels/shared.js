@@ -554,3 +554,68 @@ export function saveBar(secId, label) {
     bar.appendChild(button(label || '保存', 'save-section', n ? 'wxg-primary' : 'wxg-btn-sm', secId));
     return bar;
 }
+
+export let chronFilter = 'all';
+export function setChronFilter(v) { chronFilter = v; }
+export function setChronPage(v) { chronPage = v; }
+/*
+ * 依据＝阿砚第三批 质感 A4（编年没有搜索）：编年越攒越多，只能靠翻页找。
+ *   加一个搜索词（搜正文／类型／人）；⛔ 落设置，只是“看的姿势”。
+ */
+export let chronSearch = '';
+/**
+ * ⭐「清空这个世界」的确认盒开着没有。
+ * 她拍的：不可逆操作要**写明条数** ＋ **手打「确认清空」**才让点（防误点）。
+ */
+export let clearWorldOpen = false;
+/** ⭐ 她 13:xx：钥匙默认遮住；点了「显示」就记住（模块级！⛔ 放进函数里 handler 看不见 ✗） */
+export let apiKeyShown = false;
+/** 要她手打的那四个字（打错就点不动） */
+export const CLEAR_WORD = '确认清空';
+/** 哪一条局势正展开着编辑（-1＝都没展开；行化之后默认收起，⛔ 不再一条占两行） */
+export let openSituation = -1;
+
+/** 过程报告的筛选（那一排小胶囊）：全部／已注入／未注入／失败 */
+export let reportFilter = 'all';
+
+/** 现在的进度的筛选：全部／已做／还没做 */
+export let stepFilter = 'all';
+export let stepPage = 1;
+export function setStepPage(v) { stepPage = v; }
+
+/** 名册的筛选：全部／玩家棋子／新认的／我改过的 */
+export let rosterFilter = 'all';
+
+    /** 名册的搜索词（搜“名字或别名”；⛔ 落设置，只是看的姿势） */
+    export let rosterSearch = '';
+
+/** 名册里哪一个人正展开着编辑（''＝都没展开） */
+export let openChar = '';
+
+/** 名册/编年的翻页（第几页从 1 数；⛔ 不落设置，只是看的姿势） */
+export let rosterPage = 1;
+export function setRosterPage(v) { rosterPage = v; }
+export let chronPage = 1;
+export let rosterSortDir = 'desc';
+export function setRosterSortDir(v) { rosterSortDir = v; }
+export let openRecordAt = -1;
+
+export function setClearWorldOpen(v) { clearWorldOpen = v; }
+
+export function setApiKeyShown(v) { apiKeyShown = v; }
+
+export function setOpenSituation(v) { openSituation = v; }
+
+export function setReportFilter(v) { reportFilter = v; }
+
+export function setStepFilter(v) { stepFilter = v; }
+
+export function setRosterFilter(v) { rosterFilter = v; }
+
+export function setRosterSearch(v) { rosterSearch = v; }
+
+export function setOpenChar(v) { openChar = v; }
+
+export function setOpenRecordAt(v) { openRecordAt = v; }
+
+export function setChronSearch(v) { chronSearch = v; }

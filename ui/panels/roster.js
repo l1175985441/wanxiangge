@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { channelReport } from '../../core/wb-channel.js'; import { columnsFor } from '../../core/roster-cols.js'; import { describeRoster, getRoster, loadState, sortRosterList } from '../../core/state.js'; import { hasMergeSnapshot } from '../../core/merge.js'; import { tallyLine } from '../../core/tally.js'; import { trimText } from '../../core/utils.js'; import { openChar, rosterFilter, rosterPage, rosterSearch, setRosterPage } from '../sections.js'; import { PER_PAGE, clampPage, pager } from './shared.js'; import { button, card, checkbox, el, foldable, line, row, section, textInput } from './shared.js';
+import { channelReport } from '../../core/wb-channel.js'; import { columnsFor } from '../../core/roster-cols.js'; import { describeRoster, getRoster, loadState, sortRosterList } from '../../core/state.js'; import { hasMergeSnapshot } from '../../core/merge.js'; import { tallyLine } from '../../core/tally.js'; import { trimText } from '../../core/utils.js';  import { setRosterPage } from './shared.js'; import { openChar, rosterFilter, rosterPage, rosterSearch } from './shared.js'; import { PER_PAGE, clampPage, pager } from './shared.js'; import { button, card, checkbox, el, foldable, line, row, section, textInput } from './shared.js';
 
 export function secRoster(host) {
     const roster = getRoster();
