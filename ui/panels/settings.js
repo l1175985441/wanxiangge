@@ -1,4 +1,4 @@
-import { secGeneral } from './general.js'; import { secAppearance } from './appearance.js'; import { secRecall } from './recall.js'; import { secExtract } from './extract.js'; import { button, el, row, section } from '../sections.js'; export function secSettings(host) {
+import { secGeneral } from './general.js'; import { secAppearance } from './appearance.js'; import { secRecall } from './recall.js'; import { secExtract } from './extract.js'; import {  } from '../sections.js'; import { button, el, row, section } from './shared.js'; export function secSettings(host) {
     const box = section('设置', '总控、外观、召回、读取控制都在这一页。', { open: false });
     const seg = (head) => {
         const g = el('div', 'wxg-seg');

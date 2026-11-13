@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { TIERS, viaLabel } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { decorateCard } from '../cardgrid.js'; import { getRoster, listWindsView, loadState } from '../../core/state.js'; import { getSettings } from '../../core/settings.js'; import { button, card, el, emptyBlock, field, foldable, line, lockable, row, section, textInput, textarea } from '../sections.js';
+import { TIERS, viaLabel } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { decorateCard } from '../cardgrid.js'; import { getRoster, listWindsView, loadState } from '../../core/state.js'; import { getSettings } from '../../core/settings.js'; import { lockable } from '../sections.js'; import { button, card, el, emptyBlock, field, foldable, line, row, section, textInput, textarea } from './shared.js';
 
 export function secWorld(host) {
     const state = loadState();

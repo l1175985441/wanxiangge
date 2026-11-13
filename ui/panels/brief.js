@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { loadState } from '../../core/state.js'; import { card, el, line, section, stage } from '../sections.js';
+import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { loadState } from '../../core/state.js'; import { stage } from '../sections.js'; import { card, el, line, section } from './shared.js';
 export function secBrief(host) {
     const box = section('时局简报', '只读派生·不注入');
     const w = loadState().world;
