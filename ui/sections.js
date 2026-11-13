@@ -80,7 +80,7 @@ import { pickBook, setPickBook } from './panels/locks.js';
 import { renderSections as renderSectionsCore } from './panels/render.js';
 import { byId, textOf, patchApi, readFromBook, testApi, copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
 import { personCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
-import { handleRosterAction } from './panels/roster-actions.js';
+import { handleRosterAction, ROSTER_ACTION_SET } from './panels/roster-actions.js';
 export { unbindPersonCardEsc } from './panels/person-card.js';
 
 
@@ -1250,8 +1250,8 @@ export function bindSectionEvents(host, refresh) {
                 handlePersonCardUi(action, target, id, rerender);
                 return;
             }
-            if (action === 'del-char') {
-                handleRosterAction(action, target, id, rerender);
+            if (ROSTER_ACTION_SET.has(action)) {
+                handleRosterAction(action, target, id, host, rerender);
                 return;
             }
             switch (action) {
