@@ -86,6 +86,7 @@ import { handleWorldAction, WORLD_ACTION_SET, handleSituationAction, SITUATION_A
 import { handleChronicleAction, CHRONICLE_ACTION_SET } from './panels/chronicle-actions.js';
 import { handleApiAction, API_ACTION_SET } from './panels/api-actions.js';
 import { handlePromptAction, PROMPT_ACTION_SET } from './panels/prompt-actions.js';
+import { handleSettingsAction, SETTINGS_ACTION_SET } from './panels/settings-actions.js';
 import { syncApiFromDom, API_KEYS } from './panels/api-sync.js';
 
 export { unbindPersonCardEsc } from './panels/person-card.js';
@@ -1217,15 +1218,12 @@ export function bindSectionEvents(host, refresh) {
                 handlePromptAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (SETTINGS_ACTION_SET.has(action)) {
+                handleSettingsAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
-                case 'set-enabled': patchSettings({ enabled: target.checked }); rerender(); break;
-                case 'set-card': patchSettings({ cardEnabled: target.checked }); rerender(); break;
-                case 'set-show-empty': patchSettings({ showEmptyCard: target.checked }); rerender(); break;
-                case 'set-panel-on-start': patchSettings({ showPanelOnStart: target.checked }); break;
-                case 'set-protected': patchSettings({ protectedBypass: target.checked }); break;
-                case 'set-strict': patchSettings({ strictMention: target.checked }); break;
-                case 'set-auto-update': patchSettings({ autoUpdate: target.checked }); break;
                 /*
                  * ⚠️ v0.3.257 我在这里加过一条“已存”回执 ✗
                  *   但真机核对发现：界面上挂的是 `stage-update-every`（走草稿）✓
