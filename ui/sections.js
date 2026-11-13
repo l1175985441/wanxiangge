@@ -25,7 +25,7 @@ import {  } from '../core/bundle.js';
 import { getSettings } from '../core/settings.js';
 
 import {  } from '../core/schedule.js';
-import { loadState, describeWorld, getChronicle, setRole } from '../core/state.js';
+import { loadState, describeWorld, getChronicle } from '../core/state.js';
 import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -68,7 +68,6 @@ import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
-import { openChar, setOpenChar } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
 
 import {  } from './panels/shared.js';
@@ -95,6 +94,7 @@ import { handleQuestAction, QUEST_ACTION_SET } from './panels/quest-actions.js';
 import { handleActionAction, ACTION_ACTION_SET } from './panels/action-actions.js';
 import { handleFilterAction, FILTER_ACTION_SET } from './panels/filter-actions.js';
 import { handleStatusAction, STATUS_ACTION_SET } from './panels/status-actions.js';
+import { handleMiscAction, MISC_ACTION_SET } from './panels/misc-actions.js';
 import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
@@ -1094,6 +1094,10 @@ export function bindSectionEvents(host, refresh) {
                 handleStatusAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (MISC_ACTION_SET.has(action)) {
+                handleMiscAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1150,35 +1154,6 @@ export function bindSectionEvents(host, refresh) {
                         { label: '查重（找出被拆成两条的）', action: 'detect-dupes' },
                         { label: '一键合并重复组', action: 'merge-all-dupes' },
                     ]);
-                    break;
-                }
-                case 'edit-char': {
-                    setOpenChar(String(openChar) === String(id) ? '' : String(id));
-                    rerender();
-                    break;
-                }
-                case 'goto-roster': {
-                    /* ★ P2-7：人物那一区只给汇总，要看细节去名册（⛔ 在这里再列一遍 ✗） */
-                    try {
-                        const items = Array.from(document.querySelectorAll('button.wxg-ws-side-item'));
-                        const hit = items.find((b2) => (b2.textContent || '').indexOf('人物名册') >= 0);
-                        if (hit && typeof hit.click === 'function') {
-                            hit.click();
-                        } else {
-                            toast.info('在左侧切到「人物名册」');
-                        }
-                    } catch (eGo) { toast.info('在左侧切到「人物名册」'); }
-                    break;
-                }
-                case 'set-role': {
-                    /* ★ B1：她手改六档 ⇒ 落库 + 记手改锁（autoRoster 不再动它） */
-                    const okRole = setRole(id, String(target.value || ''));
-                    if (okRole) {
-                        toast.ok('档位已改为「' + String(target.value || '') + '」');
-                        rerender();
-                    } else {
-                        toast.warn('这个档位不认识');
-                    }
                     break;
                 }
                 /* ---- 角色 ---- */
