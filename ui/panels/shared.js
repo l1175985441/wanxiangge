@@ -893,3 +893,5 @@ export function paintBookPicks(host, ex, no) {
  * 数据来自 list-entries 抓到的 `pickEntries`，⛔ 不再重复读世界书。
  */
 /** ⭐ 3③：条目列表的筛选词（她输什么就只显示带它的） */
+
+export const charSearch = { query: '', sort: 'recent' };

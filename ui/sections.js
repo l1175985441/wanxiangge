@@ -68,7 +68,7 @@ import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
-import { rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
+import { openChar, openRecordAt, setOpenChar, setOpenRecordAt } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
 import { unlockedCards } from './panels/shared.js';
 import {  } from './panels/shared.js';
@@ -93,6 +93,8 @@ import { handleDupeAction, DUPE_ACTION_SET } from './panels/dupe-actions.js';
 import { handleAppearanceAction, APPEARANCE_ACTION_SET, refreshAppearancePreview } from './panels/appearance-actions.js';
 import { handleQuestAction, QUEST_ACTION_SET } from './panels/quest-actions.js';
 import { handleActionAction, ACTION_ACTION_SET } from './panels/action-actions.js';
+import { handleFilterAction, FILTER_ACTION_SET } from './panels/filter-actions.js';
+import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
 
@@ -382,7 +384,6 @@ function stageOne(action, target) {
 /* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
 
 /** 角色状态：搜索与排序的"记忆"（重画之后还在，不会因为改一个字就被清空） */
-export const charSearch = { query: '', sort: 'recent' };
 
 /** 把好感写成能排序的数字（"62"／"62(+0.5)"／"未知" 都能认） */
 function affinityNum(v) {
@@ -1084,6 +1085,10 @@ export function bindSectionEvents(host, refresh) {
                 await handleActionAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (FILTER_ACTION_SET.has(action)) {
+                handleFilterAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1093,41 +1098,6 @@ export function bindSectionEvents(host, refresh) {
                  *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'chron-filter': {
-                    setChronFilter(trimText(id) || 'all');
-                    setChronPage(1); // ⚠️ 换了筛选要回第一页（不然可能停在一个空页上）
-                    rerender();
-                    break;
-                }
-                case 'report-filter': {
-                    setReportFilter(trimText(id) || 'all');
-                    rerender();
-                    break;
-                }
-                case 'step-filter': {
-                    setStepFilter(trimText(id) || 'all');
-                    setStepPage(1);
-                    rerender();
-                    break;
-                }
-                case 'step-page': {
-                    setStepPage(Math.max(1, Math.round(Number(id) || 1)));
-                    rerender();
-                    break;
-                }
-                case 'roster-filter': {
-                    /* ★ R62：点已选中的创建/修改时间 ⇒ 切正反序 ✓ */
-                    const wantR = trimText(id) || 'all';
-                    if (wantR === rosterFilter && (wantR === 'created' || wantR === 'changed' || wantR === 'name')) {
-                        setRosterSortDir(rosterSortDir === 'desc' ? 'asc' : 'desc');
-                    } else {
-                        setRosterFilter(wantR);
-                        setRosterSortDir(wantR === 'name' ? 'asc' : 'desc');
-                    }
-                    setRosterPage(1); // 同上
-                    rerender();
-                    break;
-                }
                 case 'open-record':
                     setOpenRecordAt(Math.max(0, Math.round(Number(id) || 0)));
                     rerender();
@@ -1208,63 +1178,11 @@ export function bindSectionEvents(host, refresh) {
                     ]);
                     break;
                 }
-                case 'expand-all':
-            case 'collapse-all': {
-                /*
-                 * 六：本段里所有 <details> 一起开/收。
-                 *   ⛔ 不改 foldable 自己的记忆逻辑（toggle 事件会照常把状态记进 foldOpenState）。
-                 */
-                const secOf = target.closest && target.closest('.wxg-sec');
-                const open = action === 'expand-all';
-                if (secOf) {
-                    for (const d of asArray(secOf.querySelectorAll('details'))) {
-                        d.open = open;
-                    }
-                }
-                break;
-            }
-            case 'chron-search':
-                /* A4：编年搜索（change 才重画） */
-                if (isChange) {
-                    setChronSearch(trimText(target.value));
-                    setChronPage(1);
-                    rerender();
-                }
-                break;
-            case 'roster-search':
-                    if (isChange) {
-                        setRosterSearch(trimText(target.value));
-                        setRosterPage(1);
-                        rerender();
-                    }
-                    break;
-                case 'roster-page': {
-                    setRosterPage(Math.max(1, Math.round(Number(id) || 1)));
-                    rerender();
-                    break;
-                }
-                case 'chron-page': {
-                    setChronPage(Math.max(1, Math.round(Number(id) || 1)));
-                    rerender();
-                    break;
-                }
-                /*
-                 * ⭐ 名册点一行 ⇒ **开浮层**（她 2026-10-14 点名：⛔ 行内展开把表格推下去）。
-                 *    旧的行内编辑器（case 'edit-char' 那段）**先留着**：
-                 *    等浮层距离验收了再说，⛔ 一步到位地把能用的东西换掉。
-                 */
                 case 'edit-char': {
                     setOpenChar(String(openChar) === String(id) ? '' : String(id));
                     rerender();
                     break;
                 }
-                case 'char-sort':
-                    if (isChange) {
-                        charSearch.sort = trimText(target.value) || 'recent';
-                        rerender();
-                    }
-                    break;
-                /* ---- 世界状态 ---- */
                 case 'goto-roster': {
                     /* ★ P2-7：人物那一区只给汇总，要看细节去名册（⛔ 在这里再列一遍 ✗） */
                     try {
