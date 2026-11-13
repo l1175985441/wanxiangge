@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { describePreset, listPresets } from '../../core/preset.js'; import { effectivePrompt, getSettings } from '../../core/settings.js'; import { expandPair } from '../controls-note.js'; import { promptVarRows, purposeOf } from '../prompt-copy.js';  import { saveBar, stage } from './shared.js'; import { button, card, checkbox, el, foldable, row, section, select, textInput, textarea } from './shared.js';
+import { describePreset, listPresets } from '../../core/preset.js'; import { effectivePrompt, getSettings } from '../../core/settings.js'; import { expandPair } from '../controls-note.js'; import { purposeOf } from '../prompt-copy.js';  import { saveBar, stage } from './shared.js'; import { button, card, checkbox, el, foldable, row, section, select, textInput, textarea } from './shared.js';
 
 export function secPrompts(host) {
     const s = getSettings();
@@ -38,15 +38,6 @@ box.appendChild(cHead);
         fold.appendChild(body);
         cMore.appendChild(fold);
     };
-    /*
-     * 17-2：她改提示词时要知道能引用什么（全库此前 0 个变量清单）。
-     *   清单在 ui/prompt-copy.js；这里只负责装进卡里。
-     */
-    const cVars = foldable('能写哪些变量', false);
-    for (const row of promptVarRows()) {
-        cVars.appendChild(el('div', 'wxg-note', row[0] + '  ' + row[1]));
-    }
-    cMore.appendChild(cVars);
     {
         const layRow = el('div', 'wxg-row');
         const layCb = document.createElement('input');
