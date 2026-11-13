@@ -20,7 +20,7 @@ export const CLAIMS = [
         promise: '跑中可随时取消',
         where: 'ui/sections.js（补推说明）',
         needs: [
-            { file: 'ui/sections.js', must: ["button('\u53d6\u6d88\uff08\u6b63\u5728\u8dd1\uff09', 'cancel-update'"] },
+            { file: 'ui/panels/general.js', must: ["button('\u53d6\u6d88\uff08\u6b63\u5728\u8dd1\uff09', 'cancel-update'"] },
             { file: 'ui/sections.js', must: ["case 'cancel-update'"] },
         ],
     },
@@ -30,7 +30,7 @@ export const CLAIMS = [
         where: 'ui/sections.js（补推中断提示）',
         needs: [
             { file: 'core/pipeline.js', must: ['atFloor', 'backfilling'] },
-            { file: 'ui/sections.js', must: ["button('\u8865\u63a8\u5386\u53f2', 'backfill')"] },
+            { file: 'ui/panels/general.js', must: ["button('\u8865\u63a8\u5386\u53f2', 'backfill')"] },
         ],
     },
     {
@@ -39,7 +39,7 @@ export const CLAIMS = [
         where: 'ui/sections.js（撤回回执）',
         needs: [
             { file: 'core/state.js', must: ['export function rollbackToSnapshot', 'export function listSnapshots'] },
-            { file: 'ui/sections.js', must: ["button('\u4ece\u5feb\u7167\u6062\u590d', 'rollback')"] },
+            { file: 'ui/panels/general.js', must: ["button('\u4ece\u5feb\u7167\u6062\u590d', 'rollback')"] },
         ],
     },
     {
