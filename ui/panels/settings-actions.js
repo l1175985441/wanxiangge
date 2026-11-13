@@ -9,7 +9,7 @@ import { toast } from '../toast.js';
 import { refreshMini } from '../mini.js';
 
 
-export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
+export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','set-sort-mode', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
 
 
 export function handleSettingsAction(action, target, id, host, isChange, rerender) {
@@ -151,6 +151,7 @@ export function handleSettingsAction(action, target, id, host, isChange, rerende
                 case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
                 case 'stage-inject-cap': if (isChange) { patchSettings({ injectCharCap: target.value }); rerender(); } break;   /* ★ 同上 */
                 /* ---- 外观（我们自己的配色） ---- */
+                case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
     }
 }
 

@@ -22,7 +22,7 @@ import {  } from '../core/runwarn.js';   /* 必修 9：拒签要顶到上面（�
 import {  } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
 import { getChat } from '../core/adapter.js';
 import {  } from '../core/bundle.js';
-import { getSettings, patchSettings } from '../core/settings.js';
+import { getSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
 import { loadState, describeWorld, getChronicle, setRole } from '../core/state.js';
@@ -1213,7 +1213,6 @@ export function bindSectionEvents(host, refresh) {
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
                 /* ---- 任务（主线／支线）：她也能改 ---- */
-                case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
                 /*
                  * ⭐ ST4-A：**这个 case 删掉了** ✓
                  *   它拦在 STAGE_MAP 前面把“人物并行封顶”**立即落盘** ✗
