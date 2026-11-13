@@ -1,5 +1,5 @@
 /* 世-2/世-3/隐-1：世界钟·地点·世界事实＋暗线事件。从 sections.js 抽出（206 后） */
-import { updateWorld, loadState, saveState, takeSnapshot, removeHidden, addHiddenManually, addChronicle } from '../../core/state.js';
+import { updateWorld, loadState, saveState, takeSnapshot, removeHidden, addHiddenManually, addChronicle, removeFaction, upsertFaction } from '../../core/state.js';
 import { openSituation, setOpenSituation } from './shared.js';
 import { clockWentBackwards } from '../../core/clock.js';
 import { trimText } from '../../core/utils.js';
@@ -237,5 +237,84 @@ export function handleSituationAction(action, target, id, host, isChange, rerend
                     rerender();
                     break;
                 }
+    }
+}
+
+function openFactionEditor(id, after) {
+    const f = (loadState().world.factions || []).find((x) => x && x.id === id);
+    if (!f) { return; }
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;';
+    const panel = document.createElement('div');
+    panel.style.cssText = 'background:var(--SmartThemeBlurTintColor,#fff);color:var(--SmartThemeBodyColor,#222);padding:16px;border-radius:10px;max-width:520px;width:92%;max-height:88vh;overflow:auto;';
+    const mk = (label, value, tag) => {
+        const row = document.createElement('label');
+        row.style.cssText = 'display:block;margin:6px 0;font-size:13px;';
+        row.textContent = label + '\uff1a';
+        const inp = document.createElement(tag || 'input');
+        if (tag === 'select') {
+            const opts = ['', '\u9f0e\u76db', '\u7a33\u56fa', '\u503e\u8f67', '\u56f0\u987f', '\u8870\u843d', '\u74e6\u89e3'];
+            for (const v of opts) { const o = document.createElement('option'); o.value = v; o.textContent = v || '\uff08\u7a7a\uff09'; inp.appendChild(o); }
+        } else if (tag === 'textarea') {
+            inp.rows = 3;
+        }
+        inp.value = value == null ? '' : String(value);
+        inp.style.cssText = 'display:block;width:100%;margin-top:2px;';
+        row.appendChild(inp); panel.appendChild(row);
+        return inp;
+    };
+    mk('\u540d\u5b57', f.name);
+    const core = mk('\u6838\u5fc3\u4eba', f.core_person);
+    const status = mk('\u72b6\u6001', f.status, 'select');
+    const relation = mk('\u5bf9\u73a9\u5bb6', f.relation);
+    const scope = mk('\u8303\u56f4', f.scope);
+    const scale = mk('\u89c4\u6a21', f.scale);
+    const note = mk('\u63cf\u8ff0', f.note, 'textarea');
+    const pillars = mk('\u652f\u67f1\uff08\u9017\u53f7\u5206\u9694\uff09', (f.powerPillars || []).join('\uff0c'));
+    const members = mk('\u6210\u5458\uff08\u6bcf\u884c\u4e00\u4e2a\uff1a\u540d\u5b57 \u6216 \u540d\u5b57|\u4eba\u7269id\uff09', (f.members || []).map((m) => m.id ? m.name + '|' + m.id : m.name).join('\n'), 'textarea');
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:10px;';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '\u53d6\u6d88';
+    const save = document.createElement('button'); save.type = 'button'; save.textContent = '\u4fdd\u5b58'; save.className = 'wxg-btn';
+    btns.appendChild(cancel); btns.appendChild(save); panel.appendChild(btns); wrap.appendChild(panel); document.body.appendChild(wrap);
+    cancel.onclick = () => wrap.remove();
+    save.onclick = () => {
+        const oldP = (f.powerPillars || []).join('\uff0c');
+        const oldM = (f.members || []).map((m) => (m.id ? m.name + '|' + m.id : m.name)).join('\n');
+        const patch = {
+            id: f.id, name: trimText(name.value), core_person: trimText(core.value),
+            status: trimText(status.value), relation: trimText(relation.value),
+            scope: trimText(scope.value), scale: trimText(scale.value), note: trimText(note.value),
+            powerPillars: pillars.value.split(/[\uff0c,\u3001]/).map(trimText).filter(Boolean),
+            members: members.value.split('\n').map((line) => {
+                const s = trimText(line); if (!s) { return null; }
+                const k = s.indexOf('|');
+                if (k < 0) { return { name: s }; }
+                const nm = trimText(s.slice(0, k)); const cid = trimText(s.slice(k + 1));
+                return cid ? { id: cid, name: nm } : { name: nm };
+            }).filter(Boolean),
+        };
+        const touched = [];
+        if (patch.core_person !== trimText(f.core_person)) { touched.push('core_person'); }
+        if (patch.status !== trimText(f.status)) { touched.push('status'); }
+        if (patch.relation !== trimText(f.relation)) { touched.push('relation'); }
+        if (patch.scope !== trimText(f.scope)) { touched.push('scope'); }
+        if (patch.scale !== trimText(f.scale)) { touched.push('scale'); }
+        if (patch.note !== trimText(f.note)) { touched.push('note'); }
+        if (patch.powerPillars.join('\uff0c') !== oldP) { touched.push('powerPillars'); }
+        if (members.value.replace(/\r/g, '') !== oldM) { touched.push('members'); }
+        upsertFaction(patch, { manual: true, manualFields: touched });
+        wrap.remove();
+        if (typeof after === 'function') { after(); }
+    };
+}
+
+export const FACTION_ACTION_SET = new Set(['del-faction','add-faction','edit-faction']);
+
+export function handleFactionAction(action, target, id, rerender) {
+    switch (action) {
+    case 'del-faction': if (removeFaction(target.getAttribute('data-id') || target.id)) { rerender(); } break;
+    case 'add-faction': { const nm = window.prompt('新增势力：名字'); if (nm && trimText(nm)) { const f = upsertFaction({ name: trimText(nm), manual: true }); if (f) { openFactionEditor(f.id, rerender); } } break; }
+        case 'edit-faction': openFactionEditor(target.getAttribute('data-id') || target.id, rerender); break;
     }
 }
