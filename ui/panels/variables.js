@@ -63,5 +63,9 @@ export function secVariables(host) {
     }
     cReserved.appendChild(rsv);
     box.appendChild(cReserved);
+    const cPending = card('还没接的两件');
+    cPending.appendChild(el('div', 'wxg-note', '变-2 生成完追加到消息尾：未接（先确认写消息的口径，不猜）。'));
+    cPending.appendChild(el('div', 'wxg-note', '变-3 注入范围：待你拍板（全部注入／只注入本轮点到的人）。'));
+    box.appendChild(cPending);
     host.appendChild(box);
 }
