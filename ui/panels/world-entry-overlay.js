@@ -289,3 +289,23 @@ export function renderWorldEntryCard() {
 
 export function setOpenWorldEntry(v) { openWorldEntry = v; }
 export function setOpenWorldEntryEditing(v) { openWorldEntryEditing = v; }
+
+export const WORLD_ENTRY_ACTION_SET = new Set(['open-world-entry', 'we-close', 'we-edit']);
+
+export function handleWorldEntryAction(action, target, id, host, isChange, rerender) {
+    switch (action) {
+                case 'open-world-entry':
+                    openWorldEntryCard(
+                        target.getAttribute('data-kind') || 'situation',
+                        target.getAttribute('data-index') || '0');
+                    break;
+                case 'we-close':
+                    openWorldEntryEditing = false;
+                    closeWorldEntryCard();
+                    break;
+                case 'we-edit':
+                    openWorldEntryEditing = !openWorldEntryEditing;
+                    renderWorldEntryCard();
+                    break;
+    }
+}

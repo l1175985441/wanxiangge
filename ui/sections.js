@@ -98,7 +98,7 @@ import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
 import { healthOpen, setHealthOpen, closeHealthCard, renderHealthCard } from './panels/health-overlay.js';
-import { openWorldEntry, openWorldEntryEditing, closeWorldEntryCard, openWorldEntryCard, renderWorldEntryCard } from './panels/world-entry-overlay.js';
+import { openWorldEntry, renderWorldEntryCard, handleWorldEntryAction, WORLD_ENTRY_ACTION_SET } from './panels/world-entry-overlay.js';
 
 
 
@@ -690,6 +690,10 @@ export function bindSectionEvents(host, refresh) {
                 handleMenuAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (WORLD_ENTRY_ACTION_SET.has(action)) {
+                handleWorldEntryAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -699,19 +703,6 @@ export function bindSectionEvents(host, refresh) {
                  *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'open-world-entry':
-                    openWorldEntryCard(
-                        target.getAttribute('data-kind') || 'situation',
-                        target.getAttribute('data-index') || '0');
-                    break;
-                case 'we-close':
-                    openWorldEntryEditing = false;
-                    closeWorldEntryCard();
-                    break;
-                case 'we-edit':
-                    openWorldEntryEditing = !openWorldEntryEditing;
-                    renderWorldEntryCard();
-                    break;
                 case 'health-open':
                     setHealthOpen(true);
                     renderHealthCard();
