@@ -30,7 +30,7 @@ import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
 import { trimText, asText, asArray } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
-import { applyAppearance, palettePatch } from './theme.js';
+import { palettePatch } from './theme.js';
 import {  } from '../core/summary.js';
 import {  } from '../core/roster-cols.js';   /* 80：只用来判“身份／势力全空” */
 import {  } from './cardgrid.js';   /* A6：卡头＋一句摘要＋查看全部（不搬 DOM） */
@@ -69,7 +69,7 @@ import {  } from './panels/api.js';
 import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
-import { stage, stagedValue, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
+import { stage, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
 import { rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
 import { unlockedCards } from './panels/shared.js';
@@ -92,6 +92,7 @@ import { handleBookAction, BOOK_ACTION_SET } from './panels/book-actions.js';
 import { handleEntryAction, ENTRY_ACTION_SET } from './panels/entry-actions.js';
 import { handleIoAction, IO_ACTION_SET } from './panels/io-actions.js';
 import { handleDupeAction, DUPE_ACTION_SET } from './panels/dupe-actions.js';
+import { handleAppearanceAction, APPEARANCE_ACTION_SET, refreshAppearancePreview } from './panels/appearance-actions.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
 
@@ -231,22 +232,6 @@ const STAGE_MAP = {
  */
 
 /** 把页面上已经在的预览盒重新上色（⛔ 重画整页：那会把她正在拖的滑杆弄没） */
-function refreshAppearancePreview() {
-    try {
-        const nodes = document.querySelectorAll('[data-role="app-preview"]');
-        for (const node of Array.from(nodes)) {
-            applyAppearance(node, effectiveAppearance());
-        }
-    } catch (e) {
-        console.warn('[万象阁] 预览盒没刷新：', e);
-    }
-}
-
-/**
- * ⭐ ST4-A：走草稿的同时，**少数几个开关仍要给一句反馈** ✓
- *   （p3 字面要求：剥壳两个开关“也有反馈” ✓；其余格子靠保存条变色就够 ✓）
- *   ⛔ 每个格子都弹一句（那样弹得没完没了 ✗）
- */
 function stageFeedback(action, target) {
     if (action === 'stage-strip-paired') {
         /* ⚠️ 消息里带上控件名：toast 有防抖（同文案会被吞 ✗），两个开关共用一句就会只响一次 ✗ */
@@ -1087,6 +1072,10 @@ export function bindSectionEvents(host, refresh) {
                 handleDupeAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (APPEARANCE_ACTION_SET.has(action)) {
+                handleAppearanceAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1314,83 +1303,6 @@ export function bindSectionEvents(host, refresh) {
                 case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
                 case 'stage-inject-cap': if (isChange) { patchSettings({ injectCharCap: target.value }); rerender(); } break;   /* ★ 同上 */
                 /* ---- 外观（我们自己的配色） ---- */
-                case 'set-appearance': {
-                    if (!isChange) {
-                        break;
-                    }
-                    const key = target.id;   // wxg-app-xxx → 槽位名
-                    const slot = key.replace('wxg-app-', '');
-                    const patch = {};
-                    if (slot === 'palette') {
-                        Object.assign(patch, palettePatch(trimText(target.value)));
-                    } else {
-                        patch[slot] = trimText(target.value);
-                        patch.palette = 'custom';
-                    }
-                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, patch) });
-                    toast.ok('配色已更新' + (slot === 'palette' ? '' : '（已标为「自定义」）'));
-                    rerender();
-                    break;
-                }
-                case 'app-text-auto': {
-                    /* ⭐ ST6：把文字色清回“自动” ✓（清空 ⇒ theme.js 按底面亮度算 ✓） */
-                    /* ⭐ ST4-A：也走草稿 ✓（旧：patchSettings 立即落盘 ✗） */
-                    stage('appearance', 'appearance', Object.assign({}, effectiveAppearance(), { text: '', palette: 'custom' }));
-                    refreshAppearancePreview();
-                    refreshSaveBar(host, 'appearance');
-                    toast.info('文字色改成“自动”了（点段底「保存」生效；浅底深字／深底浅字）');
-                    break;
-                }
-                case 'mini-hover-toggle': {
-                    /* ⭐ ST4-A：走草稿 ✓（旧：立即落盘 ✗） */
-                    const hv = target.checked === true;
-                    const miniBase = Object.assign({}, getSettings().mini || {}, stagedValue('appearance', 'mini', null) || {});
-                    stage('appearance', 'mini', Object.assign({}, miniBase, { hoverOpen: hv }));
-                    refreshSaveBar(host, 'appearance');
-                    toast.info(hv ? '已勾上：鼠标移入就展开（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
-                    break;
-                }
-                case 'mini-pin-toggle': {
-                    /* ⭐ ST4-A：走草稿 ✓ */
-                    const pn = target.checked === true;
-                    const miniBase2 = Object.assign({}, getSettings().mini || {}, stagedValue('appearance', 'mini', null) || {});
-                    stage('appearance', 'mini', Object.assign({}, miniBase2, { pinned: pn }));
-                    refreshSaveBar(host, 'appearance');
-                    toast.info(pn ? '已勾上：下次挂上就是展开的（点段底「保存」生效）' : '已取消（点段底「保存」生效）');
-                    break;
-                }
-                case 'reset-appearance': {
-                    /*
-                     * ⭐ 复审追加 A4：两个子：
-                     *   ① **先清草稿**：显示与预览走的是 `effectiveAppearance()`（**草稿优先**）
-                     *     ⇒ 她改过任一槽再点“恢复”，草稿还在 ⇒ **预览盒与颜色框纹丝不动**；
-                     *   ② 色板键按**当前生效值**取：已存色板是 `custom` 时 `palettePatch('custom')` 只返回 `{palette:'custom'}`（四槽一个都不恢复）
-                     *     ⇒ custom 时退回 `'ink'`。
-                     */
-                    const curEff = effectiveAppearance();
-                    const palKey = (curEff.palette && curEff.palette !== 'custom') ? curEff.palette : 'ink';
-                    /*
-                     * ⭐ ST4-A（她定案 A：统一走草稿＋段底保存）✓
-                     *   旧：先清草稿、再 `patchSettings` **立即落盘** ✗
-                     *     ⇒ 同一张「外观」卡里：颜色框需要点保存，「恢复色板」反而点完就生效 ✗
-                     *   现在：把这一笔写进 appearance 草稿 ✓（覆盖她之前改的槽 —— 这正是“恢复”的语义 ✓）
-                     */
-                    stage('appearance', 'appearance', Object.assign({}, curEff, palettePatch(palKey), { text: '' }));
-                    refreshAppearancePreview();
-                    refreshSaveBar(host, 'appearance');
-                    toast.info('已退回所选色板（点段底「保存」生效）');
-                    break;
-                }
-                case 'set-app-to-panel':
-                    patchSettings({ appearance: Object.assign({}, getSettings().appearance || {}, { applyToPanel: target.checked }) });
-                    toast.ok(target.checked ? '浮层与小框也跟着这套配色' : '浮层与小框改为跟随酒馆主题');
-                    rerender();
-                    break;
-                case 'set-layout-mode':
-                    patchSettings({ layoutMode: trimText(target.value) === 'panel' ? 'panel' : 'workspace' });
-                    toast.ok(trimText(target.value) === 'panel' ? '以后点入口＝开浮层面板' : '以后点入口＝开整页工作台');
-                    rerender();
-                    break;
                 /* ---- 任务（主线／支线）：她也能改 ---- */
                 case 'toggle-quest-item': {
                     /* ⭐ 材料 06【4】：**子项打勾 / 取消** ✓ */
