@@ -38,7 +38,7 @@ import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION, originPanel, agendaOriginPanel } from '../core/config.js';   /* I4 */
 import { replanCurrentFloor } from '../core/actions.js';
-import { listWorldbookNames, getEntries, excludeTextFor } from '../core/worldbook.js';
+import { getEntries, excludeTextFor } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
 import {  } from '../core/book-wiki.js';
 import {  } from '../core/wb-channel.js';
@@ -69,17 +69,17 @@ import {  } from './panels/api.js';
 import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
-import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG } from './panels/shared.js';
+import { stage, stagedValue, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG } from './panels/shared.js';
 import { rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
-import { effectiveAppearance, booksCache, setListBooksCache, lastGoodBooks, setLastGoodBooks } from './panels/shared.js';
+import { effectiveAppearance } from './panels/shared.js';
 import { unlockedCards } from './panels/shared.js';
 import {  } from './panels/shared.js';
-import { lastSectionsHost, setLastSectionsHost, bindPersonCardDrag, paintBookPicks } from './panels/shared.js';
+import { lastSectionsHost, setLastSectionsHost, bindPersonCardDrag } from './panels/shared.js';
 import { jumpToSection } from './panels/nav.js';
 import { pickBook, setPickBook } from './panels/locks.js';
 import { renderSections as renderSectionsCore } from './panels/render.js';
 import { byId } from './panels/render.js';
-import { textOf, readFromBook, copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
+import { copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
 import { personCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
 import { handleRosterAction, ROSTER_ACTION_SET } from './panels/roster-actions.js';
 import { handleWorldAction, WORLD_ACTION_SET, handleSituationAction, SITUATION_ACTION_SET, handleFactionAction, FACTION_ACTION_SET } from './panels/world-actions.js';
@@ -87,7 +87,10 @@ import { handleChronicleAction, CHRONICLE_ACTION_SET } from './panels/chronicle-
 import { handleApiAction, API_ACTION_SET } from './panels/api-actions.js';
 import { handlePromptAction, PROMPT_ACTION_SET } from './panels/prompt-actions.js';
 import { handleSettingsAction, SETTINGS_ACTION_SET } from './panels/settings-actions.js';
+import { handleBookAction, BOOK_ACTION_SET } from './panels/book-actions.js';
 import { syncApiFromDom, API_KEYS } from './panels/api-sync.js';
+import { refreshSaveBar } from './panels/savebar.js';
+
 
 export { unbindPersonCardEsc } from './panels/person-card.js';
 
@@ -528,16 +531,6 @@ function refreshToastSection(secId, n) {
  * 只把"保存这条"就地重画一下（⛔ 不整页重画 ⇒ 她还能接着点）。
  * ⚠️ 要整条重画：改动数一变，「撤销」这颗按钮也得跟着出现／消失。
  */
-function refreshSaveBar(host, secId) {
-    const bar = host && host.querySelector ? host.querySelector('.wxg-savebar[data-id="' + secId + '"]') : null;
-    if (!bar || !bar.parentNode) {
-        return;
-    }
-    const parent = bar.parentNode;
-    const fresh = saveBar(secId);
-    parent.insertBefore(fresh, bar);
-    parent.removeChild(bar);
-}
 
 /** ⭐ 读取控制：正在看哪本书的条目（重画后要能自动摆回来，否则点一条之后就没得点了） */
 export let pickEntries = [];
@@ -1222,6 +1215,10 @@ export function bindSectionEvents(host, refresh) {
                 handleSettingsAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (BOOK_ACTION_SET.has(action)) {
+                await handleBookAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1432,139 +1429,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-                case 'read-book': {
-                    /*
-                     * ⭐ 材料 10 · 第 6 组裁定（她 10-17 授权代拍）：**维持“只提示不拦”** ✓
-                     *   定案：保留 toast.info（“要跑十几秒到几十秒”），**⛔ 加硬闸** ✗
-                     *   理由：硬闸会撞 `audit-3-panel`（它会连点两次 ⇒ 第二次被拦就红 ✗）
-                     *   可选（已裁定：先不做）：“跑着时按钮变灰”看似可以，但它同样会影响审计可点性 ✗ ⇒ 不引入 ✓
-                     */
-                    /* ⭐ 同上：从世界书读人会**批量建档** ✓ ⇒ 先留快照 ✓ */
-                    takeSnapshot('从世界书读人前');
-                    /* ⭐ 材料 06【4】：**开跑前先告诉她、且不许并发** ✓ */
-                    /* ⛔ 硬闸：审计 audit-3-panel 会连点两次 ⇒ 第二次被拦就红 ✗
-                     *   ⇒ 改成“只提醒、不拦” ✓（下一步找到真正的完成点再放闸 ✓） */
-                    toast.info('正在读世界书…要跑十几秒到几十秒，请等一下 ✓');
-                    const res = await readFromBook(trimText(textOf(host, 'wxg-book-name')));
-                    if (res) {
-                        if (res.fellBack) {
-                            break;   // 兜底那条已经在 readFromBook 里说过了
-                        }
-                        /*
-                         * ⭐ 首夜实测单第 7 条：此处**直接拼字段、无兜底** ⇒ 字段缺失就漏 `undefined`
-                         *   （实测漏过整串：`读进来 undefined 条 ⇒ …势力 undefined · 局势 undefined…`）
-                         *   ⇒ 一律兜底成 0／"没读到"，⛔ 不许再把 undefined 漏到她脸上。
-                         */
-                        const num = (v) => (Number.isFinite(Number(v)) ? String(Number(v)) : '0');
-                        const bad = Array.isArray(res.failedChunks) ? res.failedChunks : [];
-        if (bad.length) {
-            toast.warn('其中 ' + String(bad.length) + ' 块没读成（原书第 ' + String(Number(bad[0].from) + 1)
-                + '–' + String(bad[0].to) + ' 条），其余已建档；再点一次会从这几块接着读。');
-        }
-        toast.ok('读进来 ' + num(res.read) + ' 条'
-                            + (Number(res.disabled) > 0 ? '（另有 ' + num(res.disabled) + ' 条禁用，跳过）' : '')
-                            + ' ⇒ 认出：人 ' + (res.added === undefined ? '没读到' : num(res.added))
-                            + ' · 势力 ' + (res.factions === undefined ? '没读到' : num(res.factions))
-                            + ' · 局势 ' + (res.situations === undefined ? '没读到' : num(res.situations))
-                            + ' · 地点 ' + (res.places === undefined ? '没读到' : num(res.places))
-                            + '（世界状态里现在共 ' + (res.situationsTotal === undefined ? '未知' : num(res.situationsTotal)) + ' 条）'
-            + (function () { const d = res.dropped || {}; const n = Number(d.situations || 0) + Number(d.places || 0); return n > 0 ? '；丢掉 ' + String(n) + ' 条“抄标题”的局势／地点' : ''; })());
-                    }
-                    rerender();
-                    break;
-                }
-                case 'list-books': {
-                    const names = await listWorldbookNames();
-                    const wrap = byId(host, 'wxg-bookpick');
-                    const info = byId(host, 'wxg-book-list');
-                    if (!wrap) {
-                        break;
-                    }
-                    if (!names.length) {
-                        /*
-                         * B7：“读不到”与“确实 0 本”是两回事。
-                         *   这里已经走到“接口没报错、但返回空”，我们无法区分，所以标 broken（不是 empty）。
-                         */
-                        booksCache.markBroken('没读到世界书列表（可能没开接口）');
-                        if (lastGoodBooks.length) {
-                            /* 依据＝本轮查失败时的真因：旧代码在这里把列表清空 ⇒ 重画后㉊片全没。现在先用上次的书单。 */
-                            setListBooksCache(lastGoodBooks.slice());
-                            try { paintBookPicks(host); } catch (eKeep) { }
-                            if (info) {
-                                info.textContent = '**读不到新的**世界书列表，先用上次读到的 ' + String(lastGoodBooks.length) + ' 本（⛔ 当成“一本都没有”）。';
-                            }
-                            break;
-                        }
-                        setListBooksCache([]);
-                        if (info) {
-                            info.textContent = '**读不到**世界书列表（不是“一本都没有”；有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
-                        }
-                        break;
-                    }
-                    if (info) {
-                        info.textContent = '读到 ' + String(names.length) + ' 本：点书名选它。';
-                    }
-                    /*
-                     * 依据＝本轮挖 pick flake 的证据：
-                     *   这里原来先把**所有㉊片删干净**、再交给 paintBookPicks 重画 ⇒
-                     *   自动列书的定时器正好在这一瞬触发时，她点下去就是“找不到控件”。
-                     *   paintBookPicks 已经按 data-book 自己剔旧补新（原地更新）⇒ 这里不需要先清一遍。
-                     */
-                    setListBooksCache(names);
-                    setLastGoodBooks(names.slice());
-                    booksCache.set(names);   /* B7：真取到了才算 hit/empty */
-                    paintBookPicks(host,
-                        toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks)),
-                        toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks)));
-                    const ent = byId(host, 'wxg-entpick');
-                    if (ent && !ent.querySelector('[data-action="list-entries"]')) {
-                        for (const n of names) {
-                            ent.appendChild(button('看条目：' + n, 'list-entries', 'wxg-btn-sm', n));
-                        }
-                    }
-                    break;
-                }
-                case 'pick-book': {
-                    /*
-                     * 依据＝阿砚 3-d：偶发红要能在**一次失败**里拿到时序，⛔ 靠跑几十次碰运气。
-                     *   默认静默；只有显式开关（环境变量 WXG_DEBUG=1 或 globalThis.__WXG_DEBUG__）才打一行。
-                     */
-                    const name = trimText(target.getAttribute('data-book'));
-                    if (!name) {
-                        break;
-                    }
-                    const ex = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
-                    const no = toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks));
-                    const key = (x) => asText(x);
-                    const iEx = ex.findIndex((x) => key(x) === key(name));
-                    const iNo = no.findIndex((x) => key(x) === key(name));
-                    if (iEx >= 0) {
-                        ex.splice(iEx, 1);
-                        no.push(name);
-                        toast.info('「' + name + '」改成"排除"（还没保存）');
-                    } else if (iNo >= 0) {
-                        no.splice(iNo, 1);
-                        toast.info('「' + name + '」从"排除"里拿掉（还没保存）');
-                    } else {
-                        ex.push(name);
-                        toast.ok('「' + name + '」要"提取"（还没保存）');
-                    }
-                    stage('extract', 'extractBooks', ex.join('、'));
-                    stage('extract', 'excludeBooks', no.join('、'));
-                    if (WXG_DBG) {
-                        try {
-                            console.info('[wanxiangge][pick] 点中=' + name
-                                + ' ｜ ex=' + String(ex.length) + ' no=' + String(no.length)
-                                + ' ｜ 草稿模式=' + String(stagingMode)
-                                + ' ｜ 已存 ex=' + String(getSettings().extractBooks || '').slice(0, 40)
-                                + ' ｜ 已存 no=' + String(getSettings().excludeBooks || '').slice(0, 40));
-                        } catch (eDbg) { /* 日志打不出来也不能影响点击 */ }
-                    }
-                    paintBookPicks(host, ex, no);
-                    refreshSaveBar(host, 'extract');
-                    break;
-                }
-                /* ---- 段级保存／撤销（她拍的："每个大标题加一个保存"） ---- */
                 case 'toggle-sec': {
                     /*
                      * ⭐ 目标核对 2②：**我们自己的开合**。
