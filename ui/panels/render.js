@@ -3,6 +3,7 @@ import { secRoster } from './roster.js';
 import { secStatus } from './status.js';
 import { secWorld } from './world.js';
 import { secWorldClock } from './world-clock.js';
+import { secVariables } from './variables.js';
 import { secHidden } from './hidden.js';
 import { secBrief } from './brief.js';
 import { secChronicle } from './chronicle.js';
@@ -95,6 +96,7 @@ mountLedgers(stageEl);
 secSettings(stageEl);
 secApi(stageEl);
 secPrompts(stageEl);
+    secVariables(stageEl);
         /*
          * ⭐ 重画之后把世界条目的浮层**画回来**（浮层挂在段容器里，重画会冲掉它）。
          *   ⛔ 写在每个动作里（那样漏一个就没了）。
