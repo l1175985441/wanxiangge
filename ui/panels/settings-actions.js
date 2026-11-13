@@ -9,7 +9,7 @@ import { toast } from '../toast.js';
 import { refreshMini } from '../mini.js';
 
 
-export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','set-sort-mode','toggle-lock', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
+export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','set-sort-mode','toggle-lock','toggle-cdetail', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
 
 
 export function handleSettingsAction(action, target, id, host, isChange, rerender) {
@@ -160,6 +160,23 @@ export function handleSettingsAction(action, target, id, host, isChange, rerende
                         unlockedCards.add(k);
                     }
                     rerender();
+                    break;
+                }
+                case 'toggle-cdetail': {
+                    /*
+                     * 依据＝阿砚 50 号 J09：主行写了 data-action="toggle-cdetail"，但全文件没有这个 case，
+                     * 也没人读 data-hide ⇒ 点了什么都不发生（那五个可改字段永远看不到）。
+                     * 这里只做一件事：切同一个 id 的明细行的 data-hide 与 .wxg-cdetail 的 display。
+                     */
+                    const rowId = String(id);
+                    /* 依据＝阿砚 51 号：⛔ 用 document.querySelector（工作台与浮层同开时会切到另一个面板的行）⇒ 限定在当前 host 作用域 */
+                    const scope = (typeof host !== 'undefined' && host && host.querySelector) ? host : document;
+                    const dtr = scope.querySelector('tr.wxg-cdetail-row[data-detail-of="' + rowId + '"]');
+                    if (!dtr) { break; }
+                    const hideNow = dtr.getAttribute('data-hide') === '1';
+                    dtr.setAttribute('data-hide', hideNow ? '0' : '1');
+                    const inner = dtr.querySelector('.wxg-cdetail');
+                    if (inner && inner.style) { inner.style.display = hideNow ? '' : 'none'; }
                     break;
                 }
     }
