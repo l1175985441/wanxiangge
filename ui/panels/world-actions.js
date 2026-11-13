@@ -2,12 +2,13 @@
 import { updateWorld, loadState, saveState, takeSnapshot, removeHidden, addHiddenManually, addChronicle, removeFaction, upsertFaction } from '../../core/state.js';
 import { openSituation, setOpenSituation } from './shared.js';
 import { clockWentBackwards } from '../../core/clock.js';
+import { shiftWorldClock } from '../../core/world-events.js';
 import { trimText } from '../../core/utils.js';
 import { byId, textOf } from './render.js';
 import { toast } from '../toast.js';
 
 
-export const WORLD_ACTION_SET = new Set(['set-world-clock', 'set-world-place', 'set-world-big', 'set-hidden-stage', 'del-hidden', 'add-hidden']);
+export const WORLD_ACTION_SET = new Set(['set-world-clock', 'set-world-place', 'set-world-big', 'shift-world-clock','set-hidden-stage', 'del-hidden', 'add-hidden']);
 
 
 export function handleWorldAction(action, target, id, host, isChange, rerender) {
@@ -316,5 +317,10 @@ export function handleFactionAction(action, target, id, rerender) {
     case 'del-faction': if (removeFaction(target.getAttribute('data-id') || target.id)) { rerender(); } break;
     case 'add-faction': { const nm = window.prompt('新增势力：名字'); if (nm && trimText(nm)) { const f = upsertFaction({ name: trimText(nm), manual: true }); if (f) { openFactionEditor(f.id, rerender); } } break; }
         case 'edit-faction': openFactionEditor(target.getAttribute('data-id') || target.id, rerender); break;
+    case 'shift-world-clock': {
+        const sd = Number(target.id);
+        if (shiftWorldClock(sd)) { toast.ok('世界钟拨了 ' + (sd > 0 ? '+' : '') + String(sd) + ' 天'); rerender(); }
+        break;
+    }
     }
 }

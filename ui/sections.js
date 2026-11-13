@@ -23,7 +23,7 @@ import {  } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 *
 import { getChat } from '../core/adapter.js';
 import {  } from '../core/bundle.js';
 import { getSettings } from '../core/settings.js';
-import { shiftWorldClock } from '../core/world-events.js';
+
 import {  } from '../core/schedule.js';
 import { loadState, describeWorld, getChronicle, setRole } from '../core/state.js';
 import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
@@ -1225,11 +1225,6 @@ export function bindSectionEvents(host, refresh) {
                     break;
                 /* ---- API ---- */
                 /* ---- 提示词 ---- */
-    case 'shift-world-clock': {
-        const sd = Number(target.id);
-        if (shiftWorldClock(sd)) { toast.ok('世界钟拨了 ' + (sd > 0 ? '+' : '') + String(sd) + ' 天'); rerender(); }
-        break;
-    }
                 /* ---- 动作 ---- */
                                 case 'use-hold-one': {
                     /* ⭐ ST4-A（她 10-17 定案：统一走草稿＋段底保存）✓ 旧：patchSettings 立即落盘 ✗ */
