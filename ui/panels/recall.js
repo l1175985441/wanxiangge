@@ -1,4 +1,4 @@
-import { expandPair } from '../controls-note.js'; import { getSettings } from '../../core/settings.js'; import { saveBar, stage } from '../sections.js'; import { button, card, checkbox, el, foldable, line, numberInput, section, select } from './shared.js';
+import { expandPair } from '../controls-note.js'; import { getSettings } from '../../core/settings.js';  import { saveBar, stage } from './shared.js'; import { button, card, checkbox, el, foldable, line, numberInput, section, select } from './shared.js';
 export function secRecall(host, intoBox) {
     const SECID = 'recall';
     const s = getSettings();

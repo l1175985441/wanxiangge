@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { PALETTE_KEYS, PALETTE_NAMES, applyAppearance, resolveAppearance } from '../theme.js'; import { getSettings } from '../../core/settings.js'; import { effectiveAppearance, saveBar, stage, stagedValue } from '../sections.js'; import { button, card, checkbox, colorInput, el, field, row, section, select } from './shared.js';
+import { PALETTE_KEYS, PALETTE_NAMES, applyAppearance, resolveAppearance } from '../theme.js'; import { getSettings } from '../../core/settings.js'; import { effectiveAppearance } from '../sections.js'; import { saveBar, stage, stagedValue } from './shared.js'; import { button, card, checkbox, colorInput, el, field, row, section, select } from './shared.js';
 
 export function secAppearance(host, intoBox) {
     const SECID = 'appearance';

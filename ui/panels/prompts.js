@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { describePreset, listPresets } from '../../core/preset.js'; import { effectivePrompt, getSettings } from '../../core/settings.js'; import { expandPair } from '../controls-note.js'; import { promptVarRows, purposeOf } from '../prompt-copy.js'; import { saveBar, stage } from '../sections.js'; import { button, card, checkbox, el, foldable, row, section, select, textInput, textarea } from './shared.js';
+import { describePreset, listPresets } from '../../core/preset.js'; import { effectivePrompt, getSettings } from '../../core/settings.js'; import { expandPair } from '../controls-note.js'; import { promptVarRows, purposeOf } from '../prompt-copy.js';  import { saveBar, stage } from './shared.js'; import { button, card, checkbox, el, foldable, row, section, select, textInput, textarea } from './shared.js';
 
 export function secPrompts(host) {
     const s = getSettings();

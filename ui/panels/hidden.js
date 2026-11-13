@@ -1,4 +1,4 @@
-import { TIERS } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { loadState, openHiddenCount } from '../../core/state.js'; import { stageProgress, stageTone } from '../stage-progress.js'; import { stage } from '../sections.js'; import { button, card, el, emptyBlock, line, row, section, select, textInput } from './shared.js';
+import { TIERS } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { loadState, openHiddenCount } from '../../core/state.js'; import { stageProgress, stageTone } from '../stage-progress.js';  import { stage } from './shared.js'; import { button, card, el, emptyBlock, line, row, section, select, textInput } from './shared.js';
 export function secHidden(host) {
     const box = section('暗线', '自己有时间表，到点才动');
     const w = loadState().world;

@@ -70,6 +70,8 @@ import { secApi } from './panels/api.js';
 import { secPrompts } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
+import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG, stagingByMode, stagedCount } from './panels/shared.js';
+
 export { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 
 export { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
@@ -177,93 +179,6 @@ export function hasUnsavedDraft() {
  *    在工作台填好地址、却点了面板那份「保存」⇒ 面板那份草稿是空的，
  *    提交下去就把刚填的**冲成空值**（真机上量到过 api.url 变 ""）。
  */
-const stagingByMode = {};
-/* 110：上一次没保存的草稿（浏览器里那份） */
-try {
-    if (typeof localStorage !== 'undefined') {
-        const rawDrafts = localStorage.getItem('wxg-drafts-v1');
-        if (rawDrafts) {
-            const parsed = JSON.parse(rawDrafts);
-            for (const k of Object.keys(parsed || {})) { stagingByMode[k] = parsed[k]; }
-        }
-    }
-} catch (eLS2) { /* 坏了就当没有 */ }
-
-/** 当前正在画／正在处理的是哪一个宿主（⛔ 只用来分草稿，不参与别的判断） */
-/**
- * 依据＝阿砚 3-d：偶发红要能在一次失败里拿到时序。默认静默；
- * 显式开关（WXG_DEBUG=1 或 globalThis.__WXG_DEBUG__）才打日志。
- */
-const WXG_DBG = (typeof process !== 'undefined' && process && process.env && process.env.WXG_DEBUG === '1')
-    || (typeof globalThis !== 'undefined' && globalThis.__WXG_DEBUG__ === true);
-
-let stagingMode = 'settings';
-/*
- * 依据＝阿砚 3-d: 偶发红取证（[pick]/[commit] 日志）：点击链本身对，红在“保存没写进去”。
- *   根因假设：`stage()` 用的池由当次事件的 host 决定，而 `commitSection()` 用的是**保存那一刻**的全局
- *   `stagingMode` —— 两处若落在不同池，保存就“读到空 box、写完什么也没有”，而且行为随重画时机漂移。
- *   ⇒ 记下“这一段草稿是在哪个池里建的”，保存与读值都认这个记录（⛔ 再各自读全局）。
- */
-const stageModeOf = new Map();   // secId -> 建草稿时用的池
-
-/** 这一段该用哪个池：有记录就按记录，没有才退回当前全局 */
-function modeForSection(secId) {
-    const m = stageModeOf.get(secId);
-    return m || stagingMode;
-}
-
-function stagingOf(mode) {
-    const m = asText(mode) || 'settings';
-    if (!stagingByMode[m]) {
-        stagingByMode[m] = {};
-    }
-    return stagingByMode[m];
-}
-
-/** 记一笔草稿（⛔ 不落设置）；同一段同一键只留最后一次 */
-export function stage(secId, key, value) {
-    const store = stagingOf(stagingMode);
-    const box = store[secId] || (store[secId] = {});
-    box[key] = value;
-    stageModeOf.set(secId, stagingMode);
-    /* 110：草稿也存一份在浏览器里 ⇒ 刷新不丢（落盘仍只靠「保存」） */
-    try {
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('wxg-drafts-v1', JSON.stringify(stagingByMode));
-        }
-    } catch (eLS) { /* 存不了也不能拦着画界面 */ }
-}
-
-/** 这一段草稿里有几处改动 */
-function stagedCount(secId) {
-    const box = stagingOf(modeForSection(secId))[secId];
-    return box ? Object.keys(box).length : 0;
-}
-
-/** 这一段某个键的"当前显示值"（草稿优先，其次已存） */
-export function stagedValue(secId, key, fallback) {
-    const box = stagingOf(modeForSection(secId))[secId];
-    return box && Object.prototype.hasOwnProperty.call(box, key) ? box[key] : fallback;
-}
-
-/**
- * 段底那条"保存"（每段都有）。
- * @param {string} secId 段的标识（见各段自己的 id）
- * @param {string} label 按钮文字（默认"保存"）
- */
-export function saveBar(secId, label) {
-    const n = stagedCount(secId);
-    const bar = el('div', 'wxg-savebar' + (n ? ' has-changes' : ''));
-    bar.setAttribute('data-id', secId);
-    const note = el('span', 'wxg-savebar-note',
-        n ? ('改了 ' + String(n) + ' 处（还没保存）') : '这一段没有未保存的改动');
-    bar.appendChild(note);
-    if (n) {
-        bar.appendChild(button('撤销', 'discard-section', 'wxg-btn-sm', secId));
-    }
-    bar.appendChild(button(label || '保存', 'save-section', n ? 'wxg-primary' : 'wxg-btn-sm', secId));
-    return bar;
-}
 
 /** 把这一段的草稿落进设置 */
 function commitSection(secId) {
@@ -2097,7 +2012,7 @@ export function renderSections(host, opts) {
      *    一律 `Array.from(...)` 转成数组再用（假环境把它做成数组，所以自审没抓住，已修 shim）。
      */
     const prevStagingMode = stagingMode;
-    stagingMode = mode;
+    setStagingMode(mode);
     const stageEl = el('div', 'wxg-stage');
     try {
         /*
@@ -2176,7 +2091,7 @@ secPrompts(stageEl);
         console.error('[万象阁] 画面板出错（照抄这句反馈即可）：' + String((e && e.message) || e));
         drawFailure(host, e);
     } finally {
-        stagingMode = prevStagingMode;
+        setStagingMode(prevStagingMode);
     }
 }
 /**
@@ -2737,7 +2652,7 @@ export function bindSectionEvents(host, refresh) {
         const id = target.getAttribute('data-id') || '';
         const key = target.getAttribute('data-key') || '';
         const isChange = e.type === 'change';
-        stagingMode = (host && typeof host.getAttribute === 'function' && host.getAttribute('data-wxg-mode')) || 'settings';
+        setStagingMode((host && typeof host.getAttribute === 'function' && host.getAttribute('data-wxg-mode')) || 'settings');
         try {
             if (action.indexOf('stage-') === 0) {
                 if (!isChange) { return; }
