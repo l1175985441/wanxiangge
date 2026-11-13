@@ -79,7 +79,7 @@ import { jumpToSection } from './panels/nav.js';
 import { pickBook, setPickBook } from './panels/locks.js';
 import { renderSections as renderSectionsCore } from './panels/render.js';
 import { byId, textOf, patchApi, readFromBook, testApi, copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
-import { personCardId, personCardEditing, setPersonCardId, setPersonCardEditing, setPersonCardTab, openPersonCard, closePersonCard, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit } from './panels/person-card.js';
+import { personCardId, setPersonCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
 export { unbindPersonCardEsc } from './panels/person-card.js';
 
 
@@ -1245,6 +1245,10 @@ export function bindSectionEvents(host, refresh) {
                 handlePersonCardEdit(action, target, id, key, isChange, rerender);
                 return;
             }
+            if (PERSON_CARD_UI_ACTIONS.has(action)) {
+                handlePersonCardUi(action, target, id, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 case 'set-enabled': patchSettings({ enabled: target.checked }); rerender(); break;
@@ -1421,94 +1425,6 @@ export function bindSectionEvents(host, refresh) {
                  *    旧的行内编辑器（case 'edit-char' 那段）**先留着**：
                  *    等浮层距离验收了再说，⛔ 一步到位地把能用的东西换掉。
                  */
-                case 'open-person-card':
-                    openPersonCard(id);
-                    break;
-                case 'pc-tab': {
-                    setPersonCardTab(target.getAttribute('data-page') || 'now');
-                    renderPersonCard();
-                    break;
-                }
-                case 'card-close':
-                    closePersonCard();
-                    break;
-                case 'card-prev':
-                case 'card-next': {
-                    /*
-                     * 上／下一位：按**当前浮层里那位**在名册里的下标推一格。
-                     * ⛔ 别自己造一个 personCardNowId()——`personCardId` 就是模块级那个变量，直接用。
-                     */
-                    /*
-                     * Q6（材料 05）：**上／下一位跟着“当前显示顺序”走** ✓
-                     *   旧：按 getRoster() 原始下标 ✗ ⇒ 筛过排过之后会跳到看不见的人 ✗
-                     *   现在：从名册表可见行取顺序 ✓（自动跟随筛选与排序 ✓），拿不到就回退 ✓
-                     */
-                    const visibleIds = (() => {
-                        try {
-                            const rows = document.querySelectorAll('.wxg-ctable tbody tr[data-id]');
-                            const out = [];
-                            for (const tr of Array.from(rows)) {
-                                if (tr.classList && tr.classList.contains('wxg-rowfiltered')) {
-                                    continue;
-                                }
-                                const idv = tr.getAttribute('data-id');
-                                if (idv && out.indexOf(idv) < 0) {
-                                    out.push(idv);
-                                }
-                            }
-                            return out;
-                        } catch (eVis) {
-                            return [];
-                        }
-                    })();
-                    const list = visibleIds.length
-                        ? visibleIds.map((idv) => ({ id: idv }))
-                            : getRoster();
-                    const at = list.findIndex((x) => x.id === personCardId);
-                    if (at >= 0) {
-                        const to = action === 'card-next' ? at + 1 : at - 1;
-                        if (to >= 0 && to < list.length) {
-                            openPersonCard(list[to].id);
-                        }
-                    }
-                    break;
-                }
-                /*
-                 * ⭐ `card-edit` 是**幂等**的：点多少下都是"进编辑态"，⛔ 翻转。
-                 *   为什么：翻转式开关**不可重入**——前面一条用例把它留在开着，
-                 *   后面一条再点一下反而**关上了**（真踩：「找不到字段输入框：age」，
-                 *   但按钮明明点到了）。退出编辑独立成 `card-view`。
-                 */
-                case 'card-edit':
-                    /*
-                     * ⭐ 材料 06【4】#5：**⋮ 进得去也要出得来** ✓
-                     *   旧：data-action 写死 'card-edit'、case 里写死 `= true`（⛔ 翻转 ✗）
-                     *     ⇒ 再点 ⋮ 收不起编辑态 ✗（只能去点最底部的「收起编辑」✗）
-                     *   现在：**翻转** ✓（开着就收、收着就开 ✓）
-                     */
-                    setPersonCardEditing(!personCardEditing);
-                    renderPersonCard();
-                    break;
-                case 'card-view':
-                    setPersonCardEditing(false);
-                    renderPersonCard();
-                    break;
-                case 'card-save':
-                    /*
-                     * ⛔ 关掉浮层！她要的是"改完收起来"，不是"把卡片也关了"。
-                     * （原来这里叫 closePersonCard－点一下连卡都没了，下一位都点不到。）
-                     */
-                    setPersonCardEditing(false);
-                    /*
-                     * ⚠️ 顺序很要紧：浮层是**挂在段容器里**的（为了收得到点击），
-                     *   而 `rerender()` 会重画段 ⇒ **顺手把浮层也冲掉**（真机门当场抓到：
-                     *   点「收起编辑」连卡片一起没了）。
-                     *   ⇒ **先重画段，再把卡片画回来**。
-                     */
-                    rerender();
-                    renderPersonCard();
-                    toast.ok('已收起编辑（改哪格存哪格，引擎不会冲掉）');
-                    break;
                 case 'edit-char': {
                     setOpenChar(String(openChar) === String(id) ? '' : String(id));
                     rerender();
