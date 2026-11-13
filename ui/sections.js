@@ -20,8 +20,8 @@ import {  } from './chron-search.js';   /* A4：编年搜索框 */
 import {  } from './esc-close.js';   /* TW 契约：Esc 监听配对清理 */
 import {  } from '../core/runwarn.js';   /* 必修 9：拒签要顶到上面（红条） */
 import {  } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
-import { getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
-import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
+import { getChat } from '../core/adapter.js';
+import {  } from '../core/bundle.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
@@ -43,7 +43,7 @@ import {  } from '../core/worldbook.js';
 import {  } from '../core/book-wiki.js';
 import {  } from '../core/wb-channel.js';
 import {  } from '../core/clock.js';
-import { publishToBook } from '../core/book.js';
+import {  } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
@@ -1753,55 +1753,6 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
-                case 'export-bundle': {
-                    /* 导出：自带摘要与验签（依据＝阿砚 A 组 E4） */
-                    const rB = buildBundle(loadState());
-                    if (!rB.ok) { toast.bad(rB.reason); break; }
-                    try {
-                        const blob = new Blob([rB.text], { type: 'application/json' });
-                        const aEl = document.createElement('a');
-                        aEl.href = URL.createObjectURL(blob);
-                        aEl.download = '万象阁-账本-' + String(rB.digest || '') + '.json';
-                        document.body.appendChild(aEl);
-                        aEl.click();
-                        setTimeout(() => { try { URL.revokeObjectURL(aEl.href); aEl.remove(); } catch (eR) { } }, 0);
-                        toast.ok('导出好了：' + String(rB.summary.chars) + ' 人物／' + String(rB.summary.chronicle) + ' 编年（包里带摘要）');
-                    } catch (eExp) {
-                        toast.bad('导出失败：' + (eExp && eExp.message ? eExp.message : String(eExp)));
-                    }
-                    break;
-                }
-                case 'import-bundle': {
-                    /* 导入：先验签（六道拒因）→ 再看归属（⛔ 静默覆盖）→ 写完回读 */
-                    const inp = document.createElement('input');
-                    inp.type = 'file';
-                    inp.accept = '.json,application/json';
-                    inp.onchange = async () => {
-                        const f = inp.files && inp.files[0];
-                        if (!f) { return; }
-                        let text = '';
-                        try {
-                            text = await f.text();
-                        } catch (eRead) {
-                            toast.bad('读不了这个文件');
-                            return;
-                        }
-                        const v = verifyBundle(text);
-                        if (!v.ok) { toast.bad('这份文件不能导入：' + v.reason); return; }
-                        const gate = importGate(v.ledger, currentChatKey(), loadState());
-                        if (!gate.ok) { toast.bad(gate.reason); return; }
-                        if (gate.warn) {
-                            const yes = (typeof window !== 'undefined' && window.confirm) ? window.confirm(gate.warn + '\n\n确定导入？') : false;
-                            if (!yes) { return; }
-                        }
-                        const wB = await adoptLedgerForImport(currentChatKey(), v.ledger);
-                        if (!wB.ok) { toast.bad('导入没写进去：' + wB.reason); return; }
-                        toast.ok('导入完成：' + String(v.summary.chars) + ' 人物／' + String(v.summary.chronicle) + ' 编年');
-                        rerender();
-                    };
-                    inp.click();
-                    break;
-                }
                 case 'accept-overlay': {
                     /* 硬-6：采用引擎那一版（锁不解除） */
                     const partsA = String(id).split('|');
@@ -1822,15 +1773,6 @@ export function bindSectionEvents(host, refresh) {
                         rerender();
                     } else {
                         toast.bad('丢不掉：可能已经不在了');
-                    }
-                    break;
-                }
-                case 'publish-book': {
-                    const res = await publishToBook({ force: true });
-                    if (res && res.ok) {
-                        toast.ok('已写进世界书《' + res.book + '》：' + String(res.entries) + ' 条');
-                    } else {
-                        toast.fail('世界书没写成：' + ((res && res.reason) || '未知原因'));
                     }
                     break;
                 }

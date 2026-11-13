@@ -6,9 +6,13 @@ import { toast } from '../toast.js';
 import { getSettings, exportSettings } from '../../core/settings.js';
 import { saveLayerLimits } from '../layer-limits.js';
 import { deleteLedgerRow } from '../ledgers.js';
+import { buildBundle, verifyBundle, importGate } from '../../core/bundle.js';
+import { publishToBook } from '../../core/book.js';
+import { loadState } from '../../core/state.js';
+import { currentChatKey } from '../../core/adapter.js';
 
 
-export const IO_ACTION_SET = new Set(['import-data', 'save-layer-limits', 'del-clue', 'export-chat', 'export-data']);
+export const IO_ACTION_SET = new Set(['import-data', 'save-layer-limits', 'del-clue', 'export-chat', 'export-data', 'export-bundle', 'import-bundle', 'publish-book']);
 
 
 export async function handleIoAction(action, target, id, host, isChange, rerender) {
