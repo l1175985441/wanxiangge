@@ -21,7 +21,7 @@ export const CLAIMS = [
         where: 'ui/sections.js（补推说明）',
         needs: [
             { file: 'ui/panels/general.js', must: ["button('\u53d6\u6d88\uff08\u6b63\u5728\u8dd1\uff09', 'cancel-update'"] },
-            { file: 'ui/sections.js', must: ["case 'cancel-update'"] },
+            { file: 'ui/panels/action-actions.js', must: ["case 'cancel-update'"] },
         ],
     },
     {
@@ -47,7 +47,7 @@ export const CLAIMS = [
         promise: '链路掉线会自己接着补',
         where: 'ui/sections.js（自动重试提示）',
         needs: [
-            { file: 'ui/sections.js', must: ['__wxgAutoRetry'] },
+            { file: 'ui/panels/action-actions.js', must: ['__wxgAutoRetry'] },
             { file: 'core/pipeline.js', must: ['\u5df2\u7ecf\u5728\u8dd1'] },
         ],
     },
