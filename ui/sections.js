@@ -70,7 +70,7 @@ import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared
 import { stage, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
 import { openChar, openRecordAt, setOpenChar, setOpenRecordAt } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
-import { unlockedCards } from './panels/shared.js';
+
 import {  } from './panels/shared.js';
 import { lastSectionsHost, setLastSectionsHost, bindPersonCardDrag } from './panels/shared.js';
 import { jumpToSection } from './panels/nav.js';
@@ -1248,16 +1248,6 @@ export function bindSectionEvents(host, refresh) {
                     dtr.setAttribute('data-hide', hideNow ? '0' : '1');
                     const inner = dtr.querySelector('.wxg-cdetail');
                     if (inner && inner.style) { inner.style.display = hideNow ? '' : 'none'; }
-                    break;
-                }
-                case 'toggle-lock': {
-                    const k = trimText(id);
-                    if (unlockedCards.has(k)) {
-                        unlockedCards.delete(k);
-                    } else {
-                        unlockedCards.add(k);
-                    }
-                    rerender();
                     break;
                 }
                 default:
