@@ -50,6 +50,9 @@ export function secVariables(host) {
         list.appendChild(r);
     }
     cVars.appendChild(list);
+    const cp = button('复制清单', 'copy-vars', 'wxg-btn-sm');
+    cp.title = '复制 11 个占位符与说明';
+    cVars.appendChild(cp);
     box.appendChild(cVars);
     const cReserved = card('前台／后台 · A-／A+／🌙（预留）');
     cReserved.appendChild(el('div', 'wxg-note',

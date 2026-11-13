@@ -2,13 +2,21 @@
 import { openChar, setOpenChar } from './shared.js';
 import { setRole } from '../../core/state.js';
 import { toast } from '../toast.js';
+import { promptVarRows } from '../prompt-copy.js';
+import { copyToClipboard } from './render.js';
 
 
-export const MISC_ACTION_SET = new Set(['edit-char', 'goto-roster', 'set-role']);
+export const MISC_ACTION_SET = new Set(['edit-char', 'goto-roster', 'set-role', 'copy-vars']);
 
 
 export function handleMiscAction(action, target, id, host, isChange, rerender) {
     switch (action) {
+        case 'copy-vars': {
+            const text = promptVarRows().map((r) => r[0] + '  ' + r[1]).join('\n');
+            copyToClipboard(text, target);
+            toast.ok('变量清单已复制');
+            break;
+        }
                 case 'edit-char': {
                     setOpenChar(String(openChar) === String(id) ? '' : String(id));
                     rerender();
