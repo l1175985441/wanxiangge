@@ -25,7 +25,7 @@ import {  } from '../core/bundle.js';
 import { getSettings, patchSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
-import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle, updateQuest, removeQuest, addChronicle, setRole, acceptOverlay, dismissOverlay } from '../core/state.js';
+import { loadState, describeWorld, getChronicle, setRole, acceptOverlay, dismissOverlay } from '../core/state.js';
 import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -48,7 +48,6 @@ import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import {  } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做） ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
-import { takeSnapshot } from '../core/state.js';
 import {  } from './ledgers.js';
 import {  } from './layer-limits.js';
 import {  } from './panels/roster.js';
@@ -92,6 +91,7 @@ import { handleEntryAction, ENTRY_ACTION_SET } from './panels/entry-actions.js';
 import { handleIoAction, IO_ACTION_SET } from './panels/io-actions.js';
 import { handleDupeAction, DUPE_ACTION_SET } from './panels/dupe-actions.js';
 import { handleAppearanceAction, APPEARANCE_ACTION_SET, refreshAppearancePreview } from './panels/appearance-actions.js';
+import { handleQuestAction, QUEST_ACTION_SET } from './panels/quest-actions.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
 
@@ -1075,6 +1075,10 @@ export function bindSectionEvents(host, refresh) {
                 handleAppearanceAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (QUEST_ACTION_SET.has(action)) {
+                handleQuestAction(action, target, id, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1286,49 +1290,6 @@ export function bindSectionEvents(host, refresh) {
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
                 /* ---- 任务（主线／支线）：她也能改 ---- */
-                case 'toggle-quest-item': {
-                    /* ⭐ 材料 06【4】：**子项打勾 / 取消** ✓ */
-                    const qt = trimText(target.getAttribute('data-title'));
-                    const qi = Number(target.getAttribute('data-index'));
-                    const qc = findCharacter(id);
-                    if (qc && Array.isArray(qc.quests)) {
-                        const qs2 = qc.quests.map((q) => {
-                            if (!q || trimText(q.title) !== qt || !Array.isArray(q.items)) {
-                                return q;
-                            }
-                            const items2 = q.items.map((it, ii) => (ii === qi ? Object.assign({}, it, { done: !(it && it.done === true) }) : it));
-                            return Object.assign({}, q, { items: items2 });
-                        });
-                        updateCharacter(id, { quests: qs2 }, { manual: true });
-                        rerender();
-                    }
-                    break;
-                }
-                case 'set-quest-status': {
-                    if (!isChange) {
-                        break;
-                    }
-                    const title = target.getAttribute('data-title') || '';
-                    updateQuest(id, title, { status: trimText(target.value) });
-                    toast.ok('任务状态改成「' + trimText(target.value) + '」了');
-                    rerender();
-                    break;
-                }
-                case 'del-quest': {
-                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
-                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
-                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
-                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这个任务删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
-                    takeSnapshot('删除前（这个任务）');
-                    const title = target.getAttribute('data-title') || '';
-                    if (removeQuest(id, title)) {
-                        addChronicle({ floor: -1, kind: '任务·手动删除', who: '', text: title });
-                        toast.ok('任务删掉了（已在编年里留痕）');
-                    }
-                    rerender();
-                    break;
-                }
                 case 'set-sort-mode': if (isChange) { patchSettings({ sortMode: target.value }); rerender(); } break;
                 /*
                  * ⭐ ST4-A：**这个 case 删掉了** ✓
