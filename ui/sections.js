@@ -25,7 +25,7 @@ import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
-import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle, rollbackLast, exportState, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay } from '../core/state.js';
+import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle, rollbackLast, exportState, updateQuest, removeQuest, addChronicle, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay } from '../core/state.js';
 import { listPresets, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -70,7 +70,7 @@ import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG, stagingByMode, stagedCount } from './panels/shared.js';
-import { apiKeyShown, CLEAR_WORD, rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setClearWorldOpen, setApiKeyShown, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
+import { apiKeyShown, rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setApiKeyShown, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
 import { effectiveAppearance, booksCache, setListBooksCache, lastGoodBooks, setLastGoodBooks } from './panels/shared.js';
 import { unlockedCards } from './panels/shared.js';
 import { setLastModelList } from './panels/shared.js';
@@ -82,6 +82,7 @@ import { byId, textOf, patchApi, readFromBook, testApi, copyToClipboard, downloa
 import { personCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
 import { handleRosterAction, ROSTER_ACTION_SET } from './panels/roster-actions.js';
 import { handleWorldAction, WORLD_ACTION_SET, handleSituationAction, SITUATION_ACTION_SET, handleFactionAction, FACTION_ACTION_SET } from './panels/world-actions.js';
+import { handleChronicleAction, CHRONICLE_ACTION_SET } from './panels/chronicle-actions.js';
 export { unbindPersonCardEsc } from './panels/person-card.js';
 
 
@@ -1266,6 +1267,10 @@ export function bindSectionEvents(host, refresh) {
                 handleFactionAction(action, target, id, rerender);
                 return;
             }
+            if (CHRONICLE_ACTION_SET.has(action)) {
+                await handleChronicleAction(action, target, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 case 'set-enabled': patchSettings({ enabled: target.checked }); rerender(); break;
@@ -1483,72 +1488,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-    case 'clear-world-open':
-        setClearWorldOpen(true);
-        rerender();
-        break;
-    case 'clear-world-cancel':
-        setClearWorldOpen(false);
-        toast.info('没清，原样都在');
-        rerender();
-        break;
-    case 'clear-world-do': {
-        /*
-         * ⭐ 从**点击按钮所在的那个确认盒**里读输入框。
-         *   为什么：「清空这个世界」现在**总控与状态页各有一份**（她要的"双重保险"），
-         *   而原来是按**写死的 id** 取 ⇒ 两份在一起时会读到**错的那个输入框**
-         *   （`getElementById` 只给文档里第一个）⇒ 她打了字却被判"打错字了"。
-         */
-        const near = target && typeof target.closest === 'function'
-            ? target.closest('.wxg-danger-box') : null;
-        const box = (near && typeof near.querySelector === 'function'
-            ? near.querySelector('input') : null) || document.getElementById('wxg-clear-typing-general');
-        const typed = box && typeof box.value === 'string' ? box.value.trim() : '';
-        if (typed !== CLEAR_WORD) {
-            toast.fail('打错字了：要一字不差地打「' + CLEAR_WORD + '」才让清');
-            break;
-        }
-        const counts = await clearWorldLedger();
-        setClearWorldOpen(false);
-        const parts = Object.keys(counts).map((k) => k + ' ' + String(counts[k]) + ' 条');
-        toast.ok('这个聊天的世界已清空：' + parts.join('、') + '（世界书没动）');
-        rerender();
-        break;
-    }
-    /*
-     * ⭐ 删编年一条。⛔ 只删这一条，别的一律不碰；删完给回执（她要知道删掉了什么）。
-     */
-    case 'del-chronicle': {
-        const idx = Number(target.getAttribute('data-index'));
-        if (await removeChronicleAt(idx)) {
-            toast.ok('删掉一条编年');
-        } else {
-            toast.fail('没删掉（下标对不上，可能列表刚刷新过）');
-        }
-        rerender();
-        break;
-    }
-    /*
-     * ⭐ 清空编年：按她的规矩来——**写明条数**再动手，⛔ 不静默。
-     */
-    case 'clear-chronicle': {
-        /* ⭐ 材料 06【6】②之二：**大动作先留快照** ✓
-         *   （旧：清空编年不留快照 ✗ ⇒ 误操作无法用「撤回上一次」恢复 ✗） */
-        takeSnapshot('清空编年前');
-        const n = getChronicle().length;
-        if (!n) {
-            toast.info('编年本来就是空的');
-            break;
-        }
-        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把编年全部清掉吗？\n\n将清掉：编年 ' + String(n) + ' 条\n'
-            + '（只清编年；名册、世界状态、暗线、世界书都不动）\n\n清掉就回不来了。')) {
-            break;
-        }
-        const done = await clearChronicle();
-        toast.ok('编年已清空（' + String(done) + ' 条）');
-        rerender();
-        break;
-    }
                 case 'read-book': {
                     /*
                      * ⭐ 材料 10 · 第 6 组裁定（她 10-17 授权代拍）：**维持“只提示不拦”** ✓
