@@ -97,7 +97,7 @@ import { handleMenuAction, MENU_ACTION_SET } from './panels/menu-actions.js';
 import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
-import { healthOpen, setHealthOpen, closeHealthCard, renderHealthCard } from './panels/health-overlay.js';
+import { healthOpen, renderHealthCard, handleHealthAction, HEALTH_ACTION_SET } from './panels/health-overlay.js';
 import { openWorldEntry, renderWorldEntryCard, handleWorldEntryAction, WORLD_ENTRY_ACTION_SET } from './panels/world-entry-overlay.js';
 
 
@@ -694,6 +694,10 @@ export function bindSectionEvents(host, refresh) {
                 handleWorldEntryAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (HEALTH_ACTION_SET.has(action)) {
+                handleHealthAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -703,15 +707,6 @@ export function bindSectionEvents(host, refresh) {
                  *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'health-open':
-                    setHealthOpen(true);
-                    renderHealthCard();
-                    break;
-                case 'health-close':
-                    closeHealthCard();
-                    break;
-                default:
-                    break;
             }
         } catch (err) {
             console.warn('[万象阁] 面板操作出错：', err);

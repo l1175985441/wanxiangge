@@ -56,3 +56,19 @@ export function renderHealthCard() {
 }
 
 export function setHealthOpen(v) { healthOpen = v; }
+
+export const HEALTH_ACTION_SET = new Set(['health-open', 'health-close']);
+
+export function handleHealthAction(action, target, id, host, isChange, rerender) {
+    switch (action) {
+                case 'health-open':
+                    setHealthOpen(true);
+                    renderHealthCard();
+                    break;
+                case 'health-close':
+                    closeHealthCard();
+                    break;
+                default:
+                    break;
+    }
+}
