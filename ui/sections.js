@@ -26,7 +26,6 @@ import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, expo
 import { shiftWorldClock } from '../core/world-events.js';
 import { scheduleBadge } from '../core/schedule.js';
 import { getRoster, loadState, saveState, addCharacter, addCharacters, removeCharacter, updateCharacter, findCharacterByName, findCharacter, applyRosterPreset, describeWorld, getChronicle, removeHidden, addHiddenManually, rollbackLast, exportState, updateWorld, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, addKnow, removeKnow, importState, pushPast, ROLES, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay, removeFaction, upsertFaction } from '../core/state.js';
-import { createCache } from '../core/cache.js';   /* B7：缓存坏了，⛔ 当成“没有” */
 import { listPresets, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -72,6 +71,8 @@ import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, 
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG, stagingByMode, stagedCount } from './panels/shared.js';
 import { apiKeyShown, CLEAR_WORD, openSituation, rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setClearWorldOpen, setApiKeyShown, setOpenSituation, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
+import { effectiveAppearance, booksCache, listBooksCache, setListBooksCache, lastGoodBooks, setLastGoodBooks } from './panels/shared.js';
+
 
 
 export { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
@@ -399,14 +400,6 @@ const STAGE_MAP = {
  *   为什么要这么一个口径：外观是"整块存"的，而她**连改几槽**时
  *   每一槽都得以**前面那几槽的草稿值**为基底 ⇒ ⛔ 就会互冲。
  */
-export function effectiveAppearance() {
-    const box = stagingOf(stagingMode).appearance;
-    const draft = box && box.appearance;
-    if (draft && typeof draft === 'object') {
-        return draft;
-    }
-    return getSettings().appearance || {};
-}
 
 /** 把页面上已经在的预览盒重新上色（⛔ 重画整页：那会把她正在拖的滑杆弄没） */
 function refreshAppearancePreview() {
@@ -590,12 +583,6 @@ function refreshSaveBar(host, secId) {
 export let pickBook = '';
 export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
-export const booksCache = createCache('worldbooks');   /* B7：带状态的缓存（hit/miss/empty/broken） */
-export let listBooksCache = [];   /* 兼容：老代码读它；新代码读 booksCache */
-let lastGoodBooks = [];   /* 上一次真读到的书单（读不到时用它先顶着，⛔ 把列表清空） */
-/* 依据＝本轮查“首跑红复跑绿”：自动列书的 setTimeout 每次重画都排一个 ⇒ 旧定时器晚到也去点按钮，把列表反复刷新 */
-export let autoListTimer = null;
-export function setAutoListTimer(v) { autoListTimer = v; }
 
 /* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
 let lastModelList = [];
@@ -740,11 +727,6 @@ export function applyLocks(root) {
 }
 
 /** 从 URL 里取主机名，只用于显示（⛔ 不泄露整条密钥） */
-export function hostOf(url) {
-    const s = asText(url);
-    const m = s.match(/^[a-z]+:\/\/([^/]+)/i);
-    return m ? m[1] : (s.length > 24 ? s.slice(0, 24) + '…' : s);
-}
 
 /**
  * 提示词：**折叠条 ＋ 当前用的那份直接预览**。
@@ -3615,14 +3597,14 @@ export function bindSectionEvents(host, refresh) {
                         booksCache.markBroken('没读到世界书列表（可能没开接口）');
                         if (lastGoodBooks.length) {
                             /* 依据＝本轮查失败时的真因：旧代码在这里把列表清空 ⇒ 重画后㉊片全没。现在先用上次的书单。 */
-                            listBooksCache = lastGoodBooks.slice();
+                            setListBooksCache(lastGoodBooks.slice());
                             try { paintBookPicks(host); } catch (eKeep) { }
                             if (info) {
                                 info.textContent = '**读不到新的**世界书列表，先用上次读到的 ' + String(lastGoodBooks.length) + ' 本（⛔ 当成“一本都没有”）。';
                             }
                             break;
                         }
-                        listBooksCache = [];
+                        setListBooksCache([]);
                         if (info) {
                             info.textContent = '**读不到**世界书列表（不是“一本都没有”；有些酒馆版本没开这个接口）⇒ 直接手填书名也行。';
                         }
@@ -3637,8 +3619,8 @@ export function bindSectionEvents(host, refresh) {
                      *   自动列书的定时器正好在这一瞬触发时，她点下去就是“找不到控件”。
                      *   paintBookPicks 已经按 data-book 自己剔旧补新（原地更新）⇒ 这里不需要先清一遍。
                      */
-                    listBooksCache = names;
-                    lastGoodBooks = names.slice();
+                    setListBooksCache(names);
+                    setLastGoodBooks(names.slice());
                     booksCache.set(names);   /* B7：真取到了才算 hit/empty */
                     paintBookPicks(host,
                         toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks)),

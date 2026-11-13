@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { getSettings } from '../../core/settings.js'; import { isBroken } from '../../core/cache.js'; import { autoListTimer, booksCache, listBooksCache, paintBookPicks, setAutoListTimer } from '../sections.js'; import { saveBar, stage, stagedValue } from './shared.js'; import { button, card, checkbox, el, line, row, section, textInput } from './shared.js';
+import { getSettings } from '../../core/settings.js'; import { isBroken } from '../../core/cache.js'; import { paintBookPicks } from '../sections.js'; import { autoListTimer, booksCache, listBooksCache, setAutoListTimer } from './shared.js'; import { saveBar, stage, stagedValue } from './shared.js'; import { button, card, checkbox, el, line, row, section, textInput } from './shared.js';
 
 export function secExtract(host, intoBox) {
     const SECID = 'extract';

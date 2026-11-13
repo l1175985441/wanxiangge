@@ -3,6 +3,8 @@ import { asText, trimText } from '../../core/utils.js';
 import { iconSvg } from '../icons.js';
 import { titleNode, tidyText } from '../tidy-heads.js';
 import { formatStamp } from '../../core/adapter.js';
+import { getSettings } from '../../core/settings.js';
+import { createCache } from '../../core/cache.js';
 
 
 
@@ -619,3 +621,27 @@ export function setOpenChar(v) { openChar = v; }
 export function setOpenRecordAt(v) { openRecordAt = v; }
 
 export function setChronSearch(v) { chronSearch = v; }
+
+export function effectiveAppearance() {
+    const box = stagingOf(stagingMode).appearance;
+    const draft = box && box.appearance;
+    if (draft && typeof draft === 'object') {
+        return draft;
+    }
+    return getSettings().appearance || {};
+}
+
+export function hostOf(url) {
+    const s = asText(url);
+    const m = s.match(/^[a-z]+:\/\/([^/]+)/i);
+    return m ? m[1] : (s.length > 24 ? s.slice(0, 24) + '…' : s);
+}
+
+export const booksCache = createCache('worldbooks');   /* B7：带状态的缓存（hit/miss/empty/broken） */
+export let listBooksCache = [];   /* 兼容：老代码读它；新代码读 booksCache */
+export let lastGoodBooks = [];   /* 上一次真读到的书单（读不到时用它先顶着，⛔ 把列表清空） */
+/* 依据＝本轮查“首跑红复跑绿”：自动列书的 setTimeout 每次重画都排一个 ⇒ 旧定时器晚到也去点按钮，把列表反复刷新 */
+export let autoListTimer = null;
+export function setAutoListTimer(v) { autoListTimer = v; }
+export function setListBooksCache(v) { listBooksCache = v; }
+export function setLastGoodBooks(v) { lastGoodBooks = v; }
