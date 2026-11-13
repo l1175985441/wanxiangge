@@ -48,7 +48,7 @@ import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做） ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
-import { mountMini, closeMini, refreshMini } from './mini.js';
+import { mountMini, closeMini } from './mini.js';
 import { takeSnapshot } from '../core/state.js';
 import { deleteLedgerRow } from './ledgers.js';
 import { saveLayerLimits } from './layer-limits.js';
@@ -69,7 +69,7 @@ import {  } from './panels/api.js';
 import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
-import { stage, stagedValue, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG } from './panels/shared.js';
+import { stage, stagedValue, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
 import { rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
 import { unlockedCards } from './panels/shared.js';
@@ -86,9 +86,9 @@ import { handleWorldAction, WORLD_ACTION_SET, handleSituationAction, SITUATION_A
 import { handleChronicleAction, CHRONICLE_ACTION_SET } from './panels/chronicle-actions.js';
 import { handleApiAction, API_ACTION_SET } from './panels/api-actions.js';
 import { handlePromptAction, PROMPT_ACTION_SET } from './panels/prompt-actions.js';
-import { handleSettingsAction, SETTINGS_ACTION_SET } from './panels/settings-actions.js';
+import { handleSettingsAction, SETTINGS_ACTION_SET, commitSection } from './panels/settings-actions.js';
 import { handleBookAction, BOOK_ACTION_SET } from './panels/book-actions.js';
-import { syncApiFromDom, API_KEYS } from './panels/api-sync.js';
+
 import { refreshSaveBar } from './panels/savebar.js';
 
 
@@ -214,99 +214,6 @@ export function hasUnsavedDraft() {
  */
 
 /** 把这一段的草稿落进设置 */
-function commitSection(secId) {
-    const box = stagingOf(modeForSection(secId))[secId];
-    if (WXG_DBG) {
-        try {
-            console.info('[wanxiangge][commit] sec=' + String(secId) + ' mode=' + String(stagingMode)
-                + ' keys=' + JSON.stringify(box ? Object.keys(box) : [])
-                + ' vals=' + JSON.stringify(box ? Object.keys(box).reduce((o, k) => { o[k] = String(box[k] == null ? '' : box[k]).slice(0, 30); return o; }, {}) : {}));
-        } catch (eDbg2) { /* 日志不影响保存 */ }
-    }
-    if (!box || !Object.keys(box).length) {
-        return 0;
-    }
-    const patch = {};
-    for (const k of Object.keys(box)) {
-        if (k === 'appearance' && box[k] && typeof box[k] === 'object') {
-            /*
-             * ⭐ 复审追加 3①：**这里得用 `patch.appearance` 打底**，而且**关键序**。
-             *   病根：同一轮草稿里**先取消勾选、再改色板**时，循环先走 `applyToPanel` 分支
-             *   （折好了 `patch.appearance.applyToPanel=false`），紧接着走这个分支——
-             *   原来直接 `getSettings().appearance` 做底 ⇒ **把刚折好的那一笔盖回去**；
-             *   而 `box[k]`（改色板时的基底）里还带着旧的 `applyToPanel: true`。
-             *   ⇒ 用 `patch.appearance ||` 打底，并**只要 box 里有 `applyToPanel` 就再校正一次**（⛔ 论键序）。
-             */
-            patch.appearance = Object.assign({},
-                patch.appearance || getSettings().appearance || {},
-                box[k]);
-            if (Object.prototype.hasOwnProperty.call(box, 'applyToPanel')) {
-                patch.appearance.applyToPanel = box.applyToPanel === true;
-            }
-            continue;
-        }
-        /*
-         * ⭐ 复审追加 2（A3 写入层）：**`applyToPanel` 要折进 `appearance` 里**，⛔ 落顶层。
-         *   根因：读侧 `theme.resolveAppearance()` 读的是 **`settings.appearance.applyToPanel`**，
-         *   而这里原来走 `patch[k] = box[k]` ⇒ 写进了**顶层** `settings.applyToPanel`（**没人读的那格**）
-         *   ⇒ 她「取消勾选 + 保存」后，读侧那格**仍是 true** ⇒ 小框照样被染色（"跟随酒馆主题"实际不生效）。
-         *   ⚠️ 正因为读不到，我 A3 那次修的"清除"**根本没被触发**——两轮人工复核都漏了这一格，
-         *     最后是**真机 playwright 实点**才抓出来的（所以"假机全绿"不等于"真机对"）。
-         *   ⛔ 不动顶层那个历史遗留字段（留着无副作用，属清单外）。
-         */
-        if (k === 'applyToPanel') {
-            patch.appearance = Object.assign({},
-                patch.appearance || getSettings().appearance || {},
-                { applyToPanel: box[k] === true });
-            continue;
-        }
-        if (k === 'api' && box[k] && typeof box[k] === 'object') {
-            patch.api = Object.assign({}, getSettings().api || {}, box[k], patch.api || {});
-            continue;
-        }
-        /*
-         * ⭐ B10（材料 14 · 代拍 A）：**「不读」表落盘时写进「当前这本书」那一格** ✓
-         *   随点随存会串味：换过书之后行为不对，几乎想不到是上一本的不读表还在 ✗
-         *   同时把老的共用表清空 ✓（迁移已在 worldbook.migrateExcludeToPerBook 做过 ✓）
-         */
-        if (k === 'excludeEntries' && secId === 'extract') {
-            const bookNow = trimText(pickBook);
-            if (bookNow) {
-                const byBookOld = (getSettings().excludeEntriesByBook && typeof getSettings().excludeEntriesByBook === 'object')
-                    ? getSettings().excludeEntriesByBook : {};
-                patch.excludeEntriesByBook = Object.assign({}, byBookOld, { [bookNow]: asText(box[k]) });
-                patch.excludeEntries = '';
-            } else {
-                patch[k] = box[k];
-            }
-            continue;
-        }
-        if (API_KEYS.includes(k)) {
-            patch.api = Object.assign({}, getSettings().api || {}, patch.api || {}, { [k]: box[k] });
-        } else {
-            patch[k] = box[k];
-        }
-    }
-    delete stagingOf(modeForSection(secId))[secId];
-    patchSettings(patch);
-    /*
-     * ⭐ 复审追加 3②：**外观段存完立刻刷小框**。
-     *   病根：这里只 `patchSettings`（重画走的是工作台／设置区那条路），而 `closeWorkspace()`
-     *   也只把 `mini.style.display` 放回来——**两边都没人碰小框** ⇒ 她「取消勾选 + 保存」后
-     *   **不动任何东西**读小框，`--wxg-surface` 还是旧的（要等下次切档／发消息才清）。
-     *   ⇒ 这一段存完就补一次（⛔ 不是每个段都刷：别的段跟小框无关，白刷一遍）。
-     */
-    if (secId === 'appearance') {
-        try {
-            refreshMini();
-        } catch (e) {
-            console.warn('[万象阁] 存完外观没刷上小框：', e);
-        }
-    }
-    return Object.keys(box).length;
-}
-
-/** 走 api 那一格的键（保存时归到 api 下面） */
 const STAGE_MAP = {
     'stage-auto-update': ['general', 'autoUpdate', 'checked'],
     'stage-update-every': ['general', 'updateEvery', 'value'],
@@ -519,13 +426,6 @@ function stageOne(action, target) {
 }
 
 /** 保存之后说一声（说清"到底存了几处"，⛔ 不静默） */
-function refreshToastSection(secId, n) {
-    if (!n) {
-        toast.info('这一段没有未保存的改动');
-        return;
-    }
-    toast.ok('存好了：这一段改了 ' + String(n) + ' 处');
-}
 
 /**
  * 只把"保存这条"就地重画一下（⛔ 不整页重画 ⇒ 她还能接着点）。
@@ -1429,63 +1329,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-                case 'save-section': {
-                    syncApiFromDom(host);
-                    const n = commitSection(id);
-                    /*
-         * ⭐ ST8（材料 11·设置层）：**切「打开方式」保存后要当场换形态** ✓
-         *   旧：在工作台里改成「浮层面板」并点保存 ✗ ⇒ **当前开着的工作台不动** ✗
-         *     ⇒ 得手动关掉工作台、再去点魔法棒才生效 ✗
-         *   现在：保存「外观」段后看一眼当前形态 ✓
-         *     形态**不对** ⇒ 关一个开另一个 ✓；形态**已经对了** ⇒ **什么都不做** ✓（⛔ 无事重开打断她 ✗）
-         */
-        if (id === 'appearance') {
-            /* ⭐ ST4-A：小框两个开关现在走草稿 ⇒ **保存后**才取到新值 ✓ */
-            import('./mini.js').then((mm) => { if (mm && typeof mm.refreshMini === 'function') { mm.refreshMini(); } }).catch(() => {});
-            import('./workspace.js').then((wsm) => import('./shell.js').then((shm) => {
-                const want = getSettings().layoutMode === 'panel' ? 'panel' : 'workspace';
-                const wsOpen = (wsm && typeof wsm.isWorkspaceOpen === 'function') ? wsm.isWorkspaceOpen() : false;
-                const pnOpen = (shm && typeof shm.isPanelOpen === 'function') ? shm.isPanelOpen() : false;
-                if (want === 'panel' && !pnOpen) {
-                    if (wsm && typeof wsm.closeWorkspace === 'function') { wsm.closeWorkspace(); }
-                    if (shm && typeof shm.openPanel === 'function') { shm.openPanel(); }
-                } else if (want === 'workspace' && !wsOpen) {
-                    if (shm && typeof shm.closePanel === 'function') { shm.closePanel(); }
-                    if (wsm && typeof wsm.openWorkspace === 'function') { wsm.openWorkspace(); }
-                }
-            })).catch(() => {});
-        }
-        refreshToastSection(id, n);
-        /*
-         * ⭐ RD7（材料 11·渲染层）：**关掉召回卡片开关并保存后，聊天里已挂着的卡片要当场刷** ✓
-         *   旧：只重画了设置面板 ✗ ⇒ 聊天流里的卡片**纹丝不动** ✗
-         *   现在：保存「召回」段后补一次 mountAllCards ✓（动态 import，⛔ 加静态依赖 ✗）
-         */
-        if (id === 'recall') {
-            import('./render.js').then((m) => {
-                if (m && typeof m.mountAllCards === 'function') {
-                    m.mountAllCards(2, 900);
-                }
-            }).catch(() => {});
-        }
-                    /*
-                     * ⭐⭐ 谷歌方案 A（她 2026-10-17 选定）：保存按钮＝**确定性回执** ✓
-                     *   病根：她填完去点保存，而值已经（失焦）落盘 ⇒ 旧行为只弹
-                     *   “这一段没有未保存的改动” ✗ ⇒ 她根本不知道到底存上没存上 ✗（＝“好绕”）
-                     *   ⇒ 现在：API 这一段保存后弹**带当前值**的回执 ✓（她一眼就知道存的是哪一套 ✓）
-                     */
-                    if (id === 'api') {
-                        try {
-                            const aSaved = getSettings().api || {};
-                            const modeLabel = aSaved.mode === 'direct' ? '直连' : '经酒馆转发';
-                            const modelLabel = trimText(aSaved.model) || '（没填）';
-                            const say = (typeof toast.ok === 'function') ? toast.ok : toast.info;
-                            say.call(toast, 'API 设置已保存 ✓（当前：' + modeLabel + '｜模型：' + modelLabel + '）');
-                        } catch (eSaveTip) { /* ⛔ 影响保存 */ }
-                    }
-                    rerender();
-                    break;
-                }
                 case 'list-entries': {
                     const name = id;
                     setPickBook(trimText(name));
