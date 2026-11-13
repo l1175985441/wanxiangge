@@ -29,7 +29,7 @@ import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle,
 import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
-import { toList, trimText, asText, asArray } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
+import { trimText, asText, asArray } from '../core/utils.js';   /* ★ 20261022：重名拦截用 matchKey，之前没 import ⇒ 永远判不重名 */
 import { applyAppearance, palettePatch } from './theme.js';
 import {  } from '../core/summary.js';
 import {  } from '../core/roster-cols.js';   /* 80：只用来判“身份／势力全空” */
@@ -38,7 +38,7 @@ import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
 import { APP_VERSION, originPanel, agendaOriginPanel } from '../core/config.js';   /* I4 */
 import { replanCurrentFloor } from '../core/actions.js';
-import { getEntries, excludeTextFor } from '../core/worldbook.js';
+import {  } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
 import {  } from '../core/book-wiki.js';
 import {  } from '../core/wb-channel.js';
@@ -76,10 +76,11 @@ import { unlockedCards } from './panels/shared.js';
 import {  } from './panels/shared.js';
 import { lastSectionsHost, setLastSectionsHost, bindPersonCardDrag } from './panels/shared.js';
 import { jumpToSection } from './panels/nav.js';
-import { pickBook, setPickBook } from './panels/locks.js';
+import {  } from './panels/locks.js';
 import { renderSections as renderSectionsCore } from './panels/render.js';
+import {  } from './panels/entry-state.js';
 import { byId } from './panels/render.js';
-import { copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
+import { copyToClipboard, downloadText } from './panels/render.js';
 import { personCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
 import { handleRosterAction, ROSTER_ACTION_SET } from './panels/roster-actions.js';
 import { handleWorldAction, WORLD_ACTION_SET, handleSituationAction, SITUATION_ACTION_SET, handleFactionAction, FACTION_ACTION_SET } from './panels/world-actions.js';
@@ -88,6 +89,7 @@ import { handleApiAction, API_ACTION_SET } from './panels/api-actions.js';
 import { handlePromptAction, PROMPT_ACTION_SET } from './panels/prompt-actions.js';
 import { handleSettingsAction, SETTINGS_ACTION_SET, commitSection } from './panels/settings-actions.js';
 import { handleBookAction, BOOK_ACTION_SET } from './panels/book-actions.js';
+import { handleEntryAction, ENTRY_ACTION_SET } from './panels/entry-actions.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
 
@@ -433,7 +435,6 @@ function stageOne(action, target) {
  */
 
 /** ⭐ 读取控制：正在看哪本书的条目（重画后要能自动摆回来，否则点一条之后就没得点了） */
-export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
 
 /* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
@@ -1119,6 +1120,10 @@ export function bindSectionEvents(host, refresh) {
                 await handleBookAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (ENTRY_ACTION_SET.has(action)) {
+                await handleEntryAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1329,129 +1334,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-                case 'list-entries': {
-                    const name = id;
-                    setPickBook(trimText(name));
-                    const entries = await getEntries(name);
-                    pickEntries = entries;
-                    const note = byId(host, 'wxg-entnote');
-                    const wrap = byId(host, 'wxg-entpick');
-                    if (!note) {
-                        break;
-                    }
-                    if (!entries.length) {
-                        note.textContent = '「' + name + '」里没读到条目（或这本没开）。';
-                        break;
-                    }
-                    const off = toList(excludeTextFor(name));
-                    note.textContent = '「' + name + '」共 ' + String(entries.length)
-                        + ' 条：点一下＝不读这一条（点过的不参与推演）；⛔ 不改你的世界书。';
-                    if (wrap) {
-                        /*
-         * ⭐⭐ 材料 01（界面第 2 条）：**只清“条目区”，⛔ 清整个容器** ✓
-         *   旧：`while (wrap.firstChild) removeChild` 把 `#wxg-entpick` **整个清空** ✗
-         *     ⇒ 里面那些「看条目：某某书」按钮**全被冲没** ✗
-         *     （她想看第二本书还得重新点一次“读世界书列表” ✗）
-         *   现在：条目放进它们自己的子容器 `#wxg-entlist` ✓ ⇒ 只清它 ✓
-         */
-                        let box = wrap.querySelector('#wxg-entlist');
-                        if (!box) {
-                            box = document.createElement('div');
-                            box.id = 'wxg-entlist';
-                            wrap.appendChild(box);
-                        }
-                        while (box.firstChild) {
-                            box.removeChild(box.firstChild);
-                        }
-                        wrap = box;
-                        for (const e of entries.slice(0, 200)) {
-                            const title = trimText(e && (e.comment || e.key || e.title));
-                            if (!title) {
-                                continue;
-                            }
-                            const b = document.createElement('button');
-                            b.type = 'button';
-                            b.className = 'wxg-pick'
-                                + (off.some((x) => asText(x) === asText(title)) ? ' is-on' : '');
-                            b.textContent = title;
-                            b.title = off.some((x) => asText(x) === asText(title))
-                                ? '已设为"不读"（再点＝恢复读它）'
-                                : '点一下＝不读这一条';
-                            b.setAttribute('data-action', 'toggle-entry');
-                            b.setAttribute('data-entry', title);
-                            wrap.appendChild(b);
-                        }
-                    }
-                    break;
-                }
-                case 'entry-all-on':
-                case 'entry-all-off':
-                case 'entry-invert': {
-                    /*
-                     * ⭐ 3③：批量改（同样**只动草稿**，等段底保存）。
-                     *   ⚠️ "全不读"只管**当前这本书的条目**，⛔把别的书的排除也涂了。
-                     */
-                    const act = action;
-                    const all = pickEntries.map((e) => trimText(e && (e.comment || e.key || e.name || e.title)))
-                        .filter(Boolean);
-                    let offNow = toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
-                    const inOff = (x) => offNow.some((y) => asText(y) === asText(x));
-                    if (act === 'entry-all-on') {
-                        offNow = offNow.filter((x) => !all.some((y) => asText(y) === asText(x)));
-                        toast.ok('这本书 ' + String(all.length) + ' 条全读（还没保存）');
-                    } else if (act === 'entry-all-off') {
-                        for (const x of all) {
-                            if (!inOff(x)) {
-                                offNow.push(x);
-                            }
-                        }
-                        toast.info('这本书 ' + String(all.length) + ' 条全不读（还没保存）');
-                    } else {
-                        for (const x of all) {
-                            if (inOff(x)) {
-                                offNow = offNow.filter((y) => asText(y) !== asText(x));
-                            } else {
-                                offNow.push(x);
-                            }
-                        }
-                        toast.info('反选了（还没保存）');
-                    }
-                    stage('extract', 'excludeEntries', offNow.join('、'));
-                    renderEntryPick(host, offNow);
-                    refreshSaveBar(host, 'extract');
-                    break;
-                }
-                case 'filter-entries': {
-                    entFilter = trimText(target.value);
-                    renderEntryPick(host);
-                    const back = host.querySelector('#wxg-entfilter');
-                    if (back && typeof back.focus === 'function') {
-                        back.focus();
-                    }
-                    break;
-                }
-                case 'toggle-entry': {
-                    const title = trimText(target.getAttribute('data-entry'));
-                    if (!title) {
-                        break;
-                    }
-                    const off = toList(stagedValue('extract', 'excludeEntries', excludeTextFor(pickBook)));
-                    const i = off.findIndex((x) => asText(x) === asText(title));
-                    if (i >= 0) {
-                        off.splice(i, 1);
-                        toast.ok('「' + title + '」恢复参与（还没保存）');
-                    } else {
-                        off.push(title);
-                        toast.info('「' + title + '」标成"不读"（还没保存）');
-                    }
-                    stage('extract', 'excludeEntries', off.join('、'));
-                    renderEntryPick(host, off);
-                    refreshSaveBar(host, 'extract');
-                    break;
-                }
-                /* ⭐ 修复 15（材料 02）：一键合并查重出的所有重复组 ✓
-                 *   为什么要有它：她能「查重」看出一堆重复，但只能一条条点「按这条合并…」✗
-                 *   现在：一次确认 ⇒ 留一份快照 ⇒ 逐组逐条并（单组失败不影响其它 ✓） */
                 case 'merge-all-dupes': {
                     const groups = autoDetectDuplicates();
                     if (!groups.length) {

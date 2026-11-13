@@ -12,6 +12,7 @@ import { mountLedgers } from '../ledgers.js';
 import { el, section, card, button, lastSectionsHost, setLastSectionsHost, stagingMode, setStagingMode } from './shared.js';
 import { buildJumpNav } from './nav.js';
 import { pickBook, applyLocks } from './locks.js';
+import { pickEntries, entFilter } from './entry-state.js';
 import { markOneCol } from '../onecol.js';
 import { tidyHeadings } from '../tidy-heads.js';
 import { toast } from '../toast.js';
@@ -166,7 +167,6 @@ secPrompts(stageEl);
  * ⭐ RD1-3（材料 11）：把 `lastModelList` 画成芯片 ✓
  *   （重建与拉取两边共用同一份标记 ✓，⛔ 两套写法 ✗）
  */
-let entFilter = '';
 export function renderEntryPick(host, offList) {
     if (!pickBook || !pickEntries.length) {
         return;
