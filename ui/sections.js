@@ -1356,11 +1356,6 @@ export function bindSectionEvents(host, refresh) {
                  */
                 /* ---- 四格 ---- */
                 /* ⭐ 先进草稿（等段底那颗「保存」一起存），⛔ 不再改一处存一处 */
-                case 'set-extract-tags': if (isChange) { patchSettings({ extractTags: target.value }); toast.ok('提取标签已保存'); } break;
-                case 'set-exclude-tags': if (isChange) { patchSettings({ excludeTags: target.value }); toast.ok('排除标签已保存'); } break;
-                case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
-                case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
-                case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
                     break;
                     break;
                 /* ---- API ---- */

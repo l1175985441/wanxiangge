@@ -9,7 +9,7 @@ import { toast } from '../toast.js';
 import { refreshMini } from '../mini.js';
 
 
-export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','open-workspace-btn','rollback-to','rollback']);
+export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
 
 
 export function handleSettingsAction(action, target, id, host, isChange, rerender) {
@@ -129,6 +129,11 @@ export function handleSettingsAction(action, target, id, host, isChange, rerende
                     rerender();
                     break;
                 }
+                case 'set-extract-tags': if (isChange) { patchSettings({ extractTags: target.value }); toast.ok('提取标签已保存'); } break;
+                case 'set-exclude-tags': if (isChange) { patchSettings({ excludeTags: target.value }); toast.ok('排除标签已保存'); } break;
+                case 'set-extract-books': if (isChange) { patchSettings({ extractBooks: target.value }); toast.ok('提取世界书已保存'); } break;
+                case 'set-exclude-books': if (isChange) { patchSettings({ excludeBooks: target.value }); toast.ok('排除世界书已保存'); } break;
+                case 'set-affinity-source': if (isChange) { patchSettings({ affinitySource: target.value }); toast.ok('好感数据源已保存'); } break;
     }
 }
 
