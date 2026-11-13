@@ -645,3 +645,52 @@ export let autoListTimer = null;
 export function setAutoListTimer(v) { autoListTimer = v; }
 export function setListBooksCache(v) { listBooksCache = v; }
 export function setLastGoodBooks(v) { lastGoodBooks = v; }
+
+export const unlockedCards = new Set();
+export function lockable(cardEl, key) {
+    if (!cardEl || !cardEl.classList) {
+        return cardEl;
+    }
+    const open = unlockedCards.has(key);
+    cardEl.classList.toggle('is-locked', !open);
+    const oldBtn = cardEl.querySelector('.wxg-lock-btn');
+    if (oldBtn && oldBtn.parentNode) {
+        oldBtn.parentNode.removeChild(oldBtn);
+    }
+    const head = cardEl.querySelector('.wxg-card-h') || cardEl;
+    const b = button(open ? '收起' : '编辑', 'toggle-lock', 'wxg-btn-xs wxg-lock-btn', key);
+    if (head.appendChild) {
+        head.appendChild(b);
+    }
+    cardEl.setAttribute('data-lock-key', key);
+    /*
+     * ⚠️ 真锁（readonly）不能在这儿做：调 `lockable(card(…), …)` 的时候
+     *    **卡里还是空的**（输入框是后面 row()/textInput() 才加进去的）
+     *    ⇒ 扫不到任何字段、一个 readonly 都上不去。真踩过。
+     *    统一放到整页建完之后的 `applyLocks()` 里做。
+     */
+    return cardEl;
+}
+
+export let lastModelList = [];
+export function paintModelChips(boxEl) {
+    if (!boxEl || !boxEl.appendChild) {
+        return;
+    }
+    while (boxEl.firstChild) {
+        boxEl.removeChild(boxEl.firstChild);
+    }
+    if (!Array.isArray(lastModelList) || !lastModelList.length) {
+        return;
+    }
+    const rowEl = el('div', 'wxg-chiprow');
+    for (const nm of lastModelList) {
+        const chip = el('button', 'wxg-chip', nm);
+        chip.type = 'button';
+        chip.setAttribute('data-action', 'pick-model');
+        chip.setAttribute('data-name', nm);
+        rowEl.appendChild(chip);
+    }
+    boxEl.appendChild(rowEl);
+}
+export function setLastModelList(v) { lastModelList = v; }

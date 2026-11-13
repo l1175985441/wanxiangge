@@ -72,6 +72,10 @@ import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared
 import { stage, stagedValue, saveBar, stagingOf, modeForSection, stagingMode, setStagingMode, WXG_DBG, stagingByMode, stagedCount } from './panels/shared.js';
 import { apiKeyShown, CLEAR_WORD, openSituation, rosterFilter, openChar, rosterSortDir, openRecordAt, setChronFilter, setChronPage, setStepPage, setRosterPage, setClearWorldOpen, setApiKeyShown, setOpenSituation, setReportFilter, setStepFilter, setRosterFilter, setRosterSearch, setOpenChar, setRosterSortDir, setOpenRecordAt, setChronSearch } from './panels/shared.js';
 import { effectiveAppearance, booksCache, listBooksCache, setListBooksCache, lastGoodBooks, setLastGoodBooks } from './panels/shared.js';
+import { unlockedCards } from './panels/shared.js';
+import { setLastModelList } from './panels/shared.js';
+
+
 
 
 
@@ -585,7 +589,6 @@ export let pickEntries = [];
 /** 读到的世界书名单（画小块用，⛔ 不反复读世界书） */
 
 /* ⭐ RD1-3（材料 11）：**拉过的模型列表要存下来** ✓（旧：直接塞 DOM，重绘变空盒 ✗） */
-let lastModelList = [];
 
 /** 角色状态：搜索与排序的"记忆"（重画之后还在，不会因为改一个字就被清空） */
 export const charSearch = { query: '', sort: 'recent' };
@@ -650,7 +653,6 @@ export function applyCharSearch(root, query) {
    --------------------------------------------------------------------------- */
 
 /** 现在开着编辑的数据卡（键是卡名；⛔ 不落设置——「正在编辑」不是一种设置） */
-const unlockedCards = new Set();
 
 /**
  * 把一张数据卡做成「只读默认」：锁着的时候看着就是文字，不是一堆空框。
@@ -658,30 +660,6 @@ const unlockedCards = new Set();
  * @param {Element} cardEl 卡（就是 card() 返回的那个）
  * @param {string} key 卡名（同一页里唯一即可）
  */
-export function lockable(cardEl, key) {
-    if (!cardEl || !cardEl.classList) {
-        return cardEl;
-    }
-    const open = unlockedCards.has(key);
-    cardEl.classList.toggle('is-locked', !open);
-    const oldBtn = cardEl.querySelector('.wxg-lock-btn');
-    if (oldBtn && oldBtn.parentNode) {
-        oldBtn.parentNode.removeChild(oldBtn);
-    }
-    const head = cardEl.querySelector('.wxg-card-h') || cardEl;
-    const b = button(open ? '收起' : '编辑', 'toggle-lock', 'wxg-btn-xs wxg-lock-btn', key);
-    if (head.appendChild) {
-        head.appendChild(b);
-    }
-    cardEl.setAttribute('data-lock-key', key);
-    /*
-     * ⚠️ 真锁（readonly）不能在这儿做：调 `lockable(card(…), …)` 的时候
-     *    **卡里还是空的**（输入框是后面 row()/textInput() 才加进去的）
-     *    ⇒ 扫不到任何字段、一个 readonly 都上不去。真踩过。
-     *    统一放到整页建完之后的 `applyLocks()` 里做。
-     */
-    return cardEl;
-}
 
 /**
  * 把「锁着的卡」里的字段真正设成只读（在整页 DOM 建完之后调）。
@@ -2046,26 +2024,6 @@ secPrompts(stageEl);
  * ⭐ RD1-3（材料 11）：把 `lastModelList` 画成芯片 ✓
  *   （重建与拉取两边共用同一份标记 ✓，⛔ 两套写法 ✗）
  */
-export function paintModelChips(boxEl) {
-    if (!boxEl || !boxEl.appendChild) {
-        return;
-    }
-    while (boxEl.firstChild) {
-        boxEl.removeChild(boxEl.firstChild);
-    }
-    if (!Array.isArray(lastModelList) || !lastModelList.length) {
-        return;
-    }
-    const rowEl = el('div', 'wxg-chiprow');
-    for (const nm of lastModelList) {
-        const chip = el('button', 'wxg-chip', nm);
-        chip.type = 'button';
-        chip.setAttribute('data-action', 'pick-model');
-        chip.setAttribute('data-name', nm);
-        rowEl.appendChild(chip);
-    }
-    boxEl.appendChild(rowEl);
-}
 const lastPaintSig = new WeakMap();   /* host ⇒ 上次画的签名（同签名就不重建） */
 export function paintBookPicks(host, ex, no) {
     /*
@@ -4326,7 +4284,7 @@ export function bindSectionEvents(host, refresh) {
                         break;
                     }
                     /* ⭐ RD1-3：先存下来 ✓（重绘时 paintModelChips 靠它 ✓） */
-                    lastModelList = res.list.slice(0, 80);
+                    setLastModelList(res.list.slice(0, 80));
                     const chipRow = el('div', 'wxg-chiprow');
                     for (const nm of res.list.slice(0, 80)) {
                         const chip = el('button', 'wxg-chip', nm);

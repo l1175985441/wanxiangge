@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { expandPair } from '../controls-note.js'; import { getSettings } from '../../core/settings.js'; import { trimText } from '../../core/utils.js'; import { paintModelChips } from '../sections.js'; import { hostOf } from './shared.js'; import { apiKeyShown } from './shared.js'; import { saveBar, stage, stagedValue } from './shared.js'; import { button, card, el, emptyBlock, foldable, line, numberInput, row, section, select, textInput, textarea } from './shared.js';
+import { expandPair } from '../controls-note.js'; import { getSettings } from '../../core/settings.js'; import { trimText } from '../../core/utils.js';  import { paintModelChips } from './shared.js'; import { hostOf } from './shared.js'; import { apiKeyShown } from './shared.js'; import { saveBar, stage, stagedValue } from './shared.js'; import { button, card, el, emptyBlock, foldable, line, numberInput, row, section, select, textInput, textarea } from './shared.js';
 export function secApi(host) {
     const SECID = 'api';
     const s = getSettings();
