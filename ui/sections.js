@@ -5,7 +5,7 @@
  * 事件一律**委托**绑在宿主上：每次重画都不丢监听，也不会重复绑。
  */
 
-import { STAGES_CONFLICT, STAGES_PROGRESS, TIERS, ROSTER_PRESET } from '../core/config.js';
+import { STAGES_CONFLICT, STAGES_PROGRESS, TIERS } from '../core/config.js';
 import {  } from './controls-note.js';   /* 六：全展全收；八：开关状态句 */
 import { rememberFocus, restoreFocus } from './focus-keep.js';   /* 三：重画后把焦点还回去 */
 import {  } from './onecol.js';
@@ -25,7 +25,7 @@ import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
-import { getRoster, loadState, saveState, addCharacter, addCharacters, updateCharacter, findCharacterByName, findCharacter, applyRosterPreset, describeWorld, getChronicle, removeHidden, addHiddenManually, rollbackLast, exportState, updateWorld, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay, removeFaction, upsertFaction } from '../core/state.js';
+import { loadState, saveState, updateCharacter, findCharacter, describeWorld, getChronicle, removeHidden, addHiddenManually, rollbackLast, exportState, updateWorld, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay, removeFaction, upsertFaction } from '../core/state.js';
 import { listPresets, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -692,7 +692,6 @@ export function applyCharSearch(root, query) {
  *   ⇒ 数据层**一行不改**（保存路径、手改锁、快照都还是原来那条），⛔ 不另起一套。
  */
 /* ⭐ B8（材料 13）：当前正在选“并进哪一位”的角色 id（⛔ 再弹 window.prompt ✗） */
-let mergePickFor = null;
 /* ★ 她 22:1x：查重结果与勾选（可勾选后一键合并） */
 let dupGroups = [];
 let dupPick = new Set();
@@ -1754,117 +1753,6 @@ export function bindSectionEvents(host, refresh) {
         rerender();
         break;
     }
-                case 'accept-new': updateCharacter(id, { isNew: false }); toast.ok('收下了'); rerender(); break;
-                case 'accept-new-all': {
-                    const st = loadState();
-                    const names = Array.isArray(st.newPeople) ? st.newPeople.slice() : [];
-                    let n = 0;
-                    for (const nm of names) {
-                        const c = findCharacterByName(nm);
-                        if (c && c.isNew) {
-                            updateCharacter(c.id, { isNew: false });
-                            n += 1;
-                        }
-                    }
-                    st.newPeople = [];
-                    saveState();
-                    toast.ok(n ? ('收下了 ' + String(n) + ' 个新认的人') : '没有待处理的新认的人');
-                    rerender();
-                    break;
-                }
-                case 'ignore-char': updateCharacter(id, { ignored: true }); rerender(); break;
-                /* ⭐ 材料 06【4】#4：**被忽略了也要能恢复** ✓ */
-                case 'unignore-char': updateCharacter(id, { ignored: false }); toast.ok('恢复了：他又能参与推演与召回了'); rerender(); break;
-                case 'merge-into': {
-                    /*
-                     * ⭐ B8（材料 13）：**不再弹 window.prompt，就地展开下拉选项** ✓
-                     *   ⛔ 走 rerender：浮层人物卡**不在段容器里** ⇒ 重画拿不到它 ✗
-                     *   所以直接往卡底那一行里插 ✓
-                     */
-                    mergePickFor = id || null;
-                    try {
-                        const footEl = document.querySelector('.wxg-pc-foot');
-                        if (footEl) {
-                            const oldEl = footEl.querySelector('.wxg-merge-pick');
-                            if (oldEl && oldEl.parentNode) {
-                                oldEl.parentNode.removeChild(oldEl);
-                            }
-                            const rowEl = el('div', 'wxg-row wxg-merge-pick');
-                            rowEl.appendChild(el('span', 'wxg-note', '并进：'));
-                            const others = (getRoster() || []).filter((x) => x && String(x.id) !== String(id));
-                            if (others.length) {
-                                const selEl = document.createElement('select');
-                                selEl.id = 'wxg-merge-target';
-                                selEl.className = 'wxg-pole';
-                                for (const x of others) {
-                                    const o = document.createElement('option');
-                                    o.value = String(x.name || '');
-                                    const al2 = Array.isArray(x.aliases) && x.aliases.length ? '（' + x.aliases.slice(0, 2).join('／') + '）' : '';
-                                    o.textContent = String(x.name || '') + al2;
-                                    selEl.appendChild(o);
-                                }
-                                rowEl.appendChild(selEl);
-                                rowEl.appendChild(button('确认并进', 'merge-into-confirm', 'wxg-btn-sm wxg-primary', id));
-                                rowEl.appendChild(button('取消', 'merge-into-cancel', 'wxg-btn-sm', id));
-                            } else {
-                                rowEl.appendChild(el('span', 'wxg-note', '名册里没别人可并了'));
-                                rowEl.appendChild(button('取消', 'merge-into-cancel', 'wxg-btn-sm'));
-                            }
-                            footEl.appendChild(rowEl);
-                        }
-                    } catch (eB8) { /* 插不进去也不能报错 ✓ */ }
-                    break;
-                }
-                case 'merge-into-cancel': {
-                    mergePickFor = null;
-                    try {
-                        const rowOld = document.querySelector('.wxg-merge-pick');
-                        if (rowOld && rowOld.parentNode) {
-                            rowOld.parentNode.removeChild(rowOld);
-                        }
-                    } catch (eB8c) { }
-                    break;
-                }
-                case 'merge-into-confirm': {
-                    const selNow = byId(host, 'wxg-merge-target');
-                    const target = selNow ? trimText(selNow.value) : '';
-                    if (!target) {
-                        toast.warn('先在下拉框里选一个要并进来的名字');
-                        break;
-                    }
-                    const result = mergeCharacters(id, target);
-                    mergePickFor = null;
-                    if (result && result.ok) {
-                        toast.ok('合并完成：别名、数据、历史都归到一条上了');
-                    } else {
-                        toast.warn('没找到叫「' + target + '」的另一条记录');
-                    }
-                    rerender();
-                    break;
-                }
-                /* ---- 名册 ---- */
-                case 'add-char': {
-                    const name = trimText(textOf(host, 'wxg-new-name'));
-                    if (!name) {
-                        toast.warn('先写个名字');
-                        break;
-                    }
-                    addCharacter(name, { manual: true });
-                    rerender();
-                    break;
-                }
-                case 'preset-roster': {
-                    const added = applyRosterPreset(ROSTER_PRESET);
-                    toast.ok(added ? '加了 ' + String(added) + ' 个占位角色（名字随时改）' : '预设名册已经在里面了');
-                    rerender();
-                    break;
-                }
-                case 'import-roster': {
-                    const added = addCharacters(textOf(host, 'wxg-import-roster'), { manual: true });
-                    toast.ok(added ? '导入 ' + String(added) + ' 人' : '这些名字名册里已经有了');
-                    rerender();
-                    break;
-                }
                 case 'read-book': {
                     /*
                      * ⭐ 材料 10 · 第 6 组裁定（她 10-17 授权代拍）：**维持“只提示不拦”** ✓
