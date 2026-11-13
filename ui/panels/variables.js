@@ -25,6 +25,18 @@ export function secVariables(host) {
             r.appendChild(el('span', '', trimText(c && c.past && c.past.length ? (c.past[c.past.length - 1].text || '') : (c && c.pastText)) || '—'));
             r.appendChild(el('span', '', trimText(c && c.current) || '—'));
             cSnap.appendChild(r);
+            const past = Array.isArray(c && c.past) ? c.past.filter((x) => x && trimText(x.text)) : [];
+            if (past.length) {
+                const det = el('details', 'wxg-fold');
+                det.appendChild(el('summary', '', '按层回看（过去经历 ' + String(past.length) + ' 条）'));
+                for (const p of past.slice(-8)) {
+                    const when = Number.isFinite(Number(p.fromFloor)) && Number(p.fromFloor) > 0
+                        ? ('第 ' + String(Number(p.fromFloor)) + ' 层')
+                        : (Number(p.at) ? new Date(Number(p.at)).toLocaleString() : '—');
+                    det.appendChild(el('div', 'wxg-note', when + '：' + trimText(p.text)));
+                }
+                cSnap.appendChild(det);
+            }
         }
     }
     box.appendChild(cSnap);
