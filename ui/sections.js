@@ -1429,26 +1429,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-                case 'toggle-sec': {
-                    /*
-                     * ⭐ 目标核对 2②：**我们自己的开合**。
-                     *   切 `data-wxg-open`（CSS 靠它决定显隐）～同时把行内 display 也跟上，
-                     *   免得旧的行内样式（以前 ST 写进去的）把它压住。
-                     */
-                    const sec = target.closest ? target.closest('.wxg-sec') : null;
-                    if (sec) {
-                        const openNow = sec.getAttribute('data-wxg-open') === '1';
-                        const bodyEl = sec.querySelector('.wxg-sec-body');
-                        if (openNow) {
-                            sec.removeAttribute('data-wxg-open');
-                            if (bodyEl && bodyEl.style) { bodyEl.style.display = 'none'; }
-                        } else {
-                            sec.setAttribute('data-wxg-open', '1');
-                            if (bodyEl && bodyEl.style) { bodyEl.style.display = ''; }
-                        }
-                    }
-                    break;
-                }
                 case 'save-section': {
                     syncApiFromDom(host);
                     const n = commitSection(id);
@@ -1503,12 +1483,6 @@ export function bindSectionEvents(host, refresh) {
                             say.call(toast, 'API 设置已保存 ✓（当前：' + modeLabel + '｜模型：' + modelLabel + '）');
                         } catch (eSaveTip) { /* ⛔ 影响保存 */ }
                     }
-                    rerender();
-                    break;
-                }
-                case 'discard-section': {
-                    delete stagingOf(stagingMode)[id];
-                    toast.info('这一段没保存的改动丢掉了（回到已存的）');
                     rerender();
                     break;
                 }
