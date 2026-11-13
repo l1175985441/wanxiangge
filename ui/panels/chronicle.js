@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { getChronicle } from '../../core/state.js'; import { floorLabel, trimText } from '../../core/utils.js'; import { makeChronSearch } from '../chron-search.js'; import { PER_PAGE, chronFilter, chronPage, chronSearch, clampPage, kindTone, pager, setChronFilter, setChronPage, shortTime } from '../sections.js'; import { button, card, el, heroEmpty, row, section } from './shared.js';
+import { getChronicle } from '../../core/state.js'; import { floorLabel, trimText } from '../../core/utils.js'; import { makeChronSearch } from '../chron-search.js'; import { chronFilter, chronPage, chronSearch, setChronFilter, setChronPage } from '../sections.js'; import { PER_PAGE, clampPage, kindTone, pager, shortTime } from './shared.js'; import { button, card, el, heroEmpty, row, section } from './shared.js';
 
 export function secChronicle(host) {
     const list = getChronicle();

@@ -20,7 +20,7 @@ import {  } from './chron-search.js';   /* A4：编年搜索框 */
 import { bindEscClose, unbindEscClose } from './esc-close.js';   /* TW 契约：Esc 监听配对清理 */
 import {  } from '../core/runwarn.js';   /* 必修 9：拒签要顶到上面（红条） */
 import {  } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
-import { formatStamp, getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
+import { getChat, currentChatKey, adoptLedgerForImport } from '../core/adapter.js';
 import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
@@ -69,6 +69,9 @@ import {  } from './panels/extract.js';
 import { secApi } from './panels/api.js';
 import { secPrompts } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
+import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
+export { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
+
 export { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 
 /**
@@ -767,79 +770,6 @@ export let chronPage = 1;
 export function setChronPage(v) { chronPage = v; }
 
 /** 每页几条（名册 20＝差不多一屏；编年 30＝够看一段） */
-export const PER_PAGE = { roster: 15, chron: 20, steps: 20 };
-
-/**
- * ⭐ 翻页条（对照观棋那张：`‹ 上一页 ｜ 第 1-20 条 · 共 54 条 ｜ 下一页 ›`）。
- *
- * 为什么需要：名册灌到 54 个人之后，一长条滚到底**根本找不着人**——
- * 分页＋筛选＋搜索才是台账该有的用法。编年同理（越攒越多）。
- */
-export function pager(action, page, per, total) {
-    const pages = Math.max(1, Math.ceil(total / per));
-    const cur = Math.min(Math.max(1, Math.round(page) || 1), pages);
-    const bar = el('div', 'wxg-pager');
-
-    const prev = button('‹ 上一页', action, 'wxg-btn-xs', String(cur - 1));
-    if (cur <= 1) {
-        prev.disabled = true;
-    }
-    bar.appendChild(prev);
-
-    const from = total ? (cur - 1) * per + 1 : 0;
-    const to = Math.min(total, cur * per);
-    bar.appendChild(el('span', 'wxg-pager-info',
-        total ? ('第 ' + String(from) + '–' + String(to) + ' 条 · 共 ' + String(total) + ' 条')
-            : '一条都没有'));
-
-    const next = button('下一页 ›', action, 'wxg-btn-xs', String(cur + 1));
-    if (cur >= pages) {
-        next.disabled = true;
-    }
-    bar.appendChild(next);
-
-    if (pages > 1 && pages <= 12) {
-        const nums = el('div', 'wxg-pager-nums');
-        for (let i = 1; i <= pages; i += 1) {
-            const b = button(String(i), action, 'wxg-btn-xs' + (i === cur ? ' is-on' : ''), String(i));
-            nums.appendChild(b);
-        }
-        bar.appendChild(nums);
-    }
-    return bar;
-}
-
-/**
- * 把"目标页"夹到合法范围。
- * ⚠️ 夹在这里、不在处理器里（处理器只管存）：免得出现 page=0 或超出最后一页的空屏。
- */
-export function clampPage(target, total, per) {
-    const pages = Math.max(1, Math.ceil((Number(total) || 0) / per));
-    const n = Number(target);
-    return Math.min(Math.max(1, Number.isFinite(n) ? Math.round(n) : 1), pages);
-}
-
-/**
- * 种类 → 胶囊样式（⛔ 不按颜色名，按语义）：
- *   推演＝中性分类章 ｜ 暗线＝要注意 ｜ 警戒／越界＝警告 ｜ 其它＝中性
- */
-export function kindTone(kind) {
-    const k = asText(kind);
-    if (k.includes('暗线')) {
-        return 'is-warn';
-    }
-    if (k.includes('警戒') || k.includes('越界') || k.includes('退化')) {
-        return 'is-warn';
-    }
-    return 'is-info';
-}
-
-/** 只取时分（列表里"哪条新"靠它，日期放到分组头；⛔ 不用完整时间戳占地方） */
-export function shortTime(at) {
-    const s = formatStamp(at);
-    const m = s.match(/(\d{1,2}:\d{2})/);
-    return m ? m[1] : s;
-}
 
 
 

@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { asArray, countChars, floorLabel } from '../../core/utils.js'; import { getChat } from '../../core/adapter.js'; import { getChronicle, loadState } from '../../core/state.js'; import { PER_PAGE, clampPage, pager, setStepPage, stepFilter, stepPage } from '../sections.js'; import { button, card, el, foldable, line, row, section } from './shared.js';
+import { asArray, countChars, floorLabel } from '../../core/utils.js'; import { getChat } from '../../core/adapter.js'; import { getChronicle, loadState } from '../../core/state.js'; import { setStepPage, stepFilter, stepPage } from '../sections.js'; import { PER_PAGE, clampPage, pager } from './shared.js'; import { button, card, el, foldable, line, row, section } from './shared.js';
 
 export function secSteps(host, intoBox) {
     /*
