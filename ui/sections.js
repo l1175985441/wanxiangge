@@ -25,7 +25,7 @@ import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, exportSettings, patchSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
-import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle, rollbackLast, exportState, updateQuest, removeQuest, addChronicle, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay } from '../core/state.js';
+import { loadState, updateCharacter, findCharacter, describeWorld, getChronicle, exportState, updateQuest, removeQuest, addChronicle, importState, setRole, acceptOverlay, dismissOverlay } from '../core/state.js';
 import {  } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -2270,30 +2270,6 @@ export function bindSectionEvents(host, refresh) {
                     toast.warn('已请求取消：跑完当前这一小步就停');
                     rerender();
                     break;
-                case 'open-workspace-btn': {
-                    /* ★ 依据＝阿砚 17 号 §一-1：抽屉里那颗入口 ⇒ 打开工作台 */
-                    Promise.resolve()
-                        .then(() => import('./workspace.js'))
-                        .then((m) => { if (m && typeof m.openWorkspace === 'function') { m.openWorkspace(); } })
-                        .catch(() => { });
-                    break;
-                }
-                case 'rollback-to': {
-                    const okRb = rollbackToSnapshot(Number(id));
-                    if (okRb && okRb.ok) {
-                        toast.info('已恢复到：' + String(okRb.label || '那份快照'));
-                        rerender();
-                    } else {
-                        toast.warn('这份快照恢复不了');
-                    }
-                    break;
-                }
-                case 'rollback': {
-                    const snap = rollbackLast();
-                    toast.ok(snap ? '已撤回上一次更新（撤回前那一版也留着，能再撤回来）' : '没有可撤回的版本');
-                    rerender();
-                    break;
-                }
                 case 'replan':
                     replanCurrentFloor();
                     toast.info('本楼重新算好了');
