@@ -20,7 +20,6 @@ import {  } from './chron-search.js';   /* A4：编年搜索框 */
 import {  } from './esc-close.js';   /* TW 契约：Esc 监听配对清理 */
 import {  } from '../core/runwarn.js';   /* 必修 9：拒签要顶到上面（红条） */
 import {  } from '../core/timefmt.js';   /* A7／A9：时间人话只留一处 */
-import { getChat } from '../core/adapter.js';
 import {  } from '../core/bundle.js';
 import { getSettings } from '../core/settings.js';
 
@@ -34,9 +33,8 @@ import { palettePatch } from './theme.js';
 import {  } from '../core/summary.js';
 import {  } from '../core/roster-cols.js';   /* 80：只用来判“身份／势力全空” */
 import {  } from './cardgrid.js';   /* A6：卡头＋一句摘要＋查看全部（不搬 DOM） */
-import { buildHealthReport } from '../core/health.js';
 // ⭐ 版本从 config 取（⛔ 从 index.js import：那会绕成循环 index→sections→index）
-import { APP_VERSION, originPanel, agendaOriginPanel } from '../core/config.js';   /* I4 */
+import { originPanel, agendaOriginPanel } from '../core/config.js';   /* I4 */
 import {  } from '../core/actions.js';
 import {  } from '../core/worldbook.js';
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
@@ -99,6 +97,8 @@ import { handleMenuAction, MENU_ACTION_SET } from './panels/menu-actions.js';
 import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
+import { healthOpen, setHealthOpen, closeHealthCard, renderHealthCard } from './panels/health-overlay.js';
+
 
 
 
@@ -768,55 +768,6 @@ function renderWorldEntryCard() {
  *
  * ⛔ 报告里不含正文、不含钥匙与地址的"值"（见 core/health.js 的铁律）。
  */
-let healthOpen = false;
-
-export function closeHealthCard() {
-    healthOpen = false;
-    const old = document.getElementById('wxg-health-card');
-    if (old && typeof old.remove === 'function') {
-        old.remove();
-    }
-}
-
-function renderHealthCard() {
-    const old = document.getElementById('wxg-health-card');
-    if (old && typeof old.remove === 'function') {
-        old.remove();
-    }
-    if (!healthOpen) {
-        return;
-    }
-    let report = { text: '（体检报告没生成出来）', fails: [] };
-    try {
-        report = buildHealthReport({ version: APP_VERSION, chat: getChat() });
-    } catch (e) {
-        report = { text: '体检报告生成失败：' + ((e && e.message) || '未知原因'), fails: [] };
-    }
-
-    const pop = el('div', 'wxg-pc wanxiangge');
-    pop.id = 'wxg-health-card';
-    pop.setAttribute('role', 'dialog');
-
-    const head = el('div', 'wxg-pc-head');
-    head.appendChild(el('span', 'wxg-pc-grip', '⠿'));
-    const who = el('div', 'wxg-pc-who');
-    who.appendChild(el('div', 'wxg-pc-name', '体检报告'));
-    who.appendChild(el('div', 'wxg-pc-alias', '版本／开关／条数／最近失败（⛔ 不含正文与钥匙）'));
-    head.appendChild(who);
-    head.appendChild(button('✕', 'health-close', 'wxg-pc-x'));
-    pop.appendChild(head);
-
-    const sec = el('div', 'wxg-pc-sec');
-    const pre = el('pre', 'wxg-health-pre', report.text);
-    sec.appendChild(pre);
-    pop.appendChild(sec);
-    const foot = el('div', 'wxg-pc-foot');
-    foot.appendChild(button('关闭', 'health-close', 'wxg-pc-nav'));
-    foot.appendChild(button('复制这份', 'health-copy', 'wxg-pc-nav'));
-    pop.appendChild(foot);
-    (lastSectionsHost || document.body).appendChild(pop);
-    bindPersonCardDrag(pop);
-}
 export function renderSections(host, opts) {
     const o = Object.assign({}, opts, { hooks: {
         renderWorldEntryCard, renderHealthCard, renderPersonCard,
@@ -1038,7 +989,7 @@ export function bindSectionEvents(host, refresh) {
                     renderWorldEntryCard();
                     break;
                 case 'health-open':
-                    healthOpen = true;
+                    setHealthOpen(true);
                     renderHealthCard();
                     break;
                 case 'health-close':
