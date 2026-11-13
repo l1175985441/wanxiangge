@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { FLOOR_NOTE, asText, countChars, floorLabel, trimText } from '../../core/utils.js'; import { loadState, recentRecallRecords } from '../../core/state.js'; import { receiptText } from '../../core/ledger.js'; import { renderRunWarn } from '../runwarn-view.js'; import { runWarning } from '../../core/runwarn.js'; import { toast } from '../toast.js'; import { renderRecordCard } from '../sections.js'; import { openRecordAt, reportFilter } from './shared.js'; import { shortTime } from './shared.js'; import { button, card, el, foldable, row, section } from './shared.js';
+import { FLOOR_NOTE, asText, countChars, floorLabel, trimText } from '../../core/utils.js'; import { loadState, recentRecallRecords } from '../../core/state.js'; import { receiptText } from '../../core/ledger.js'; import { renderRunWarn } from '../runwarn-view.js'; import { runWarning } from '../../core/runwarn.js'; import { toast } from '../toast.js';  import { renderRecordCard } from './shared.js'; import { openRecordAt, reportFilter } from './shared.js'; import { shortTime } from './shared.js'; import { button, card, el, foldable, row, section } from './shared.js';
 
 export function secReport(host, intoBox) {
     const list = recentRecallRecords(20);

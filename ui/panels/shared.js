@@ -1,5 +1,5 @@
 /* 公-1 基础构件：从 ui/sections.js 抽出（206 后第一批公共件），逻辑一字未改 */
-import { asText, trimText } from '../../core/utils.js';
+import { asText, trimText, toList, floorLabel, asArray } from '../../core/utils.js';
 import { iconSvg } from '../icons.js';
 import { titleNode, tidyText } from '../tidy-heads.js';
 import { formatStamp } from '../../core/adapter.js';
@@ -694,3 +694,202 @@ export function paintModelChips(boxEl) {
     boxEl.appendChild(rowEl);
 }
 export function setLastModelList(v) { lastModelList = v; }
+
+export let lastSectionsHost = null;
+export function setLastSectionsHost(v) { lastSectionsHost = v; }
+
+export function bindPersonCardDrag(pop) {
+    const grip = pop.querySelector('.wxg-pc-head');
+    if (!grip || typeof grip.addEventListener !== 'function') {
+        return;
+    }
+    let sx = 0;
+    let sy = 0;
+    let ox = 0;
+    let oy = 0;
+    let on = false;
+    const move = (e) => {
+        if (!on) {
+            return;
+        }
+        const t = e.touches ? e.touches[0] : e;
+        /*
+         * ⭐ LY3（材料 11·布局层）：**拖拽要夹在屏幕里** ✓
+         *   旧：直接赋值 ✗ ⇒ 一旦把标题栏拖出屏幕顶边／侧边 ✗
+         *     ⇒ **再也点不到标题栏拖回来**（卡片就困在外面 ✗）
+         *   现在：至少留 80px 在屏幕内 ✓（⛔ 全部禁止拖出去——那样反而拖不动 ✓）
+         */
+        const vw = window.innerWidth || 1000;
+        const vh = window.innerHeight || 800;
+        const cardW = pop.offsetWidth || 560;
+        const keepX = 80;
+        const keepY = 40;
+        const nx = ox + (t.clientX - sx);
+        const ny = oy + (t.clientY - sy);
+        pop.style.left = String(Math.max(keepX - cardW, Math.min(vw - keepX, nx))) + 'px';
+        /* 五：拖拽也要夹在视口里（⌊L实际高算底边） */
+        const cardH = pop.getBoundingClientRect ? pop.getBoundingClientRect().height : 0;
+        const maxTop = Math.max(12, vh - 12 - (cardH || 0));
+        pop.style.top = String(Math.max(12, Math.min(maxTop, ny))) + 'px';
+        e.preventDefault();
+    };
+    const up = () => {
+        on = false;
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchend', up);
+    };
+    grip.addEventListener('mousedown', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea')) {
+            return;   // 点按钮／输入框不算拖
+        }
+        const r = pop.getBoundingClientRect ? pop.getBoundingClientRect() : { left: 0, top: 0 };
+        on = true;
+        sx = e.clientX;
+        sy = e.clientY;
+        ox = r.left;
+        oy = r.top;
+        pop.style.left = String(ox) + 'px';
+        pop.style.top = String(oy) + 'px';
+        pop.style.right = 'auto';
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+    grip.addEventListener('touchstart', (e) => {
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea')) {
+            return;
+        }
+        const t = e.touches[0];
+        const r = pop.getBoundingClientRect ? pop.getBoundingClientRect() : { left: 0, top: 0 };
+        on = true;
+        sx = t.clientX;
+        sy = t.clientY;
+        ox = r.left;
+        oy = r.top;
+        pop.style.left = String(ox) + 'px';
+        pop.style.top = String(oy) + 'px';
+        pop.style.right = 'auto';
+        document.addEventListener('touchmove', move);
+        document.addEventListener('touchend', up);
+    });
+}
+
+/**
+ * ⭐ 「每轮记录」的浮层（照目标包：跟名册人物卡**同一套手法**）。
+ *   标题栏＝⏿ 把手＋标题＋状态胶囊＋✕；
+ *   正文＝已经拼好的那三块（①怎么挑的 ②实际送进请求的内容 ③回执）**原样搬过来**；
+ *   底部＝关闭｜第 N 条 / 共 M 条｜下一条 ›。
+ *   ⛔ 重写一份正文构造（那样两边会分叉）。
+ */
+export function renderRecordCard(rec, body, idx, total, statusText, tone, shownChars) {
+    const host = document.getElementById('wxg-record-card');
+    if (host && typeof host.remove === 'function') {
+        host.remove();
+    }
+    const pop = el('div', 'wxg-pc wanxiangge');
+    pop.id = 'wxg-record-card';
+    pop.setAttribute('role', 'dialog');
+
+    const head = el('div', 'wxg-pc-head');
+    head.appendChild(el('span', 'wxg-pc-grip', '⏿'));
+    const who = el('div', 'wxg-pc-who');
+    who.appendChild(el('div', 'wxg-pc-name', shortTime(rec.at) + ' · ' + floorLabel(rec.floor)));
+    who.appendChild(el('div', 'wxg-pc-alias', rec.injectStatus === 'ok'
+        ? ('已注入 ' + String(shownChars) + ' 字')
+        : '这一轮没注入'));
+    head.appendChild(who);
+    const badges = el('div', 'wxg-pc-badges');
+    badges.appendChild(el('span', 'wxg-badge ' + (tone || ''), statusText));
+    head.appendChild(badges);
+    head.appendChild(button('✕', 'record-close', 'wxg-pc-x'));
+    pop.appendChild(head);
+
+    const sec = el('div', 'wxg-pc-sec');
+    sec.appendChild(body);
+    pop.appendChild(sec);
+
+    const foot = el('div', 'wxg-pc-foot');
+    foot.appendChild(button('关闭', 'record-close', 'wxg-pc-nav'));
+    foot.appendChild(el('span', 'wxg-pc-counter', '第 ' + String(idx + 1) + ' 条 / 共 ' + String(total) + ' 条'));
+    const prev = button('‹ 上一条', 'record-prev', 'wxg-pc-nav');
+    prev.disabled = idx <= 0;
+    foot.appendChild(prev);
+    const next = button('下一条 ›', 'record-next', 'wxg-pc-nav');
+    next.disabled = idx >= total - 1;
+    foot.appendChild(next);
+    pop.appendChild(foot);
+
+    (lastSectionsHost || document.body).appendChild(pop);
+    bindPersonCardDrag(pop);
+}
+
+const lastPaintSig = new WeakMap();   /* host ⇒ 上次画的签名（同签名就不重建） */
+export function paintBookPicks(host, ex, no) {
+    /*
+     * 依据＝阿砚任务 3-d（连跑不稳要盯住）＋本轮实测 5/20 仍红：
+     *   此前是“删掉全部芯片 → 重新建” ⇒ 重画窗口里她点下去会点在**已经被换掉的节点**上（事件不冒泡）⇒ 点了没反应。
+     *   现在改成**原地更新**：按 data-book 找到已有按钮，改 class／文字／title；多的删、缺的补。
+     *   ⇒ 重画期间按钮节点始终存在，点击不会丢。
+     */
+    if (ex === undefined || no === undefined) {
+        const exDraft = toList(stagedValue('extract', 'extractBooks', getSettings().extractBooks));
+        const noDraft = toList(stagedValue('extract', 'excludeBooks', getSettings().excludeBooks));
+        if (ex === undefined) { ex = exDraft; }
+        if (no === undefined) { no = noDraft; }
+    }
+    const wrap = host && host.querySelector ? host.querySelector('#wxg-bookpick') : null;
+    if (!wrap) {
+        return;
+    }
+    const exSet = new Set((ex || []).map((x) => asText(x)));
+    const noSet = new Set((no || []).map((x) => asText(x)));
+    const want = (Array.isArray(listBooksCache) ? listBooksCache : []).map((x) => asText(x));
+    const wantSet = new Set(want);
+    /* 先删掉不该在的（只在书单真的变少时才动，避免无谓重建） */
+    for (const child of asArray(wrap.querySelectorAll ? wrap.querySelectorAll('[data-action="pick-book"]') : [])) {
+        const book = String(child.getAttribute && child.getAttribute('data-book') || '');
+        if (!wantSet.has(book)) {
+            wrap.removeChild(child);
+        }
+    }
+    /* 再原地更新/补齐（顺序按 want，把节点挪到正确位置） */
+    let anchor = wrap.querySelector ? wrap.querySelector('.wxg-pick-head') : null;
+    for (const n of want) {
+        let b = wrap.querySelector ? wrap.querySelector('[data-action="pick-book"][data-book="' + n.replace(/"/g, '\\"') + '"]') : null;
+        if (!b) {
+            b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('data-action', 'pick-book');
+            b.setAttribute('data-book', n);
+        /*
+         * 依据＝本轮取证（pick 失败点已从“找不到控件”变为“草稿状态”）：
+         *   芯片只带 `data-book`，而全站其他控件都用 `data-id` 做身份；
+         *   按 `data-id` 取芯片的代码（含自测）会落到“第一颗”上 ⇒ 点的不是同一本书。
+         *   这里把同一个名字同时写进 data-id（不改 data-book，⛔ 打破旧选择器）。
+         */
+        b.setAttribute('data-id', n);
+        }
+        const inEx = exSet.has(n);
+        const inNo = noSet.has(n);
+        b.className = 'wxg-pick' + (inEx ? ' is-on' : '') + (inNo ? ' is-off' : '');
+        b.textContent = n + (inEx ? '（提取）' : (inNo ? '（排除）' : ''));
+        b.title = inEx ? '在「提取」名单里（还没保存；再点＝改排除）'
+            : (inNo ? '在「排除」名单里（还没保存；再点＝拿掉）' : '点一下＝要读它');
+        /* 位置对齐：如果它不在 anchor 后面，就挪过去 */
+        if (anchor) {
+            if (anchor.nextSibling !== b) {
+                wrap.insertBefore(b, anchor.nextSibling);
+            }
+            anchor = b;
+        } else {
+            if (b.parentNode !== wrap) { wrap.appendChild(b); }
+            anchor = b;
+        }
+    }
+}
+/**
+ * 把"正在看的那本书"的条目小块摆回面板（点一条之后重画，接着还能点）。
+ * 数据来自 list-entries 抓到的 `pickEntries`，⛔ 不再重复读世界书。
+ */
+/** ⭐ 3③：条目列表的筛选词（她输什么就只显示带它的） */
