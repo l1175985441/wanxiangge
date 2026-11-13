@@ -1,7 +1,10 @@
 /* 名-3 人物卡：personCard 状态＋浮层渲染。从 sections.js 抽出（206 后） */
 import { el, button, card, checkbox, field, foldable, line, row, select, textInput, textarea, bindPersonCardDrag, lastSectionsHost } from './shared.js';
-import { ROLES, getRoster, loadState, findCharacter } from '../../core/state.js';
-import { floorLabel, trimText } from '../../core/utils.js';
+import { ROLES, getRoster, loadState, findCharacter, updateCharacter, addKnow, removeKnow, pushPast } from '../../core/state.js';
+import { toast } from '../toast.js';
+import { floorLabel, trimText, toList } from '../../core/utils.js';
+import { dueToAbsoluteMinute } from '../../core/clock.js';
+import { scheduleCardRerender } from './render.js';
 import { bindEscClose, unbindEscClose } from '../esc-close.js';
 import { scheduleBadge } from '../../core/schedule.js';
 import { questStats } from '../../core/summary.js';
@@ -589,3 +592,212 @@ export function fieldBox(charId, field, value, placeholder) {
 export function setPersonCardId(v) { personCardId = v; }
 export function setPersonCardEditing(v) { personCardEditing = v; }
 export function setPersonCardTab(v) { personCardTab = v; }
+
+/* 名-4/名-5：人物卡字段/日程/过去/知识面/档位 事件。从 sections.js 抽出（206 后） */
+
+
+export const PERSON_CARD_EDIT_ACTIONS = new Set(['set-char-field', 'set-alias', 'set-affinity', 'add-sched', 'sched-done', 'sched-del', 'past-save', 'past-del', 'del-past', 'add-past', 'add-know', 'del-know', 'set-bench', 'set-player']);
+
+export function handlePersonCardEdit(action, target, id, key, isChange, rerender) {
+    switch (action) {
+                case 'set-char-field':
+                    if (isChange) {
+                        updateCharacter(id, { [key]: target.value, manual: true });
+                        /*
+                         * ⭐ 改完一格 ⇒ 重画段，但 `rerender()` 会**顺手把浮层也冲掉**
+                         *   （浮层挂在段容器里）⇒ 真机上就是"改一格、整张卡没了"。
+                         *   ⇒ **重画完再把卡片画回来**（跟 `card-save` 同一个道理）。
+                         */
+            scheduleCardRerender();   /* R5：推迟重画 ✓（⛔ 把她正按的按钮销毁掉 ✗） */
+                    }
+                    break;
+                case 'set-alias':
+                    if (isChange) {
+                        updateCharacter(id, { aliases: toList(target.value), manual: true });
+                        toast.ok('别名保存了');
+                        rerender();
+                        if (personCardId) {
+                            renderPersonCard();   // 同上：别把卡片带走
+                        }
+                    }
+                    break;
+                case 'set-affinity':
+                    if (isChange) {
+                        updateCharacter(id, { affinity: trimText(target.value), manual: true });
+                        rerender();
+                    }
+                    break;
+                case 'add-sched': {
+        const whatN = trimText((document.getElementById('wxg-new-sched-what-' + String(id)) || {}).value);
+        const dueN = trimText((document.getElementById('wxg-new-sched-due-' + String(id)) || {}).value);
+        if (!whatN) { toast.ok('先写约好的事'); break; }
+        const cN = findCharacter(id);
+        if (cN) {
+            const dueAbsN = dueN ? dueToAbsoluteMinute(dueN, Number((loadState().world || {}).clockMinute)) : null;
+            const nextN = (Array.isArray(cN.schedule) ? cN.schedule : []).concat([{ what: whatN, due: dueN, done: false, dueReached: false, dueMinute: dueAbsN, originDueMinute: dueAbsN, sinceMinutes: Number((loadState().world || {}).clockMinute), firedPoints: [] }]);
+            updateCharacter(id, { schedule: nextN });
+            toast.ok('加了一条日程');
+            rerender();
+        }
+        break;
+    }
+    case 'sched-done': {
+                    /* ⭐ 新增件 1：**把这条日程标成已了结** ✓ */
+                    const whatA = trimText(target.getAttribute('data-what'));
+                    const cA = findCharacter(id);
+                    if (cA && Array.isArray(cA.schedule) && whatA) {
+                        const nextA = cA.schedule.map((x) => (trimText(x && (x.what || x.text)) === whatA
+                            ? Object.assign({}, x, { done: true })
+                            : x));
+                        updateCharacter(id, { schedule: nextA });
+                        toast.ok('这条日程标成已了结了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'sched-del': {
+                    /* ⭐ 新增件 1：**删掉这条日程** ✓ */
+                    const whatB = trimText(target.getAttribute('data-what'));
+                    const cB = findCharacter(id);
+                    if (cB && Array.isArray(cB.schedule) && whatB) {
+                        const nextB = cB.schedule.filter((x) => trimText(x && (x.what || x.text)) !== whatB);
+                        updateCharacter(id, { schedule: nextB });
+                        toast.ok('这条日程删掉了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'past-save': {
+                    /* ⭐ 新增件 1：**就地改一条过去经历** ✓ */
+                    const pi = Number(target.getAttribute('data-idx'));
+                    const cPs = findCharacter(id);
+                    const inpPs = document.getElementById('wxg-past-edit-' + String(pi));
+                    if (cPs && Array.isArray(cPs.past) && Number.isFinite(pi) && cPs.past[pi] && inpPs) {
+                        const nextPs = cPs.past.map((x, xi) => (xi === pi
+                            ? Object.assign({}, x, { text: trimText(inpPs.value), manual: true })
+                            : x));
+                        updateCharacter(id, { past: nextPs });
+                        toast.ok('这条过去经历改好了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'past-del': {
+                    /* ⭐ 新增件 1：**删一条过去经历** ✓ */
+                    const pp = Number(target.getAttribute('data-idx'));
+                    const cPd = findCharacter(id);
+                    if (cPd && Array.isArray(cPd.past) && Number.isFinite(pp)) {
+                        const nextPd = cPd.past.filter((x, xi) => xi !== pp);
+                        updateCharacter(id, { past: nextPd });
+                        toast.ok('这条过去经历删掉了');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'del-past': {
+                    const pi2 = Number(target.getAttribute('data-index'));
+                    const pc2 = findCharacter(id);
+                    if (pc2 && Array.isArray(pc2.past) && Number.isFinite(pi2) && pc2.past[pi2]) {
+                        takeSnapshot('删过去经历前');
+                        const arr2 = pc2.past.slice();
+                        arr2.splice(pi2, 1);
+                        updateCharacter(id, { past: arr2 }, { manual: true });
+                        toast.ok('删了一条过去经历');
+                        rerender();
+                    }
+                    break;
+                }
+                case 'add-past': {
+                    const inp2 = document.getElementById('wxg-past-text');
+                    const txt2 = trimText(inp2 && inp2.value);
+                    if (!txt2) {
+                        toast.info('先写一句话再点加 ✓');
+                        break;
+                    }
+                    takeSnapshot('手加过去经历前');
+                    pushPast(id, txt2, Number(getSettings().capPast) || 5, -1);
+                    toast.ok('加上了');
+                    rerender();
+                    break;
+                }
+                case 'add-know': {
+                    /*
+                     * ⭐ 补③：手加一条"他该知道的"。
+                     *   来源必选（亲眼／被告知／公开）；来源楼层用**当前停在的楼**（她手加时就是在看那一楼）。
+                     *   ⛔ 自己造来源类型；⛔ 改已有的（只增）。
+                     */
+                    const box = document.getElementById('wxg-know-text');
+                    const txt = box && typeof box.value === 'string' ? box.value.trim() : '';
+                    const srcEl = document.getElementById('wxg-know-source');
+                    const src = srcEl && typeof srcEl.value === 'string' ? srcEl.value : '亲眼';
+                    if (!txt) {
+                        toast.fail('先写一句"他知道了什么"');
+                        break;
+                    }
+                    const chatNow = getChat();
+                    const floorNow = (Array.isArray(chatNow) ? chatNow.length : 1) - 1;
+                    const got = addKnow(id, { text: txt, source: src, floor: floorNow, manual: true });
+                    if (!got) {
+                        toast.info('这条没收（要么已经有了，要么没填来源）');
+                        break;
+                    }
+                    toast.ok('记下了（' + got.source + '）');
+                    rerender();
+                    if (personCardId) {
+                        renderPersonCard();
+                    }
+                    break;
+                }
+                case 'del-know': {
+                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
+                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
+                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
+                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
+                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条认知删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
+                    takeSnapshot('删除前（这条认知）');
+                    const ki = Math.round(Number(target.getAttribute('data-index')));
+                    if (removeKnow(id, ki)) {
+                        toast.ok('删了一条');
+                    }
+                    rerender();
+                    if (personCardId) {
+                        renderPersonCard();
+                    }
+                    break;
+                }
+                case 'set-bench':
+                    /*
+                     * ⭐ 补①：勾上＝**参与**后台推演；不勾＝不进轮转名单。
+                     *   存的是**反的**（`noBench`）：老数据缺字段 ⇒ 默认"参与"，跟升级前一模一样。
+                     */
+                    if (isChange) {
+                        updateCharacter(id, { noBench: target.checked !== true });
+                        toast.ok(target.checked === true
+                            ? '他会跟其他人一起轮转'
+                            : '已关掉后台推演（不占名额；正文写到他时照常更新）');
+                        rerender();
+                        if (personCardId) {
+                            renderPersonCard();
+                        }
+                    }
+                    break;
+                case 'set-player':
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
+                    /*
+                     * ⚠️ 她**取消勾**的时候要记一笔 `playerOff`：
+                     *    名字跟人设名一样就会被自动认成"你"，不记的话下次重画又被自动勾上，
+                     *    跟她抢方向盘（⛔ 自动可以，但不能盖过她明确说过的话）。
+                     */
+                    updateCharacter(id, {
+                        isPlayer: target.checked === true,
+                        playerOff: target.checked !== true,
+                        manual: true,
+                    });
+                    rerender();
+                        if (personCardId) {
+                            renderPersonCard();
+                        }
+                    break;
+    }
+}
+
