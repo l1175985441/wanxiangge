@@ -1,5 +1,5 @@
 /* 从 ui/sections.js 原样搬出，逻辑一字未改（206 单） */
-import { TIERS, viaLabel } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { decorateCard } from '../cardgrid.js'; import { getRoster, listWindsView, loadState } from '../../core/state.js'; import { getSettings } from '../../core/settings.js';  import { lockable } from './shared.js'; import { button, card, el, emptyBlock, field, foldable, line, row, section, textInput, textarea } from './shared.js';
+import { TIERS, viaLabel } from '../../core/config.js'; import { asArray, trimText } from '../../core/utils.js'; import { cardLine, foldCard } from '../card-fold.js'; import { decorateCard } from '../cardgrid.js'; import { getRoster, listWindsView, loadState } from '../../core/state.js'; import { getSettings } from '../../core/settings.js';  import { button, card, el, emptyBlock, field, foldable, line, row, section, textInput, textarea } from './shared.js';
 
 export function secWorld(host) {
     const state = loadState();
@@ -20,22 +20,15 @@ export function secWorld(host) {
     box.appendChild(wTop);
     /* ★ P2-7：**面板四分区**——世界总览／人物清单／记忆状态 ✓ */
     box.appendChild(el('div', 'wxg-note wxg-sec-head', '① 世界总览'));
-    const cWorld = lockable(card('世界钟・地点'), 'world-clock');
-    /* 口径（与 core/config.js 一致）：**世界钟／地点允许写“未知”，其它格不许**；⛔ 在 UI 上教她写“未知”。 */
-    line(cWorld, '世界钟', textInput('wxg-world-clock', w.clock, '例：第二天 上午 10:20', 'set-world-clock', 'wxg-short'));
-    line(cWorld, '地点', textInput('wxg-world-place', w.place, '例：四夷馆', 'set-world-place', 'wxg-short'));
-const wShift = el('div', 'wxg-row');
-wShift.appendChild(button('−1 天', 'shift-world-clock', 'wxg-btn-sm', '-1'));
-wShift.appendChild(button('+1 天', 'shift-world-clock', 'wxg-btn-sm', '1'));
-cWorld.appendChild(wShift);
-    line(cWorld, '这个世界现在什么样',
-        textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
+const cBig = card('这个世界现在什么样');
+line(cBig, '这个世界现在什么样',
+textarea('wxg-world-big', w.bigPicture, '从高处看一眼：这个世界现在什么样', 'set-world-big', 3));
+box.appendChild(cBig);
     /*
      * A6：两列卡片网格。卡不再一条道摊到底，而是并排；每张卡带一句摘要，长的折起来。
      */
     const wgrid = el('div', 'wxg-wgrid');
     box.appendChild(wgrid);   /* A6：先挂上去（否则「世界钟地点卡」会因为整个网格没挂而丢失） */
-    wgrid.appendChild(cWorld);
 
     /*
      * 依据＝阿砚 3 件任务 · 渲染层 #6（四张空卡合并成一行）：

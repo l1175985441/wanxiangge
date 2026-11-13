@@ -2,6 +2,7 @@
 import { secRoster } from './roster.js';
 import { secStatus } from './status.js';
 import { secWorld } from './world.js';
+import { secWorldClock } from './world-clock.js';
 import { secHidden } from './hidden.js';
 import { secBrief } from './brief.js';
 import { secChronicle } from './chronicle.js';
@@ -86,6 +87,7 @@ export function renderSections(host, opts) {
 secRoster(stageEl);
 secStatus(stageEl);
 secWorld(stageEl);
+    secWorldClock(stageEl);
 secHidden(stageEl);
 secBrief(stageEl);
 secChronicle(stageEl);
