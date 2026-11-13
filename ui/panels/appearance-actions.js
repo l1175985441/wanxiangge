@@ -5,6 +5,7 @@ import { effectiveAppearance, stage } from './shared.js';
 import { refreshSaveBar } from './savebar.js';
 import { toast } from '../toast.js';
 import { trimText } from '../../core/utils.js';
+import { mountMini, closeMini } from '../mini.js';
 
 
 export function refreshAppearancePreview() {
@@ -24,7 +25,7 @@ export function refreshAppearancePreview() {
  *   ⛔ 每个格子都弹一句（那样弹得没完没了 ✗）
  */
 
-export const APPEARANCE_ACTION_SET = new Set(['set-appearance', 'app-text-auto', 'mini-hover-toggle', 'mini-pin-toggle', 'reset-appearance', 'set-app-to-panel', 'set-layout-mode']);
+export const APPEARANCE_ACTION_SET = new Set(['set-appearance', 'app-text-auto', 'mini-hover-toggle', 'mini-pin-toggle', 'reset-appearance', 'set-app-to-panel', 'set-layout-mode','toggle-mini-show']);
 
 export function handleAppearanceAction(action, target, id, host, isChange, rerender) {
     switch (action) {
@@ -105,6 +106,23 @@ export function handleAppearanceAction(action, target, id, host, isChange, reren
                     toast.ok(trimText(target.value) === 'panel' ? '以后点入口＝开浮层面板' : '以后点入口＝开整页工作台');
                     rerender();
                     break;
+                case 'toggle-mini-show': {
+                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
+                    /*
+                     * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存"）——
+                     *    她是看着球在不在来判断勾没勾上的，要等保存才生效会以为没反应。
+                     */
+                    const on = target.checked === true;
+                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { show: on }) });
+                    if (on) {
+                        mountMini();
+                    } else {
+                        closeMini();
+                    }
+                    toast.ok(on ? '悬浮小框已叫出来' : '悬浮小框已收起（随时能在这儿再叫出来）');
+                    rerender();
+                    break;
+                }
     }
 }
 

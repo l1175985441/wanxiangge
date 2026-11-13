@@ -48,7 +48,6 @@ import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import {  } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
 import { toast } from './toast.js';
 // ⭐ 悬浮小框的显隐要在「总控」里能开关（那颗 ✕ 的提示一直承诺着，但控件一直没做） ⭐ 复审追加 3②：保存外观段后要**即时**刷小框（⛔ 等下次切档）
-import { mountMini, closeMini } from './mini.js';
 import { takeSnapshot } from '../core/state.js';
 import {  } from './ledgers.js';
 import {  } from './layer-limits.js';
@@ -1286,23 +1285,6 @@ export function bindSectionEvents(host, refresh) {
      * ⭐「清空这个世界」三步：铺开条数 → 她手打「确认清空」→ 才真清。
      *    ⛔ 打错字点不动；⛔ 只清账本，不碰世界书；⛔ 不静默（清完给回执）。
      */
-                case 'stage-recent-turns': if (isChange) { patchSettings({ recentTurns: target.value }); rerender(); } break;
-                case 'use-cap-people-12': {
-                    /* 渲染层 #10：一键改到建议值（她点了才改） */
-                    patchSettings({ capPeople: 12 });
-                    toast.ok('已把人物封顶改成 12');
-                    rerender();
-                    break;
-                }
-                case 'stage-cap-people': if (isChange) { patchSettings({ capPeople: target.value }); rerender(); } break;
-                case 'stage-max-events': if (isChange) { patchSettings({ maxEvents: target.value }); rerender(); } break;
-                case 'stage-cap-past': if (isChange) { patchSettings({ capPast: target.value }); rerender(); } break;
-                case 'stage-cap-events': if (isChange) { patchSettings({ capEvents: target.value }); rerender(); } break;
-                case 'stage-cap-hidden': if (isChange) { patchSettings({ capHidden: target.value }); rerender(); } break;
-                case 'stage-cap-chronicle': if (isChange) { patchSettings({ capChronicle: target.value }); rerender(); } break;
-                case 'stage-past-floor-cut': if (isChange) { patchSettings({ pastFloorCut: target.value }); rerender(); } break;
-                case 'stage-inject-cap': if (isChange) { patchSettings({ injectCharCap: target.value }); rerender(); } break;   /* ★ 同上 */
-                /* ---- 外观（我们自己的配色） ---- */
                 /* ---- 任务（主线／支线）：她也能改 ---- */
                 case 'toggle-quest-item': {
                     /* ⭐ 材料 06【4】：**子项打勾 / 取消** ✓ */
@@ -1397,23 +1379,6 @@ export function bindSectionEvents(host, refresh) {
                     } else {
                         unlockedCards.add(k);
                     }
-                    rerender();
-                    break;
-                }
-                case 'toggle-mini-show': {
-                    if (!isChange) { break; }   /* R6（材料 05）：⛔ 让 click 与 change 各跑一遍 ✗ */
-                    /*
-                     * ⭐ 悬浮小框的显隐：**勾了立刻挂载、取消立刻收起**（⛔ 不等"保存"）——
-                     *    她是看着球在不在来判断勾没勾上的，要等保存才生效会以为没反应。
-                     */
-                    const on = target.checked === true;
-                    patchSettings({ mini: Object.assign({}, getSettings().mini || {}, { show: on }) });
-                    if (on) {
-                        mountMini();
-                    } else {
-                        closeMini();
-                    }
-                    toast.ok(on ? '悬浮小框已叫出来' : '悬浮小框已收起（随时能在这儿再叫出来）');
                     rerender();
                     break;
                 }
