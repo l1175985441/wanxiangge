@@ -1,5 +1,5 @@
 /* 变量页（变-1 快照 / 变-5 占位符清单）——从零起，先做只读可见 */
-import { section, card, el, row, emptyBlock } from './shared.js';
+import { section, card, el, row, button, emptyBlock } from './shared.js';
 import { loadState, getRoster } from '../../core/state.js';
 import { promptVarRows } from '../prompt-copy.js';
 import { asArray, trimText } from '../../core/utils.js';
@@ -39,5 +39,17 @@ export function secVariables(host) {
     }
     cVars.appendChild(list);
     box.appendChild(cVars);
+    const cReserved = card('前台／后台 · A-／A+／🌙（预留）');
+    cReserved.appendChild(el('div', 'wxg-note',
+        '这一块的口径还没定：按哪个字段分前台/后台、三颗按钮各改什么，都等你拍板。先占位，⛔ 不猜着接行为。'));
+    const rsv = el('div', 'wxg-row');
+    for (const label of ['前台 FRONT', '后台 BACK', 'A-', 'A+', '🌙']) {
+        const b = button(label, 'variables-reserved', 'wxg-btn-sm');
+        b.disabled = true;
+        b.title = '口径未定，先预留';
+        rsv.appendChild(b);
+    }
+    cReserved.appendChild(rsv);
+    box.appendChild(cReserved);
     host.appendChild(box);
 }
