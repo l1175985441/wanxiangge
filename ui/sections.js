@@ -25,7 +25,7 @@ import { buildBundle, verifyBundle, importGate } from '../core/bundle.js';
 import { getSettings, patchSettings, effectivePrompt, setAllPromptsDefault, exportSettings } from '../core/settings.js';
 import { shiftWorldClock } from '../core/world-events.js';
 import {  } from '../core/schedule.js';
-import { loadState, saveState, updateCharacter, findCharacter, describeWorld, getChronicle, removeHidden, addHiddenManually, rollbackLast, exportState, updateWorld, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay, removeFaction, upsertFaction } from '../core/state.js';
+import { loadState, saveState, updateCharacter, findCharacter, describeWorld, getChronicle, rollbackLast, exportState, updateWorld, updateQuest, removeQuest, addChronicle, removeChronicleAt, clearChronicle, clearWorldLedger, importState, setRole, rollbackToSnapshot, acceptOverlay, dismissOverlay, removeFaction, upsertFaction } from '../core/state.js';
 import { listPresets, buildPreset, planApply, exportPresets, importPresets } from '../core/preset.js';   /* 4-a E3：提示词预设 */
 import {  } from '../core/tally.js';   /* F3：总数要印给她看，⛔ 只写 console */
 import {  } from '../core/ledger.js';
@@ -42,7 +42,7 @@ import { listWorldbookNames, getEntries, excludeTextFor } from '../core/worldboo
 // ⭐ 读书 v2：全读进来 → 模型自己分 → 人物→名册、势力／局势→世界状态
 import {  } from '../core/book-wiki.js';
 import {  } from '../core/wb-channel.js';
-import { clockWentBackwards } from '../core/clock.js';
+import {  } from '../core/clock.js';
 import { publishToBook } from '../core/book.js';
 import { runUpdate, cancelUpdate, runReconcile } from '../core/pipeline.js';
 import { mergeCharacters, autoDetectDuplicates, undoLastMerge } from '../core/merge.js';   /* 1-b：合并能撤了（本来是死函数） */
@@ -81,6 +81,7 @@ import { renderSections as renderSectionsCore } from './panels/render.js';
 import { byId, textOf, patchApi, readFromBook, testApi, copyToClipboard, downloadText, renderEntryPick } from './panels/render.js';
 import { personCardId, renderPersonCard, unbindPersonCardEsc, PERSON_CARD_EDIT_ACTIONS, handlePersonCardEdit, PERSON_CARD_UI_ACTIONS, handlePersonCardUi } from './panels/person-card.js';
 import { handleRosterAction, ROSTER_ACTION_SET } from './panels/roster-actions.js';
+import { handleWorldAction, WORLD_ACTION_SET } from './panels/world-actions.js';
 export { unbindPersonCardEsc } from './panels/person-card.js';
 
 
@@ -1253,6 +1254,10 @@ export function bindSectionEvents(host, refresh) {
                 handleRosterAction(action, target, id, host, rerender);
                 return;
             }
+            if (WORLD_ACTION_SET.has(action)) {
+                handleWorldAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 case 'set-enabled': patchSettings({ enabled: target.checked }); rerender(); break;
@@ -1603,21 +1608,6 @@ export function bindSectionEvents(host, refresh) {
                     rerender();
                     break;
                 }
-                case 'set-world-clock': {
-                    if (isChange) {
-                        const before = loadState().world.clock;
-                        const typed = trimText(target.value);
-                        updateWorld({ clock: typed }, { manual: true });
-                        if (typed && clockWentBackwards(before, typed)) {
-                            toast.warn('这个钟比原来的早（' + (before || '未知') + ' → ' + typed + '）——已按你填的存下；如果不想让它倒退，改回来就行');
-                        } else {
-                            toast.ok('保存了');
-                        }
-                    }
-                    break;
-                }
-                case 'set-world-place': if (isChange) { updateWorld({ place: target.value }, { manual: true }); toast.ok('保存了'); } break;
-                case 'set-world-big': if (isChange) { updateWorld({ bigPicture: target.value }, { manual: true }); toast.ok('保存了'); } break;
                 case 'set-role': {
                     /* ★ B1：她手改六档 ⇒ 落库 + 记手改锁（autoRoster 不再动它） */
                     const okRole = setRole(id, String(target.value || ''));
@@ -1627,59 +1617,6 @@ export function bindSectionEvents(host, refresh) {
                     } else {
                         toast.warn('这个档位不认识');
                     }
-                    break;
-                }
-                case 'set-hidden-stage': {
-                    if (isChange) {
-                        const state = loadState();
-                        const h = state.world.hidden.find((x) => x.id === id);
-                        if (h) {
-                            h.stage = target.value;
-                            h.manual = true;
-                            h.updatedAt = Date.now();
-                            state.world.hidden = state.world.hidden.slice();
-                            /*
-                             * ⭐ 修复单 #32：**补 saveState()**。
-                             *   原来只 `slice()` 就直接 rerender——`slice()` 只是"改后待存"的写法，
-                             *   真正的落盘得靠 saveState ⇒ 暗线阶段改完**永不落盘**，刷新就回原样。
-                             *   （同文件其它同类 case 都带 saveState，就这处漏了。）
-                             */
-                            saveState();
-                            toast.ok('暗线阶段已改成「' + String(target.value) + '」');
-                            rerender();
-                        }
-                    }
-                    break;
-                }
-                case 'del-hidden':
-                    /* ⭐材料 06第一波：**二次确认 ＋ 快照** ✓
-                     *   旧：点一下当场物理删除 ✗ 不弹确认 ✗ 不留快照 ✗
-                     *        （点「撤回上一次」都撤不回来 ✗ —— 她的账不能这么掉 ✗）
-                     *   新：先问一句 ✓ 再留一份快照 ✓ （沿用代码里既有的 window.confirm 写法 ✓ ⛔ 不引入新弹窗 ✗） */
-                    if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm('要把这条暗线删掉吗？\n\n（会先留一份快照，点「撤回上一次」能撤回来）')) { break; }
-                    takeSnapshot('删除前（这条暗线）');
-                    removeHidden(id); rerender(); break;
-                case 'add-hidden': {
-                    const name = textOf(host, 'wxg-new-hidden');
-                    if (!trimText(name)) {
-                        toast.warn('先写个暗线名字');
-                        break;
-                    }
-                    const tierSel = byId(host, 'wxg-new-hidden-tier');
-                    const kindSel = byId(host, 'wxg-new-hidden-kind');
-                    const tier = trimText(tierSel && tierSel.value) || '几天内';
-                    const kind = trimText(kindSel && kindSel.value) || 'conflict';
-                    const line = addHiddenManually({
-                        name: trimText(name),
-                        trigger: textOf(host, 'wxg-new-hidden-trigger'),
-                        stage: kind === 'progress' ? '筹备' : '萌芽',
-                        kind,
-                        tier,
-                    });
-                    if (line) {
-                        toast.ok('暗线加上了（' + tier + ' · ' + (kind === 'progress' ? '推进型' : '冲突型') + '）');
-                    }
-                    rerender();
                     break;
                 }
                 /* ---- 角色 ---- */
