@@ -9,7 +9,7 @@ import { toast } from '../toast.js';
 import { refreshMini } from '../mini.js';
 
 
-export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','set-sort-mode','toggle-lock','toggle-cdetail', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
+export const SETTINGS_ACTION_SET = new Set(['set-enabled','set-card','set-show-empty','set-panel-on-start','set-protected','set-strict','set-auto-update','toggle-sec','discard-section','save-section','set-sort-mode','toggle-lock','toggle-cdetail','use-hold-one', 'stage-recent-turns', 'use-cap-people-12', 'stage-cap-people', 'stage-max-events', 'stage-cap-past', 'stage-cap-events', 'stage-cap-hidden', 'stage-cap-chronicle', 'stage-past-floor-cut', 'stage-inject-cap', 'set-extract-tags', 'set-exclude-tags', 'set-extract-books', 'set-exclude-books', 'set-affinity-source','open-workspace-btn','rollback-to','rollback']);
 
 
 export function handleSettingsAction(action, target, id, host, isChange, rerender) {
@@ -177,6 +177,13 @@ export function handleSettingsAction(action, target, id, host, isChange, rerende
                     dtr.setAttribute('data-hide', hideNow ? '0' : '1');
                     const inner = dtr.querySelector('.wxg-cdetail');
                     if (inner && inner.style) { inner.style.display = hideNow ? '' : 'none'; }
+                    break;
+                }
+                                case 'use-hold-one': {
+                    /* ⭐ ST4-A（她 10-17 定案：统一走草稿＋段底保存）✓ 旧：patchSettings 立即落盘 ✗ */
+                    stage('general', 'updateEvery', 2);
+                    refreshSaveBar(host, 'general');
+                    toast.info('已改成「停在上一轮」：只算落定的楼，省额度（点段底「保存」生效）');
                     break;
                 }
     }
