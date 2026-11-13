@@ -68,7 +68,7 @@ import {  } from './panels/prompts.js';
 import { fillText, el, emptyBlock, heroEmpty, section, card, setSectionSummary, field, row, line, checkbox, colorInput, textInput, numberInput, textarea, button, select, foldOpenState, foldable } from './panels/shared.js';
 import { PER_PAGE, pager, clampPage, kindTone, shortTime } from './panels/shared.js';
 import { stage, stagingOf, stagingMode, setStagingMode } from './panels/shared.js';
-import { openChar, openRecordAt, setOpenChar, setOpenRecordAt } from './panels/shared.js';
+import { openChar, setOpenChar } from './panels/shared.js';
 import { effectiveAppearance } from './panels/shared.js';
 
 import {  } from './panels/shared.js';
@@ -94,6 +94,7 @@ import { handleAppearanceAction, APPEARANCE_ACTION_SET, refreshAppearancePreview
 import { handleQuestAction, QUEST_ACTION_SET } from './panels/quest-actions.js';
 import { handleActionAction, ACTION_ACTION_SET } from './panels/action-actions.js';
 import { handleFilterAction, FILTER_ACTION_SET } from './panels/filter-actions.js';
+import { handleStatusAction, STATUS_ACTION_SET } from './panels/status-actions.js';
 import { charSearch } from './panels/shared.js';
 
 import { refreshSaveBar } from './panels/savebar.js';
@@ -1089,6 +1090,10 @@ export function bindSectionEvents(host, refresh) {
                 handleFilterAction(action, target, id, host, isChange, rerender);
                 return;
             }
+            if (STATUS_ACTION_SET.has(action)) {
+                handleStatusAction(action, target, id, host, isChange, rerender);
+                return;
+            }
             switch (action) {
                 /* ---- 总控 ---- */
                 /*
@@ -1098,22 +1103,6 @@ export function bindSectionEvents(host, refresh) {
                  *   现在：删掉（它本就是我自己加的 ✓），不留误导代码 ✓
                  */
                 /* ⭐ ST4（材料 11）：补推范围这格早就写了 data-action，但**没接上** ⇒ 填了也存不住 ✗ */
-                case 'open-record':
-                    setOpenRecordAt(Math.max(0, Math.round(Number(id) || 0)));
-                    rerender();
-                    break;
-                case 'record-close':
-                    setOpenRecordAt(-1);
-                    rerender();
-                    break;
-                case 'record-prev':
-                case 'record-next':
-                    if (openRecordAt >= 0) {
-                        setOpenRecordAt(action === 'record-next' ? openRecordAt + 1 : openRecordAt - 1);
-                        if (openRecordAt < 0) { openRecordAt = 0; }
-                    }
-                    rerender();
-                    break;
                 case 'open-world-entry':
                     openWorldEntryCard(
                         target.getAttribute('data-kind') || 'situation',
@@ -1144,21 +1133,6 @@ export function bindSectionEvents(host, refresh) {
                 case 'health-close':
                     closeHealthCard();
                     break;
-                case 'health-copy': {
-                    const pre = document.querySelector('#wxg-health-card pre');
-                    const txt = pre ? String(pre.textContent || '') : '';
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(txt);
-                            toast.ok('体检报告已复制（直接粘给我就行）');
-                        } else {
-                            toast.info('浏览器不让自动复制，你手选一下吧');
-                        }
-                    } catch (e) {
-                        toast.info('复制没成（浏览器限制），你手选一下吧');
-                    }
-                    break;
-                }
                 case 'status-func': {
                     /* 材料 10 · 第 1 组裁定：真菜单（每项都是现成动作 ✓） */
                     openFuncMenu(target, [
