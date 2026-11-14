@@ -1492,16 +1492,19 @@ function applyCharacter(raw, material, conflicts) {
     const plainCur = trimText(cur).replace(/[\u3002\uff01\uff1f!?\uff0c,\u3001\s]/g, '');
     const predCur = looksLikePrediction(cur);
     const decCur = looksLikeDecidingForMe(cur, { role: c.role });
+    const inBodyCur = Boolean(onStage && textAppearsIn(cur, bodyCur));
+    const dropPred = Boolean(onStage && predCur && !inBodyCur);
+    const dropDec = Boolean(decCur && !inBodyCur);
     let dropCur = false;
     if (plainCur === '\u5f85\u6211\u505a\u51b3\u5b9a' || plainCur === '\u5f85\u6211\u51b3\u5b9a') {
         dropCur = true; c.currentDropped = true; c.current = prevCurrent;
-    } else if ((predCur || decCur) && !textAppearsIn(cur, bodyCur)) {
+    } else if (dropPred || dropDec) {
         dropCur = true; c.currentDropped = true; c.current = prevCurrent;
-        addChronicle({ floor: material.floor, kind: predCur ? '\u5df2\u4e22\u5f03\u00b7\u9884\u5224' : '\u5df2\u4e22\u5f03\u00b7\u66ff\u4f60\u51b3\u5b9a', who: c.name, text: cur, clock: loadState().world.clock });
+        addChronicle({ floor: material.floor, kind: dropPred ? '\u5df2\u4e22\u5f03\u00b7\u9884\u5224' : '\u5df2\u4e22\u5f03\u00b7\u66ff\u4f60\u51b3\u5b9a', who: c.name, text: cur, clock: loadState().world.clock });
     }
     if (!dropCur) {
         let why = '';
-        if (looksLikePrediction(cur)) {
+        if (onStage && material.fellBack !== true && predCur && !inBodyCur) {
             why = '写到了"下一步动作／预判"，按需求书不算事实（下一步该由你回话决定）';
         } else if (looksLikeDecidingForMe(cur, { role: c.role })) {
             why = '替"我"做了决定（[579]：只写他做的那一半，⛔ 替我答／替我选）';
@@ -1706,12 +1709,12 @@ export function pickBenchFor(roster, opts) {
     try {
         const stD = loadState();
         const driveCtx = { quests: (stD.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])), situations: (stD.world && stD.world.situations) || [] };
-        /* ⭐ 2026-11-14 14:3x 三方定案（她＋阿砚＋4a）：照工作流 Step 3.4，**每轮都筛**。
-         *   原文这里的条件是 `bench.length > maxParallel*2` ⇒ 被否：
+        /* ⭐ 2026-11-14 三方定案（她＋阿砚＋4a）：照工作流 Step 3.4 与人-2⑤，**每轮都筛，核心／重要／普通四档一视同仁**。
+         *   原文这里的条件是 `bench.length > maxParallel*2` 及 `role === '普通'` ⇒ 均被否：
          *   · maxParallelChars 是**消费上限**（最多推几个），⛔ 不是最低消费指标（非要凑够几个）；
          *   · 后台只有 5 个路人时，候选 5 < 12 ⇒ 筛选器根本不启动 ⇒ 5 个没驱动的全白烧；
          *   · 正确行为：后台只有 1 个没驱动力的人，本轮就该推 0 个。 */
-        for (let bi = bench.length - 1; bi >= 0; bi -= 1) { if (trimText(bench[bi].role) === '普通' && !hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); } }
+        for (let bi = bench.length - 1; bi >= 0; bi -= 1) { if (!hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); } }
     } catch (eDrive) { /* 筛不了就不筛 */ }
     const withinTier = (a, b) => {
         const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;
@@ -1826,7 +1829,7 @@ async function stepCharacters(material, attempt, screenRes) {
             for (const lf of screenRes.leftList) { setPipeline({ offStageReason: String(trimText(lf.name)) + '：' + String(trimText(lf.reason)) }); }
         } catch (eLF) { /* 不影响主流程 */ }
     }
-    const maxParallelSetting = clampNumber(settings.maxParallelChars, 0, 12, 6);
+    const maxParallelSetting = clampNumber(settings.maxParallelChars, 1, 20, 6);
     /* ⭐谷歌复核（四）：重试时**角色数临时减半** ✓（避开中转站的瞬时抽风波峰 ✓）下限 2 ✓ */
     const maxParallel = (Number(attempt) >= 1)
         ? Math.max(2, Math.floor(maxParallelSetting / 2))
@@ -1834,12 +1837,17 @@ async function stepCharacters(material, attempt, screenRes) {
     const spotKeys = new Set((Array.isArray(loadState().world.spotlight) ? loadState().world.spotlight : []).map((n) => matchKey(n)).filter(Boolean));
     const pickedBench = pickBenchFor(roster, { onStageIds, maxParallel, spotKeys, settings, floor: material.floor, nowMinute: Number(loadState().world.clockMinute) });
     const picked = onStage.filter((c) => !c.isPlayer).concat(pickedBench);
-    /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次 */
+    /* 94 号（世界背面 starvation-guard）：连续 3 个周期没结算 ⇒ 强制结算一次（仅捞本轮有驱动力但因额度满未排上的角色） */
     {
-        const runSeq = Number((loadState().pipeline || {}).runs || 1);
+        const runSeq = Number((state.pipeline || {}).runs || 1);
         const pickedIds = new Set(picked.map((c) => c.id));
-    const starving = pickStarvingFor(roster, picked, runSeq);
-    for (const c of starving) {
+        let starvePool = roster;
+        try {
+            const driveCtx = { quests: (state.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])), situations: (state.world && state.world.situations) || [] };
+            starvePool = (Array.isArray(roster) ? roster : []).filter((c) => hasDrive(c, driveCtx));
+        } catch (eDrive) { /* 筛不了就不筛 */ }
+        const starving = pickStarvingFor(starvePool, picked, runSeq);
+        for (const c of starving) {
             picked.push(c);
             pickedIds.add(c.id);
             try {
