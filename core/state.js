@@ -93,6 +93,60 @@ function roleValueOf(c) {
     return ROLES.indexOf(s) >= 0 ? s : '';
 }
 
+export const PAST_TIERS = ['近期', '沉淀', '核心'];
+export const PAST_TIER_CAPS = { '近期': 8, '沉淀': 8, '核心': 5 };
+export const PAST_TIER_LEN = { '近期': [50, 150], '沉淀': [20, 60], '核心': [20, 80] };
+export function normalizePastTier(raw) {
+    const t = trimText(raw);
+    if (t === '沉淀' || t === 'L1') { return '沉淀'; }
+    if (t === '核心' || t === 'L2' || t === 'core') { return '核心'; }
+    return '近期';
+}
+export function capPastByTier(list) {
+    const buckets = { '近期': [], '沉淀': [], '核心': [] };
+    const faded = [];
+    for (const item of (Array.isArray(list) ? list : [])) {
+        if (!item || !trimText(item.text)) { continue; }
+        const tier = normalizePastTier(item.tier);
+        const cap = PAST_TIER_CAPS[tier] || 8;
+        if (buckets[tier].length < cap) {
+            buckets[tier].push(Object.assign({}, item, { tier }));
+        } else {
+            faded.push(Object.assign({}, item, { tier }));
+        }
+    }
+    return {
+        keep: buckets['近期'].concat(buckets['沉淀'], buckets['核心']),
+        faded,
+    };
+}
+
+/**
+ * 淡出的过去经历**不物理删**：落进编年留档（她能回看）。
+ * ⭐ 三个写入端（pushPast / rollupPast / normalizeState）＋ 合并（merge.js）**共用这一份**，
+ *    ⛔ 各写一份 —— 四份同义代码就是"同一件事四个说法"，改一处漏三处。
+ */
+export function fadePastToChronicle(state, c, faded) {
+    if (!state || !c || !Array.isArray(faded) || !faded.length) { return 0; }
+    if (!Array.isArray(state.chronicle)) { state.chronicle = []; }
+    let n = 0;
+    for (const f of faded) {
+        const fl = Number(f && f.fromFloor);
+        const tx = trimText(f && f.text);
+        if (!tx) { continue; }
+        state.chronicle.push({
+            at: (f && f.at) || now(),
+            floor: Number.isFinite(fl) ? fl : c.lastSeenFloor,
+            kind: '过去经历·淡化',
+            who: c.name,
+            text: tx,
+            manual: (f && f.manual) === true,
+        });
+        n += 1;
+    }
+    return n;
+}
+
 /** 按现有标记位算一个人的档（不看她手改过的） */
 export function autoRoleOf(c) {
     if (!c) { return '普通'; }
@@ -183,7 +237,7 @@ export function normalizeCharacter(raw) {
          */
         affinity: (function () {
             const av = trimText(c.affinity);
-            return /^-?\d+(?:\.\d+)?$/.test(av) ? av : '';
+            return /^[+\-−]?\d+(?:\.\d+)?(?:\s*[%％])?$/.test(av) ? av : '';
         })(),
         affinitySource: trimText(c.affinitySource),
         age: trimText(c.age),
@@ -195,6 +249,9 @@ export function normalizeCharacter(raw) {
     })(),
         past: Array.isArray(c.past) ? c.past.filter(Boolean).map((p) => ({
             text: trimText(p && p.text),
+            tier: normalizePastTier(p && p.tier),
+            covers: Number(p && p.covers) > 0 ? Math.trunc(Number(p.covers)) : 1,
+            swipe: Number.isFinite(Number(p && p.swipe)) ? Number(p.swipe) : null,
             injected: (p && p.injected) === true,
             at: Number((p && p.at) || 0),
             manual: (p && p.manual) === true,
@@ -264,6 +321,16 @@ export function normalizeCharacter(raw) {
             /* 旧账迁移：当时标着在场 ⇒ 用 lastSeenFloor 顶一下；不在场的不抄（防后台推演楼冒充在场） */
             if (c.inScene === true && Number.isFinite(Number(c.lastSeenFloor))) {
                 return Number(c.lastSeenFloor);
+            }
+            return -1;
+        })(),
+        offstage: c.offstage === true,
+        lastBackstageFloor: (() => {
+            if (Number.isFinite(Number(c.lastBackstageFloor))) {
+                return Math.trunc(Number(c.lastBackstageFloor));
+            }
+            if (c.offstage === true && Number.isFinite(Number(c.lastSeenFloor)) && Number(c.lastSeenFloor) >= 0) {
+                return Math.trunc(Number(c.lastSeenFloor));
             }
             return -1;
         })(),
@@ -427,6 +494,7 @@ function emptyState() {
          *   表是 U 盘，不是计算器：值只能从手机原样抄进来。
          */
         affinityTable: [],
+        itemTable: [],
         stat: { recalled: 0, injected: 0, empty: 0, updates: 0 },
     /* 88 号：读世界书的**爪印**（{书名, done:[{from,to,ok}], maxChar, at}）——半路停下下回接着走 */
     bookReadCheckpoint: null,
@@ -497,6 +565,38 @@ function normalizeState(raw) {
             : null;
     }
     state.newPeople = Array.isArray(s.newPeople) ? s.newPeople.map(trimText).filter(Boolean) : [];
+    state.itemTable = Array.isArray(s.itemTable) ? s.itemTable.filter((x) => x && typeof x === 'object') : [];
+    state.affinityTable = Array.isArray(s.affinityTable)
+        ? s.affinityTable.filter((r) => r && typeof r === 'object' && trimText(r.name)).map((r) => ({
+            name: trimText(r.name),
+            affinity: trimText(r.affinity) || '未建立',
+            updatedAt: Number(r.updatedAt) || 0,
+            source: trimText(r.source) || '从未出场',
+        }))
+        : [];
+    for (const c of state.characters) {
+        if (!c || !c.name) { continue; }
+        const row = state.affinityTable.find((r) => r.name === c.name);
+        const hasCharNum = /^[+\-−]?\d+(?:\.\d+)?(?:\s*[%％])?$/.test(trimText(c.affinity));
+        const isManual = Array.isArray(c.manualFields) && c.manualFields.includes('affinity');
+        if (hasCharNum) {
+            if (!row) {
+                state.affinityTable.push({
+                    name: c.name,
+                    affinity: trimText(c.affinity),
+                    updatedAt: Number(c.updatedAt) || 0,
+                    source: isManual ? '手改' : (trimText(c.affinitySource) || '旧账迁移'),
+                });
+            } else if (row.affinity === '未建立' || isManual) {
+                row.affinity = trimText(c.affinity);
+                row.updatedAt = Number(c.updatedAt) || row.updatedAt || 0;
+                row.source = isManual ? '手改' : (trimText(c.affinitySource) || '旧账迁移');
+            }
+        } else if (row && row.affinity && row.affinity !== '未建立') {
+            c.affinity = row.affinity;
+            c.affinitySource = row.source || c.affinitySource;
+        }
+    }
     /* 88：爪印不能被归一化吃掉 */
     {
         const bc = s.bookReadCheckpoint;
@@ -525,6 +625,14 @@ function normalizeState(raw) {
             if (c && typeof c.current === 'string' && META.test(c.current)) { c.current = ''; }
         }
     } catch (e86) { /* 洗不了也不能影响读账本 */ }
+    /* ⭐ 过去经历收口：超过三档上限的落进编年，⛔ 静默丢弃。
+     *   幂等：截过之后已经 ≤ 上限，第二次读档不会重复写编年。 */
+    for (const c of (state.characters || [])) {
+        if (!c || !Array.isArray(c.past) || !c.past.length) { continue; }
+        const capped = capPastByTier(c.past);
+        c.past = capped.keep;
+        fadePastToChronicle(state, c, capped.faded);
+    }
     state.stat = Object.assign(base.stat, s.stat && typeof s.stat === 'object' ? s.stat : {});
     /*
      * 依据＝阿砚第三批 硬-1（路线②：旧形永远合法 ＋ 幂等收口）：
@@ -1114,9 +1222,47 @@ export function updateCharacter(id, patch, opts) {
     }
     merged.updatedAt = now();
     state.characters[idx] = normalizeCharacter(merged);
+    if (trackManual && patch && typeof patch === 'object' && Object.hasOwn(patch, 'affinity')) {
+        if (!Array.isArray(state.affinityTable)) { state.affinityTable = []; }
+        const cNow = state.characters[idx];
+        const hit = state.affinityTable.find((r) => r && r.name === cNow.name);
+        if (cNow.affinity) {
+            if (hit) {
+                hit.affinity = cNow.affinity;
+                hit.updatedAt = merged.updatedAt;
+                hit.source = '手改';
+            } else {
+                state.affinityTable.push({
+                    name: cNow.name,
+                    affinity: cNow.affinity,
+                    updatedAt: merged.updatedAt,
+                    source: '手改',
+                });
+            }
+        } else if (hit && hit.source === '手改') {
+            hit.affinity = '未建立';
+            hit.updatedAt = merged.updatedAt;
+            hit.source = '从未出场';
+        }
+    }
     /* ⭐ 新增件 5②：高频写入走合并落盘 ✓ */
     saveStateDebounced();
     return state.characters[idx];
+}
+
+export function markCharacterStage(c, onStage, floor) {
+    if (!c || typeof c !== 'object') { return; }
+    const f = Number(floor);
+    if (onStage) {
+        c.offstage = false;
+        delete c.offstageSince;
+    } else {
+        c.offstage = true;
+        if (Number.isFinite(f) && f >= 0) {
+            const prev = Number.isFinite(Number(c.lastBackstageFloor)) ? Math.trunc(Number(c.lastBackstageFloor)) : -1;
+            c.lastBackstageFloor = Math.max(prev, Math.trunc(f));
+        }
+    }
 }
 
 
@@ -1317,21 +1463,22 @@ export function removeQuest(characterId, title) {
  *   L0＝每轮一条摘要；L1＝12 条 L0 压成一条阶段小结。
  *   为什么只做两层：她要看的是"不炸、不丢、越老越短"，L2/L3 等两层跑通再说 ✓
  */
-export const ROLLUP_NEED = 12;
+export const ROLLUP_NEED = 8;
 
-/** 该不该压：返回最老的 N 条 L0（不够 N 条就返回空数组） */
-export function dueRollup(c, need) {
-    const n = Number(need) > 0 ? Number(need) : ROLLUP_NEED;
+/** 该不该压：返回指定档位最老的 N 条（不够 N 条就返回空数组） */
+export function dueRollup(c, need, fromTier) {
+    const srcTier = normalizePastTier(fromTier || '近期');
+    const n = Number(need) > 0 ? Number(need) : (PAST_TIER_CAPS[srcTier] || ROLLUP_NEED);
     const past = (c && Array.isArray(c.past)) ? c.past : [];
-    const l0 = past.filter((x) => x && trimText(x.text) && (trimText(x.tier) || 'L0') !== 'L1');
-    if (l0.length < n) {
+    const bucket = past.filter((x) => x && trimText(x.text) && normalizePastTier(x.tier) === srcTier);
+    if (bucket.length < n) {
         return [];
     }
-    return l0.slice(l0.length - n);   /* past 是"由近到远"，末尾是最老的 ✓ */
+    return bucket.slice(bucket.length - n);   /* past 是"由近到远"，末尾是最老的 ✓ */
 }
 
-/** 把那 N 条 L0 换成一条 L1（带 covers＝覆盖了多少条） */
-export function rollupPast(characterId, text) {
+/** 把源档位最老的条目压成一条沉淀或核心（带 covers＝覆盖了多少条） */
+export function rollupPast(characterId, text, targetTier) {
     const body = trimText(text);
     if (!body) {
         return false;
@@ -1341,28 +1488,32 @@ export function rollupPast(characterId, text) {
     if (!c) {
         return false;
     }
-    const victims = dueRollup(c);
+    const dstTier = normalizePastTier(targetTier || '沉淀') === '核心' ? '核心' : '沉淀';
+    const srcTier = dstTier === '核心' ? '沉淀' : '近期';
+    const victims = dueRollup(c, PAST_TIER_CAPS[srcTier], srcTier);
     if (!victims.length) {
         return false;
     }
     const keep = c.past.filter((x) => victims.indexOf(x) < 0);
     const oldestFloor = victims.map((v) => Number(v.fromFloor))
         .filter((x) => Number.isFinite(x)).sort((a, b) => a - b)[0];
-    keep.push({
+    keep.unshift({
         text: body,
-        tier: 'L1',
+        tier: dstTier,
         covers: victims.length,
         at: now(),
         manual: false,
         injected: false,
         fromFloor: Number.isFinite(oldestFloor) ? oldestFloor : undefined,
     });
-    c.past = keep;
+    const capped = capPastByTier(keep);
+    c.past = capped.keep;
+    fadePastToChronicle(state, c, capped.faded);
     saveStateDebounced();
     return true;
 }
 
-export function pushPast(characterId, text, cap, fromFloor) {
+export function pushPast(characterId, text, cap, fromFloor, tier) {
     const state = loadState();
     const c = state.characters.find((x) => x.id === characterId);
     const body = trimText(text);
@@ -1371,10 +1522,11 @@ export function pushPast(characterId, text, cap, fromFloor) {
     }
     const floor = Number(fromFloor);
     const existing = c.past.find((p) => p && trimText(p.text) === body);
+    const entryTier = tier ? normalizePastTier(tier) : normalizePastTier(existing && existing.tier);
     const entry = {
         text: body,
         swipe: swipeAt(Number.isFinite(floor) ? floor : -1),
-        tier: (existing && trimText(existing.tier)) || 'L0',   /* ★ 补单 1-⑤：每轮一条→L0 */
+        tier: entryTier,
         covers: Number(existing && existing.covers) > 0 ? Number(existing.covers) : 1,
         injected: existing ? existing.injected === true : false,
         at: existing && existing.at ? existing.at : now(),
@@ -1387,22 +1539,9 @@ export function pushPast(characterId, text, cap, fromFloor) {
     }
     c.past = c.past.filter((p) => p.text !== body);
     c.past.unshift(entry);
-    const limit = Number.isFinite(cap) && cap > 0 ? Math.trunc(cap) : 5;
-    if (c.past.length > limit) {
-        const faded = c.past.slice(limit);
-        c.past = c.past.slice(0, limit);
-        // 淡出的不物理删：落进编年留档（她能回看）
-        for (const f of faded) {
-            state.chronicle.push({
-                at: f.at || now(),
-                floor: Number.isFinite(Number(f.fromFloor)) ? Number(f.fromFloor) : c.lastSeenFloor,
-                kind: '过去经历·淡化',
-                who: c.name,
-                text: f.text,
-                manual: f.manual === true,
-            });
-        }
-    }
+    const capped = capPastByTier(c.past);
+    c.past = capped.keep;
+    fadePastToChronicle(state, c, capped.faded);
     saveState();
     return true;
 }

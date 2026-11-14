@@ -1706,9 +1706,12 @@ export function pickBenchFor(roster, opts) {
     try {
         const stD = loadState();
         const driveCtx = { quests: (stD.characters || []).flatMap((c) => (Array.isArray(c.quests) ? c.quests : [])), situations: (stD.world && stD.world.situations) || [] };
-        if (bench.length > Math.max(0, Number(o.maxParallel) || 6) * 2) {
-            for (let bi = bench.length - 1; bi >= 0; bi -= 1) { if (trimText(bench[bi].role) === '普通' && !hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); } }
-        }
+        /* ⭐ 2026-11-14 14:3x 三方定案（她＋阿砚＋4a）：照工作流 Step 3.4，**每轮都筛**。
+         *   原文这里的条件是 `bench.length > maxParallel*2` ⇒ 被否：
+         *   · maxParallelChars 是**消费上限**（最多推几个），⛔ 不是最低消费指标（非要凑够几个）；
+         *   · 后台只有 5 个路人时，候选 5 < 12 ⇒ 筛选器根本不启动 ⇒ 5 个没驱动的全白烧；
+         *   · 正确行为：后台只有 1 个没驱动力的人，本轮就该推 0 个。 */
+        for (let bi = bench.length - 1; bi >= 0; bi -= 1) { if (trimText(bench[bi].role) === '普通' && !hasDrive(bench[bi], driveCtx)) { bench.splice(bi, 1); } }
     } catch (eDrive) { /* 筛不了就不筛 */ }
     const withinTier = (a, b) => {
         const aSpot = spotKeys.has(matchKey(a.name)) ? 1 : 0;

@@ -8,7 +8,7 @@
  * 合并前自动留一版快照（能撤回）。
  */
 
-import { loadState, saveState, takeSnapshot, addChronicle, LIMITS, rollbackToSnapshot } from './state.js';
+import { loadState, saveState, takeSnapshot, addChronicle, rollbackToSnapshot, capPastByTier, fadePastToChronicle } from './state.js';
 import { trimText, uniqueBy, asText, matchKey } from './utils.js';
 
 /** 合并两条角色记录：把 fromName 并进 keepId */
@@ -73,21 +73,9 @@ export function mergeCharacters(keepId, fromName) {
     const pastUnique = uniqueBy(pastAll.filter((p) => p && trimText(p.text)), (p) => trimText(p.text));
     pastUnique.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));   // 新的在前；老数据 at=0 排尾
     report.past = pastAll.length - pastUnique.length;
-    const pastCap = Number(LIMITS && LIMITS.capPast) > 0 ? Math.trunc(Number(LIMITS.capPast)) : 5;
-    if (pastUnique.length > pastCap) {
-        for (const f of pastUnique.slice(pastCap)) {
-            state.chronicle.push({
-                at: f.at || Date.now(),
-                floor: Number.isFinite(Number(f.floor !== undefined ? f.floor : f.fromFloor))
-                    ? Number(f.floor !== undefined ? f.floor : f.fromFloor) : keep.lastSeenFloor,
-                kind: '过去经历·淡化',
-                who: keep.name,
-                text: trimText(f.text),
-                manual: f.manual === true,
-            });
-        }
-    }
-    keep.past = pastUnique.slice(0, pastCap);
+    const cappedPast = capPastByTier(pastUnique);
+    keep.past = cappedPast.keep;
+    fadePastToChronicle(state, keep, cappedPast.faded);
 
     // 这一步的记录：合并 + 去重
     const stepsAll = (keep.steps || []).concat(from.steps || []);

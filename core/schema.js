@@ -24,6 +24,7 @@ const SHAPE = {
     hidden: 'array',
     newPeople: 'array',
     affinityTable: 'array',
+    itemTable: 'array',
     pipeline: 'object',
     lastUpdate: 'object',
 };
@@ -39,6 +40,7 @@ const DEFAULTS = {
     hidden: [],
     newPeople: [],
     affinityTable: [],
+    itemTable: [],
     pipeline: {},
     lastUpdate: {},
 };

@@ -28,6 +28,8 @@ export const COLLAPSE_RULES = [
     { path: 'characters', type: 'array' },
     { path: 'chronicle', type: 'array' },
     { path: 'snapshots', type: 'array' },
+    { path: 'affinityTable', type: 'array' },
+    { path: 'itemTable', type: 'array' },
     { path: 'events', type: 'array' },
     { path: 'recallRecords', type: 'array' },
     { path: 'world', type: 'object' },

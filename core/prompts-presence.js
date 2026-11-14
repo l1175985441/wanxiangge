@@ -36,7 +36,7 @@ export const FRONT_SYSTEM = [
     '{"analysis":"推理",',
     ' "people_upsert":[{"id":"","name":"","age":"","identities":["身份可多条"],"faction":"","timePlace":"当前地点（⛔ 写时间）",',
 '   "behaviorBounds":"","knowledgeBounds":"","past":[],"schedule":[],"knows":[],',
-'   "current":"这一层他做了什么（一句话，带时间跨度）",',
+    '   "current":"这一层他做了什么（一句话，带时间跨度）",',
     '   "past_append":"只在这层有重大影响时填；否则空串"}]}',
 ].join('\n');
 

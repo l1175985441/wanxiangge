@@ -403,9 +403,13 @@ export const DEFAULT_SETTINGS = Object.freeze({
     },
     backfillN: '',          // 补推历史的范围（留空＝全部；材料 11 · ST4 补上）         // 推进几层楼自动更新一次（1回合=2楼；2＝每轮更新且停在上一轮，推荐）
     protectedBypass: true,  // 现场保护：正文刚演过的人，本轮只带状态、不重复推演
-    maxParallelChars: 6,    // 一轮最多推演几个不在场的角色
-    /** 96：后台（不在场）人物推演人数上限（⛔ 写死；她要的是可读配置） */
-    backstageNpcBudget: 6,
+    maxParallelChars: 6,    // 一轮最多推演几个不在场的角色（消费上限，不是最低消费指标）
+    /** ⭐ 2026-11-14 14:3x 三方定案（她＋阿砚＋4a）：
+     *   这是**名单上限**＝管「不漏人」；⛔ 不是每轮推演指标（那个是 maxParallelChars）。
+     *   20 的出处＝工作流「人数上限」组原文「保证最终名单中的后台角色人数不超过 20 人」。
+     *   ⚠️ 之前这个值是 6，而且**代码里没有任何一处真读它**（只有注释和提示词提到）⇒ 是个摆设。
+     *   现在由 screen.js 真读（不在场列几个），改这里就生效。 */
+    backstageNpcBudget: 20,
     /** 99：每轮往事最多给模型几条（她填，⛔ 写死） */
     memoriesPerRound: 40,
     /** 99：编年条数上限（她填，⛔ 写死） */
@@ -423,7 +427,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     capEvents: 60,
     capChronicle: 800,
     capHidden: 40,
-    capPast: 5,             // 每个角色留几条过去经历（旧的自然淡化）
+    capPast: 8,             // 每个角色近期过去经历上限（3档：近期8／沉淀8／核心5，旧的自然淡化）
 
     /* 提示词（留空＝用内置默认） */
     injectHeader: DEFAULT_INJECT_HEADER,

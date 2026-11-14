@@ -7,6 +7,7 @@
 
 import { callModelJson } from './apiclient.js';
 import { trimText } from './utils.js';
+import { getSettings } from './settings.js';
 
 export const SCREEN_SYSTEM = [
     '你是世界推演的“在场筛选”一步，只输出 JSON。',
@@ -18,7 +19,10 @@ export const SCREEN_SYSTEM = [
     '⭐ 正文里刚回来、刚出现的，必须放进在场。',
     '⭐ 不在场的人里，只留**这一轮确实有事在办**的（在工作／在赶路／在跟人打交道／在查什么／在等结果）；',
     '  什么也没在办、只是“待着”的，⛔ 列进 leftList——他这一轮不用记。',
-    '⭐ 不在场的人数**最多 10 个**；超了就留**事更紧**的，其余不列。',
+    /* ⭐ 2026-11-14 14:3x 三方定案：这里原来写死「最多 10 个」——**它是最窄的一刀，而且砍在最上游**。
+     *   谷歌原话：「水龙头源头就被拧死在 10，后面名单设 20、推演设 12 全是摆设」。
+     *   现在改成读配置 `backstageNpcBudget`（默认 20），prompt 里那一行也一起动态化。 */
+    '⭐ 不在场的人数上限**见下面【本轮上限】那一行**；超了就留**事更紧**的，其余不列。',
     '只输出 JSON：{"onStageList":[{"name":"","place":""}],"leftList":[{"name":"","place":"","reason":""}]}',
 ].join('\n');
 
@@ -37,7 +41,15 @@ export async function screenOnStage(input) {
         /* 129-D：名册里没有可筛的人＝无人在场（与笔 1 同一条语义），⛔ 算失败 */
         return { ok: true, onStageList: [], leftList: [], cutList: [], empty: true };
     }
-    const prompt = '【上次在场的（先判这些还在不在）】\n' + (onNames.join('、') || '（无）')
+    /* ⭐ 2026-11-14 14:3x：名单上限读配置（⛔ 再写死）；读不到就退回 20 */
+    let capN = 20;
+    try {
+        const sCap = getSettings() || {};
+        const vCap = Number(sCap.backstageNpcBudget);
+        capN = Number.isFinite(vCap) && vCap > 0 ? Math.min(50, Math.floor(vCap)) : 20;
+    } catch (eCap) { capN = 20; }
+    const prompt = '【本轮上限】不在场最多 **' + capN + '** 个\n'
+        + '\n【上次在场的（先判这些还在不在）】\n' + (onNames.join('、') || '（无）')
         + '\n\n【上次后台的（除非正文里明确回来了，否则⛔ 列进在场）】\n' + (offNames.join('、') || '（无）')
         + '\n\n最近正文：\n' + recent;
     const res = await callModelJson({
@@ -58,14 +70,14 @@ export async function screenOnStage(input) {
             ? { name: trimText(x.name), place: trimText(x.place) }
             : { name: trimText(x), place: '' })
         .filter((x) => x.name);
-    /* 4：后台上限 10；超出的进 cutList 只用于记账 */
+    /* 4：后台按配置上限截（原来写死 10，被三方否掉）；超出的进 cutList 只用于记账 */
     const leftAll = (Array.isArray(v.leftList) ? v.leftList : [])
         .map((x) => (x && typeof x === 'object')
             ? { name: trimText(x.name), place: trimText(x.place), reason: trimText(x.reason) }
             : { name: trimText(x), place: '', reason: '' })
         .filter((x) => x.name);
-    const leftList = leftAll.slice(0, 10);
-    const cutList = leftAll.slice(10);
+    const leftList = leftAll.slice(0, capN);
+    const cutList = leftAll.slice(capN);
     if (!onStageList.length) {
         /* 1：空名单＝合法结果（她一个人待着）；⛔ 回落词表，只记一笔 */
         return { ok: true, onStageList: [], leftList, cutList, empty: true };
